@@ -8,6 +8,12 @@ async function openPlayground(page: Page): Promise<void> {
 }
 
 test("the default project presents the complete nested acceptance graph", async ({ page }) => {
+  const missingLocalMedia: string[] = [];
+  page.on("response", (response) => {
+    const path = new URL(response.url()).pathname;
+    if (response.status() === 404 && path.startsWith("/audio/")) missingLocalMedia.push(path);
+  });
+
   await page.goto("/");
   await expect(page.locator(".top-status")).toHaveText("ready");
   await expect(page.locator(".breadcrumb button.active")).toHaveText("StudioPlayground");
@@ -15,6 +21,7 @@ test("the default project presents the complete nested acceptance graph", async 
 
   const expected = ["CoverageMap", "AuthoringChapter", "EditorialChapter", "EffectsChapter", "PipelineChapter"];
   for (const id of expected) await expect(page.locator(".composition-row").filter({ hasText: id }).first()).toBeVisible();
+  expect(missingLocalMedia).toEqual([]);
 });
 
 test("a user can descend root to chapter to leaf and return through breadcrumbs", async ({ page }) => {
@@ -51,6 +58,18 @@ test("the packaged effects lab keeps visual and audio timing on separate lanes",
   await expect(page.locator('.clip[data-item-id="effects-audio"]')).toBeVisible();
   await expect(page.locator('.lane[data-lane-kind="video"] .clip[data-item-id="effects-scene"]')).toHaveCount(1);
   await expect(page.locator('.lane[data-lane-kind="audio"] .clip[data-item-id="effects-audio"]')).toHaveCount(1);
+});
+
+test("embedded composition textures never escape into stray network requests", async ({ page }) => {
+  const missingTextureRequests: string[] = [];
+  page.on("response", (response) => {
+    if (response.status() === 404 && response.url().includes("%23n")) missingTextureRequests.push(response.url());
+  });
+
+  await page.goto("/?comp=rich-properties-lab");
+  await expect(page.locator(".top-status")).toHaveText("ready");
+  await expect(page.locator('[data-fd-id="rich-headline"]')).toContainText("Every visual choice stays connected.");
+  expect(missingTextureRequests).toEqual([]);
 });
 
 test("the agent surface can inspect every new composition kind", async ({ page }) => {
