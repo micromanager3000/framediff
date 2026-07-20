@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+<head>
+  <style>
+    main[data-fd-id="ClothLab"]{position:relative;overflow:hidden;background:radial-gradient(circle at 22% 24%,#26371b 0,#10160d 36%,#080a07 76%);color:#f3f0df;font-family:Inter,"SF Pro Display",system-ui,sans-serif}main[data-fd-id="ClothLab"]>[data-fd-id="cloth-scene"]{position:absolute;inset:0;overflow:hidden}
+    main[data-fd-id="ClothLab"] .cloth-source{position:absolute;left:480px;top:230px;width:960px;height:540px;overflow:hidden;background:linear-gradient(132deg,#d9ff43 0 50%,#f4f0df 50% 72%,#ff5b35 72%);color:#10120d;box-shadow:0 44px 120px rgb(0 0 0/.55)}
+    main[data-fd-id="ClothLab"] .cloth-source:before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgb(16 18 13/.16) 1px,transparent 1px),linear-gradient(90deg,rgb(16 18 13/.16) 1px,transparent 1px);background-size:32px 32px}main[data-fd-id="ClothLab"] .cloth-source:after{content:"";position:absolute;left:52%;top:-140px;width:4px;height:850px;transform:rotate(-13deg);background:#10120d;box-shadow:16px 0 rgb(244 240 223/.7)}
+    main[data-fd-id="ClothLab"] .cloth-kicker{position:absolute;left:42px;top:38px;font:900 14px/1 ui-monospace,monospace;letter-spacing:.16em}main[data-fd-id="ClothLab"] .cloth-title{position:absolute;left:38px;top:116px;font-size:126px;font-weight:950;line-height:.72;letter-spacing:-.08em;text-transform:uppercase}main[data-fd-id="ClothLab"] .cloth-title span{display:block}main[data-fd-id="ClothLab"] .cloth-title span:nth-child(2){margin-left:100px;color:#f4f0df;-webkit-text-stroke:2px #10120d}main[data-fd-id="ClothLab"] .cloth-copy{position:absolute;left:44px;bottom:42px;width:470px;font:800 15px/1.3 ui-monospace,monospace;letter-spacing:.05em}main[data-fd-id="ClothLab"] .cloth-stamp{position:absolute;right:48px;bottom:44px;color:#f4f0df;font:950 72px/.8 Arial,sans-serif;writing-mode:vertical-rl;transform:rotate(180deg);-webkit-text-stroke:1px #10120d}
+    main[data-fd-id="ClothLab"] canvas{position:absolute;inset:0;width:100%;height:100%}main[data-fd-id="ClothLab"] .cloth-hud{position:absolute;inset:0;pointer-events:none}main[data-fd-id="ClothLab"] .cloth-hud-top{position:absolute;left:44px;right:44px;top:38px;display:flex;justify-content:space-between;color:rgb(243 240 223/.68);font:800 12px/1 ui-monospace,monospace;letter-spacing:.14em}main[data-fd-id="ClothLab"] .cloth-hud-top b{color:#d9ff43}main[data-fd-id="ClothLab"] .cloth-hud-bottom{position:absolute;left:44px;right:44px;bottom:34px;display:flex;justify-content:space-between;color:rgb(243 240 223/.55);font:700 11px/1.4 ui-monospace,monospace;letter-spacing:.1em}main[data-fd-id="ClothLab"] .cloth-pulse{color:#ff7654}main[data-fd-id="ClothLab"] .cloth-pulse:before{content:"";display:inline-block;width:7px;height:7px;margin-right:8px;border-radius:50%;background:#ff5b35;box-shadow:0 0 14px #ff5b35}
+  </style>
+</head>
+<body>
+  <main data-fd-composition data-fd-id="ClothLab" data-fd-width="1920" data-fd-height="1080" data-fd-fps="30" data-fd-duration="240" data-fd-kind="3d" data-fd-library="true" data-fd-source="src/compositions/playground/ClothLab.html" data-fd-module="src/compositions/playground/ClothLab.ts" data-fd-export="clothLabComp">
+    <section data-fd-clip data-fd-id="cloth-scene" data-fd-name="Deterministic cloth scene" data-fd-from="0" data-fd-duration="240">
+      <article class="cloth-source" id="playground-poster" data-fd-id="cloth-source-art"><div class="cloth-kicker">FRAME DIFF / MATERIAL 001</div><div class="cloth-title"><span>HTML</span><span>Turns</span><span>Physical</span></div><div class="cloth-copy">DOM → CANVAS TEXTURE → CONSTRAINED MESH<br>RANDOM ACCESS · COLLISION · EXACT CAPTURE</div><div class="cloth-stamp">CLOTH</div></article>
+      <canvas data-fd-id="cloth-surface" data-fd-name="Deterministic cloth surface" data-fd-cloth data-fd-cloth-source="#playground-poster" data-fd-cloth-refresh="frame" aria-label="HTML poster simulated as cloth"></canvas>
+      <div class="cloth-hud"><div class="cloth-hud-top"><b>FRAME DIFF / CLOTH</b><span class="cloth-pulse">DETERMINISTIC SIMULATION</span><span>1920 × 1080 / 30 FPS</span></div><div class="cloth-hud-bottom"><span>SPRINGS · SHEAR · BEND</span><span>WIND · IMPULSES · COLLIDERS</span><span>WEBGL CAPTURE REGISTERED</span></div></div>
+    </section>
+  </main>
+</body>
+</html>

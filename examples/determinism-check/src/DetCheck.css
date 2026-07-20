@@ -1,0 +1,32 @@
+.dcheck {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: radial-gradient(120% 120% at 30% 20%, #14202b, #0a0e13);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.dcheck-grid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.dcheck-dot {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+.dcheck-label {
+  position: absolute;
+  left: 24px;
+  top: 18px;
+  color: #cfeede;
+  font-size: 28px;
+  font-weight: 700;
+}

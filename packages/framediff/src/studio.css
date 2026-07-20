@@ -1,0 +1,156 @@
+:root {
+  color-scheme: dark;
+  /* FrameDiff palette — keep in sync with packages/studio-ui/src/studio.css */
+  --bg: #0e0d0b;
+  --panel: #131110;
+  --panel-raised: #1b1815;
+  --line: rgb(245 239 221 / 8%);
+  --line-strong: rgb(245 239 221 / 16%);
+  --text: #f5efdd;
+  --muted: #c6c0af;
+  --accent: #e0ac57;
+  --red: #e0655f;
+  --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.5 Inter, ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.muted {
+  color: var(--muted);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.appbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.appbar .spacer {
+  flex: 1;
+}
+
+.player {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.stage-wrap {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  background: #000;
+  margin: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+/* the composition renders at its native size, then we scale-to-fit and center it */
+.stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform-origin: center;
+  overflow: hidden;
+  background: #000;
+}
+
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 20px 16px;
+}
+.transport input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+button {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+}
+button:hover {
+  border-color: var(--accent);
+}
+.play {
+  width: 44px;
+  font-size: 16px;
+}
+
+/* render controls */
+.appbar select {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font: inherit;
+}
+.appbar .primary {
+  background: var(--accent);
+  color: #171410;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.appbar .primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.status {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.status-busy,
+.status-done {
+  color: var(--accent);
+}
+.status-error {
+  color: var(--red);
+}
+.det-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--muted);
+}

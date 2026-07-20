@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+  <style>
+    main[data-fd-id="StudioPlayground"]{position:relative;overflow:hidden;background:#070910;color:#f5f2e9;font-family:Inter,"SF Pro Display",system-ui,sans-serif}
+    main[data-fd-id="StudioPlayground"]>[data-fd-clip][data-fd-comp]{position:absolute;inset:0;overflow:hidden}
+    main[data-fd-id="StudioPlayground"]>.playground-hud{position:absolute;inset:0;z-index:50;pointer-events:none}
+    main[data-fd-id="StudioPlayground"] .playground-brand{position:absolute;left:34px;top:30px;display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid rgb(255 255 255/.14);border-radius:999px;background:rgb(7 9 16/.74);box-shadow:0 12px 42px rgb(0 0 0/.28);backdrop-filter:blur(18px);font:900 11px/1 ui-monospace,monospace;letter-spacing:.12em}
+    main[data-fd-id="StudioPlayground"] .playground-brand:before{content:"";width:8px;height:8px;border-radius:50%;background:#6bd3c1;box-shadow:0 0 14px #6bd3c1}main[data-fd-id="StudioPlayground"] .playground-brand b{color:#a99aff}
+    main[data-fd-id="StudioPlayground"] .playground-chapter{position:absolute;right:34px;top:30px;max-width:520px;padding:10px 14px;border:1px solid rgb(255 255 255/.14);border-radius:999px;background:rgb(7 9 16/.74);color:#d9dde7;backdrop-filter:blur(18px);font:800 11px/1 ui-monospace,monospace;letter-spacing:.11em;text-align:right}
+    main[data-fd-id="StudioPlayground"] .playground-rail{position:absolute;left:34px;right:34px;bottom:20px;display:grid;grid-template-columns:150fr 480fr 480fr 480fr 480fr;gap:6px;align-items:center}
+    main[data-fd-id="StudioPlayground"] .playground-rail i{height:4px;border-radius:999px;background:rgb(255 255 255/.16)}main[data-fd-id="StudioPlayground"] .playground-rail i.active{background:linear-gradient(90deg,#9b89ff,#60d3c1);box-shadow:0 0 18px rgb(120 104 255/.52)}
+    main[data-fd-id="StudioPlayground"] .playground-progress{position:absolute;left:34px;bottom:36px;color:rgb(245 242 233/.58);font:700 10px/1 ui-monospace,monospace;letter-spacing:.1em}main[data-fd-id="StudioPlayground"] .playground-progress b{color:#f2f0e9}
+  </style>
+</head>
+<body>
+  <main data-fd-composition data-fd-id="StudioPlayground" data-fd-width="1920" data-fd-height="1080" data-fd-fps="30" data-fd-duration="2070" data-fd-kind="edit" data-fd-source="src/compositions/playground/StudioPlayground.html" data-fd-module="src/compositions/playground/StudioPlayground.ts" data-fd-export="studioPlaygroundComp">
+    <section data-fd-clip data-fd-id="playground-map" data-fd-name="00 · Capability map" data-fd-from="0" data-fd-duration="150" data-fd-type="nested" data-fd-comp="CoverageMap"></section>
+    <section data-fd-clip data-fd-id="playground-authoring" data-fd-name="01 · Authoring systems" data-fd-from="150" data-fd-duration="480" data-fd-type="nested" data-fd-comp="AuthoringChapter"></section>
+    <section data-fd-clip data-fd-id="playground-editorial" data-fd-name="02 · Editorial and finishing" data-fd-from="630" data-fd-duration="480" data-fd-type="nested" data-fd-comp="EditorialChapter"></section>
+    <section data-fd-clip data-fd-id="playground-effects" data-fd-name="03 · Simulation and spatial" data-fd-from="1110" data-fd-duration="480" data-fd-type="nested" data-fd-comp="EffectsChapter"></section>
+    <section data-fd-clip data-fd-id="playground-pipeline" data-fd-name="04 · Generate and deliver" data-fd-from="1590" data-fd-duration="480" data-fd-type="nested" data-fd-comp="PipelineChapter"></section>
+    <audio data-fd-clip data-fd-id="playground-audio" data-fd-name="Persistent low-volume audio bed" data-fd-from="0" data-fd-duration="2070" data-fd-type="audio" data-fd-src="/audio/bed.m4a" data-fd-volume="0.035"></audio>
+    <section class="playground-hud" data-fd-clip data-fd-id="playground-hud" data-fd-name="Persistent project navigation" data-fd-from="0" data-fd-duration="2070" data-fd-layer="50">
+      <div class="playground-brand"><b>FRAMEDIFF</b> · STUDIO PLAYGROUND</div><div class="playground-chapter">00 · CAPABILITY MAP</div>
+      <div class="playground-progress">FRAME <b>0000</b> / 2069 · <span>0%</span></div><div class="playground-rail"><i></i><i></i><i></i><i></i><i></i></div>
+    </section>
+    <script>
+      const chapter=query(".playground-chapter");const frameLabel=query(".playground-progress b");const percent=query(".playground-progress span");const marks=queryAll(".playground-rail i");
+      const chapters=["00 · CAPABILITY MAP","01 · AUTHORING SYSTEMS","02 · EDITORIAL + FINISHING","03 · SIMULATION + SPATIAL","04 · GENERATE + DELIVER"];
+      const chapterAt=(frame)=>frame<150?0:Math.min(4,1+Math.floor((frame-150)/480));
+      onFrame(({frame})=>{const active=chapterAt(frame);chapter.textContent=chapters[active];frameLabel.textContent=String(frame).padStart(4,"0");percent.textContent=`${Math.round(frame/2069*100)}%`;marks.forEach((mark,index)=>mark.classList.toggle("active",index===active))})
+    </script>
+  </main>
+</body>
+</html>

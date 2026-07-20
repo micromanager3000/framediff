@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+<head>
+  <style>
+    [data-fd-composition] { position: relative; overflow: hidden; background: #111; color: white; font-family: system-ui, sans-serif; }
+    [data-fd-clip] { position: absolute; inset: 0; display: grid; place-items: center; }
+    h1 { font-size: 96px; margin: 0; }
+    canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <main data-fd-composition data-fd-id="TestGenerate"
+    data-fd-width="1920" data-fd-height="1080"
+    data-fd-fps="30" data-fd-duration="150"
+    data-fd-kind="generate" data-fd-source="src/TestGenerate.html"
+    data-fd-module="src/TestGenerate.ts" data-fd-export="testGenerateComp">
+    <section data-fd-clip data-fd-id="title" data-fd-name="Title" data-fd-from="0" data-fd-duration="150" data-fd-opacity="1">
+      <h1 data-fd-id="title-text" data-fd-text="TestGenerate"></h1>
+    </section>
+    <script>
+      // Plain JavaScript frame lifecycle. Imported modules can also be supplied as setup
+      // in src/TestGenerate.ts (use that for WebGPU, WebGL, or third-party libraries).
+      onFrame(({ frame, time }) => {
+        root.style.setProperty("--frame", frame);
+        root.style.setProperty("--time", time);
+      });
+    </script>
+  </main>
+</body>
+</html>

@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+<head>
+  <style>
+    main[data-fd-id="AudioLab"]{position:relative;overflow:hidden;background:radial-gradient(circle at 50% 70%,#27365d 0,#11182b 38%,#080b13 78%);color:#f5f3ff;font-family:Inter,"SF Pro Display",system-ui,sans-serif}main[data-fd-id="AudioLab"] .audio-grid{position:absolute;inset:0;background-image:linear-gradient(rgb(139 126 255/.06) 1px,transparent 1px),linear-gradient(90deg,rgb(139 126 255/.06) 1px,transparent 1px);background-size:58px 58px}
+    main[data-fd-id="AudioLab"] .audio-copy{position:absolute;left:130px;top:116px}main[data-fd-id="AudioLab"] .audio-copy code{color:#7bd6c4;font:800 16px/1 ui-monospace,monospace;letter-spacing:.16em}main[data-fd-id="AudioLab"] .audio-copy h1{max-width:1050px;margin:26px 0 0;font-size:100px;line-height:.88;letter-spacing:-.06em}main[data-fd-id="AudioLab"] .audio-copy h1 em{color:#a694ff;font-style:normal}main[data-fd-id="AudioLab"] .audio-copy p{max-width:720px;color:#a7b0c3;font-size:24px;line-height:1.45}
+    main[data-fd-id="AudioLab"] .audio-meter{position:absolute;left:130px;right:130px;bottom:150px;height:250px;display:flex;align-items:flex-end;gap:12px;padding:28px;border:1px solid rgb(255 255 255/.13);border-radius:28px;background:rgb(7 10 18/.64);box-shadow:0 34px 100px rgb(0 0 0/.4)}main[data-fd-id="AudioLab"] .audio-meter i{flex:1;height:calc(var(--level, .2) * 100%);min-height:8px;border-radius:999px;background:linear-gradient(to top,#6fd6c4,#9e8cff 58%,#ef86ba);box-shadow:0 0 22px rgb(142 124 255/.2)}
+    main[data-fd-id="AudioLab"] .audio-meta{position:absolute;left:130px;right:130px;bottom:92px;display:flex;justify-content:space-between;color:#7f8aa1;font:800 12px/1 ui-monospace,monospace;letter-spacing:.12em}
+  </style>
+</head>
+<body>
+  <main data-fd-composition data-fd-id="AudioLab" data-fd-width="1920" data-fd-height="1080" data-fd-fps="30" data-fd-duration="240" data-fd-kind="audio" data-fd-library="true" data-fd-source="src/compositions/playground/AudioLab.html" data-fd-module="src/compositions/playground/AudioLab.ts" data-fd-export="audioLabComp">
+    <div class="audio-grid"></div>
+    <section data-fd-clip data-fd-id="audio-visual" data-fd-name="Audio composition visualizer" data-fd-from="0" data-fd-duration="240"><div class="audio-copy"><code data-fd-id="audio-kicker" data-fd-text="AUDIO COMPOSITION · FRAME-DRIVEN MIX"></code><h1><span data-fd-id="audio-title-a" data-fd-text="Sound lives on"></span><br><em data-fd-id="audio-title-b" data-fd-text="the same clock."></em></h1><p data-fd-id="audio-summary" data-fd-text="A real media lane, deterministic volume automation and exact nested timing share the visual frame domain."></p></div><div class="audio-meter"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="audio-meta"><span>BED.M4A · A1</span><span>VOLUME AUTOMATION 150F → 239F</span><span>CAPTURE MIX READY</span></div></section>
+    <audio data-fd-clip data-fd-id="audio-bed" data-fd-name="Playground audio bed" data-fd-from="0" data-fd-duration="240" data-fd-type="audio" data-fd-src="/audio/bed.m4a" data-fd-volume="0.16"></audio>
+    <script>const bars=queryAll(".audio-meter i");onFrame(({frame,time})=>{bars.forEach((bar,index)=>{const wave=.18+.72*Math.abs(Math.sin(time*(1.4+index*.04)+index*.73))* (.7+.3*Math.sin(frame/47+index));bar.style.setProperty("--level",String(wave))})})</script>
+  </main>
+</body>
+</html>

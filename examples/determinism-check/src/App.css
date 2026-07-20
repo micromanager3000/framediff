@@ -1,0 +1,131 @@
+:root {
+  color-scheme: dark;
+  --bg: #0a0e13;
+  --panel: #0d141d;
+  --line: #1e2a38;
+  --fg: #e6edf3;
+  --muted: #8aa0b2;
+  --accent: #3bd0a0;
+  --bad: #ff7a7a;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.5 system-ui, -apple-system, sans-serif;
+}
+
+.dc {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  gap: 18px;
+  padding-bottom: 24px;
+}
+
+.dc-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.dc-muted {
+  color: var(--muted);
+}
+.dc-spacer {
+  flex: 1;
+}
+.dc-bar code,
+.dc-note code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.dc-verdict {
+  font-weight: 700;
+}
+.dc-verdict.ok {
+  color: var(--accent);
+}
+.dc-verdict.bad {
+  color: var(--bad);
+}
+
+button {
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  padding: 7px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+}
+button:hover {
+  border-color: #2c3b4c;
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.dc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+  padding: 0 18px;
+}
+.dc-card {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #000;
+}
+.dc-card.bad {
+  border-color: var(--bad);
+}
+.dc-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.dc-card figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  background: var(--panel);
+}
+.dc-frame {
+  font-weight: 600;
+}
+.dc-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--muted);
+}
+.dc-flag {
+  font-size: 12px;
+}
+
+.dc-empty {
+  padding: 0 18px;
+}
+.dc-note {
+  margin: 0;
+  padding: 0 18px;
+  max-width: 820px;
+  color: var(--muted);
+}

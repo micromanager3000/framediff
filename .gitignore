@@ -1,0 +1,79 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.*
+
+# Build / dist
+dist/
+build/
+target/
+.cache/
+.vite/
+.turbo/
+.svelte-kit/
+
+# Render output & local media cache
+out/
+renders/
+.framediff/
+# legacy cache dirs from before the rebrand
+.montage/
+.framediff-cache/
+/framediff-cache/
+/frontend/framediff-cache/
+/examples/*/framediff-cache/
+proxies/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Local FrameDiff CLI credentials
+.framediff-client/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+
+# large/licensed source clips — kept local in the example's public/, referenced by the composition
+/frontend/public/aristocratic-couple-having-conversation-by-window-2025-12-17-13-09-31-utc.mov
+/frontend/public/women-in-historical-costumes-chatting-with-fans-2026-01-22-13-07-26-utc.mp4
+
+# hero-lower-third demo: transcoded proxies + audio from licensed LightTwist footage (regen: see its README)
+/examples/hero-lower-third/public/clips/
+/examples/hero-lower-third/public/music.m4a
+/examples/hero-lower-third/public/shine.wav
+/examples/hero-lower-third/scripts/analysis/*.npz
+/examples/hero-lower-third/scripts/analysis/cmp2/
+
+# hero-reel: transcoded proxies + audio from licensed LightTwist footage (regen: see its README)
+/examples/hero-reel/public/clips/
+/examples/hero-reel/public/music.m4a
+/examples/hero-reel/public/shine.wav
+/examples/hero-reel/public/logo-reveal.wav
+
+.idea/
+*.swp
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# playwright-mcp session artifacts
+.playwright-mcp/
+
+# Playwright regression artifacts (traces/screenshots/videos are retained on failures)
+test-results/
+playwright-report/
+
+# Supabase CLI local state
+supabase/.temp/

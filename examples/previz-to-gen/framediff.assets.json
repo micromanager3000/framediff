@@ -1,0 +1,278 @@
+{
+  "version": 1,
+  "assets": {
+    "harbor-previz": {
+      "name": "harbor-previz.bake.mp4",
+      "contentHash": "sha256:2bcf5047aaa3b81168c5f468da6ef4981f064387ebf87ee2b6a05f76eaf4b2a3",
+      "mime": "video/mp4",
+      "bytes": 2434343,
+      "sources": [
+        "/__framediff-cache/sha256%3A2bcf5047aaa3b81168c5f468da6ef4981f064387ebf87ee2b6a05f76eaf4b2a3"
+      ]
+    },
+    "5aa7fd81-9c04-4d91-8c2f-9c3fc4737492": {
+      "name": "harborShot.take1.mp4",
+      "contentHash": "sha256:97ff5ff266656a0a6e40ea072b38f72f7d5b9bc9b27edebf5632892eaf75813c",
+      "mime": "video/mp4",
+      "bytes": 3202534,
+      "sources": [
+        "/__framediff-cache/sha256%3A97ff5ff266656a0a6e40ea072b38f72f7d5b9bc9b27edebf5632892eaf75813c"
+      ],
+      "generator": {
+        "gen": "harborShot",
+        "take": 1,
+        "recipeHash": "sha256:7c2db4eef32c90ab80842c10f24c52258cef3a8933f58be893b579687edcc717",
+        "endpoint": "bytedance/seedance-2.0/fast/reference-to-video",
+        "recipe": {
+          "provider": "fal",
+          "model": "seedance-2.0",
+          "prompt": "Photoreal coastal lighthouse at blue hour: waves breaking white on dark rocks, a small fishing boat rounding the point, the rotating beam raking the water. Follow the reference clip's camera moves and cut timing exactly — wide push-in from open water, low chase behind the boat, then looking down from the lamp gallery. Moody, cinematic, anamorphic; the last ember of sunset on the horizon.",
+          "refs": [
+            {
+              "kind": "video",
+              "src": "comp://harbor-previz"
+            }
+          ],
+          "tier": "fast",
+          "resolution": "720p",
+          "duration": 8,
+          "aspect": "16:9",
+          "audio": false,
+          "fps": 30
+        },
+        "inputs": [
+          {
+            "kind": "video",
+            "src": "comp://harbor-previz",
+            "contentHash": "sha256:2bcf5047aaa3b81168c5f468da6ef4981f064387ebf87ee2b6a05f76eaf4b2a3"
+          }
+        ],
+        "requestId": "019f46be-57f6-76e2-bcd2-64da046522ec",
+        "seed": 1685979545,
+        "at": "2026-07-09T12:02:43.053Z"
+      }
+    },
+    "35e930f7-eff5-4e1c-8f4a-4c7df5fd7af9": {
+      "name": "harborShot.take2.mp4",
+      "contentHash": "sha256:ca68c9e04a59fbf31759954f2ed3f277e42af6f4aab775470d8b0a706f4eb4f8",
+      "mime": "video/mp4",
+      "bytes": 3303644,
+      "sources": [
+        "/__framediff-cache/sha256%3Aca68c9e04a59fbf31759954f2ed3f277e42af6f4aab775470d8b0a706f4eb4f8"
+      ],
+      "generator": {
+        "gen": "harborShot",
+        "take": 2,
+        "recipeHash": "sha256:7c2db4eef32c90ab80842c10f24c52258cef3a8933f58be893b579687edcc717",
+        "endpoint": "bytedance/seedance-2.0/fast/reference-to-video",
+        "recipe": {
+          "provider": "fal",
+          "model": "seedance-2.0",
+          "prompt": "Photoreal coastal lighthouse at blue hour: waves breaking white on dark rocks, a small fishing boat rounding the point, the rotating beam raking the water. Follow the reference clip's camera moves and cut timing exactly — wide push-in from open water, low chase behind the boat, then looking down from the lamp gallery. Moody, cinematic, anamorphic; the last ember of sunset on the horizon.",
+          "refs": [
+            {
+              "kind": "video",
+              "src": "comp://harbor-previz"
+            }
+          ],
+          "tier": "fast",
+          "resolution": "720p",
+          "duration": 8,
+          "aspect": "16:9",
+          "audio": false,
+          "fps": 30
+        },
+        "inputs": [
+          {
+            "kind": "video",
+            "src": "comp://harbor-previz",
+            "contentHash": "sha256:2bcf5047aaa3b81168c5f468da6ef4981f064387ebf87ee2b6a05f76eaf4b2a3"
+          }
+        ],
+        "requestId": "019f46c4-8413-7ac3-997e-204e7df91d8f",
+        "seed": 1030689473,
+        "at": "2026-07-09T12:08:26.715Z"
+      }
+    },
+    "b5c5fa1e-ef8a-47af-bd45-fb80faf0ad1c": {
+      "name": "harborShot.take3.mp4",
+      "contentHash": "sha256:6d19c4f42f533d255d010e6b75d3a83c23fbc8422eaed35506af86c58fb0be80",
+      "mime": "video/mp4",
+      "bytes": 3351687,
+      "sources": [
+        "/__framediff-cache/sha256%3A6d19c4f42f533d255d010e6b75d3a83c23fbc8422eaed35506af86c58fb0be80"
+      ],
+      "generator": {
+        "gen": "harborShot",
+        "take": 3,
+        "recipeHash": "sha256:b85681865815a8e8ff6a03b459d3c5797f8f560a742618ee47db254145349150",
+        "endpoint": "bytedance/seedance-2.0/reference-to-video",
+        "recipe": {
+          "provider": "fal",
+          "model": "seedance-2.0",
+          "prompt": "Live-action footage, not animation. The reference video is a rough untextured 3D previz — take only its camera path, framing, and the three cut points; replace every surface with photoreal live action. A working lighthouse on a rocky point at blue hour: black weathered granite streaked with surging white surf, a steel-hulled fishing boat trailing a churned wake, peeling white paint on the stone tower, the lamp a soft volumetric shaft sweeping through sea mist — never a hard-edged cone. Shot 1: slow push-in across open water toward the point. Shot 2: low water-level chase behind the boat, spray flecking the lens. Shot 3: from the lantern-room gallery looking down as the boat crosses the beam, dark sea textured with moonlit swell. Full-frame cinema camera, 32mm anamorphic, shallow depth of field, gentle handheld drift, fine film grain; deep blue-hour palette, last ember of sunset on the horizon.",
+          "refs": [
+            {
+              "kind": "video",
+              "src": "comp://harbor-previz"
+            }
+          ],
+          "tier": "standard",
+          "resolution": "720p",
+          "duration": 8,
+          "aspect": "16:9",
+          "audio": false,
+          "fps": 30
+        },
+        "inputs": [
+          {
+            "kind": "video",
+            "src": "comp://harbor-previz",
+            "contentHash": "sha256:2bcf5047aaa3b81168c5f468da6ef4981f064387ebf87ee2b6a05f76eaf4b2a3"
+          }
+        ],
+        "requestId": "019f4791-c34c-7eb0-8b7a-222c79f3defc",
+        "seed": 260732038,
+        "at": "2026-07-09T15:53:59.301Z"
+      }
+    },
+    "1fc82e7f-efd3-48d9-9edb-00300d90b698": {
+      "name": "coloradowolverine_Photoreal_live-action_cinematic_establishing__e447461d-26a9-4c59-8a08-dc506630cde1.png",
+      "contentHash": "sha256:ea41a530569c0261eacc7d1647b911226ff352144d1f575a6c77e03b40db87bf",
+      "mime": "image/png",
+      "bytes": 1427505,
+      "sources": [
+        "/__framediff-cache/sha256%3Aea41a530569c0261eacc7d1647b911226ff352144d1f575a6c77e03b40db87bf"
+      ]
+    },
+    "3a895da0-56ba-4443-a1db-18e64fbd71e8": {
+      "name": "harborShot.take4.mp4",
+      "contentHash": "sha256:29e1584d4cc835da8bed2630b2fb4bd889b699043667751ede37cd2e30381b37",
+      "mime": "video/mp4",
+      "bytes": 4153786,
+      "sources": [
+        "/__framediff-cache/sha256%3A29e1584d4cc835da8bed2630b2fb4bd889b699043667751ede37cd2e30381b37"
+      ],
+      "generator": {
+        "gen": "harborShot",
+        "take": 4,
+        "recipeHash": "sha256:99aac0af8fb3c98cb856685b1b46f02739adc66f9e9262507f3a9b7a49db14de",
+        "endpoint": "bytedance/seedance-2.0/reference-to-video",
+        "recipe": {
+          "provider": "fal",
+          "model": "seedance-2.0",
+          "prompt": "@Video1 is an 8-second rough 3D previz. Use it only for spatial blocking, subject motion, camera motion, framing, and editorial timing. Re-render every frame as documentary-grade live-action coastal cinematography; do not inherit the reference's low-poly geometry, flat shading, simplified materials, or CG color palette. EDIT STRUCTURE IS HIGHEST PRIORITY: preserve all three shots and make instantaneous hard cuts at exactly 00:03.00 and 00:05.67. No dissolve, morph, whip-pan, match transition, or continuous camera path across either cut. 00:00.00–00:03.00 — a slow 32mm push across open water toward a working lighthouse on a black granite point. 00:03.00–00:05.67 — hard cut to a low water-level chase behind the same steel-hulled fishing boat as it rounds the point, throwing spray and a churned wake. 00:05.67–00:08.00 — hard cut to the lantern-room gallery, looking down as that same boat crosses the lighthouse beam. WORLD AND CONTINUITY: peeling white paint and rust on the stone tower, wet weathered granite, surging white surf, dark moonlit swell, cold sea mist, and one soft volumetric lamp shaft with feathered edges—light in haze, never solid cone geometry. Photoreal optical detail, natural exposure, subtle lens spray, restrained handheld micro-movement, fine 35mm grain, deep blue hour with a thin ember of sunset. No animation, illustration, miniature, toy, game-engine render, or visible 3D geometry.",
+          "refs": [
+            {
+              "kind": "video",
+              "src": "comp://harbor-previz"
+            },
+            {
+              "kind": "image",
+              "src": "asset://1fc82e7f-efd3-48d9-9edb-00300d90b698"
+            }
+          ],
+          "tier": "standard",
+          "resolution": "720p",
+          "duration": 8,
+          "aspect": "16:9",
+          "audio": false,
+          "fps": 30
+        },
+        "inputs": [
+          {
+            "kind": "video",
+            "src": "comp://harbor-previz",
+            "contentHash": "sha256:2bcf5047aaa3b81168c5f468da6ef4981f064387ebf87ee2b6a05f76eaf4b2a3"
+          },
+          {
+            "kind": "image",
+            "src": "asset://1fc82e7f-efd3-48d9-9edb-00300d90b698",
+            "contentHash": "sha256:ea41a530569c0261eacc7d1647b911226ff352144d1f575a6c77e03b40db87bf"
+          }
+        ],
+        "requestId": "019f579a-a420-74e3-8de7-c560b7ecdb3c",
+        "seed": 312270799,
+        "at": "2026-07-12T18:37:15.944Z"
+      }
+    },
+    "02b421d1-16a5-443e-acc0-2095e120f73b": {
+      "name": "coloradowolverine_Photoreal_live-action_cinematic_establishing__212b7d06-e927-4547-8b51-3f7b7b70332c.png",
+      "contentHash": "sha256:ceee1f317c162ef2e13df64844fa81401ddbf2311f1e658cc25ee7272ad05969",
+      "mime": "image/png",
+      "bytes": 1322482,
+      "sources": [
+        "/__framediff-cache/sha256%3Aceee1f317c162ef2e13df64844fa81401ddbf2311f1e658cc25ee7272ad05969"
+      ]
+    },
+    "e4a7499f-158f-41a2-b994-c508802da969": {
+      "name": "harborShot.take5.mp4",
+      "contentHash": "sha256:da1af9cf33b6d4f6b6404df98645079ce829afd95c76a7087d3a4629dea0a5ba",
+      "mime": "video/mp4",
+      "bytes": 4197643,
+      "sources": [
+        "/__framediff-cache/sha256%3Ada1af9cf33b6d4f6b6404df98645079ce829afd95c76a7087d3a4629dea0a5ba"
+      ],
+      "generator": {
+        "gen": "harborShot",
+        "take": 5,
+        "recipeHash": "sha256:37061f09078296b2c523df51a516f4347a2a1465f6ebc553deaed0d211f4f4f9",
+        "endpoint": "bytedance/seedance-2.0/reference-to-video",
+        "recipe": {
+          "provider": "fal",
+          "model": "seedance-2.0",
+          "prompt": "@Video1 is an 8-second rough 3D previz. Use it only for spatial blocking, subject motion, camera motion, framing, and editorial timing. Re-render every frame as documentary-grade live-action coastal cinematography; do not inherit the reference's low-poly geometry, flat shading, simplified materials, or CG color palette. EDIT STRUCTURE IS HIGHEST PRIORITY: preserve all three shots and make instantaneous hard cuts at exactly 00:03.00 and 00:05.67. No dissolve, morph, whip-pan, match transition, or continuous camera path across either cut. 00:00.00–00:03.00 — a slow 32mm push across open water toward a working lighthouse on a black granite point. 00:03.00–00:05.67 — hard cut to a low water-level chase behind the same steel-hulled fishing boat as it rounds the point, throwing spray and a churned wake. 00:05.67–00:08.00 — hard cut to the lantern-room gallery, looking down as that same boat crosses the lighthouse beam. WORLD AND CONTINUITY: peeling white paint and rust on the stone tower, wet weathered granite, surging white surf, dark moonlit swell, cold sea mist, and one soft volumetric lamp shaft with feathered edges—light in haze, never solid cone geometry. Photoreal optical detail, natural exposure, subtle lens spray, restrained handheld micro-movement, fine 35mm grain, deep blue hour with a thin ember of sunset. No animation, illustration, miniature, toy, game-engine render, or visible 3D geometry.",
+          "refs": [
+            {
+              "kind": "video",
+              "src": "comp://harbor-previz"
+            },
+            {
+              "kind": "image",
+              "src": "asset://02b421d1-16a5-443e-acc0-2095e120f73b"
+            }
+          ],
+          "tier": "standard",
+          "resolution": "720p",
+          "duration": 8,
+          "aspect": "16:9",
+          "audio": false,
+          "fps": 30
+        },
+        "inputs": [
+          {
+            "kind": "video",
+            "src": "comp://harbor-previz",
+            "contentHash": "sha256:2bcf5047aaa3b81168c5f468da6ef4981f064387ebf87ee2b6a05f76eaf4b2a3"
+          },
+          {
+            "kind": "image",
+            "src": "asset://02b421d1-16a5-443e-acc0-2095e120f73b",
+            "contentHash": "sha256:ceee1f317c162ef2e13df64844fa81401ddbf2311f1e658cc25ee7272ad05969"
+          }
+        ],
+        "requestId": "019f57b0-f7ff-7443-b745-6b730d68f419",
+        "seed": 224577320,
+        "at": "2026-07-12T19:01:29.262Z"
+      }
+    },
+    "c214333a-f896-49c5-accb-cad1951ca180": {
+      "name": "they-dont-even-ask-for-x-they-just-look-at-you-like-this-v0-3b0hljnmyfrg1.png",
+      "contentHash": "sha256:66f21095f15ec4c62ff41245ac1cfb780077d90339fa828e6fda2ea6df18b5b9",
+      "mime": "image/png",
+      "bytes": 4287146,
+      "sources": [
+        "/__framediff-cache/sha256%3A66f21095f15ec4c62ff41245ac1cfb780077d90339fa828e6fda2ea6df18b5b9"
+      ]
+    },
+    "d88d9348-fe3c-42b9-8e05-728702fd2f6d": {
+      "name": "I-dont-want-to-play-with-you-anymore.png",
+      "contentHash": "sha256:2325c5da886ee07f34ea8b72c72b0d9487d9ad9fa436fcfe2a18ffd1a0676fec",
+      "mime": "image/png",
+      "bytes": 1481341,
+      "sources": [
+        "/__framediff-cache/sha256%3A2325c5da886ee07f34ea8b72c72b0d9487d9ad9fa436fcfe2a18ffd1a0676fec"
+      ]
+    }
+  }
+}

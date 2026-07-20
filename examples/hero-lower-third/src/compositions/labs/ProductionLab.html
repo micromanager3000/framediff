@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+<head>
+  <style>
+    [data-fd-composition]{position:relative;overflow:hidden;background:#070910;color:#f5f7ff;font-family:Inter,"SF Pro Display",system-ui,sans-serif}
+    [data-fd-clip]{position:absolute;inset:0;overflow:hidden}
+    .intro{display:grid;grid-template-columns:1.1fr .9fr;align-items:center;padding:112px 132px;box-sizing:border-box;background:radial-gradient(circle at 78% 25%,#3b2f7b 0,transparent 35%),radial-gradient(circle at 28% 78%,#153a5d 0,transparent 42%),#080a13}
+    .intro:before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgb(255 255 255/.045) 1px,transparent 1px),linear-gradient(90deg,rgb(255 255 255/.045) 1px,transparent 1px);background-size:54px 54px;mask-image:linear-gradient(to bottom,#000,transparent 90%)}
+    .intro-copy{position:relative;z-index:2;max-width:980px}.intro-copy code{display:block;margin-bottom:28px;color:#91a8ff;font:800 18px/1 ui-monospace,monospace;letter-spacing:.18em}.intro-copy h1{margin:0;font-size:104px;line-height:.89;letter-spacing:-.065em}.intro-copy h1 em{font-style:normal;color:#9b8aff}.intro-copy p{max-width:790px;margin:34px 0 0;color:#aeb5ca;font-size:27px;line-height:1.45}
+    .graph{position:relative;z-index:2;display:grid;gap:14px;padding:28px;border:1px solid rgb(255 255 255/.12);border-radius:34px;background:rgb(8 11 22/.72);box-shadow:0 42px 120px rgb(0 0 0/.42);backdrop-filter:blur(24px)}
+    .graph-row{display:grid;grid-template-columns:54px 1fr auto;align-items:center;gap:16px;padding:18px 20px;border:1px solid rgb(255 255 255/.08);border-radius:18px;background:linear-gradient(120deg,rgb(137 115 255/.12),rgb(62 171 220/.06))}.graph-row b{display:grid;width:42px;height:42px;place-items:center;border-radius:12px;background:#8e7cff;color:#0a0914;font:900 15px/1 ui-monospace,monospace}.graph-row strong{font-size:22px}.graph-row span{color:#7f879f;font:700 12px/1 ui-monospace,monospace;letter-spacing:.08em}
+    .generated-take{position:absolute;right:82px;bottom:72px;z-index:1;width:540px;height:300px;border:1px solid rgb(255 255 255/.14);border-radius:28px;object-fit:cover;opacity:.28;filter:saturate(.8);transform:rotate(-3deg);box-shadow:0 35px 80px rgb(0 0 0/.5)}
+    .chapter-hud{pointer-events:none;position:absolute;inset:0;z-index:20}.chapter-pill{position:absolute;left:48px;top:44px;display:flex;align-items:center;gap:12px;padding:11px 16px;border:1px solid rgb(255 255 255/.15);border-radius:999px;background:rgb(7 9 16/.72);box-shadow:0 16px 44px rgb(0 0 0/.28);backdrop-filter:blur(18px)}.chapter-pill b{display:grid;width:28px;height:28px;place-items:center;border-radius:50%;background:#907dff;color:#080912;font:900 11px/1 ui-monospace,monospace}.chapter-pill span{font:800 13px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase}.chapter-source{position:absolute;right:48px;top:48px;color:rgb(238 240 255/.72);font:700 11px/1 ui-monospace,monospace;letter-spacing:.08em;text-shadow:0 2px 12px #000}.chapter-progress{position:absolute;left:48px;right:48px;bottom:38px;height:4px;border-radius:99px;background:rgb(255 255 255/.12);overflow:hidden}.chapter-progress i{display:block;width:100%;height:100%;transform:scaleX(0);transform-origin:left;background:linear-gradient(90deg,#7f70ff,#61c8ee,#ee83bc)}
+    .chapter-marker{position:absolute;left:48px;bottom:56px;color:rgb(245 247 255/.65);font:700 11px/1 ui-monospace,monospace;letter-spacing:.08em}
+  </style>
+</head>
+<body>
+  <main data-fd-composition data-fd-id="ProductionLab" data-fd-width="1920" data-fd-height="1080" data-fd-fps="30" data-fd-duration="1788" data-fd-kind="edit" data-fd-source="src/compositions/labs/ProductionLab.html" data-fd-module="src/compositions/StaticCompositions.ts" data-fd-export="productionLabComp">
+    <section class="intro" data-fd-clip data-fd-id="production-intro" data-fd-name="Start here · production graph" data-fd-from="0" data-fd-duration="180" data-fd-layer="0">
+      <video class="generated-take" data-fd-id="production-generated-take" data-fd-name="Pinned generated sky take" data-fd-src="asset://c5ff38b5-3ca7-4a28-b782-43dfe8ef5b14" data-fd-muted="true" data-fd-fit="cover"></video>
+      <div class="intro-copy" data-fd-id="production-intro-copy" data-fd-name="Production Lab introduction" data-fd-x="0" data-fd-y="0" data-fd-width="1040" data-fd-height="620">
+        <code data-fd-id="production-kicker" data-fd-text="FRAME-NATIVE · SOURCE-BACKED · END TO END"></code>
+        <h1><span data-fd-id="production-title-lead" data-fd-text="One project."></span><br><em data-fd-id="production-title-accent" data-fd-text="Every surface."></em></h1>
+        <p data-fd-id="production-summary" data-fd-text="Scrub the chapters, then open GUIDE. Every step lands on the real composition, object, frame and tool you need to try."></p>
+      </div>
+      <div class="graph">
+        <div class="graph-row"><b data-fd-id="graph-1-number" data-fd-text="01"></b><strong data-fd-id="graph-1-title" data-fd-text="Author + generate"></strong><span data-fd-id="graph-1-surface" data-fd-text="SOURCE"></span></div>
+        <div class="graph-row"><b data-fd-id="graph-2-number" data-fd-text="02"></b><strong data-fd-id="graph-2-title" data-fd-text="Design + animate"></strong><span data-fd-id="graph-2-surface" data-fd-text="STUDIO"></span></div>
+        <div class="graph-row"><b data-fd-id="graph-3-number" data-fd-text="03"></b><strong data-fd-id="graph-3-title" data-fd-text="Edit + finish"></strong><span data-fd-id="graph-3-surface" data-fd-text="TIMELINE"></span></div>
+        <div class="graph-row"><b data-fd-id="graph-4-number" data-fd-text="04"></b><strong data-fd-id="graph-4-title" data-fd-text="Check + deliver"></strong><span data-fd-id="graph-4-surface" data-fd-text="LOCAL"></span></div>
+      </div>
+    </section>
+
+    <section data-fd-clip data-fd-id="chapter-direct" data-fd-name="01 · Canvas editing" data-fd-type="nested" data-fd-comp="DirectManipulationLab" data-fd-from="180" data-fd-duration="180" data-fd-layer="0" data-fd-trim-start="0" data-fd-x="0" data-fd-y="-10" data-fd-width="1920" data-fd-height="1080"></section>
+    <section data-fd-clip data-fd-id="chapter-properties" data-fd-name="02 · Visual properties" data-fd-type="nested" data-fd-comp="RichPropertiesLab" data-fd-from="360" data-fd-duration="180" data-fd-layer="0" data-fd-trim-start="0"></section>
+    <section data-fd-clip data-fd-id="chapter-editorial" data-fd-name="03 · Editorial timeline" data-fd-type="nested" data-fd-comp="EditorialLab" data-fd-from="540" data-fd-duration="180" data-fd-layer="0" data-fd-trim-start="0"></section>
+    <section data-fd-clip data-fd-id="chapter-motion" data-fd-name="04 · GSAP, keys and paths" data-fd-type="nested" data-fd-comp="GsapMotionLab" data-fd-from="720" data-fd-duration="180" data-fd-layer="0" data-fd-trim-start="0"></section>
+    <section data-fd-clip data-fd-id="chapter-grade" data-fd-name="05 · Grade and LUT" data-fd-type="nested" data-fd-comp="GradeLab" data-fd-from="900" data-fd-duration="288" data-fd-layer="0" data-fd-trim-start="0"></section>
+    <section data-fd-clip data-fd-id="chapter-hero" data-fd-name="06 · Full nested production" data-fd-type="nested" data-fd-comp="HeroWithLowerThird" data-fd-from="1188" data-fd-duration="240" data-fd-layer="0" data-fd-trim-start="20"></section>
+    <section data-fd-clip data-fd-id="chapter-camera" data-fd-name="07 · Imported 3D camera" data-fd-type="nested" data-fd-comp="HeroPlane3D.uizoom" data-fd-from="1428" data-fd-duration="180" data-fd-layer="0" data-fd-trim-start="0"></section>
+    <section data-fd-clip data-fd-id="chapter-delivery" data-fd-name="08 · Audio and delivery" data-fd-type="nested" data-fd-comp="EndCard" data-fd-from="1608" data-fd-duration="180" data-fd-layer="0" data-fd-trim-start="0"></section>
+    <audio data-fd-clip data-fd-id="production-bed" data-fd-name="Production Lab audio bed" data-fd-type="audio" data-fd-src="asset://8c9e9aac-c985-4a39-9001-8d2b51ce2295" data-fd-from="0" data-fd-duration="1788" data-fd-trim-start="0" data-fd-volume="0.08"></audio>
+
+    <section class="chapter-hud" data-fd-clip data-fd-id="production-hud" data-fd-name="Frame-driven chapter HUD" data-fd-from="0" data-fd-duration="1788" data-fd-layer="10">
+      <div class="chapter-pill"><b data-fd-id="chapter-number" data-fd-text-authority="computed" data-fd-prop-chapter-0="00" data-fd-prop-chapter-0-label="Chapter 00 number" data-fd-prop-chapter-0-type="text" data-fd-prop-chapter-1="01" data-fd-prop-chapter-1-label="Chapter 01 number" data-fd-prop-chapter-1-type="text" data-fd-prop-chapter-2="02" data-fd-prop-chapter-2-label="Chapter 02 number" data-fd-prop-chapter-2-type="text" data-fd-prop-chapter-3="03" data-fd-prop-chapter-3-label="Chapter 03 number" data-fd-prop-chapter-3-type="text" data-fd-prop-chapter-4="04" data-fd-prop-chapter-4-label="Chapter 04 number" data-fd-prop-chapter-4-type="text" data-fd-prop-chapter-5="05" data-fd-prop-chapter-5-label="Chapter 05 number" data-fd-prop-chapter-5-type="text" data-fd-prop-chapter-6="06" data-fd-prop-chapter-6-label="Chapter 06 number" data-fd-prop-chapter-6-type="text" data-fd-prop-chapter-7="07" data-fd-prop-chapter-7-label="Chapter 07 number" data-fd-prop-chapter-7-type="text" data-fd-prop-chapter-8="08" data-fd-prop-chapter-8-label="Chapter 08 number" data-fd-prop-chapter-8-type="text">00</b><span data-fd-id="chapter-title" data-fd-text-authority="computed" data-fd-prop-chapter-0="Production graph" data-fd-prop-chapter-0-label="Chapter 00 title" data-fd-prop-chapter-1="Canvas editing" data-fd-prop-chapter-1-label="Chapter 01 title" data-fd-prop-chapter-2="Visual properties" data-fd-prop-chapter-2-label="Chapter 02 title" data-fd-prop-chapter-3="Editorial timeline" data-fd-prop-chapter-3-label="Chapter 03 title" data-fd-prop-chapter-4="GSAP, keys and paths" data-fd-prop-chapter-4-label="Chapter 04 title" data-fd-prop-chapter-5="Grade and LUT" data-fd-prop-chapter-5-label="Chapter 05 title" data-fd-prop-chapter-6="Full nested production" data-fd-prop-chapter-6-label="Chapter 06 title" data-fd-prop-chapter-7="Imported 3D camera" data-fd-prop-chapter-7-label="Chapter 07 title" data-fd-prop-chapter-8="Audio and delivery" data-fd-prop-chapter-8-label="Chapter 08 title">Production graph</span></div>
+      <div class="chapter-source" data-fd-id="chapter-source" data-fd-text="GUIDE OPENS THE REAL TOOL · ⌘Z RESTORES SOURCE"></div>
+      <div class="chapter-marker" data-fd-id="chapter-marker" data-fd-text-authority="computed">0 / 1788 FRAMES</div>
+      <div class="chapter-progress"><i></i></div>
+    </section>
+    <script>
+      const chapters = [[0,180],[180,360],[360,540],[540,720],[720,900],[900,1188],[1188,1428],[1428,1608],[1608,1788]];
+      onFrame(({frame}) => {
+        const index = Math.max(0, chapters.findIndex(([from,to]) => frame >= from && frame < to));
+        const number = query("[data-fd-id=chapter-number]");
+        const title = query("[data-fd-id=chapter-title]");
+        number.textContent = number.getAttribute(`data-fd-prop-chapter-${index}`) || String(index).padStart(2,"0");
+        title.textContent = title.getAttribute(`data-fd-prop-chapter-${index}`) || "Chapter";
+        query("[data-fd-id=chapter-marker]").textContent = `${frame} / 1788 FRAMES`;
+        query(".chapter-progress i").style.transform = `scaleX(${Math.max(0, Math.min(1, frame / 1787))})`;
+      });
+    </script>
+    <div data-fd-clip data-fd-id="nested-blah" data-fd-name="Blah" data-fd-from="0" data-fd-duration="150" data-fd-type="nested" data-fd-comp="Blah"></div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,68 @@
+{
+  "name": "framediff",
+  "version": "0.0.0",
+  "description": "A code-backed video library: author videos as plain HTML/CSS/JavaScript, then preview and render them deterministically in the browser (WebCodecs/WebGPU).",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/micromanager3000/framediff.git",
+    "directory": "packages/framediff"
+  },
+  "homepage": "https://github.com/micromanager3000/framediff#readme",
+  "bugs": "https://github.com/micromanager3000/framediff/issues",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./three": {
+      "types": "./src/three/index.ts",
+      "default": "./src/three/index.ts"
+    },
+    "./gsap": {
+      "types": "./src/gsap/index.ts",
+      "default": "./src/gsap/index.ts"
+    },
+    "./gsap/source": {
+      "types": "./src/gsap/source.ts",
+      "default": "./src/gsap/source.ts"
+    },
+    "./vite": "./vite-plugin.ts",
+    "./studio-runtime": {
+      "types": "./src/studio-runtime/runtime.ts",
+      "default": "./src/studio-runtime/runtime.ts"
+    }
+  },
+  "files": [
+    "src",
+    "vite-plugin.ts"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@babel/parser": "^7.29.7",
+    "@framediff/studio-model": "*",
+    "gsap": "^3.15.0",
+    "mediabunny": "^1.49.0",
+    "mp4-muxer": "^5.0.0"
+  },
+  "peerDependencies": {
+    "three": ">=0.160.0"
+  },
+  "peerDependenciesMeta": {
+    "three": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/three": "^0.185.0",
+    "@webgpu/types": "^0.1.71",
+    "three": "^0.185.1",
+    "typescript": "^5.7.2"
+  }
+}
