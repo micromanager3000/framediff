@@ -542,3 +542,48 @@ export function inspectorFieldsFromHtml(source: string, itemId: string): HtmlIns
 }
 
 export const htmlGradeAttributes = gradeKeys.map((key) => `data-fd-grade-${key}`);
+
+/**
+ * Copy a source-backed element (a moodboard card, a cast entry, a script row) into
+ * another composition document. The fragment is inserted as the last child of the
+ * target's composition root with its data-fd-ids re-uniqued against the target.
+ * Returns the rewritten target source and the copied element's new root id.
+ */
+export function copyHtmlElementInto(
+  fromSource: string,
+  elementId: string,
+  toSource: string,
+): { source: string; id: string } | null {
+  const element = findHtmlElementById(fromSource, elementId);
+  if (!element) return null;
+  let fragment = fromSource.slice(element.start, element.end);
+
+  const targetIds = new Set(
+    flattenHtmlElements(parseHtmlSource(toSource))
+      .map((entry) => entry.attributes.get("data-fd-id")?.value)
+      .filter(Boolean),
+  );
+  const renames = new Map<string, string>();
+  for (const entry of flattenHtmlElements([element])) {
+    const id = entry.attributes.get("data-fd-id")?.value;
+    if (!id || renames.has(id) || !targetIds.has(id)) continue;
+    let next = `${id}-2`;
+    for (let index = 3; targetIds.has(next); index += 1) next = `${id}-${index}`;
+    targetIds.add(next);
+    renames.set(id, next);
+  }
+  for (const [from, to] of renames) {
+    fragment = fragment.replaceAll(`data-fd-id="${from}"`, `data-fd-id="${to}"`).replaceAll(`data-fd-id='${from}'`, `data-fd-id='${to}'`);
+  }
+
+  const roots = parseHtmlSource(toSource);
+  const targetRoot = flattenHtmlElements(roots).find((entry) => entry.attributes.has("data-fd-composition"));
+  if (!targetRoot) return null;
+  const closeStart = toSource.toLowerCase().lastIndexOf(`</${targetRoot.tagName}`, targetRoot.end);
+  if (closeStart < targetRoot.startTagEnd) return null;
+  const lineStart = toSource.lastIndexOf("\n", targetRoot.start) + 1;
+  const rootIndent = (/^[ \t]*/.exec(toSource.slice(lineStart, targetRoot.start)) ?? [""])[0];
+  const source = `${toSource.slice(0, closeStart)}${rootIndent} ${fragment}\n${rootIndent}${toSource.slice(closeStart)}`;
+  const rootId = element.attributes.get("data-fd-id")?.value ?? elementId;
+  return { source, id: renames.get(rootId) ?? rootId };
+}

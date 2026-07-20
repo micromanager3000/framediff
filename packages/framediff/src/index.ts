@@ -38,6 +38,33 @@ export { spring, type SpringConfig, type SpringOptions } from "./spring";
 export { springR, measureSpringR, type SpringRConfig, type SpringROptions } from "./springRemotion";
 export { mapNestedFrame } from "./nested";
 
+// Production planning: plan comps → edit skeletons, drift, actuals sync, slot swaps.
+export {
+  PLANNING_STATUSES,
+  parsePlanRows,
+  generateEditSkeleton,
+  defineEditSkeleton,
+  planDrift,
+  applyPlanActuals,
+  swapNestedComp,
+  type PlanningStatus,
+  type PlanRow,
+  type GenerateEditSkeletonOptions,
+  type PlanDrift,
+  type PlanDriftRow,
+} from "./planning";
+// Element-level copy between comps: a moodboard card, cast entry, or script row moves
+// as source, ids re-uniqued against the destination.
+export { copyHtmlElementInto } from "./studio/htmlSource";
+// Stock moodboard surface: project data (JSON) in, package-owned canvas UX out.
+export {
+  defineMoodboardComposition,
+  type MoodboardData,
+  type MoodboardItem,
+  type MoodboardCamera,
+  type MoodboardOptions,
+} from "./compositions/moodboard";
+
 // Generative compositions — a recipe (prompt/refs/params) as source, takes as the lockfile.
 export {
   generative,

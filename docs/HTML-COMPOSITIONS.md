@@ -209,6 +209,47 @@ replay the same state. Canvas attributes can override the common physical contro
 `data-fd-cloth-width`, `height`, `segments-x`, `segments-y`, `mass`, `gravity`, `damping`,
 `stiffness`, `bend-stiffness`, `substeps`, `iterations`, `roughness`, and `metalness`.
 
+## Planning compositions
+
+Pre-production documents are ordinary compositions with `data-fd-kind="plan"`: scripts,
+rundowns, and shot lists whose timed rows are `data-fd-clip` elements. Because rows are
+clips, a plan scrubs like a timeline and its timing edits in the timeline. There is no
+special planning surface — a plan sits in the same composition graph as everything
+else: rows nest the comps they reference (`data-fd-type="nested"` + `data-fd-comp`
+inside a row renders a live thumbnail of the scene, take, or library card that
+realizes it, and the rail tree follows those references like any other nesting), and
+lighter cross-links ride on `data-fd-prop-*` attributes (scene, cast, location, status
+ids). Only reference direction distinguishes roles: masters nest plans' outputs,
+plans nest previews of them, generative comps can take either as refs. The
+new-composition sheet offers a plan scaffold.
+
+The `framediff` planning module gives plans verbs:
+
+- `parsePlanRows(source)` — read the timed rows and their `data-fd-prop-*` refs.
+- `generateEditSkeleton(planSource, options)` — derive a master edit with one nested
+  placement per row (the animatic/recording-skeleton transform); timing is shared by
+  construction. `defineEditSkeleton()` returns it as a ready composition.
+- `planDrift(planSource, masterSource)` — planned vs actual per shared id (a master
+  placement matches on `data-fd-prop-plan`, falling back to `data-fd-id`).
+- `applyPlanActuals(planSource, masterSource)` — sync the master's timing back into the
+  plan (capture-first workflows, where the recording owns the truth).
+- `defineMoodboardComposition(data, options)` — the stock scratchpad surface: project
+  data (JSON: items + camera) in, package-owned canvas UX out — pan, wheel zoom,
+  minimap navigation, card drags, in-place text editing — persisted back to the data
+  file via the dev filesystem. `data-fd-interactive` on a root hands the comp its own
+  pointer events (the Studio overlay steps aside).
+- `copyHtmlElementInto(fromSource, elementId, toSource)` — copy a card, cast entry, or
+  row into another composition as source, ids re-uniqued against the destination.
+- `swapNestedComp(source, clipId, compId, status?)` — progress a slot by rewriting its
+  `data-fd-comp` (board → previz → final), optionally advancing
+  `data-fd-prop-status` (see `PLANNING_STATUSES`).
+
+Each pre-production document is its own first-class kind — `moodboard`, `script`,
+`storyboard`, `locations`, `cast` (with `plan` as the generic fallback) — and
+`kind="scene"`/`kind="board"` mark per-scene source comps and promoted storyboard
+holds. Card-library kinds (moodboard/locations/cast) have no temporal axis, so the
+Studio hides timeline chrome for them.
+
 ## Source editing rules
 
 - Physical `.html` compositions support timeline and Inspector source rewriting.

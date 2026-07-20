@@ -1,0 +1,52 @@
+<!doctype html><html><head><style>
+ [data-fd-composition]{position:relative;overflow:hidden;background:#0a1014;color:#f3f5f2;font-family:-apple-system,"SF Pro Display","Segoe UI",sans-serif;padding:40px 52px;box-sizing:border-box}
+ h1{font-size:28px;margin:0 0 4px}.sub{margin:0;font-size:12.5px;color:#a6b0b5}.sub b{color:#f3f5f2}
+ .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:24px}
+ .card{background:rgba(20,27,32,.96);border:1px solid rgba(255,255,255,.1);border-radius:12px;overflow:hidden}
+ .view{position:relative;aspect-ratio:16/9;background:#070a0d;border-bottom:1px solid rgba(255,255,255,.1)}
+ .idchip{position:absolute;top:9px;left:9px;z-index:3;font:700 10px ui-monospace;color:#9ecbff;background:rgba(7,10,13,.85);border:1px solid rgba(255,255,255,.14);border-radius:6px;padding:2px 7px}
+ .live{position:absolute;top:9px;right:9px;z-index:3;font:700 9px ui-monospace;letter-spacing:.8px;color:#79dbc8;background:rgba(7,10,13,.85);border:1px solid rgba(121,219,200,.4);border-radius:6px;padding:2px 7px}
+ .body{padding:12px 14px 14px}
+ .nm{font-size:15px;font-weight:700}
+ .desc{font-size:12px;line-height:1.5;color:#c2cbd0;margin:6px 0 9px}
+ .facts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:9px}
+ .fact{border:1px solid rgba(255,255,255,.1);border-radius:7px;padding:5px 8px}
+ .fact b{display:block;font:8.5px ui-monospace;letter-spacing:.8px;text-transform:uppercase;color:#a6b0b5;font-weight:600}
+ .fact span{font-size:11px}
+ .chips{display:flex;flex-wrap:wrap;gap:5px}
+ .chip{font:10px ui-monospace;border:1px solid rgba(105,214,192,.4);border-radius:999px;padding:2px 8px;color:#69d6c0}
+ .foot{position:absolute;left:52px;bottom:18px;font-size:11px;color:#a6b0b5}.foot code{font-family:ui-monospace;color:#9ecbff}
+</style></head><body>
+<!-- The set IS the previz scene: each location card nests HarborPreviz at that camera's
+     stretch of the timeline — a live view into harborScene.ts, not a photograph. -->
+<main data-fd-composition data-fd-id="Locations" data-fd-name="Harbor short — locations" data-fd-width="1280" data-fd-height="720" data-fd-fps="30" data-fd-duration="240" data-fd-kind="locations" data-fd-library="true" data-fd-source="src/compositions/Locations.html" data-fd-module="src/compositions/Locations.ts" data-fd-export="locationsComp">
+ <h1>Harbor short — locations</h1>
+ <p class="sub">A <b>library</b> of set cards. There are no scout photos — every card is a <b>live camera into the previz set</b> (<b>harborScene.ts</b>), so redressing the set updates the scout.</p>
+ <div class="grid">
+  <article class="card" data-fd-clip data-fd-id="loc-harbor-mouth" data-fd-name="Harbor mouth" data-fd-from="0" data-fd-duration="240" data-fd-prop-scenes="scene-approach">
+   <div class="view"><span class="idchip">loc-harbor-mouth</span><span class="live">LIVE · cam approach</span>
+    <div data-fd-clip data-fd-id="loc-harbor-mouth-view" data-fd-name="harbor mouth · live set view" data-fd-from="0" data-fd-duration="240" data-fd-type="nested" data-fd-comp="HarborPreviz" data-fd-nested-scale="0.28125" style="position:absolute;inset:0"></div></div>
+   <div class="body"><div class="nm">Harbor mouth</div>
+    <p class="desc">Open water framed by the breakwater arms; the lamp reads from two miles out.</p>
+    <div class="facts"><div class="fact"><b>Light</b><span>dusk + lamp sweep</span></div><div class="fact"><b>Sea state</b><span>long swell, force 5</span></div></div>
+    <div class="chips"><span class="chip">scene-approach</span></div></div>
+  </article>
+  <article class="card" data-fd-clip data-fd-id="loc-breakwater" data-fd-name="Breakwater run" data-fd-from="0" data-fd-duration="240" data-fd-prop-scenes="scene-chase">
+   <div class="view"><span class="idchip">loc-breakwater</span><span class="live">LIVE · cam chase</span>
+    <div data-fd-clip data-fd-id="loc-breakwater-view" data-fd-name="breakwater · live set view" data-fd-from="0" data-fd-duration="240" data-fd-type="nested" data-fd-comp="HarborPreviz" data-fd-trim-start="3" data-fd-nested-scale="0.28125" style="position:absolute;inset:0"></div></div>
+   <div class="body"><div class="nm">Breakwater run</div>
+    <p class="desc">The sheltered lane along the stones — chop flattens, wake stays legible for tracking.</p>
+    <div class="facts"><div class="fact"><b>Light</b><span>sodium spill off stones</span></div><div class="fact"><b>Camera</b><span>tracking lane, 12kt</span></div></div>
+    <div class="chips"><span class="chip">scene-chase</span></div></div>
+  </article>
+  <article class="card" data-fd-clip data-fd-id="loc-gallery" data-fd-name="Lamp gallery" data-fd-from="0" data-fd-duration="240" data-fd-prop-scenes="scene-gallery">
+   <div class="view"><span class="idchip">loc-gallery</span><span class="live">LIVE · cam gallery</span>
+    <div data-fd-clip data-fd-id="loc-gallery-view" data-fd-name="gallery · live set view" data-fd-from="0" data-fd-duration="240" data-fd-type="nested" data-fd-comp="HarborPreviz" data-fd-trim-start="5.67" data-fd-nested-scale="0.28125" style="position:absolute;inset:0"></div></div>
+   <div class="body"><div class="nm">Lamp gallery</div>
+    <p class="desc">The rail around the light itself — the only place the whole harbor is one picture.</p>
+    <div class="facts"><div class="fact"><b>Light</b><span>inside the beam</span></div><div class="fact"><b>Note</b><span>reverse angle · vertigo</span></div></div>
+    <div class="chips"><span class="chip">scene-gallery</span></div></div>
+  </article>
+ </div>
+ <p class="foot"><code>data-fd-library="true"</code> — Script/Storyboard chips resolve to these <code>data-fd-id</code>s; the set views are ordinary <code>data-fd-comp</code> nests of <code>HarborPreviz</code>.</p>
+</main></body></html>

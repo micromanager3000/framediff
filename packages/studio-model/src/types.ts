@@ -1,7 +1,7 @@
 import type { CanonicalTweenKind, NormalizedTweenOperation, ParamBinding } from "./animation";
 import type { CubicMotionSegment, GestureSample } from "./motionPath";
 
-export type CompositionKind = "edit" | "3d" | "generate" | "audio" | "doc";
+export type CompositionKind = "edit" | "3d" | "generate" | "audio" | "doc" | "plan" | "scene" | "board" | "moodboard" | "script" | "storyboard" | "locations" | "cast";
 export type CompositionOutputKind = "video" | "image";
 
 /** A source-declared, project-specific route into a real Studio workflow. */
@@ -588,7 +588,7 @@ export interface CacheEntryDescriptor {
   inputs?: Record<string, string>;
 }
 
-export type NewCompositionKind = "edit" | "3d" | "generate" | "audio";
+export type NewCompositionKind = "edit" | "3d" | "generate" | "audio" | "plan";
 export interface NewCompositionRequest {
   name: string;
   kind: NewCompositionKind;

@@ -80,6 +80,9 @@
 
   function onPointerDown(event: PointerEvent): void {
     if (!interactive || (event.target as HTMLElement).dataset.resizeHandle || (event.target as HTMLElement).dataset.motionHandle) return;
+    // Clicking out of the canvas text editor must commit it: a drag begun by this
+    // pointerdown prevents the default focus change, so blur alone can't be trusted.
+    if (textEditing) void commitTextEdit();
     if ($store.gestureDraft && $store.gestureDraft.status !== "preview") {
       const value = clientToComposition(event.clientX, event.clientY);
       if (!value) return;
@@ -90,9 +93,17 @@
       return;
     }
     const hit = handle?.hitTest?.(event.clientX, event.clientY) ?? null;
-    session.selectElement(hit?.ref.objectId ?? null, hit?.ownerItemId);
-    if (hit) onselect();
-    if (hit?.movable) beginDrag(event, hit, "move");
+    // A non-movable leaf (a text node inside a moodboard card) selects and drags its
+    // nearest movable ancestor; the leaf itself stays reachable via double-click.
+    let movable: PreviewNodeSnapshot | undefined = hit ?? undefined;
+    while (movable && !movable.movable) {
+      const parentId: string | undefined = movable.parentId;
+      movable = parentId ? nodes.find((node) => node.ref.objectId === parentId) : undefined;
+    }
+    const chosen = movable ?? hit;
+    session.selectElement(chosen?.ref.objectId ?? null, chosen?.ownerItemId);
+    if (chosen) onselect();
+    if (chosen?.movable) beginDrag(event, chosen, "move");
   }
 
   function onDoubleClick(event: MouseEvent): void {
@@ -110,7 +121,9 @@
   async function commitTextEdit(): Promise<void> {
     const editing = textEditing;
     textEditing = null;
-    if (editing && textDraft !== editing.text) await session.editSelectedElementText(textDraft);
+    if (editing && textDraft !== editing.text) {
+      await session.editElementText({ compositionKey: editing.ref.compositionKey, objectId: editing.ref.objectId }, textDraft);
+    }
   }
 
   function onTextEditorKeyDown(event: KeyboardEvent): void {

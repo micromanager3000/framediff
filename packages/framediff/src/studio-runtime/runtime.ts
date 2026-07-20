@@ -140,8 +140,15 @@ function previewElement(preview: PreviewRecord, element: HTMLElement): PreviewNo
   const width = previewNumeric(element, "data-fd-width", element.offsetWidth);
   const height = previewNumeric(element, "data-fd-height", element.offsetHeight);
   const visual = element.getBoundingClientRect();
-  const previewWidth = width * scaleX * elementScale;
-  const previewHeight = height * scaleY * elementScale;
+  // Measure the element's coordinate space from its container, so ancestor transforms
+  // (a zoomed board camera) are part of the composition→preview axis, not just the
+  // frame's preview scale. Falls back to the root scale for zero-size containers.
+  const container = element.parentElement;
+  const containerBounds = container?.getBoundingClientRect();
+  const axisX = container?.offsetWidth && containerBounds ? containerBounds.width / container.offsetWidth : scaleX;
+  const axisY = container?.offsetHeight && containerBounds ? containerBounds.height / container.offsetHeight : scaleY;
+  const previewWidth = width * axisX * elementScale;
+  const previewHeight = height * axisY * elementScale;
   const owner = element.closest<HTMLElement>("[data-fd-clip], [data-fd-from], [data-fd-duration]");
   const parent = element.parentElement?.closest<HTMLElement>("[data-fd-id]");
   const compRef = element.getAttribute("data-fd-comp");
@@ -166,18 +173,18 @@ function previewElement(preview: PreviewRecord, element: HTMLElement): PreviewNo
       height: previewHeight,
     },
     compositionToPreview: {
-      a: scaleX,
+      a: axisX,
       b: 0,
       c: 0,
-      d: scaleY,
+      d: axisY,
       e: rootBounds.left - hostBounds.left,
       f: rootBounds.top - hostBounds.top,
     },
     localToPreview: {
-      a: Math.cos(radians) * scaleX * elementScale,
-      b: Math.sin(radians) * scaleY * elementScale,
-      c: -Math.sin(radians) * scaleX * elementScale,
-      d: Math.cos(radians) * scaleY * elementScale,
+      a: Math.cos(radians) * axisX * elementScale,
+      b: Math.sin(radians) * axisY * elementScale,
+      c: -Math.sin(radians) * axisX * elementScale,
+      d: Math.cos(radians) * axisY * elementScale,
       e: 0,
       f: 0,
     },
@@ -267,6 +274,7 @@ function htmlCompositionScaffold(options: {
   fps: number;
   duration: number;
 }): string {
+  if (options.kind === "plan") return planCompositionScaffold(options);
   const webGpu = options.kind === "3d" ? `
     <canvas data-fd-id="scene" data-fd-name="Scene" data-fd-type="layers" data-fd-webgpu
       data-fd-prop-intensity="1" data-fd-prop-intensity-label="Intensity"></canvas>` : "";
@@ -297,6 +305,80 @@ function htmlCompositionScaffold(options: {
       onFrame(({ frame, time }) => {
         root.style.setProperty("--frame", frame);
         root.style.setProperty("--time", time);
+      });
+    </script>
+  </main>
+</body>
+</html>
+`;
+}
+
+/**
+ * Plan comps hold intent as timed rows (script scenes, rundown segments, shot-list
+ * shots). Rows are ordinary clips, so the document is scrubbable, its timing edits in
+ * the timeline, and generateEditSkeleton() can derive a master from it.
+ */
+function planCompositionScaffold(options: {
+  id: string;
+  exportName: string;
+  file: string;
+  module: string;
+  width: number;
+  height: number;
+  fps: number;
+  duration: number;
+}): string {
+  const third = Math.max(1, Math.round(options.duration / 3));
+  const rows = [
+    { id: "row-1", name: "1 · Opening", from: 0, duration: third },
+    { id: "row-2", name: "2 · Middle", from: third, duration: third },
+    { id: "row-3", name: "3 · Closing", from: third * 2, duration: options.duration - third * 2 },
+  ];
+  const rowMarkup = rows.map((row) => `    <section class="row" data-fd-clip data-fd-id="${row.id}" data-fd-name="${row.name}"
+      data-fd-from="${row.from}" data-fd-duration="${row.duration}">
+      <div class="when"></div>
+      <p data-fd-id="${row.id}-text" data-fd-text="Describe this beat.">Describe this beat.</p>
+    </section>`).join("\n");
+  return `<!doctype html>
+<html>
+<head>
+  <style>
+    [data-fd-composition] { position: relative; overflow: hidden; background: #101116; color: #e9eaf0; font-family: system-ui, sans-serif; padding: 48px 56px; box-sizing: border-box; }
+    h1 { font-size: 34px; margin: 0 0 18px; }
+    .row { display: grid; grid-template-columns: 180px 1fr; gap: 24px; padding: 18px 4px; border-top: 1px solid rgba(255,255,255,.1); }
+    .row.active { background: rgba(255,255,255,.05); }
+    .row .when { font: 600 15px ui-monospace, monospace; color: #9aa0b5; }
+    .row p { margin: 0; font-size: 17px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <main data-fd-composition data-fd-id="${options.id}"
+    data-fd-width="${options.width}" data-fd-height="${options.height}"
+    data-fd-fps="${options.fps}" data-fd-duration="${options.duration}"
+    data-fd-kind="plan" data-fd-source="${options.file}"
+    data-fd-module="${options.module}" data-fd-export="${options.exportName}">
+    <h1 data-fd-id="plan-title" data-fd-text="${options.id}">${options.id}</h1>
+${rowMarkup}
+    <script>
+      // Rows are clips: dragging them in the timeline reprints this document, and
+      // generateEditSkeleton(source) turns it into a master edit with one slot per row.
+      const rows = queryAll(".row");
+      const fps = ${options.fps};
+      const timecode = (frames) => {
+        const seconds = Math.round(frames / fps);
+        return Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
+      };
+      for (const row of rows) {
+        const from = Number(row.getAttribute("data-fd-from"));
+        const duration = Number(row.getAttribute("data-fd-duration"));
+        row.querySelector(".when").textContent = timecode(from) + "–" + timecode(from + duration);
+      }
+      onFrame(({ frame }) => {
+        for (const row of rows) {
+          const from = Number(row.getAttribute("data-fd-from"));
+          const duration = Number(row.getAttribute("data-fd-duration"));
+          row.classList.toggle("active", frame >= from && frame < from + duration);
+        }
       });
     </script>
   </main>
@@ -1645,6 +1727,9 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       stage.replaceChildren(nextRoot);
       preview.handle = nextHandle;
       preview.mountedKey = preview.compositionKey;
+      // Interactive comps (data-fd-interactive on the root) own their pointer events —
+      // the Studio canvas overlay steps aside via this host class.
+      preview.host.classList.toggle("framediff-interactive", nextRoot.hasAttribute("data-fd-interactive"));
       emitPreviewNodes(preview);
     } catch (error) {
       nextHandle.destroy();
@@ -1714,6 +1799,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       contentDomain: this.contentDomainOf(preview.compositionKey, composition),
     });
     preview.mountedKey = preview.compositionKey;
+    preview.host.classList.toggle("framediff-interactive", preview.handle.root.hasAttribute("data-fd-interactive"));
     void preview.handle.ready.then(() => emitPreviewNodes(preview));
     emitPreviewNodes(preview);
   }

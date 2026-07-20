@@ -5,6 +5,7 @@ import endCardSource from "./EndCard.html?raw";
 import gradeLabSource from "./labs/GradeLab.html?raw";
 import heroFootageSource from "./HeroFootage.html?raw";
 import excerptSource from "./HeroExcerpt.html?raw";
+import heroScriptSource from "./HeroScript.html?raw";
 import directManipulationLabSource from "./labs/DirectManipulationLab.html?raw";
 import richPropertiesLabSource from "./labs/RichPropertiesLab.html?raw";
 import editorialLabSource from "./labs/EditorialLab.html?raw";
@@ -15,6 +16,7 @@ import { setupHeroGrade } from "../effects/heroLooks";
 import { FPS } from "../data/constants";
 
 export const lowerThirdComp = defineComposition(lowerThirdSource);
+export const heroScriptComp = defineComposition(heroScriptSource);
 export const endCardComp = defineComposition(endCardSource);
 export const gradeLabComp = defineComposition(gradeLabSource, { setup: setupHeroGrade });
 export const heroFootageComp = defineComposition(heroFootageSource);
