@@ -7,5 +7,7 @@ public/shine.wav
 public/music.m4a
 public/clips/
 public/raw/
-public/audio/
+public/audio/*
+!public/audio/bed.m4a
+!public/audio/shine.wav
 scripts/analysis/cmp2/

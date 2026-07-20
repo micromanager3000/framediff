@@ -22,8 +22,9 @@ must share the same source authority and conflict behavior as the GUI.
 
 ## Scenario inventory
 
-The `Automation` column is the minimum regression layer. `E2E` refers to
-`tests/e2e/studio.smoke.spec.ts`; `manual` steps belong in a release or focused exploratory pass.
+The `Automation` column is the minimum regression layer. `E2E` refers to the maintained Playwright
+suites in `tests/e2e`, including the holistic Playground and generative-workbench workflows;
+`manual` steps belong in a release or focused exploratory pass.
 
 | ID | Scenario | Primary risks | Automation |
 | --- | --- | --- | --- |
@@ -148,6 +149,12 @@ silently changing source.
 | New Composition ignored Escape and did not restore focus | Keyboard users were trapped in a modal-like sheet | Modal keyboard handler, `aria-modal`, named close action, focus return; E2E |
 | Agent check said `READY` while showing many warnings | Users could misread warning-heavy state as clean | Explicit `READY WITH WARNINGS/NOTES`, severity styling, E2E |
 | Stale cache records produced repeated identical messages | Useful agent findings were pushed below the first ten rows | Per-composition stale-artifact grouping and diagnostic dedupe; unit test |
+| “Draft from latest” described implementation rather than user intent, and the active draft row could not restore editing | Generative iteration looked like an accidental fork and users could become stranded in preview state | “Add Take” / “Add Take from This,” a focusable draft action with explicit preview/re-entry states, and a Playwright workflow regression |
+| Generic CSS class names leaked across deeply nested HTML compositions | A child composition could restyle root HUDs and move the progress rail into the picture | Composition-root-scoped selectors, distinctive Playground class names, and exact-snapshot pixel/rail assertions |
+| Audio nested inside a visual scene caused the entire scene to be inferred as audio | The main effect disappeared from V1 and appeared on A1 | Independent visual/audio clips plus an E2E lane assertion |
+| The packaged wipe sampled the effect child’s clock rather than its owning clip | Scrubbing left the reveal fully hidden even in the middle of the clip | Closest-clip frame ownership and a nested-child unit regression |
+| Cloth rendered a canvas but exposed no timeline object | Users could see the simulation but could not select or inspect it | A stable `cloth-scene` clip, Guide target, and agent object-count assertion |
+| Acceptance audio and an embedded SVG texture escaped to missing HTTP resources | The UI claimed media was local while playback produced 404s; exact capture logged unrelated network noise | Checked-in generated audio fixtures, pure-CSS texture, HTTP/browser assertions, and a no-licensed-media portability rule |
 
 ## Sustainable test architecture
 
@@ -195,7 +202,8 @@ state and stable IDs; avoid pixel coordinates except in explicit direct-manipula
 For render/runtime changes, sample boundary, midpoint, effect-transition, and random frames twice;
 compare content hashes and preview/capture/export state. Add a short AV render with timestamps and
 audio, then a representative production range. Large licensed assets stay out of general CI; CI uses
-small checked-in fixtures with the same codecs/contracts.
+small checked-in/generated fixtures with the same codecs/contracts. Any media labeled local by an
+acceptance project must return a successful HTTP response in a clean checkout.
 
 ### 5. Exploratory release pass — milestone releases
 
