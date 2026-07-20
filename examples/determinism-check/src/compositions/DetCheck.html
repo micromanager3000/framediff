@@ -1,0 +1,21 @@
+<!doctype html><html><head><style>
+  [data-fd-composition]{position:relative;overflow:hidden;background:#091019;color:white;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px);background-size:30px 30px}
+  .dot{position:absolute;width:80px;height:80px;border-radius:50%;box-shadow:0 0 50px currentColor}
+  .label{position:absolute;left:18px;bottom:16px;font-size:18px;letter-spacing:.08em}
+</style></head><body>
+<main data-fd-composition data-fd-id="DetCheck" data-fd-width="640" data-fd-height="360" data-fd-fps="30" data-fd-duration="60" data-fd-source="src/compositions/DetCheck.html" data-fd-module="src/compositions/DetCheck.ts" data-fd-export="detCheckComposition">
+  <div class="grid"></div><div class="dot"></div><div class="label"></div>
+  <script>
+    const ease = (t) => t < .5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
+    onFrame(({frame,durationInFrames,width,height}) => {
+      const t = frame/(durationInFrames-1);
+      const x = 90+(width-180)*ease(t);
+      const y = height/2+Math.sin(frame/durationInFrames*Math.PI*4)*height/4;
+      const hue = Math.round(frame/durationInFrames*300);
+      const dot = query(".dot");
+      dot.style.left = `${x-40}px`; dot.style.top = `${y-40}px`; dot.style.background = `hsl(${hue} 75% 55%)`; dot.style.color = `hsl(${hue} 75% 55%)`;
+      query(".label").textContent = `frame ${String(Math.floor(frame)).padStart(3,"0")}`;
+    });
+  </script>
+</main></body></html>

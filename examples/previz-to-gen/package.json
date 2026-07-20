@@ -1,0 +1,30 @@
+{
+  "name": "@framediff/example-previz-to-gen",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Example FrameDiff pipeline — a three.js previz comp baked into a Seedance reference-to-video comp, cut together in a subtitled edit.",
+  "scripts": {
+    "prepare": "svelte-kit sync",
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "typecheck": "npm run check"
+  },
+  "dependencies": {
+    "@framediff/studio-model": "*",
+    "@framediff/studio-ui": "*",
+    "framediff": "*",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-static": "^3.0.0",
+    "@sveltejs/kit": "^2.16.0",
+    "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "svelte": "^5.0.0",
+    "svelte-check": "^4.0.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7"
+  }
+}

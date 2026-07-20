@@ -1,0 +1,287 @@
+<!doctype html>
+<html>
+<head>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; }
+    [data-fd-composition] {
+      --acid: #d9ff43;
+      --orange: #ff5b35;
+      --paper: #f4f0df;
+      --ink: #11120e;
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+      color: var(--paper);
+      background: #090a08;
+      font-family: Inter, "Helvetica Neue", Arial, sans-serif;
+    }
+    .atmosphere {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at calc(12% + var(--orbit-x, 0%)) 24%, rgba(217,255,67,.22), transparent 24%),
+        radial-gradient(circle at 83% 72%, rgba(255,91,53,.2), transparent 31%),
+        linear-gradient(122deg, #10130d 0%, #080907 53%, #15100d 100%);
+    }
+    .atmosphere::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      opacity: .2;
+      background-image:
+        linear-gradient(rgba(244,240,223,.15) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(244,240,223,.15) 1px, transparent 1px);
+      background-size: 64px 64px;
+      mask-image: linear-gradient(to bottom, black, transparent 74%);
+    }
+    .halo {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 500px;
+      height: 500px;
+      border: 1px solid rgba(217,255,67,.3);
+      border-radius: 50%;
+      transform: translate(-50%, -48%) scale(var(--halo-scale, .84));
+      box-shadow: 0 0 120px rgba(217,255,67,.08), inset 0 0 90px rgba(255,91,53,.05);
+    }
+    .halo::before, .halo::after {
+      content: "";
+      position: absolute;
+      border-radius: inherit;
+      border: 1px solid rgba(244,240,223,.11);
+    }
+    .halo::before { inset: 52px; }
+    .halo::after { inset: 112px; border-style: dashed; }
+    .floor-glow {
+      position: absolute;
+      left: 50%;
+      bottom: 41px;
+      width: 870px;
+      height: 80px;
+      transform: translateX(-50%);
+      border-radius: 50%;
+      background: rgba(0,0,0,.74);
+      filter: blur(22px);
+    }
+    .poster-source {
+      position: absolute;
+      left: 168px;
+      top: 80px;
+      width: 944px;
+      height: 560px;
+      overflow: hidden;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 84% 14%, rgba(255,255,255,.52), transparent 18%),
+        linear-gradient(132deg, var(--acid) 0 51%, var(--paper) 51% 71%, var(--orange) 71%);
+      box-shadow: 0 28px 70px rgba(0,0,0,.48);
+    }
+    .poster-source::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      opacity: .19;
+      background-image:
+        linear-gradient(rgba(17,18,14,.22) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(17,18,14,.22) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+    .poster-source::after {
+      content: "";
+      position: absolute;
+      left: 50.8%;
+      top: -120px;
+      width: 3px;
+      height: 820px;
+      transform: rotate(-13deg);
+      background: rgba(17,18,14,.72);
+      box-shadow: 13px 0 0 rgba(244,240,223,.55);
+    }
+    .poster-kicker {
+      position: absolute;
+      left: 35px;
+      top: 27px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font: 800 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    .poster-kicker::before { content: ""; width: 44px; height: 4px; background: currentColor; }
+    .poster-index {
+      position: absolute;
+      right: 32px;
+      top: 25px;
+      font: 700 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .12em;
+    }
+    .poster-title {
+      position: absolute;
+      left: 31px;
+      top: 103px;
+      z-index: 1;
+      font-size: 126px;
+      font-weight: 900;
+      line-height: .72;
+      letter-spacing: -.08em;
+      text-transform: uppercase;
+    }
+    .poster-title span { display: block; }
+    .poster-title span:nth-child(2) { margin-left: 115px; color: var(--paper); -webkit-text-stroke: 2px var(--ink); }
+    .phase-word {
+      position: absolute;
+      right: 26px;
+      bottom: 69px;
+      z-index: 2;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      font: 900 66px/.8 Arial, sans-serif;
+      letter-spacing: -.05em;
+      text-transform: uppercase;
+      color: var(--paper);
+      -webkit-text-stroke: 1.5px var(--ink);
+    }
+    .poster-copy {
+      position: absolute;
+      left: 39px;
+      bottom: 33px;
+      width: 420px;
+      font: 700 14px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .055em;
+      text-transform: uppercase;
+    }
+    .poster-copy b { display: block; margin-bottom: 8px; font-size: 11px; letter-spacing: .2em; }
+    .poster-meter {
+      position: absolute;
+      left: 515px;
+      bottom: 33px;
+      width: 285px;
+      height: 13px;
+      border: 2px solid var(--ink);
+      padding: 2px;
+    }
+    .poster-meter > i {
+      display: block;
+      width: calc(var(--progress, 0) * 100%);
+      height: 100%;
+      background: var(--ink);
+    }
+    .poster-dot {
+      position: absolute;
+      left: 566px;
+      top: 209px;
+      width: 105px;
+      height: 105px;
+      border: 3px solid var(--ink);
+      border-radius: 50%;
+      background: rgba(244,240,223,.28);
+    }
+    .poster-dot::before, .poster-dot::after { content: ""; position: absolute; background: var(--ink); }
+    .poster-dot::before { left: 50%; top: -18px; width: 2px; height: 137px; }
+    .poster-dot::after { top: 50%; left: -18px; height: 2px; width: 137px; }
+    .cloth-canvas { position: absolute; z-index: 3; inset: 0; width: 100%; height: 100%; }
+    .hud { position: absolute; z-index: 4; inset: 0; pointer-events: none; }
+    .hud-top {
+      position: absolute;
+      left: 30px;
+      right: 30px;
+      top: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: rgba(244,240,223,.72);
+    }
+    .hud-brand { color: var(--acid); }
+    .live { display: inline-flex; align-items: center; gap: 9px; }
+    .live::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--orange);
+      box-shadow: 0 0 16px var(--orange);
+      opacity: var(--pulse, .6);
+    }
+    .hud-bottom {
+      position: absolute;
+      left: 30px;
+      right: 30px;
+      bottom: 22px;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: end;
+      font: 700 10px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: rgba(244,240,223,.58);
+    }
+    .hud-bottom .center { color: var(--paper); text-align: center; font-size: 12px; }
+    .hud-bottom .right { text-align: right; }
+    .tick-rail { position: absolute; z-index: 4; left: 31px; top: 81px; bottom: 78px; width: 9px; }
+    .tick-rail i { position: absolute; left: 0; width: 7px; height: 1px; background: rgba(244,240,223,.34); }
+    .tick-rail i:nth-child(1) { top: 0; }.tick-rail i:nth-child(2) { top: 25%; }
+    .tick-rail i:nth-child(3) { top: 50%; }.tick-rail i:nth-child(4) { top: 75%; }
+    .tick-rail i:nth-child(5) { bottom: 0; }
+  </style>
+</head>
+<body>
+  <main data-fd-composition data-fd-id="KineticCloth" data-fd-width="1280" data-fd-height="720" data-fd-fps="30" data-fd-duration="240" data-fd-source="src/compositions/KineticCloth.html" data-fd-module="src/compositions/KineticCloth.ts" data-fd-export="kineticClothComposition">
+    <div class="atmosphere" data-fd-id="atmosphere"></div>
+    <div class="halo"></div>
+    <div class="floor-glow"></div>
+
+    <article class="poster-source" id="kinetic-poster" data-fd-id="poster-artwork">
+      <div class="poster-kicker">Material study / 001</div>
+      <div class="poster-index">FD—<span class="poster-frame">000</span></div>
+      <div class="poster-title"><span>Make</span><span>HTML</span><span>Move</span></div>
+      <div class="poster-dot"></div>
+      <div class="phase-word">Form</div>
+      <div class="poster-copy"><b>Frame-accurate kinetic matter</b>One document. One clock.<br>Infinite surface behavior.</div>
+      <div class="poster-meter"><i></i></div>
+    </article>
+
+    <canvas class="cloth-canvas" data-fd-id="cloth-surface" data-fd-cloth data-fd-cloth-source="#kinetic-poster" data-fd-cloth-refresh="frame" aria-label="HTML poster rendered as simulated cloth" data-fd-x="0" data-fd-y="0" data-fd-width="1280" data-fd-height="720"></canvas>
+
+    <div class="tick-rail"><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="hud" data-fd-id="interface-overlay">
+      <div class="hud-top"><span class="hud-brand">FrameDiff / Cloth</span><span class="live">Deterministic simulation</span><span>1280 × 720 / 30 fps</span></div>
+      <div class="hud-bottom">
+        <span>HTML → Canvas texture<br>Three.js surface</span>
+        <span class="center"><span class="hud-phase">01 / FORM</span><br><span class="hud-time">00:00:00</span></span>
+        <span class="right">Wind / impulses / collision<br>Exact capture enabled</span>
+      </div>
+    </div>
+
+    <script>
+      const phases = [
+        { until: 54, label: "01 / FORM", word: "Form" },
+        { until: 112, label: "02 / FORCE", word: "Force" },
+        { until: 178, label: "03 / FOLD", word: "Fold" },
+        { until: 240, label: "04 / FLOW", word: "Flow" },
+      ];
+      onFrame(({ frame, durationInFrames, fps }) => {
+        const wholeFrame = Math.max(0, Math.min(durationInFrames - 1, Math.round(frame)));
+        const progress = wholeFrame / (durationInFrames - 1);
+        const phase = phases.find((item) => wholeFrame < item.until) || phases[phases.length - 1];
+        const seconds = Math.floor(wholeFrame / fps);
+        const frames = wholeFrame % fps;
+        const root = query(".atmosphere").parentElement;
+        root.style.setProperty("--progress", progress.toFixed(5));
+        root.style.setProperty("--orbit-x", `${Math.sin(progress * Math.PI * 2) * 7}%`);
+        root.style.setProperty("--halo-scale", String(.84 + Math.sin(progress * Math.PI * 4) * .04));
+        root.style.setProperty("--pulse", String(.45 + Math.sin(frame * .22) * .35));
+        query(".poster-frame").textContent = String(wholeFrame).padStart(3, "0");
+        query(".phase-word").textContent = phase.word;
+        query(".hud-phase").textContent = phase.label;
+        query(".hud-time").textContent = `00:${String(seconds).padStart(2, "0")}:${String(frames).padStart(2, "0")}`;
+      });
+    </script>
+  </main>
+</body>
+</html>

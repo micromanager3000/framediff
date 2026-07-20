@@ -1,0 +1,28 @@
+<!doctype html><html><head><style>
+  [data-fd-composition]{position:relative;overflow:hidden;background:#070913;color:#f6f1ff;font-family:Inter,"SF Pro Display",sans-serif}
+  .grid{position:absolute;inset:0;background-image:linear-gradient(rgb(141 105 255/.08) 1px,transparent 1px),linear-gradient(90deg,rgb(141 105 255/.08) 1px,transparent 1px);background-size:48px 48px;mask-image:linear-gradient(to bottom,#000,transparent 92%)}
+  .orb{position:absolute;border-radius:999px;filter:blur(18px);opacity:.65}.orb.a{left:100px;top:70px;width:460px;height:460px;background:#5e37ff}.orb.b{right:100px;bottom:30px;width:520px;height:520px;background:#e3449e}
+  .eyebrow{position:absolute;left:118px;top:92px;color:#bca8ff;font:700 22px/1 ui-monospace,monospace;letter-spacing:.18em;text-transform:uppercase}
+  .title{position:absolute;left:110px;top:142px;width:1140px;font-size:92px;font-weight:850;line-height:.92;letter-spacing:-.055em}.title em{color:#dba8ff;font-style:normal}
+  .card{position:absolute;display:flex;flex-direction:column;justify-content:space-between;padding:34px;border:1px solid rgb(255 255 255/.18);border-radius:30px;background:linear-gradient(145deg,rgb(255 255 255/.14),rgb(255 255 255/.045));box-shadow:0 28px 90px rgb(0 0 0/.35);backdrop-filter:blur(18px)}
+  .card strong{font-size:38px;letter-spacing:-.035em}.card p{margin:0;color:#c8c3d4;font-size:22px;line-height:1.35}.card code{align-self:flex-start;padding:8px 12px;border-radius:999px;background:rgb(6 8 18/.62);color:#c6b6ff;font-size:18px}
+  .hint{position:absolute;left:118px;bottom:74px;color:#9d97aa;font:500 20px/1.4 ui-monospace,monospace}.hint b{color:#f1bb61}
+</style></head><body>
+<main data-fd-composition data-fd-id="DirectManipulationLab" data-fd-width="1920" data-fd-height="1080" data-fd-fps="30" data-fd-duration="180" data-fd-kind="edit" data-fd-library="true" data-fd-source="src/compositions/labs/DirectManipulationLab.html" data-fd-module="src/compositions/StaticCompositions.ts" data-fd-export="directManipulationLabComp">
+  <div class="grid"></div><div class="orb a"></div><div class="orb b"></div>
+  <section data-fd-clip data-fd-id="lab-scene" data-fd-name="Canvas playground" data-fd-from="0" data-fd-duration="180">
+    <div class="eyebrow" data-fd-id="lab-eyebrow" data-fd-text="FrameDiff · direct manipulation" data-fd-x="0" data-fd-y="0" data-fd-width="720" data-fd-height="28"></div>
+    <h1 class="title" data-fd-id="lab-title" data-fd-x="0" data-fd-y="0" data-fd-width="1140" data-fd-height="174"><span data-fd-id="lab-title-lead" data-fd-text="Edit source at the "></span><em data-fd-id="lab-title-accent" data-fd-text="speed of thought."></em></h1>
+    <article class="card" data-fd-id="move-card" data-fd-name="Move me" data-fd-x="161" data-fd-y="570" data-fd-width="470" data-fd-height="300" data-fd-rotation="-5">
+      <code data-fd-id="move-card-label" data-fd-text="MOVE"></code><strong data-fd-id="move-card-title" data-fd-text="Drag anywhere"></strong><p data-fd-id="move-card-copy" data-fd-text="Pointer motion is inverted through the scaled preview into exact composition pixels."></p>
+    </article>
+    <article class="card" data-fd-id="resize-card" data-fd-name="Resize me" data-fd-x="734" data-fd-y="429" data-fd-width="470" data-fd-height="300" data-fd-rotation="3">
+      <code data-fd-id="resize-card-label" data-fd-text="RESIZE"></code><strong data-fd-id="resize-card-title" data-fd-text="Pull a corner"></strong><p data-fd-id="resize-card-copy" data-fd-text="Shift preserves aspect. Alt bypasses sibling snapping. One gesture, one source edit."></p>
+    </article>
+    <article class="card" data-fd-id="materialize-card" data-fd-name="Materialize me" style="left:1280px;top:448px;width:470px;height:300px;transform:rotate(-2deg)" data-fd-x="80" data-fd-y="-268" data-fd-width="470" data-fd-height="300">
+      <code data-fd-id="materialize-card-label" data-fd-text="MATERIALIZE"></code><strong data-fd-id="materialize-card-title" data-fd-text="Make movable"></strong><p data-fd-id="materialize-card-copy" data-fd-text="Computed CSS stays readable until you explicitly create first-party data-fd geometry."></p>
+    </article>
+    <div class="hint" data-fd-id="lab-hint" data-fd-x="0" data-fd-y="0" data-fd-width="1200" data-fd-height="28"><b data-fd-id="lab-hint-label" data-fd-text="Try it:"></b> <span data-fd-id="lab-hint-copy" data-fd-text="click a stable element · arrows nudge · shift = axis/aspect · ⌘Z restores exact bytes"></span></div>
+  </section>
+  <script>onFrame(({frame})=>{const glow=query(".orb.b");glow.style.opacity=String(.45+.2*Math.sin(frame/24));})</script>
+</main></body></html>

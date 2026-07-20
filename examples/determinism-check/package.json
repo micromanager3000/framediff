@@ -1,0 +1,27 @@
+{
+  "name": "@framediff/example-determinism-check",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Proves the library renders deterministically: each frame is rasterized twice via FrameDiff and SHA-256'd; equal hashes ⇒ same-machine determinism.",
+  "scripts": {
+    "prepare": "svelte-kit sync",
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "typecheck": "npm run check"
+  },
+  "dependencies": {
+    "framediff": "*"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-static": "^3.0.0",
+    "@sveltejs/kit": "^2.16.0",
+    "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "svelte": "^5.0.0",
+    "svelte-check": "^4.0.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7"
+  }
+}

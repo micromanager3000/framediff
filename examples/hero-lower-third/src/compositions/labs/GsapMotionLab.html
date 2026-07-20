@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+  <style>
+    [data-fd-composition]{position:relative;overflow:hidden;background:radial-gradient(circle at 68% 30%,#26205b 0,#11102a 33%,#070812 72%);color:#f7f5ff;font-family:Inter,"SF Pro Display",system-ui,sans-serif}
+    .grid{position:absolute;inset:0;background-image:linear-gradient(rgba(151,137,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(151,137,255,.07) 1px,transparent 1px);background-size:64px 64px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.7),transparent 78%)}
+    .eyebrow{position:absolute;left:128px;top:124px;color:#a99eff;font:700 18px/1.2 ui-monospace,monospace;letter-spacing:.18em;text-transform:uppercase}
+    .title{position:absolute;left:120px;top:174px;width:1120px;font-size:112px;font-weight:760;line-height:.92;letter-spacing:-.055em;transform-origin:left center}
+    .title em{font-style:normal;color:#9f8cff;text-shadow:0 0 44px rgba(130,105,255,.4)}
+    .copy{position:absolute;left:128px;top:438px;width:650px;color:#b9b6cf;font-size:29px;line-height:1.45}
+    .cards{position:absolute;left:128px;right:128px;bottom:104px;display:flex;gap:22px}
+    .card{position:relative;flex:1;height:188px;padding:26px;border:1px solid rgba(167,151,255,.2);border-radius:22px;background:linear-gradient(135deg,rgba(139,116,255,.14),rgba(25,23,55,.52));box-shadow:inset 0 1px rgba(255,255,255,.07),0 22px 54px rgba(0,0,0,.24);backdrop-filter:blur(18px)}
+    .card b{display:block;margin-bottom:54px;color:#9e90fa;font:700 14px/1 ui-monospace,monospace;letter-spacing:.16em}.card span{font-size:28px;font-weight:650}
+    .orb{position:absolute;right:132px;top:115px;width:420px;height:420px;border-radius:50%;background:conic-gradient(from 30deg,#8271ff,#55c8ee,#b86aff,#8271ff);box-shadow:0 0 100px rgba(117,98,255,.32);filter:saturate(1.2)}
+    .orb:after{content:"";position:absolute;inset:44px;border-radius:50%;background:#0c0b20;box-shadow:inset 0 0 80px rgba(130,105,255,.38)}
+    .orb-core{position:absolute;right:264px;top:246px;width:156px;height:156px;border:1px solid rgba(255,255,255,.2);border-radius:38px;display:grid;place-items:center;color:#d9d4ff;font-size:62px;font-weight:300;z-index:2;box-shadow:inset 0 0 50px rgba(140,118,255,.18)}
+    .badge{position:absolute;right:160px;top:555px;padding:13px 18px;border-radius:999px;background:#8f7cff;color:#0a0917;font:800 14px/1 ui-monospace,monospace;letter-spacing:.08em}
+    .product{position:absolute;left:0;top:0;width:112px;height:112px;border:1px solid rgba(112,205,242,.55);border-radius:28px;display:grid;place-items:center;background:linear-gradient(145deg,rgba(76,190,236,.3),rgba(115,82,222,.4));box-shadow:0 20px 60px rgba(58,152,215,.25);color:#e6f8ff;font-size:34px;font-weight:700}
+    .trace-dot{position:absolute;top:84px;width:10px;height:10px;border-radius:50%;background:#f18abd;box-shadow:0 0 16px #ef70ad}.trace-dot:nth-of-type(1){left:1440px}.trace-dot:nth-of-type(2){left:1470px}.trace-dot:nth-of-type(3){left:1500px}
+  </style>
+</head>
+<body>
+  <main data-fd-composition data-fd-id="GsapMotionLab" data-fd-width="1920" data-fd-height="1080" data-fd-fps="30" data-fd-duration="180" data-fd-kind="edit" data-fd-library="true" data-fd-source="src/compositions/labs/GsapMotionLab.html" data-fd-module="src/compositions/labs/GsapMotionLab.ts" data-fd-export="gsapMotionLabComp">
+    <div class="grid"></div>
+    <div class="orb" data-fd-id="motion-orb" data-fd-name="Motion orb"></div>
+    <div class="orb-core" data-fd-id="orb-core" data-fd-name="Static orb core" data-fd-rotation="0" data-fd-text="◆"></div>
+    <div class="eyebrow" data-fd-id="eyebrow" data-fd-text="Frame-native GSAP adapter"></div>
+    <div class="title" data-fd-id="motion-title" data-fd-x="0" data-fd-y="0"><span data-fd-id="motion-title-lead" data-fd-text="Seek any frame."></span><br><em data-fd-id="motion-title-accent" data-fd-text="Land exactly."></em></div>
+    <div class="copy" data-fd-id="motion-copy" data-fd-text="A familiar tween authoring surface, driven by FrameDiff’s exact random-access clock."></div>
+    <div class="cards">
+      <div class="card" data-fd-id="card-preview"><b data-fd-id="card-preview-label" data-fd-text="01 · PREVIEW"></b><span data-fd-id="card-preview-copy" data-fd-text="Scrub freely"></span></div>
+      <div class="card" data-fd-id="card-export"><b data-fd-id="card-export-label" data-fd-text="02 · EXPORT"></b><span data-fd-id="card-export-copy" data-fd-text="Same absolute seek"></span></div>
+      <div class="card" data-fd-id="card-source"><b data-fd-id="card-source-label" data-fd-text="03 · SOURCE"></b><span data-fd-id="card-source-copy" data-fd-text="Frames stay authored"></span></div>
+    </div>
+    <div class="badge" data-fd-id="motion-badge" data-fd-text="PAUSED · FRAME DRIVEN"></div>
+    <div class="product" data-fd-id="path-product" data-fd-name="Path product" data-fd-x="1030" data-fd-y="620" data-fd-text="FD"></div>
+    <i class="trace-dot" data-fd-id="trace-a"></i><i class="trace-dot" data-fd-id="trace-b"></i><i class="trace-dot" data-fd-id="trace-c"></i>
+  </main>
+</body>
+</html>

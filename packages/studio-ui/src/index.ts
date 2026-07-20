@@ -1,0 +1,13 @@
+export { default as StudioShell } from "./StudioShell.svelte";
+export { StudioShellViewModel, type StudioShellSnapshot } from "./viewmodels/StudioShell.ViewModel";
+export { CompositionRailViewModel, type CompositionRailSnapshot } from "./viewmodels/CompositionRail.ViewModel";
+export { TimelineViewModel, type TimelineSnapshot } from "./viewmodels/Timeline.ViewModel";
+export { InspectorViewModel, type InspectorSnapshot } from "./viewmodels/Inspector.ViewModel";
+export { StudioChromeViewModel, type StudioChromeSnapshot } from "./viewmodels/StudioChrome.ViewModel";
+export { MediaViewModel } from "./viewmodels/Media.ViewModel";
+export { CodeViewModel } from "./viewmodels/Code.ViewModel";
+export { GitViewModel } from "./viewmodels/Git.ViewModel";
+export { RenderViewModel } from "./viewmodels/Render.ViewModel";
+export { GenerativeViewModel, type GenerativeViewSnapshot } from "./viewmodels/Generative.ViewModel";
+export { OperationsViewModel } from "./viewmodels/Operations.ViewModel";
+export { browserAnimationClock } from "./viewmodels/browserClock";

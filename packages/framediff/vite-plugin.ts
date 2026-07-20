@@ -1,0 +1,1075 @@
+// Studio dev bridge: a vite plugin exposing the endpoints documented in
+// src/studio/types.ts ("Dev bridge" block). Dev only — everything is rooted at
+// the vite app root and there is no auth; never mount this in production.
+//
+// Vite is deliberately not imported (it is not a dependency of this package):
+// the plugin is a plain object structurally compatible with vite's Plugin.
+
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import crypto from "node:crypto";
+import { execFile, execFileSync } from "node:child_process";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import type { GenInputProvenance, GenRecipeSnapshot, GenRefKind } from "./src/generative";
+
+type NextFn = (err?: unknown) => void;
+type DevServer = {
+  config: { root: string };
+  middlewares: { use(fn: (req: IncomingMessage, res: ServerResponse, next: NextFn) => void): void };
+  watcher?: { unwatch(path: string): unknown };
+};
+export interface FrameDiffDevPlugin {
+  name: string;
+  config(): { server: { fs: { allow: string[] } } };
+  configureServer(server: DevServer): void;
+}
+
+export interface FrameDiffDevOptions {
+  /**
+   * Folder used for imported media, baked artifacts, and generation results.
+   * Relative paths are resolved from Vite's project root. `~` and absolute paths
+   * are also supported. Defaults to the visible `framediff-cache` folder, or the
+   * `FRAMEDIFF_CACHE_DIR` environment variable when it is set.
+   */
+  cacheDir?: string;
+  /**
+   * Equivalent project directory whose ignored cache/public media may be used as a read-only
+   * fallback. Linked Git worktrees discover the primary checkout automatically.
+   */
+  sharedProjectDir?: string;
+}
+
+/** This package's root on disk. Module workers (render/encodeWorker.ts) resolve
+ *  relative to the package source, which SvelteKit's fs allow-list does not cover
+ *  by default; without allowing it the worker request 403s and export never starts. */
+const PLUGIN_DIR = path.dirname(fileURLToPath(import.meta.url));
+
+/** Extensions the src endpoint may read/write. */
+const SRC_EXTS = new Set([".html", ".js", ".mjs", ".ts", ".tsx", ".md", ".css", ".json"]);
+
+/** Media the asset-ingest endpoints accept, with their mime types. */
+const MEDIA_MIME: Record<string, string> = {
+  ".mp4": "video/mp4", ".mov": "video/quicktime", ".webm": "video/webm",
+  ".m4a": "audio/mp4", ".aac": "audio/aac", ".wav": "audio/wav", ".mp3": "audio/mpeg",
+  ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif",
+  ".cube": "text/plain", ".gltf": "model/gltf+json", ".glb": "model/gltf-binary",
+};
+
+// Same sanitization as the original inline example plugin — keep byte-compatible.
+const safe = (s: string) => decodeURIComponent(s).replace(/[^a-zA-Z0-9:_.-]/g, "_");
+
+const HASH_KEY = /^([a-z][a-z0-9_-]*):([a-zA-Z0-9]{16,})$/;
+const READABLE_HASH_SUFFIX = /--([a-z][a-z0-9_-]*)-([a-zA-Z0-9]{16,})(?:\.[a-zA-Z0-9]{1,12})?$/;
+
+function extensionForMime(mime?: string): string {
+  if (!mime) return "";
+  return Object.entries(MEDIA_MIME).find(([, value]) => value === mime)?.[0] ?? "";
+}
+
+/** A readable physical filename whose full hash still makes it a unique CAS object. */
+function readableCacheName(name: string, hash: string, mime?: string): string {
+  const hashMatch = HASH_KEY.exec(hash);
+  if (!hashMatch) return safe(hash);
+  const original = path.basename(name).normalize("NFKC");
+  const originalExt = path.extname(original);
+  const ext = /^\.[a-zA-Z0-9]{1,12}$/.test(originalExt) ? originalExt.toLowerCase() : extensionForMime(mime);
+  const rawStem = originalExt ? original.slice(0, -originalExt.length) : original;
+  const stem = rawStem
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[. -]+|[. -]+$/g, "")
+    .slice(0, 96) || "artifact";
+  return `${stem}--${hashMatch[1]}-${hashMatch[2]}${ext}`;
+}
+
+/** Recover the logical CAS key from either a legacy hash-only or readable filename. */
+function hashFromCacheName(name: string): string | null {
+  const withoutMeta = name.endsWith(".meta.json") ? name.slice(0, -".meta.json".length) : name;
+  if (HASH_KEY.test(withoutMeta)) return withoutMeta;
+  const match = READABLE_HASH_SUFFIX.exec(withoutMeta);
+  return match ? `${match[1]}:${match[2]}` : null;
+}
+
+const DEFAULT_CACHE_DIR = "framediff-cache";
+
+function configuredCacheDir(option?: string): string {
+  const fromOption = option?.trim();
+  if (fromOption) return fromOption;
+  const fromEnvironment = process.env.FRAMEDIFF_CACHE_DIR?.trim();
+  if (fromEnvironment) return fromEnvironment;
+  return DEFAULT_CACHE_DIR;
+}
+
+function resolveLocalPath(root: string, value: string): string {
+  const expanded = value === "~"
+    ? os.homedir()
+    : value.startsWith("~/") || value.startsWith("~\\")
+      ? path.join(os.homedir(), value.slice(2))
+      : value;
+  return path.isAbsolute(expanded) ? path.normalize(expanded) : path.resolve(root, expanded);
+}
+
+/** Map a Vite project inside a linked worktree to the same project in the primary checkout. */
+function linkedPrimaryProject(root: string): string | null {
+  try {
+    const worktreeRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    const commonDirRaw = execFileSync("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    const commonDir = path.isAbsolute(commonDirRaw) ? commonDirRaw : path.resolve(worktreeRoot, commonDirRaw);
+    const primaryRoot = path.dirname(commonDir);
+    if (path.resolve(primaryRoot) === path.resolve(worktreeRoot)) return null;
+    const projectRelative = path.relative(worktreeRoot, root);
+    if (projectRelative === ".." || projectRelative.startsWith(`..${path.sep}`) || path.isAbsolute(projectRelative)) return null;
+    const candidate = path.resolve(primaryRoot, projectRelative);
+    return fs.existsSync(candidate) ? candidate : null;
+  } catch {
+    return null;
+  }
+}
+
+function safeChild(root: string, pathname: string): string | null {
+  let relative: string;
+  try {
+    relative = decodeURIComponent(pathname).replace(/^[/\\]+/, "");
+  } catch {
+    return null;
+  }
+  const candidate = path.resolve(root, relative);
+  return candidate === root || candidate.startsWith(`${root}${path.sep}`) ? candidate : null;
+}
+
+const json = (res: ServerResponse, status: number, body: unknown) => {
+  res.statusCode = status;
+  res.setHeader("content-type", "application/json");
+  res.end(JSON.stringify(body));
+};
+
+function sendFile(req: IncomingMessage, res: ServerResponse, file: string) {
+  const st = fs.statSync(file);
+  if (!st.isFile()) {
+    res.statusCode = 404;
+    return res.end();
+  }
+
+  const total = st.size;
+  const range = req.headers.range;
+  res.setHeader("accept-ranges", "bytes");
+  res.setHeader("cache-control", "no-store");
+  res.setHeader("content-type", MEDIA_MIME[path.extname(file).toLowerCase()] ?? "application/octet-stream");
+
+  let start = 0;
+  let end = Math.max(0, total - 1);
+  let partial = false;
+
+  if (range) {
+    const m = /^bytes=(\d*)-(\d*)$/.exec(range);
+    if (!m) {
+      res.statusCode = 416;
+      res.setHeader("content-range", `bytes */${total}`);
+      return res.end();
+    }
+    if (m[1]) {
+      start = Number(m[1]);
+      end = m[2] ? Number(m[2]) : total - 1;
+    } else if (m[2]) {
+      const suffix = Number(m[2]);
+      start = Math.max(0, total - suffix);
+      end = total - 1;
+    }
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start || start >= total) {
+      res.statusCode = 416;
+      res.setHeader("content-range", `bytes */${total}`);
+      return res.end();
+    }
+    end = Math.min(end, total - 1);
+    partial = true;
+  }
+
+  const length = total === 0 ? 0 : end - start + 1;
+  res.statusCode = partial ? 206 : 200;
+  res.setHeader("content-length", String(length));
+  if (partial) res.setHeader("content-range", `bytes ${start}-${end}/${total}`);
+  if (req.method === "HEAD" || total === 0) return res.end();
+  fs.createReadStream(file, { start, end }).pipe(res);
+}
+
+const readBody = (req: IncomingMessage) =>
+  new Promise<Buffer>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => chunks.push(c));
+    req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("error", reject);
+  });
+
+const git = (root: string, args: string[]) =>
+  new Promise<string>((resolve, reject) => {
+    execFile("git", args, { cwd: root }, (err, stdout, stderr) =>
+      err ? reject(new Error(stderr.trim() || err.message)) : resolve(stdout),
+    );
+  });
+
+const revealFileOnDisk = (file: string) =>
+  new Promise<void>((resolve, reject) => {
+    const command = process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open";
+    const args = process.platform === "darwin"
+      ? ["-R", file]
+      : process.platform === "win32"
+        ? ["/select,", file]
+        : [path.dirname(file)];
+    execFile(command, args, (err) => err ? reject(err) : resolve());
+  });
+
+/** Resolve REL against root; null unless it stays inside root, avoids
+ *  node_modules, and has an allowlisted extension. */
+function resolveSrc(root: string, rel: string | null): string | null {
+  if (!rel) return null;
+  const abs = path.resolve(root, rel);
+  if (!abs.startsWith(root + path.sep)) return null;
+  if (abs.split(path.sep).includes("node_modules")) return null;
+  if (!SRC_EXTS.has(path.extname(abs))) return null;
+  return abs;
+}
+
+function sourceHash(text: string): string {
+  return `sha256:${crypto.createHash("sha256").update(text).digest("hex")}`;
+}
+
+type SourceEditFileRequest = { file: string; expectedHash: string | null; text: string | null };
+type SourceRevision = { file: string; text: string | null; hash: string | null };
+
+function sourceRevision(file: string, abs: string): SourceRevision {
+  if (!fs.existsSync(abs)) return { file, text: null, hash: null };
+  const text = fs.readFileSync(abs, "utf8");
+  return { file, text, hash: sourceHash(text) };
+}
+
+/** Commit all source files or restore all originals. Temp/backup files stay beside each target so
+ * every rename is atomic on the target filesystem. */
+function writeSourceTransaction(
+  entries: { request: SourceEditFileRequest; abs: string; before: SourceRevision }[],
+  transactionId: string,
+): void {
+  const prepared: { abs: string; temp: string | null; backup: string | null }[] = [];
+  try {
+    for (const { request, abs, before } of entries) {
+      fs.mkdirSync(path.dirname(abs), { recursive: true });
+      const temp = request.text == null ? null : `${abs}.framediff-${transactionId}.tmp`;
+      const backup = before.text == null ? null : `${abs}.framediff-${transactionId}.bak`;
+      if (temp && request.text != null) fs.writeFileSync(temp, request.text, "utf8");
+      prepared.push({ abs, temp, backup });
+    }
+    for (const entry of prepared) if (entry.backup) fs.renameSync(entry.abs, entry.backup);
+    for (const entry of prepared) if (entry.temp) fs.renameSync(entry.temp, entry.abs);
+    for (const entry of prepared) {
+      try { if (entry.backup && fs.existsSync(entry.backup)) fs.unlinkSync(entry.backup); } catch { /* committed; stale backup is safe */ }
+    }
+  } catch (error) {
+    for (const entry of [...prepared].reverse()) {
+      try {
+        if (fs.existsSync(entry.abs)) fs.unlinkSync(entry.abs);
+        if (entry.backup && fs.existsSync(entry.backup)) fs.renameSync(entry.backup, entry.abs);
+        if (entry.temp && fs.existsSync(entry.temp)) fs.unlinkSync(entry.temp);
+      } catch {
+        // Preserve the original transaction error. A later source conflict will expose any
+        // exceptional filesystem-level rollback failure instead of silently overwriting it.
+      }
+    }
+    throw error;
+  } finally {
+    for (const entry of prepared) {
+      try { if (entry.temp && fs.existsSync(entry.temp)) fs.unlinkSync(entry.temp); } catch { /* best effort */ }
+      try { if (entry.backup && fs.existsSync(entry.backup)) fs.unlinkSync(entry.backup); } catch { /* best effort */ }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Generative comps: provider secrets + the fal proxy (/__framediff/secrets, /__framediff/gen/*)
+// ---------------------------------------------------------------------------
+//
+// Keys never reach the browser: PUT stores them in .framediff/secrets.json (a gitignored dir,
+// resolved at the nearest git root so every example shares one file), GET returns only
+// {set, last4, source}. Generation calls run server-side against queue.fal.run; finished
+// takes are downloaded into the CAS and recorded in framediff.assets.json with a `generator`
+// provenance block. Jobs persist in <root>/.framediff/gen-jobs.json so a reload can't lose
+// an in-flight (paid) request.
+
+const KNOWN_PROVIDERS = ["fal", "byteplus", "replicate", "elevenlabs"] as const;
+const PROVIDER_ENV: Record<string, string> = {
+  fal: "FAL_KEY", byteplus: "ARK_API_KEY", replicate: "REPLICATE_API_TOKEN", elevenlabs: "ELEVENLABS_API_KEY",
+};
+
+/** Nearest .framediff/secrets.json walking up from root; settle at the git top-level. */
+function secretsFile(root: string): string {
+  let dir = root;
+  for (let i = 0; i < 8; i++) {
+    const p = path.join(dir, ".framediff", "secrets.json");
+    if (fs.existsSync(p)) return p;
+    if (fs.existsSync(path.join(dir, ".git"))) return p;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return path.join(root, ".framediff", "secrets.json");
+}
+
+type SecretsFile = Record<string, { key?: string }>;
+function readSecretsRaw(root: string): SecretsFile {
+  try {
+    return JSON.parse(fs.readFileSync(secretsFile(root), "utf8")) as SecretsFile;
+  } catch {
+    return {};
+  }
+}
+/** Key for a provider: secrets file first, then the conventional env var. */
+function providerKey(root: string, provider: string): { key: string; source: "file" | "env" } | null {
+  const fromFile = readSecretsRaw(root)[provider]?.key;
+  if (fromFile) return { key: fromFile, source: "file" };
+  const env = process.env[PROVIDER_ENV[provider] ?? ""];
+  if (env) return { key: env, source: "env" };
+  return null;
+}
+
+interface GenJobRecord {
+  id: string; // provider request id
+  gen: string;
+  endpoint: string;
+  recipeHash: string;
+  statusUrl: string;
+  responseUrl: string;
+  status: "queued" | "running" | "done" | "failed";
+  error?: string;
+  take?: number;
+  assetId?: string;
+  seed?: number;
+  at: string;
+  doneAt?: string;
+  recipe: GenRecipeSnapshot;
+  inputs: GenInputProvenance[];
+}
+function jobsFile(root: string): string {
+  return path.join(root, ".framediff", "gen-jobs.json");
+}
+function readJobs(root: string): GenJobRecord[] {
+  try {
+    const j = JSON.parse(fs.readFileSync(jobsFile(root), "utf8")) as { jobs: GenJobRecord[] };
+    return Array.isArray(j.jobs) ? j.jobs : [];
+  } catch {
+    return [];
+  }
+}
+function writeJobs(root: string, jobs: GenJobRecord[]) {
+  fs.mkdirSync(path.dirname(jobsFile(root)), { recursive: true });
+  fs.writeFileSync(jobsFile(root), JSON.stringify({ version: 1, jobs }, null, 2) + "\n");
+}
+
+/** Upload bytes to fal storage; returns a URL the model can read. */
+async function falUpload(key: string, buf: Buffer, mime: string, name: string): Promise<string> {
+  const init = await fetch("https://rest.fal.ai/storage/upload/initiate?storage_type=fal-cdn-v3", {
+    method: "POST",
+    headers: { authorization: `Key ${key}`, "content-type": "application/json" },
+    body: JSON.stringify({ file_name: name, content_type: mime }),
+  });
+  if (!init.ok) throw new Error(`storage initiate ${init.status}: ${(await init.text()).slice(0, 200)}`);
+  const j = (await init.json()) as { upload_url?: string; file_url?: string; access_url?: string };
+  if (!j.upload_url) throw new Error("storage initiate: no upload_url");
+  const put = await fetch(j.upload_url, { method: "PUT", headers: { "content-type": mime }, body: new Uint8Array(buf) });
+  if (!put.ok) throw new Error(`storage upload ${put.status}`);
+  const url = j.file_url ?? j.access_url;
+  if (!url) throw new Error("storage initiate: no file_url");
+  return url;
+}
+
+const DATA_URI_MAX = 8 * 1024 * 1024; // fallback when storage upload fails; ~10.7MB base64
+
+/** Jobs mid-finalization — two overlapping /gen/jobs polls must not ingest a take twice. */
+const finalizing = new Set<string>();
+
+/** `git status --porcelain` lines → paths (strip status columns, rename arrows, quotes). */
+function parsePorcelain(out: string): string[] {
+  return out
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => {
+      let p = line.slice(3);
+      const arrow = p.indexOf(" -> ");
+      if (arrow !== -1) p = p.slice(arrow + 4);
+      return p.startsWith('"') && p.endsWith('"') ? p.slice(1, -1) : p;
+    });
+}
+
+export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlugin {
+  return {
+    name: "framediff-dev",
+    config() {
+      return { server: { fs: { allow: [PLUGIN_DIR] } } };
+    },
+    configureServer(server) {
+      const root = server.config.root;
+      const cacheDir = resolveLocalPath(root, configuredCacheDir(options.cacheDir));
+      const hasExplicitCache = !!(options.cacheDir?.trim() || process.env.FRAMEDIFF_CACHE_DIR?.trim());
+      const sharedProjectDir = options.sharedProjectDir
+        ? resolveLocalPath(root, options.sharedProjectDir)
+        : !hasExplicitCache ? linkedPrimaryProject(root) : null;
+      const sharedCacheDir = sharedProjectDir ? path.join(sharedProjectDir, DEFAULT_CACHE_DIR) : null;
+      const cacheReadDirs = [cacheDir, sharedCacheDir]
+        .filter((dir): dir is string => !!dir)
+        .filter((dir, index, all) => all.indexOf(dir) === index);
+      const outDir = path.join(root, "out");
+
+      // Cache writes must not trigger Vite reloads, especially now that the default
+      // directory is visible and therefore no longer ignored as a dot-folder.
+      fs.mkdirSync(cacheDir, { recursive: true });
+      void server.watcher?.unwatch(cacheDir);
+      if (sharedCacheDir) void server.watcher?.unwatch(sharedCacheDir);
+
+      // The HTTP/CAS identity remains the content hash. The folder uses readable filenames,
+      // and this index spans both the writable worktree cache and its read-only primary fallback.
+      const cacheFilesByHash = new Map<string, string>();
+      const indexCacheFiles = () => {
+        cacheFilesByHash.clear();
+        for (const dir of cacheReadDirs) {
+          if (!fs.existsSync(dir)) continue;
+          for (const name of fs.readdirSync(dir)) {
+            if (name.endsWith(".meta.json")) continue;
+            const hash = hashFromCacheName(name);
+            if (hash && !cacheFilesByHash.has(hash)) cacheFilesByHash.set(hash, path.join(dir, name));
+          }
+        }
+      };
+      indexCacheFiles();
+      const cachedFile = (name: string): string => {
+        if (name.endsWith(".meta.json")) {
+          const base = name.slice(0, -".meta.json".length);
+          const dataFile = cachedFile(base);
+          return `${dataFile}.meta.json`;
+        }
+        for (const dir of cacheReadDirs) {
+          const exact = path.join(dir, name);
+          if (fs.existsSync(exact)) return exact;
+        }
+        const hash = hashFromCacheName(name);
+        let indexed = hash ? cacheFilesByHash.get(hash) : undefined;
+        if (indexed && fs.existsSync(indexed)) return indexed;
+        if (hash) {
+          indexCacheFiles();
+          indexed = cacheFilesByHash.get(hash);
+          if (indexed && fs.existsSync(indexed)) return indexed;
+        }
+        return path.join(cacheDir, name);
+      };
+      const localCachedFile = (name: string): string => {
+        const exact = path.join(cacheDir, name);
+        if (fs.existsSync(exact)) return exact;
+        const hash = hashFromCacheName(name);
+        if (hash && fs.existsSync(cacheDir)) {
+          const match = fs.readdirSync(cacheDir).find((entry) => hashFromCacheName(entry) === hash && !entry.endsWith(".meta.json"));
+          if (match) return path.join(cacheDir, match);
+        }
+        return exact;
+      };
+      const cacheFileForWrite = (key: string, label?: string, mime?: string): string => {
+        if (key.endsWith(".meta.json")) return `${localCachedFile(key.slice(0, -".meta.json".length))}.meta.json`;
+        const hash = hashFromCacheName(key);
+        if (!hash) return path.join(cacheDir, key);
+        const existing = localCachedFile(hash);
+        if (fs.existsSync(existing)) return existing;
+        return path.join(cacheDir, readableCacheName(label ?? "artifact", hash, mime));
+      };
+
+      const handle = async (req: IncomingMessage, res: ServerResponse, next: NextFn) => {
+        const u = req.url || "";
+        const url = new URL(u, "http://localhost");
+
+        // Vite only serves the linked worktree's public directory. Its ignored media lives in the
+        // primary checkout, so fall back there for media files that are absent locally.
+        if (sharedProjectDir && (req.method === "GET" || req.method === "HEAD") && !url.pathname.startsWith("/__")) {
+          const current = safeChild(path.join(root, "public"), url.pathname);
+          const shared = safeChild(path.join(sharedProjectDir, "public"), url.pathname);
+          if (current && shared && !fs.existsSync(current) && MEDIA_MIME[path.extname(shared).toLowerCase()] && fs.existsSync(shared)) {
+            return sendFile(req, res, shared);
+          }
+        }
+
+        // --- source read/write -------------------------------------------
+        if (url.pathname === "/__framediff/src") {
+          const rel = url.searchParams.get("file");
+          const abs = resolveSrc(root, rel);
+          if (!abs) return json(res, 403, { error: "bad path" });
+          if (req.method === "GET") {
+            if (!fs.existsSync(abs)) return json(res, 404, { error: "not found" });
+            const text = fs.readFileSync(abs, "utf8");
+            return json(res, 200, { file: rel, text, hash: sourceHash(text) });
+          }
+          if (req.method === "PUT") {
+            const body = await readBody(req);
+            fs.writeFileSync(abs, body.toString("utf8")); // vite's watcher fires HMR
+            return json(res, 200, { ok: true });
+          }
+          if (req.method === "DELETE") {
+            if (!fs.existsSync(abs)) return json(res, 404, { error: "not found" });
+            fs.unlinkSync(abs);
+            return json(res, 200, { ok: true });
+          }
+        }
+
+        if (url.pathname === "/__framediff/edit" && req.method === "POST") {
+          let payload: { label?: unknown; groupId?: unknown; files?: unknown };
+          try {
+            payload = JSON.parse((await readBody(req)).toString("utf8")) as typeof payload;
+          } catch {
+            return json(res, 400, { ok: false, error: "Invalid JSON source transaction." });
+          }
+          if (typeof payload.label !== "string" || !payload.label.trim() || payload.label.length > 240) {
+            return json(res, 400, { ok: false, error: "A short transaction label is required." });
+          }
+          if (payload.groupId != null && (typeof payload.groupId !== "string" || payload.groupId.length > 240)) {
+            return json(res, 400, { ok: false, error: "Invalid transaction group id." });
+          }
+          if (!Array.isArray(payload.files) || payload.files.length === 0 || payload.files.length > 64) {
+            return json(res, 400, { ok: false, error: "A source transaction needs between 1 and 64 files." });
+          }
+
+          const seen = new Set<string>();
+          const entries: { request: SourceEditFileRequest; abs: string; before: SourceRevision }[] = [];
+          for (const candidate of payload.files) {
+            if (!candidate || typeof candidate !== "object") return json(res, 400, { ok: false, error: "Invalid source transaction file." });
+            const request = candidate as Partial<SourceEditFileRequest>;
+            const ownsExpected = Object.prototype.hasOwnProperty.call(request, "expectedHash");
+            if (
+              typeof request.file !== "string"
+              || !ownsExpected
+              || (request.expectedHash !== null && typeof request.expectedHash !== "string")
+              || (request.text !== null && typeof request.text !== "string")
+            ) return json(res, 400, { ok: false, error: "Each source file needs file, expectedHash, and text." });
+            const abs = resolveSrc(root, request.file);
+            if (!abs) return json(res, 403, { ok: false, error: `Refused source path: ${request.file}` });
+            if (seen.has(abs)) return json(res, 400, { ok: false, error: `Duplicate source path: ${request.file}` });
+            seen.add(abs);
+            const typed = request as SourceEditFileRequest;
+            entries.push({ request: typed, abs, before: sourceRevision(typed.file, abs) });
+          }
+
+          const conflicts = entries.flatMap(({ request, before }) => request.expectedHash === before.hash
+            ? []
+            : [{ file: request.file, expectedHash: request.expectedHash, actualHash: before.hash }]);
+          if (conflicts.length) {
+            return json(res, 409, { ok: false, error: "Source changed since it was inspected.", conflicts });
+          }
+
+          const id = crypto.randomUUID();
+          try {
+            writeSourceTransaction(entries, id);
+          } catch (error) {
+            return json(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
+          }
+          const after = entries.map(({ request, abs }) => sourceRevision(request.file, abs));
+          return json(res, 200, {
+            ok: true,
+            receipt: {
+              id,
+              label: payload.label.trim(),
+              ...(typeof payload.groupId === "string" && payload.groupId ? { groupId: payload.groupId } : {}),
+              before: entries.map((entry) => entry.before),
+              after,
+            },
+          });
+        }
+
+        // --- cache listing (with .meta.json sidecars folded in) -----------
+        if (url.pathname === "/__framediff/cache" && req.method === "GET") {
+          const entries: { name: string; filename: string; contentHash?: string; size: number; mtimeMs: number; meta?: unknown }[] = [];
+          const names = new Set<string>();
+          for (const dir of cacheReadDirs) {
+            if (!dir || !fs.existsSync(dir)) continue;
+            for (const filename of fs.readdirSync(dir)) {
+              if (filename.endsWith(".meta.json")) continue;
+              const file = path.join(dir, filename);
+              const st = fs.statSync(file);
+              if (!st.isFile()) continue;
+              const contentHash = hashFromCacheName(filename) ?? undefined;
+              const name = contentHash ?? filename;
+              if (names.has(name)) continue;
+              names.add(name);
+              const entry: (typeof entries)[number] = {
+                name,
+                filename,
+                ...(contentHash ? { contentHash } : {}),
+                size: st.size,
+                mtimeMs: st.mtimeMs,
+              };
+              const sidecar = `${file}.meta.json`;
+              if (fs.existsSync(sidecar)) {
+                try {
+                  entry.meta = JSON.parse(fs.readFileSync(sidecar, "utf8"));
+                } catch {
+                  /* corrupt sidecar — list the entry without meta */
+                }
+              }
+              entries.push(entry);
+            }
+          }
+          return json(res, 200, { entries, directory: cacheDir });
+        }
+
+        if (url.pathname === "/__framediff/cache/reveal" && req.method === "POST") {
+          const hash = url.searchParams.get("hash");
+          if (!hash || !HASH_KEY.test(hash)) return json(res, 400, { error: "valid content hash required" });
+          const file = cachedFile(hash);
+          if (!fs.existsSync(file)) return json(res, 404, { error: "cache entry not found" });
+          try {
+            await revealFileOnDisk(file);
+            return json(res, 200, { ok: true });
+          } catch (e) {
+            return json(res, 500, { error: String((e as Error).message) });
+          }
+        }
+
+        // --- asset manifest + ingest -----------------------------------------
+        // framediff.assets.json (uuid → { name, contentHash, mime, bytes, sources[] });
+        // Bytes live in the configured local cache by content hash and are served by the
+        // stable CAS route below (the browser URL does not expose the disk folder name).
+        const manifestPath = path.join(root, "framediff.assets.json");
+        const readManifest = (): { version: 1; assets: Record<string, unknown> } => {
+          try {
+            return JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+          } catch {
+            return { version: 1, assets: {} };
+          }
+        };
+        const ingestBytes = (buf: Buffer, name: string) => {
+          const ext = path.extname(name).toLowerCase();
+          const mime = MEDIA_MIME[ext];
+          if (!mime) throw new Error(`unsupported media type: ${ext || "(none)"}`);
+          const hash = "sha256:" + crypto.createHash("sha256").update(buf).digest("hex");
+          fs.mkdirSync(cacheDir, { recursive: true });
+          const casFile = cacheFileForWrite(hash, name, mime);
+          if (!fs.existsSync(casFile)) {
+            fs.writeFileSync(casFile, buf);
+            cacheFilesByHash.set(hash, casFile);
+          }
+          const manifest = readManifest();
+          // same bytes already ingested → return the existing entry, don't duplicate
+          for (const [id, e] of Object.entries(manifest.assets) as [string, { name?: string; contentHash?: string; aliases?: string[] }][]) {
+            if (e.contentHash !== hash) continue;
+            if (e.name && e.name !== name && !e.aliases?.includes(name)) {
+              e.aliases = [...(e.aliases ?? []), name];
+              fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+            }
+            return { id, entry: e, existed: true };
+          }
+          const id = crypto.randomUUID();
+          const entry = {
+            name,
+            contentHash: hash,
+            mime,
+            bytes: buf.length,
+            sources: [`/__framediff-cache/${encodeURIComponent(hash)}`],
+          };
+          manifest.assets[id] = entry;
+          fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+          return { id, entry, existed: false };
+        };
+        if (url.pathname === "/__framediff/assets" && req.method === "GET") {
+          return json(res, 200, readManifest());
+        }
+        if (url.pathname === "/__framediff/assets/ingest" && req.method === "POST") {
+          try {
+            const { path: p, name } = JSON.parse((await readBody(req)).toString("utf8"));
+            if (typeof p !== "string" || !p) return json(res, 400, { error: "path required" });
+            const abs = p.startsWith("~") ? path.join(os.homedir(), p.slice(1)) : path.resolve(p);
+            // async + timeout: a permission-gated path (macOS TCC) can hang reads forever, and a
+            // sync read here would freeze the whole dev server's event loop
+            const buf = await Promise.race([
+              fs.promises.readFile(abs),
+              new Promise<never>((_, rej) =>
+                setTimeout(() => rej(new Error("read timed out — is the path permission-gated? Copy the file somewhere readable or drag-drop it into the Studio instead")), 8000),
+              ),
+            ]);
+            return json(res, 200, ingestBytes(buf, name || path.basename(abs)));
+          } catch (e) {
+            return json(res, 400, { error: String((e as Error).message) });
+          }
+        }
+        if (url.pathname === "/__framediff/assets/upload" && req.method === "POST") {
+          try {
+            const name = url.searchParams.get("name") || "untitled";
+            return json(res, 200, ingestBytes(await readBody(req), name));
+          } catch (e) {
+            return json(res, 400, { error: String((e as Error).message) });
+          }
+        }
+
+        // --- git ------------------------------------------------------------
+        if (url.pathname === "/__framediff/git" && req.method === "GET") {
+          try {
+            const out = await git(root, ["status", "--porcelain", "--", "."]);
+            return json(res, 200, { dirty: parsePorcelain(out) });
+          } catch (e) {
+            return json(res, 500, { error: String((e as Error).message) });
+          }
+        }
+        if (url.pathname === "/__framediff/git/commit" && req.method === "POST") {
+          try {
+            const { message } = JSON.parse((await readBody(req)).toString("utf8"));
+            if (typeof message !== "string" || !message) return json(res, 400, { error: "message required" });
+            await git(root, ["add", "-A", "."]);
+            await git(root, ["commit", "-m", message]);
+            const hash = (await git(root, ["rev-parse", "--short", "HEAD"])).trim();
+            return json(res, 200, { hash });
+          } catch (e) {
+            return json(res, 500, { error: String((e as Error).message) });
+          }
+        }
+
+        // --- provider secrets (write-only in, last4 out) ----------------------
+        if (url.pathname === "/__framediff/secrets") {
+          if (req.method === "GET") {
+            const providers: Record<string, { set: boolean; last4?: string; source?: string }> = {};
+            for (const p of KNOWN_PROVIDERS) {
+              const k = providerKey(root, p);
+              providers[p] = k ? { set: true, last4: k.key.slice(-4), source: k.source } : { set: false };
+            }
+            return json(res, 200, { providers, file: path.relative(root, secretsFile(root)) });
+          }
+          if (req.method === "PUT") {
+            try {
+              const { provider, key } = JSON.parse((await readBody(req)).toString("utf8")) as {
+                provider?: string; key?: string;
+              };
+              if (!provider || !/^[a-z0-9-]+$/.test(provider)) return json(res, 400, { error: "provider required" });
+              if (typeof key !== "string" || key.length < 8) return json(res, 400, { error: "key looks too short" });
+              const file = secretsFile(root);
+              fs.mkdirSync(path.dirname(file), { recursive: true });
+              const all = readSecretsRaw(root);
+              all[provider] = { key: key.trim() };
+              fs.writeFileSync(file, JSON.stringify(all, null, 2) + "\n", { mode: 0o600 });
+              return json(res, 200, { ok: true, last4: key.trim().slice(-4) });
+            } catch (e) {
+              return json(res, 400, { error: String((e as Error).message) });
+            }
+          }
+        }
+
+        // --- generation: verify key / submit / poll jobs ----------------------
+        if (url.pathname === "/__framediff/gen/verify" && req.method === "GET") {
+          const provider = url.searchParams.get("provider") ?? "fal";
+          const k = providerKey(root, provider);
+          if (!k) return json(res, 200, { ok: false, authed: false, error: "no key stored" });
+          if (provider !== "fal") return json(res, 200, { ok: true, authed: true, note: "stored — verification only implemented for fal" });
+          try {
+            // a status probe on a nonexistent request: 401 = bad key; anything else = authed
+            const r = await fetch(
+              "https://queue.fal.run/bytedance/seedance-2.0/fast/text-to-video/requests/00000000-0000-0000-0000-000000000000/status",
+              { headers: { authorization: `Key ${k.key}` } },
+            );
+            const body = (await r.text()).slice(0, 300);
+            if (r.status === 401) return json(res, 200, { ok: false, authed: false, error: "invalid key (401)" });
+            const locked = /locked|exhausted balance/i.test(body);
+            if (locked) {
+              let detail = body;
+              try { detail = (JSON.parse(body) as { detail?: string }).detail ?? body; } catch { /* raw */ }
+              return json(res, 200, { ok: false, authed: true, error: detail });
+            }
+            return json(res, 200, { ok: true, authed: true });
+          } catch (e) {
+            return json(res, 200, { ok: false, authed: false, error: String((e as Error).message) });
+          }
+        }
+
+        if (url.pathname === "/__framediff/gen/submit" && req.method === "POST") {
+          try {
+            const body = JSON.parse((await readBody(req)).toString("utf8")) as {
+              gen?: string;
+              endpoint?: string;
+              recipeHash?: string;
+              input?: Record<string, unknown>;
+              refs?: { kind: GenRefKind; src: string; authoredSrc: string; mime?: string; name?: string; field?: string; many?: boolean }[];
+              recipe?: GenRecipeSnapshot;
+            };
+            const { gen, endpoint, recipeHash } = body;
+            if (!gen || !endpoint || !recipeHash || !body.input || !body.recipe) {
+              return json(res, 400, { error: "gen, endpoint, recipeHash, input, recipe required" });
+            }
+            if (!/^[a-zA-Z0-9/_.-]+$/.test(endpoint)) return json(res, 400, { error: "bad endpoint" });
+            const k = providerKey(root, "fal");
+            if (!k) return json(res, 400, { error: "no fal key — add one under SERVICES" });
+
+            // resolve refs (asset:// or cache paths) into URLs the model can read
+            const manifest = readManifest();
+            const refToUrl = async (ref: { kind: string; src: string; mime?: string; name?: string }): Promise<string> => {
+              let src = ref.src;
+              if (src.startsWith("asset://")) {
+                const entry = (manifest.assets as Record<string, { contentHash?: string; mime?: string; name?: string }>)[src.slice("asset://".length)];
+                if (!entry?.contentHash) throw new Error(`unknown asset ref ${src}`);
+                src = `/__framediff-cache/${entry.contentHash}`;
+              }
+              if (src.startsWith("/__framediff-cache/")) {
+                const hash = decodeURIComponent(src.slice("/__framediff-cache/".length));
+                const file = cachedFile(safe(hash));
+                if (!fs.existsSync(file)) throw new Error(`ref bytes not in cache: ${hash.slice(0, 24)}…`);
+                const buf = fs.readFileSync(file);
+                const entry = Object.values(manifest.assets as Record<string, { contentHash?: string; mime?: string; name?: string }>).find((e) => e.contentHash === hash);
+                const mime = ref.mime ?? entry?.mime ?? "application/octet-stream";
+                const name = ref.name ?? entry?.name ?? "ref";
+                try {
+                  return await falUpload(k.key, buf, mime, name);
+                } catch (e) {
+                  if (buf.length <= DATA_URI_MAX) return `data:${mime};base64,${buf.toString("base64")}`;
+                  throw new Error(`ref upload failed and ${name} is too large to inline: ${String((e as Error).message)}`);
+                }
+              }
+              return src; // http(s)/data: passthrough
+            };
+
+            const input: Record<string, unknown> = { ...body.input };
+            const refs = body.refs ?? [];
+            const inputs: GenInputProvenance[] = refs.map((ref) => {
+              let contentHash: string | undefined;
+              if (ref.src.startsWith("asset://")) {
+                contentHash = (manifest.assets as Record<string, { contentHash?: string }>)[ref.src.slice("asset://".length)]?.contentHash;
+              } else if (ref.src.startsWith("/__framediff-cache/")) {
+                contentHash = decodeURIComponent(ref.src.slice("/__framediff-cache/".length));
+              }
+              return { kind: ref.kind, src: ref.authoredSrc, ...(contentHash ? { contentHash } : {}) };
+            });
+            if (refs.some((r) => r.field)) {
+              // explicit mapping (the model registry names the provider field per ref —
+              // required for endpoints whose mode isn't a path suffix, e.g. veo3.1 t2v)
+              if (!/^[a-z0-9_]+$/i.test(refs.map((r) => r.field ?? "f").join(""))) {
+                return json(res, 400, { error: "bad ref field" });
+              }
+              for (const r of refs) {
+                if (!r.field) continue;
+                const u = await refToUrl(r);
+                if (r.many) {
+                  const arr = (input[r.field] as unknown[] | undefined) ?? [];
+                  arr.push(u);
+                  input[r.field] = arr;
+                } else {
+                  input[r.field] = u;
+                }
+              }
+            } else if (endpoint.endsWith("/image-to-video")) {
+              const start = refs.find((r) => r.kind === "image");
+              const end = refs.find((r) => r.kind === "endImage");
+              if (!start) return json(res, 400, { error: "image-to-video needs an image ref" });
+              input.image_url = await refToUrl(start);
+              if (end) input.end_image_url = await refToUrl(end);
+            } else if (endpoint.endsWith("/reference-to-video")) {
+              const urlsOf = async (kinds: string[]) =>
+                Promise.all(refs.filter((r) => kinds.includes(r.kind)).map(refToUrl));
+              const images = await urlsOf(["image", "endImage"]);
+              const videos = await urlsOf(["video"]);
+              const audios = await urlsOf(["audio"]);
+              if (images.length) input.image_urls = images;
+              if (videos.length) input.video_urls = videos;
+              if (audios.length) input.audio_urls = audios;
+            }
+
+            const r = await fetch(`https://queue.fal.run/${endpoint}`, {
+              method: "POST",
+              headers: { authorization: `Key ${k.key}`, "content-type": "application/json" },
+              body: JSON.stringify(input),
+            });
+            const text = await r.text();
+            if (!r.ok) {
+              let detail = text.slice(0, 400);
+              try { detail = (JSON.parse(text) as { detail?: string }).detail ?? detail; } catch { /* raw */ }
+              return json(res, r.status, { error: detail });
+            }
+            const q = JSON.parse(text) as { request_id: string; status_url?: string; response_url?: string };
+            const job: GenJobRecord = {
+              id: q.request_id,
+              gen,
+              endpoint,
+              recipeHash,
+              statusUrl: q.status_url ?? `https://queue.fal.run/${endpoint}/requests/${q.request_id}/status`,
+              responseUrl: q.response_url ?? `https://queue.fal.run/${endpoint}/requests/${q.request_id}`,
+              status: "queued",
+              at: new Date().toISOString(),
+              recipe: body.recipe,
+              inputs,
+            };
+            writeJobs(root, [...readJobs(root), job]);
+            return json(res, 200, { job });
+          } catch (e) {
+            return json(res, 500, { error: String((e as Error).message) });
+          }
+        }
+
+        if (url.pathname === "/__framediff/gen/jobs" && req.method === "GET") {
+          const gen = url.searchParams.get("gen");
+          const k = providerKey(root, "fal");
+          const jobs = readJobs(root);
+          let changed = false;
+          for (const job of jobs) {
+            if (job.status !== "queued" && job.status !== "running") continue;
+            if (finalizing.has(job.id)) continue;
+            if (!k) break;
+            finalizing.add(job.id);
+            try {
+              const s = await fetch(job.statusUrl, { headers: { authorization: `Key ${k.key}` } });
+              const st = (await s.json().catch(() => ({}))) as { status?: string };
+              if (!s.ok) {
+                job.status = "failed";
+                job.error = `status ${s.status}: ${JSON.stringify(st).slice(0, 200)}`;
+                job.doneAt = new Date().toISOString();
+                changed = true;
+              } else if (st.status === "IN_PROGRESS" && job.status !== "running") {
+                job.status = "running";
+                changed = true;
+              } else if (st.status === "COMPLETED") {
+                const rr = await fetch(job.responseUrl, { headers: { authorization: `Key ${k.key}` } });
+                const out = (await rr.json().catch(() => ({}))) as { video?: { url?: string }; seed?: number; detail?: unknown };
+                if (!rr.ok || !out.video?.url) {
+                  job.status = "failed";
+                  job.error = `result ${rr.status}: ${JSON.stringify(out.detail ?? out).slice(0, 300)}`;
+                } else {
+                  const vid = await fetch(out.video.url);
+                  if (!vid.ok) throw new Error(`take download ${vid.status}`);
+                  const buf = Buffer.from(await vid.arrayBuffer());
+                  // take number: next after the highest already recorded for this gen
+                  const m = readManifest();
+                  let takeNo = 1;
+                  for (const e of Object.values(m.assets) as { generator?: { gen?: string; take?: number } }[]) {
+                    if (e.generator?.gen === job.gen && (e.generator.take ?? 0) >= takeNo) takeNo = (e.generator.take ?? 0) + 1;
+                  }
+                  const { id, entry } = ingestBytes(buf, `${job.gen}.take${takeNo}.mp4`);
+                  const withGen = readManifest();
+                  const target = withGen.assets[id] as { generator?: unknown };
+                  const existingGen = (entry as { generator?: { take?: number } }).generator;
+                  if (existingGen?.take) {
+                    takeNo = existingGen.take; // identical bytes regenerated — reuse the take
+                  } else if (target) {
+                    target.generator = {
+                      gen: job.gen,
+                      take: takeNo,
+                      recipeHash: job.recipeHash,
+                      endpoint: job.endpoint,
+                      recipe: job.recipe,
+                      inputs: job.inputs,
+                      requestId: job.id,
+                      seed: out.seed,
+                      at: new Date().toISOString(),
+                    };
+                    fs.writeFileSync(manifestPath, JSON.stringify(withGen, null, 2) + "\n");
+                  }
+                  job.status = "done";
+                  job.take = takeNo;
+                  job.assetId = id;
+                  job.seed = out.seed;
+                }
+                job.doneAt = new Date().toISOString();
+                changed = true;
+              }
+            } catch (e) {
+              job.status = "failed";
+              job.error = String((e as Error).message);
+              job.doneAt = new Date().toISOString();
+              changed = true;
+            } finally {
+              finalizing.delete(job.id);
+            }
+          }
+          if (changed) writeJobs(root, jobs);
+          const m = readManifest();
+          const takes: unknown[] = [];
+          for (const [assetId, e] of Object.entries(m.assets) as [string, { contentHash?: string; bytes?: number; generator?: { gen?: string; take?: number } }][]) {
+            if (gen && e.generator?.gen === gen) takes.push({ assetId, contentHash: e.contentHash, bytes: e.bytes, generator: e.generator });
+          }
+          (takes as { generator: { take: number } }[]).sort((a, b) => a.generator.take - b.generator.take);
+          return json(res, 200, {
+            jobs: gen ? jobs.filter((j) => j.gen === gen) : jobs,
+            takes,
+          });
+        }
+
+        // --- HttpFolderCAS + saved renders (byte-compatible with the old
+        // inline example plugin) ---------------------------------------------
+        if (url.pathname.startsWith("/__framediff-cache/")) {
+          const name = safe(url.pathname.slice("/__framediff-cache/".length));
+          if (req.method === "PUT") {
+            fs.mkdirSync(cacheDir, { recursive: true });
+            const requestType = Array.isArray(req.headers["content-type"])
+              ? req.headers["content-type"][0]
+              : req.headers["content-type"];
+            const mime = requestType?.split(";", 1)[0];
+            const file = cacheFileForWrite(name, url.searchParams.get("name") ?? undefined, mime);
+            const w = fs.createWriteStream(file);
+            req.pipe(w);
+            w.on("finish", () => {
+              if (!name.endsWith(".meta.json")) {
+                const hash = hashFromCacheName(name);
+                if (hash) cacheFilesByHash.set(hash, file);
+              }
+              res.statusCode = 200;
+              res.end("ok");
+            });
+            return;
+          }
+          if (req.method === "HEAD" || req.method === "GET") {
+            const file = cachedFile(name);
+            if (!fs.existsSync(file)) {
+              res.statusCode = 404;
+              return res.end();
+            }
+            return sendFile(req, res, file);
+          }
+        }
+        if (url.pathname.startsWith("/__out-chunk/") && req.method === "PUT") {
+          fs.mkdirSync(outDir, { recursive: true });
+          const file = path.join(outDir, path.basename(safe(url.pathname.slice("/__out-chunk/".length))));
+          const position = Number(url.searchParams.get("position"));
+          if (!Number.isSafeInteger(position) || position < 0) return json(res, 400, { error: "position must be a non-negative integer" });
+          const body = await readBody(req);
+          let handle: fs.promises.FileHandle | null = null;
+          try {
+            try {
+              handle = await fs.promises.open(file, "r+");
+            } catch (e) {
+              if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+              handle = await fs.promises.open(file, "w+");
+            }
+            await handle.write(body, 0, body.byteLength, position);
+            return json(res, 200, { ok: true });
+          } finally {
+            await handle?.close();
+          }
+        }
+        if (u.startsWith("/__out/") && req.method === "DELETE") {
+          const file = path.join(outDir, path.basename(safe(u.slice("/__out/".length))));
+          await fs.promises.rm(file, { force: true });
+          return json(res, 200, { ok: true });
+        }
+        if (u.startsWith("/__out/") && req.method === "PUT") {
+          fs.mkdirSync(outDir, { recursive: true });
+          const file = path.join(outDir, path.basename(safe(u.slice("/__out/".length))));
+          const w = fs.createWriteStream(file);
+          req.pipe(w);
+          w.on("finish", () => {
+            res.statusCode = 200;
+            res.end("ok");
+          });
+          return;
+        }
+
+        next();
+      };
+
+      server.middlewares.use((req, res, next) => {
+        handle(req, res, next).catch((e) => json(res, 500, { error: String((e as Error).message) }));
+      });
+    },
+  };
+}

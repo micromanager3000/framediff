@@ -1,0 +1,11 @@
+.framediff-cache/
+framediff-cache/
+out/
+public/hero.mp4
+public/hero-audio.m4a
+public/shine.wav
+public/music.m4a
+public/clips/
+public/raw/
+public/audio/
+scripts/analysis/cmp2/
