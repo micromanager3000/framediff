@@ -154,7 +154,11 @@ function applyEditableProperties(element: HTMLElement): void {
   if (element.hasAttribute("data-fd-color")) element.style.color = element.getAttribute("data-fd-color")!;
   if (element.hasAttribute("data-fd-background")) element.style.background = element.getAttribute("data-fd-background")!;
   if (element.hasAttribute("data-fd-fit")) element.style.objectFit = element.getAttribute("data-fd-fit")!;
-  if (element.hasAttribute("data-fd-text")) element.textContent = element.getAttribute("data-fd-text") ?? "";
+  // data-fd-text is for text leaves; applying it to a container would replace (and
+  // silently destroy) every child element, so a stray attribute must never do that.
+  if (element.hasAttribute("data-fd-text") && !element.childElementCount) {
+    element.textContent = element.getAttribute("data-fd-text") ?? "";
+  }
   const directStyles: [string, keyof CSSStyleDeclaration][] = [
     ["data-fd-font-family", "fontFamily"],
     ["data-fd-font-weight", "fontWeight"],
@@ -394,9 +398,13 @@ export function mountComposition(
     root.dataset.fdFrame = String(frame);
     root.dataset.fdTime = String(state.time);
 
+    // Document-flow comps (plans, docs) keep every timed row visible: rows are prose
+    // first and placements second, so the active window is a highlight, not visibility.
+    const documentFlow = ["plan", "doc", "script", "storyboard", "locations", "cast", "moodboard"].includes(composition.meta?.kind ?? "");
     for (const clip of clipMap.values()) {
       const local = localFrameAt(clip.element, frame, clipMap);
-      clip.element.style.display = inDomain && local.active ? clip.originalDisplay : "none";
+      clip.element.style.display = documentFlow || (inDomain && local.active) ? clip.originalDisplay : "none";
+      clip.element.dataset.fdActive = String(inDomain && local.active);
       clip.element.dataset.fdLocalFrame = String(local.frame);
       clip.element.style.setProperty("--fd-local-frame", String(local.frame));
       clip.element.style.setProperty("--fd-local-time", String(local.frame / composition.fps));

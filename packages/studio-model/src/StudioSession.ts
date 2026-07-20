@@ -385,10 +385,20 @@ export class StudioSession {
   public async editSelectedElementText(text: string): Promise<boolean> {
     const state = this.state.get();
     if (!state.selection || state.selection.kind !== "element" || state.editing) return false;
+    return this.editElementText({ compositionKey: state.selection.compositionKey, objectId: state.selection.objectId }, text);
+  }
+
+  /**
+   * Commit text to an explicit element. The canvas text editor commits on blur, and the
+   * blurring click may already have moved the selection — the write must target the
+   * element that was being edited, never "whatever is selected now".
+   */
+  public async editElementText(target: { compositionKey: string; objectId: string }, text: string): Promise<boolean> {
+    if (this.state.get().editing) return false;
     this.state.update((current) => ({ ...current, editing: true, error: null, notice: null }));
     const result = await this.runtime.editInspectorField({
-      compositionKey: state.selection.compositionKey,
-      itemId: state.selection.objectId,
+      compositionKey: target.compositionKey,
+      itemId: target.objectId,
       fieldId: "html:data-fd-text",
       value: text,
     });
@@ -396,7 +406,7 @@ export class StudioSession {
       ...current,
       editing: false,
       error: result.ok ? null : result.message ?? "Could not update text.",
-      notice: result.ok ? `Updated ${state.selection?.objectId} text.` : null,
+      notice: result.ok ? `Updated ${target.objectId} text.` : null,
     }));
     return result.ok;
   }

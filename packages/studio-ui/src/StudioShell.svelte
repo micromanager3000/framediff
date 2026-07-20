@@ -417,6 +417,7 @@
         {#if $store.gradeBypass}<div class="bypass">GRADE BYPASS</div>{/if}
       </div>
 
+      {#if !["moodboard", "locations", "cast"].includes($store.current?.kind ?? "")}
       <div class="transport">
         <button class="t-btn t-step" onclick={() => shell.setFrame($store.frame - 1)} title="Back one frame (← in the studio, shift for 10)" aria-label="Back one frame">
           <svg viewBox="0 0 14 14"><path d="M3.6 2.5v9" stroke="currentColor" stroke-width="1.5"/><path d="M11.5 2.8v8.4L5.4 7z" fill="currentColor"/></svg>
@@ -439,6 +440,7 @@
       </div>
 
       <Timeline viewModel={timeline} onselect={() => chrome.showRight("inspector")} />
+      {/if}
       {/if}
     </section>
 

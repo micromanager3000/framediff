@@ -1,6 +1,6 @@
 import type { AssetResolver } from "./assets/resolver";
 
-export type CompositionKind = "edit" | "3d" | "generate" | "audio" | "doc";
+export type CompositionKind = "edit" | "3d" | "generate" | "audio" | "doc" | "plan" | "scene" | "board" | "moodboard" | "script" | "storyboard" | "locations" | "cast";
 export type CompositionOutputKind = "video" | "image";
 
 export interface CompositionMetadata {

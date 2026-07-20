@@ -1,0 +1,45 @@
+<!doctype html><html><head><style>
+ [data-fd-composition]{position:relative;overflow:hidden;background:#0b0c10;color:#e9eaf0;font-family:"SF Pro Display",-apple-system,sans-serif;padding:52px 60px;box-sizing:border-box}
+ h1{font-size:32px;margin:0 0 4px}.sub{margin:0;font-size:13.5px;color:#8b90a5}.sub b{color:#e9eaf0}
+ .cols{display:grid;grid-template-columns:170px 1fr 256px 340px;gap:0 26px;padding:24px 12px 8px;font:600 11px ui-monospace;letter-spacing:1.6px;color:#a29bfe}
+ .thumb{position:relative;width:240px;height:135px;overflow:hidden;border-radius:9px;border:1px solid rgba(255,255,255,.12);background:#07080d}
+ .row{display:grid;grid-template-columns:170px 1fr 256px 340px;gap:0 26px;align-items:start;padding:18px 12px;border-top:1px solid rgba(255,255,255,.08);border-radius:8px}
+ .row.active{background:rgba(162,155,254,.06)}
+ .tc{font:600 16px ui-monospace}.dur{font:12px ui-monospace;color:#8b90a5;margin-top:4px}
+ .seg{font-size:18px;font-weight:700}.beat{margin:6px 0 0;font-size:13.5px;line-height:1.6;color:#c2c6d8}
+ .chips{display:flex;flex-wrap:wrap;gap:6px}
+ .chip{font:11px ui-monospace;border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:3px 10px;color:#8b90a5}
+ .chip.final{color:#7bd88f;border-color:rgba(123,216,143,.4)}
+ .foot{position:absolute;left:60px;bottom:30px;font-size:12px;color:#8b90a5}.foot code{font-family:ui-monospace;color:#a29bfe}
+</style></head><body>
+<main data-fd-composition data-fd-id="ReelRundown" data-fd-name="Reel — rundown" data-fd-width="1920" data-fd-height="1080" data-fd-fps="24" data-fd-duration="1092" data-fd-kind="script" data-fd-source="src/compositions/ReelRundown.html" data-fd-module="src/compositions/ReelRundown.ts" data-fd-export="reelRundownComp">
+ <h1>LightTwist reel — rundown</h1>
+ <p class="sub">The order-of-battle for <b>LightTwistReel</b>: what each block must prove, and how long it gets to prove it.</p>
+ <div class="cols"><span>TIME</span><span>BLOCK / JOB</span><span>WINDOW</span><span>REALIZED BY</span></div>
+ <section class="row" data-fd-clip data-fd-id="block-hook" data-fd-name="1 · Hook" data-fd-from="0" data-fd-duration="192" data-fd-prop-status="final">
+  <div><div class="tc"></div><div class="dur"></div></div>
+  <div><div class="seg">1 · Hook</div><p class="beat">Best three seconds first; earn the next forty-two.</p></div>
+  <div class="thumb" data-fd-clip data-fd-id="block-hook-window" data-fd-name="block-hook window" data-fd-from="0" data-fd-duration="192" data-fd-type="nested" data-fd-comp="LightTwistReel" data-fd-trim-start="0" data-fd-nested-scale="0.125"></div>
+  <div class="chips"><span class="chip final">⧉ LightTwistReel · 0–192</span></div>
+ </section>
+ <section class="row" data-fd-clip data-fd-id="block-range" data-fd-name="2 · Range" data-fd-from="192" data-fd-duration="480" data-fd-prop-status="final">
+  <div><div class="tc"></div><div class="dur"></div></div>
+  <div><div class="seg">2 · Range</div><p class="beat">Alternate looks fast — volume, relight, timelapse — never the same trick twice in a row.</p></div>
+  <div class="thumb" data-fd-clip data-fd-id="block-range-window" data-fd-name="block-range window" data-fd-from="192" data-fd-duration="480" data-fd-type="nested" data-fd-comp="LightTwistReel" data-fd-trim-start="8" data-fd-nested-scale="0.125"></div>
+  <div class="chips"><span class="chip final">⧉ LightTwistReel · 192–672</span></div>
+ </section>
+ <section class="row" data-fd-clip data-fd-id="block-proof" data-fd-name="3 · Proof" data-fd-from="672" data-fd-duration="300" data-fd-prop-status="final">
+  <div><div class="tc"></div><div class="dur"></div></div>
+  <div><div class="seg">3 · Proof</div><p class="beat">Hold the longest, hardest shot uncut — confidence reads as capability.</p></div>
+  <div class="thumb" data-fd-clip data-fd-id="block-proof-window" data-fd-name="block-proof window" data-fd-from="672" data-fd-duration="300" data-fd-type="nested" data-fd-comp="LightTwistReel" data-fd-trim-start="28" data-fd-nested-scale="0.125"></div>
+  <div class="chips"><span class="chip final">⧉ LightTwistReel · 672–972</span></div>
+ </section>
+ <section class="row" data-fd-clip data-fd-id="block-close" data-fd-name="4 · Close" data-fd-from="972" data-fd-duration="120" data-fd-prop-status="final">
+  <div><div class="tc"></div><div class="dur"></div></div>
+  <div><div class="seg">4 · Close</div><p class="beat">Lockup, contact, out before it overstays.</p></div>
+  <div class="thumb" data-fd-clip data-fd-id="block-close-window" data-fd-name="block-close window" data-fd-from="972" data-fd-duration="120" data-fd-type="nested" data-fd-comp="LightTwistReel" data-fd-trim-start="40.5" data-fd-nested-scale="0.125"></div>
+  <div class="chips"><span class="chip final">⧉ LightTwistReel · 972–1092</span></div>
+ </section>
+ <p class="foot">kind=<code>script</code> — blocks are clips whose thumbnails are trim windows into the reel itself — the rundown and the master share one comp graph.</p>
+ <script>const rows=queryAll(".row"),fps=24,mmss=f=>{const s=Math.round(f/fps);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0")};for(const row of rows){const a=+row.getAttribute("data-fd-from"),d=+row.getAttribute("data-fd-duration");row.querySelector(".tc").textContent=mmss(a)+"–"+mmss(a+d);row.querySelector(".dur").textContent=d+"f @24"}onFrame(({frame})=>{for(const row of rows){const a=+row.getAttribute("data-fd-from"),d=+row.getAttribute("data-fd-duration");row.classList.toggle("active",frame>=a&&frame<a+d)}})</script>
+</main></body></html>

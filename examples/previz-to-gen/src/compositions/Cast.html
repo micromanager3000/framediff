@@ -1,0 +1,61 @@
+<!doctype html><html><head><style>
+ [data-fd-composition]{position:relative;overflow:hidden;background:#0a1014;color:#f3f5f2;font-family:-apple-system,"SF Pro Display","Segoe UI",sans-serif;padding:40px 52px;box-sizing:border-box}
+ h1{font-size:28px;margin:0 0 4px}.sub{margin:0;font-size:12.5px;color:#a6b0b5}.sub b{color:#f3f5f2}
+ .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:24px}
+ .card{background:rgba(20,27,32,.96);border:1px solid rgba(255,255,255,.1);border-radius:12px;overflow:hidden}
+ .portrait{position:relative;aspect-ratio:16/8;background:#070a0d;border-bottom:1px solid rgba(255,255,255,.1)}
+ .portrait svg{position:absolute;inset:0;width:100%;height:100%}
+ .idchip{position:absolute;top:9px;left:9px;z-index:3;font:700 10px ui-monospace;color:#ffb3c8;background:rgba(7,10,13,.85);border:1px solid rgba(255,255,255,.14);border-radius:6px;padding:2px 7px}
+ .role{position:absolute;right:9px;bottom:8px;z-index:3;font:700 9px ui-monospace;letter-spacing:.8px;text-transform:uppercase;color:#ffc276;background:rgba(7,10,13,.8);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:2px 8px}
+ .body{padding:12px 14px 14px}
+ .nm{font-size:15px;font-weight:700}
+ .line{font-size:12px;font-style:italic;color:#c2cbd0;margin:5px 0 8px}
+ .h{font:8.5px ui-monospace;letter-spacing:.9px;text-transform:uppercase;color:#a6b0b5;margin:8px 0 4px}
+ .hist{font-size:11.5px;line-height:1.5;color:#aab6bb;margin:0}
+ .chips{display:flex;flex-wrap:wrap;gap:5px}
+ .chip{font:10px ui-monospace;border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:2px 8px;color:#a6b0b5}
+ .chip.scene{color:#69d6c0;border-color:rgba(105,214,192,.4)}
+ .chip.warn{color:#ffc276;border-color:rgba(255,194,118,.4)}
+ .live{position:absolute;top:9px;right:9px;z-index:3;font:700 9px ui-monospace;letter-spacing:.8px;color:#ffc276;background:rgba(7,10,13,.85);border:1px solid rgba(255,194,118,.4);border-radius:6px;padding:2px 7px}
+ .foot{position:absolute;left:52px;bottom:18px;font-size:11px;color:#a6b0b5}.foot code{font-family:ui-monospace;color:#ffb3c8}
+ svg .fg{fill:#cfd8dc;opacity:.85}svg .thin{stroke:#cfd8dc;stroke-width:1.3;fill:none;opacity:.4}
+</style></head><body>
+<main data-fd-composition data-fd-id="Cast" data-fd-name="Harbor short — cast" data-fd-width="1280" data-fd-height="720" data-fd-fps="30" data-fd-duration="240" data-fd-kind="cast" data-fd-library="true" data-fd-source="src/compositions/Cast.html" data-fd-module="src/compositions/Cast.ts" data-fd-export="castComp">
+ <h1>Harbor short — cast</h1>
+ <p class="sub">A <b>library</b> of character cards — even an 8-second film has continuity. The boat's card carries a <b>live still from its pinned take</b>; Script who-chips resolve to these ids.</p>
+ <div class="grid">
+  <article class="card" data-fd-clip data-fd-id="cast-boat" data-fd-name="The boat" data-fd-from="0" data-fd-duration="240" data-fd-prop-scenes="scene-approach scene-chase scene-gallery">
+   <div class="portrait"><span class="idchip">cast-boat</span><span class="live">LIVE · from take</span>
+    <div data-fd-clip data-fd-id="cast-boat-view" data-fd-name="the boat · in the take" data-fd-from="0" data-fd-duration="240" data-fd-type="nested" data-fd-comp="harborShot" data-fd-trim-start="3.5" data-fd-nested-scale="0.28125" style="position:absolute;inset:0"></div></div>
+   <div class="body"><div class="nm">The boat</div>
+    <p class="line">“Never in doubt — we are.”</p>
+    <div class="h">Continuity</div>
+    <div class="chips"><span class="chip">hull: work-scuffed red</span><span class="chip">nav light: port only</span><span class="chip warn">wake width must match previz blocking</span></div>
+    <div class="h">Appears in</div>
+    <div class="chips"><span class="chip scene">approach</span><span class="chip scene">chase</span><span class="chip scene">gallery</span></div></div>
+  </article>
+  <article class="card" data-fd-clip data-fd-id="cast-lamp" data-fd-name="The lamp" data-fd-from="0" data-fd-duration="240" data-fd-prop-scenes="scene-approach scene-gallery">
+   <div class="portrait"><span class="idchip">cast-lamp</span>
+    <svg viewBox="0 0 320 160"><rect width="320" height="160" fill="#0b1420"/><path class="fg" d="M150 160 L156 62 h8 L170 160Z"/><rect x="152" y="46" width="16" height="14" fill="#ffc276"/><path class="fg" d="M148 46 h24 l-12 -10Z"/><path d="M160 52 L84 24 M160 52 L240 28" stroke="#ffc276" stroke-width="2" opacity=".65"/><path class="thin" d="M120 132 q40 -10 80 0"/></svg>
+    <span class="role">keeper of frame right</span></div>
+   <div class="body"><div class="nm">The lamp</div>
+    <p class="line">“Home is whatever answers.”</p>
+    <div class="h">Direction</div>
+    <p class="hist">Always already on. Never blinks for drama — its reliability is the whole story. Sweep period locked to 4.0s across previz and take.</p>
+    <div class="h">Appears in</div>
+    <div class="chips"><span class="chip scene">approach</span><span class="chip scene">gallery</span></div></div>
+  </article>
+  <article class="card" data-fd-clip data-fd-id="cast-sea" data-fd-name="The sea" data-fd-from="0" data-fd-duration="240" data-fd-prop-scenes="scene-approach scene-chase">
+   <div class="portrait"><span class="idchip">cast-sea</span>
+    <svg viewBox="0 0 320 160"><rect width="320" height="160" fill="#0a1124"/><g stroke="#9ecbff" stroke-width="3" fill="none" opacity=".65"><path d="M0 84 q26 -22 52 0 q26 22 52 0 q26 -22 52 0 q26 22 52 0 q26 -22 52 0 q26 22 60 0"/><path d="M0 122 q34 -16 68 0 q34 16 68 0 q34 -16 68 0 q34 16 68 0" opacity=".45"/></g></svg>
+    <span class="role">weather, not villain</span></div>
+   <div class="body"><div class="nm">The sea</div>
+    <p class="line">Performed twice: deterministic chop in the previz, Seedance water in the take.</p>
+    <div class="h">Parameters</div>
+    <div class="chips"><span class="chip">swell: long, force 5</span><span class="chip">flattens inside breakwater</span><span class="chip warn">take must keep previz horizon line</span></div>
+    <div class="h">Appears in</div>
+    <div class="chips"><span class="chip scene">approach</span><span class="chip scene">chase</span></div></div>
+  </article>
+ </div>
+ <p class="foot"><code>data-fd-library="true"</code> — who-chips in <code>Script</code> resolve here; the boat's portrait is an ordinary nest of <code>harborShot</code>.</p>
+</main></body></html>

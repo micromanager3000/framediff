@@ -696,3 +696,7 @@ dd { margin: 0; overflow: hidden; color: var(--muted); font-family: var(--mono);
   .right-panel.compact-open { display: grid; }
   .right-panel .panel-close { flex: none; width: 26px; display: inline-grid; place-items: center; border: 1px solid var(--line); font-size: 14px; }
 }
+
+/* Interactive comps (data-fd-interactive) own their pointer events — the selection
+   overlay steps aside so the comp's own canvas UX (pan/zoom/minimap/drag) works. */
+.preview-surface:has(.framediff-interactive) .canvas-overlay { pointer-events: none; }

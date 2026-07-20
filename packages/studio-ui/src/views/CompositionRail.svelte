@@ -16,6 +16,14 @@
     generate: "✦",
     audio: "♒",
     doc: "¶",
+    plan: "▤",
+    scene: "▣",
+    board: "▢",
+    moodboard: "▦",
+    script: "☰",
+    storyboard: "⊞",
+    locations: "⌖",
+    cast: "♟",
   };
   const COMP_DRAG_MIME = "application/x-framediff-comp";
   // dataTransfer payloads are sealed until drop — the key rides here for dragover feedback

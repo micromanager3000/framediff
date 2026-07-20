@@ -1,0 +1,112 @@
+{
+  "camera": {
+    "x": 73.74901209408065,
+    "y": 105.95707003274845,
+    "zoom": 0.25
+  },
+  "items": [
+    {
+      "id": "note-premise",
+      "type": "note",
+      "x": 111,
+      "y": 454,
+      "rotation": -1.4,
+      "text": "a lighthouse guides one boat home through chop. 8 seconds, one move per shot, the lamp always answers.asdffdsfds"
+    },
+    {
+      "id": "note-rule",
+      "type": "note",
+      "x": 662,
+      "y": 469,
+      "rotation": 1.1,
+      "text": "the sea is weather, not a villain. The boat is never in doubt — we are."
+    },
+    {
+      "id": "img-dusk",
+      "type": "image",
+      "x": 1000,
+      "y": 329,
+      "rotation": -0.8,
+      "width": 280,
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='140'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%2316262b'/%3E%3Cstop offset='.55' stop-color='%2331456e'/%3E%3Cstop offset='1' stop-color='%23c8743a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='280' height='140' fill='url(%23g)'/%3E%3Ccircle cx='214' cy='104' r='16' fill='%23ffd9a0' opacity='.85'/%3E%3C/svg%3E",
+      "alt": "dusk over water",
+      "text": "dusk against sodium"
+    },
+    {
+      "id": "palette-harbor",
+      "type": "image",
+      "x": 1520,
+      "y": 520,
+      "rotation": 0.9,
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='140'%3E%3Crect width='50' height='140' fill='%23070a0d'/%3E%3Crect x='50' width='50' height='140' fill='%2316262b'/%3E%3Crect x='100' width='50' height='140' fill='%2331456e'/%3E%3Crect x='150' width='50' height='140' fill='%2379dbc8'/%3E%3Crect x='200' width='50' height='140' fill='%23ffc276'/%3E%3C/svg%3E",
+      "alt": "harbor palette",
+      "text": "deep water, teal previz, lamp amber"
+    },
+    {
+      "id": "media-music",
+      "type": "media",
+      "x": 433,
+      "y": 710,
+      "rotation": 0.7,
+      "width": 270,
+      "src": "/music.m4a",
+      "text": "swelling pad — the hit lands at 3.0s"
+    },
+    {
+      "id": "link-fresnel",
+      "type": "link",
+      "x": 870,
+      "y": 743,
+      "rotation": -1,
+      "width": 300,
+      "href": "https://en.wikipedia.org/wiki/Fresnel_lens",
+      "text": "Fresnel lenses — why the beam sweeps"
+    },
+    {
+      "id": "img-sea",
+      "type": "image",
+      "x": 1500,
+      "y": 880,
+      "rotation": 1.3,
+      "width": 270,
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='270' height='140'%3E%3Crect width='270' height='140' fill='%23101c28'/%3E%3Cpath d='M0 90 q34 -26 68 0 q34 26 68 0 q34 -26 68 0 q34 26 66 0' stroke='%233a5a7a' stroke-width='5' fill='none'/%3E%3Cpath d='M0 115 q45 -20 90 0 q45 20 90 0 q45 -20 90 0' stroke='%232a4258' stroke-width='4' fill='none'/%3E%3C/svg%3E",
+      "alt": "rough sea",
+      "text": "water: long swell, no whitecaps"
+    },
+    {
+      "id": "note-sound",
+      "type": "note",
+      "x": 2260,
+      "y": 560,
+      "rotation": 1.6,
+      "text": "sound: one gull, engine under. The lamp is silent — light doesn't announce itself."
+    },
+    {
+      "id": "img-lamp",
+      "type": "image",
+      "x": 2640,
+      "y": 900,
+      "rotation": -1.2,
+      "width": 260,
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='140'%3E%3Cdefs%3E%3CradialGradient id='r' cx='.62' cy='.34' r='.7'%3E%3Cstop offset='0' stop-color='%23ffc276'/%3E%3Cstop offset='.3' stop-color='%237a5230'/%3E%3Cstop offset='1' stop-color='%230b1420'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect width='260' height='140' fill='url(%23r)'/%3E%3C/svg%3E",
+      "alt": "lamp glow",
+      "text": "the sweep: 4.0s period, locked"
+    },
+    {
+      "id": "note-title",
+      "type": "note",
+      "x": 2860,
+      "y": 380,
+      "rotation": -2,
+      "text": "title: \"ANSWERS\". Or nothing — eight seconds doesn't need a card."
+    },
+    {
+      "id": "note-loop",
+      "type": "note",
+      "x": 360,
+      "y": 1280,
+      "rotation": 1.8,
+      "text": "the gallery shot alone could loop forever. Try it as the site header."
+    }
+  ]
+}

@@ -48,7 +48,7 @@
   <div class="sheet" role="dialog" aria-modal="true" aria-label="New composition">
     <header><strong>NEW COMPOSITION</strong><button onclick={onclose} aria-label="Close new composition">×</button></header>
     <label><span>Name</span><input bind:this={nameInput} bind:value={name} placeholder="TitleCard" /></label>
-    <label><span>Kind</span><select bind:value={kind}>{#each ["edit", "3d", "generate", "audio"] as option}<option value={option}>{option.toUpperCase()}</option>{/each}</select></label>
+    <label><span>Kind</span><select bind:value={kind}>{#each ["edit", "3d", "generate", "audio", "plan"] as option}<option value={option}>{option.toUpperCase()}</option>{/each}</select></label>
     <label><span>Duration</span><input type="number" min={generate ? 1 : 0.5} step={generate ? 1 : 0.5} bind:value={seconds} /><small>{generate ? `${Math.max(1, Math.round(seconds))}s of video` : `${frames} frames`}</small></label>
     {#if generate}
       <div class="computed">generative recipe · 720p · aspect nearest {current.width}×{current.height} · prompt, model & refs live in the workbench</div>
