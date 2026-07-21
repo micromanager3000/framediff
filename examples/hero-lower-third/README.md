@@ -1,32 +1,7 @@
 # FrameDiff example · hero with lower-third
 
-The example now opens on **Studio Playground**, a 2,070-frame, three-level acceptance project that
-organizes the package into four workflow chapters. It covers all five composition kinds plus canvas
-authoring, GSAP and packaged DOM effects, real editorial media, grade/LUT finishing, deterministic
-cloth, native Three.js, video-plane cameras, generation, audio, cache, Agent API and local delivery.
-See the [Studio Playground guide](../../docs/STUDIO-PLAYGROUND.md) for the graph, capability map and
-maintained 17-step walkthrough. The earlier [Production Lab](../../docs/PRODUCTION-LAB.md) remains
-available at `?comp=production-lab`, and the
-[Studio UX audit](../../docs/STUDIO-UX-AUDIT-2026-07-16.md) for the improvements and remaining roadmap.
-
-Studio feature labs are registered alongside the production reel. Open
-`?comp=direct-manipulation-lab` to try stable canvas selection, scaled/rotated move and resize,
-keyboard nudging, snapping, explicit geometry materialization, source HMR and exact undo/redo.
-Open `?comp=rich-properties-lab` for direct canvas text editing plus typed typography, color,
-gradient, manifest image, flex, spacing, opacity, radius, blend and isolation controls.
-Open `?comp=editorial-lab` for persistent source-backed video/grade layers, vertical clip movement,
-production-state badges and front trimming that advances the real media in-point in source seconds.
-Open `?comp=gsap-motion-lab` for the optional paused GSAP adapter: frame-authored tweens, exact
-random-access seeking, registered motion lanes, draggable key diamonds, source-backed key/value/ease
-editing, the curve view, auto-key, and a stopwatch conversion on the static orb core.
-The same lab’s **product-flight** lane demonstrates “Make arc,” a literal GSAP cubic path, canvas
-anchors/tangents, direct handle nudging, and frame-sampled gesture recording with preview/commit.
-Its **helper-dots** lane demonstrates a fixed-array helper captured as a deterministic runtime trace:
-select it and choose “Unroll to edit” to replace only that call site with three canonical tweens after
-the normalized pre/post proof passes; Undo restores the original helper as one project edit.
-The Studio header’s **AGENT API v1** control audits all of these labs through the same machine-readable
-surface available at `window.__framediffAgent`; see [the agent API guide](../../docs/AGENT-API.md) for a
-guarded inspect → placement/key/path edit → exact PNG snapshot → Undo walkthrough.
+This example opens directly on the complete **HeroWithLowerThird** composition. The separate
+[Studio Playground example](../studio-playground) provides the broader guided acceptance project.
 
 Reproduces `lt-marketing/out/hero-with-lower-third/hero-with-lower-third.mp4` (1920×1080 @ 23.976,
 1091 frames). The video in `lt-marketing/out/...` is comparison-only; the default composition rebuilds
@@ -93,8 +68,8 @@ are derived only from raw footage, never from the comparison render.
 ```sh
 npm install                                   # repo root
 npm run dev --workspace examples/hero-lower-third
-# defaults to ?comp=studio-playground
-# ?comp=production-lab | main | hero | hero-raw | lower-third | cloth-lab | world-lab | audio-lab
+# defaults to ?comp=main
+# ?comp=hero | hero-raw | lower-third | end-card | hero-script
 ```
 
 ## Dev hooks (used by the compare loop)

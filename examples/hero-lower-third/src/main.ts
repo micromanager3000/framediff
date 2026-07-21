@@ -10,9 +10,9 @@ import {
 import { COMPOSITIONS } from "./config";
 import { preloadLuts } from "./effects/luts";
 
-// ?comp=studio-playground | production-lab | main | hero | lower-third — the ROOT comp;
+// ?comp=main | hero | hero-raw | lower-third | end-card — the ROOT comp;
 // the whole registry mounts, so every comp stays reachable through the tree/nesting.
-const which = new URLSearchParams(location.search).get("comp") ?? "studio-playground";
+const which = new URLSearchParams(location.search).get("comp") ?? "main";
 let liveCompositions = COMPOSITIONS;
 let composition = liveCompositions[which] ?? liveCompositions.main;
 

@@ -18,8 +18,9 @@ test("a new user can discover compositions, media, and cached artifacts", async 
   await page.getByRole("button", { name: "MEDIA", exact: true }).click();
   const mediaSearch = page.getByRole("searchbox", { name: "Find media" });
   await mediaSearch.fill("shine");
-  await expect(page.getByRole("status", { name: "Media result count" })).toHaveText(/^1\/\d+$/);
-  await expect(page.locator(".asset-row").filter({ hasText: "shine.wav" })).toHaveCount(1);
+  await expect(page.getByRole("status", { name: "Media result count" })).toHaveText(/^2\/\d+$/);
+  await expect(page.locator('.asset-row[title^="Preview shine.wav ·"]')).toHaveCount(1);
+  await expect(page.locator('.asset-row[title^="Preview playground-shine.wav ·"]')).toHaveCount(1);
 
   await page.getByRole("button", { name: "Cache", exact: true }).click();
   const cacheSearch = page.getByRole("searchbox", { name: "Find cached artifact" });

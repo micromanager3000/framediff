@@ -7,6 +7,7 @@ export default defineConfig({
     include: [
       "packages/*/src/**/*.test.ts",
       "examples/hero-lower-third/src/**/*.test.ts",
+      "examples/studio-playground/src/**/*.test.ts",
       "examples/cloth-showcase/src/**/*.test.ts",
     ],
     environment: "node",

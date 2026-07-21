@@ -17,10 +17,11 @@ npm install
 npm run dev
 ```
 
-The default command opens the Studio Playground in the `hero-lower-third` example. You can also run
+The default command opens the standalone Studio Playground example. You can also run
 an individual example:
 
 ```sh
+npm run dev --workspace @framediff/example-studio-playground
 npm run dev --workspace @framediff/example-hero-lower-third
 npm run dev --workspace @framediff/example-determinism-check
 npm run dev --workspace @framediff/example-cloth-showcase
@@ -48,8 +49,8 @@ npm run build
 npm run test:e2e
 ```
 
-Large or licensed example media is intentionally excluded from Git. Each example documents any
-local assets it expects and how to regenerate derived files.
+Large example media is stored with Git LFS. Each example documents its assets and how to regenerate
+derived files.
 
 ## Hosted service
 

@@ -1,0 +1,598 @@
+{
+  "version": 1,
+  "assets": {
+    "00b05305-98d7-430a-9e64-985be275837b": {
+      "name": "shine.wav",
+      "contentHash": "sha256:4851813c68c701e79edf2e2761a656fe9df163559ee7e236c0e6b69eaaf234c7",
+      "mime": "audio/wav",
+      "bytes": 882044,
+      "sources": [
+        "/__framediff-cache/sha256%3A4851813c68c701e79edf2e2761a656fe9df163559ee7e236c0e6b69eaaf234c7"
+      ]
+    },
+    "9e4a53f5-3007-4cdd-8f49-992db4ebc9d1": {
+      "name": "logo-reveal.wav",
+      "contentHash": "sha256:e39cce8808a7442035f608753d36b0fdf0b0fd8b1e8c436fd83c9ee6d6c59f9e",
+      "mime": "audio/wav",
+      "bytes": 1413168,
+      "sources": [
+        "/__framediff-cache/sha256%3Ae39cce8808a7442035f608753d36b0fdf0b0fd8b1e8c436fd83c9ee6d6c59f9e"
+      ]
+    },
+    "8c9e9aac-c985-4a39-9001-8d2b51ce2295": {
+      "name": "bed.m4a",
+      "contentHash": "sha256:3b2223a2132734cb1c6646002615d225227666793c1cd875069a8259db2062bf",
+      "mime": "audio/mp4",
+      "bytes": 1291327,
+      "sources": [
+        "/__framediff-cache/sha256%3A3b2223a2132734cb1c6646002615d225227666793c1cd875069a8259db2062bf"
+      ],
+      "derivedFrom": "c50127ee-3950-4bbe-a6f4-30ffc1bdc4a5"
+    },
+    "2d1c65c2-e291-4a54-9ba1-baebba370975": {
+      "name": "2026-04-24 13-35-32.mp4",
+      "contentHash": "sha256:acae0d3bef7177f3fbd14a70a23dd86cc1cf2f3b5d44fe9e95338d108f7e8e55",
+      "mime": "video/mp4",
+      "bytes": 65030079,
+      "sources": [
+        "/__framediff-cache/sha256%3Aacae0d3bef7177f3fbd14a70a23dd86cc1cf2f3b5d44fe9e95338d108f7e8e55"
+      ]
+    },
+    "24bd8424-47b6-470e-98ac-0920cb2e3421": {
+      "name": "2026-04-24 13-52-20.mp4",
+      "contentHash": "sha256:d30a5f3d1679437d73566de7b4673ee1e5c3d8c861a770000fa2688460940c50",
+      "mime": "video/mp4",
+      "bytes": 91113303,
+      "sources": [
+        "/__framediff-cache/sha256%3Ad30a5f3d1679437d73566de7b4673ee1e5c3d8c861a770000fa2688460940c50"
+      ]
+    },
+    "3b0601e4-5906-49f5-9d39-4b98533c056f": {
+      "name": "2026-04-24 13-57-01.mp4",
+      "contentHash": "sha256:72742539762fc7e5b61ebc963f365ec802e0c77a8100db53c9b4593e7c170ffe",
+      "mime": "video/mp4",
+      "bytes": 36199972,
+      "sources": [
+        "/__framediff-cache/sha256%3A72742539762fc7e5b61ebc963f365ec802e0c77a8100db53c9b4593e7c170ffe"
+      ]
+    },
+    "b1a7edc8-b272-446d-b008-8f357d3dae74": {
+      "name": "2026-06-15 17-29-58.mp4",
+      "contentHash": "sha256:75f595ffd01d9da36003ea080b9d691ee088d06d6a28936fcb7498188616c379",
+      "mime": "video/mp4",
+      "bytes": 10612144,
+      "sources": [
+        "/__framediff-cache/sha256%3A75f595ffd01d9da36003ea080b9d691ee088d06d6a28936fcb7498188616c379"
+      ]
+    },
+    "1f7ea0b8-1d9e-4973-98fa-526fde09e1a2": {
+      "name": "explicacao-interface-nova.mp4",
+      "contentHash": "sha256:9e22fa93b0bb01ad4f45eae3172f046d0b490f7e816bd97db972f3e2a6974f1f",
+      "mime": "video/mp4",
+      "bytes": 376059387,
+      "sources": [
+        "/__framediff-cache/sha256%3A9e22fa93b0bb01ad4f45eae3172f046d0b490f7e816bd97db972f3e2a6974f1f"
+      ]
+    },
+    "68deb1f4-c321-4c2d-a14c-362cf75343d1": {
+      "name": "Flare.mp4",
+      "contentHash": "sha256:a1e7e718ad0206db9a461eb8b7d13871cdc0c9a54658c0c621876d25e16beaa2",
+      "mime": "video/mp4",
+      "bytes": 1142219,
+      "sources": [
+        "/__framediff-cache/sha256%3Aa1e7e718ad0206db9a461eb8b7d13871cdc0c9a54658c0c621876d25e16beaa2"
+      ],
+      "aliases": [
+        "Optical Flare.mp4"
+      ]
+    },
+    "3c5d912b-6657-4fd9-8480-cf4e8602c768": {
+      "name": "hf_20260617_191556_e93008c8-2fd0-4ce8-bdd9-1b6b52ead4a0.mp4",
+      "contentHash": "sha256:5212b596e78f81d3f166781a456686a90799f795c25bc352033532bf51d1c5ba",
+      "mime": "video/mp4",
+      "bytes": 5575619,
+      "sources": [
+        "/__framediff-cache/sha256%3A5212b596e78f81d3f166781a456686a90799f795c25bc352033532bf51d1c5ba"
+      ]
+    },
+    "a7593343-316b-4105-a02e-fe56da2590c7": {
+      "name": "hf_20260617_193427_539e8457-d7ac-46a5-b9c8-c8b90271c001.mp4",
+      "contentHash": "sha256:1f63e2b0ce75c4896f577e34097095c0142f4a3da246bdc602af15c1e9ab1acc",
+      "mime": "video/mp4",
+      "bytes": 3557140,
+      "sources": [
+        "/__framediff-cache/sha256%3A1f63e2b0ce75c4896f577e34097095c0142f4a3da246bdc602af15c1e9ab1acc"
+      ]
+    },
+    "5588595d-f8e1-40f0-9f54-611b50d4ff82": {
+      "name": "kling_20260527_作品_animar_as__5514_0_prob4.mov",
+      "contentHash": "sha256:41e6acc1ac7cd679fd5ce86cafd86ea4efc26ee9b2babf440ca01171b876359a",
+      "mime": "video/quicktime",
+      "bytes": 43640358,
+      "sources": [
+        "/__framediff-cache/sha256%3A41e6acc1ac7cd679fd5ce86cafd86ea4efc26ee9b2babf440ca01171b876359a"
+      ]
+    },
+    "666ee08a-03b2-4249-a48f-646e87559269": {
+      "name": "kling_20260527_作品_gerar_uma__2957_0_prob4.mov",
+      "contentHash": "sha256:c4669bb20f96d63f04e8b357a1a0f8a2dc79c3cdc2de276b69549a545b593c99",
+      "mime": "video/quicktime",
+      "bytes": 59479230,
+      "sources": [
+        "/__framediff-cache/sha256%3Ac4669bb20f96d63f04e8b357a1a0f8a2dc79c3cdc2de276b69549a545b593c99"
+      ]
+    },
+    "50ff4736-f5a8-4667-88f9-ae99551eff0e": {
+      "name": "latest2ar2_bright-keynote-2026-06-15-16-01-50.mp4",
+      "contentHash": "sha256:fd3b5d79657871aea4e041c6f3959de5c6e7b1005d45d8411f7dc9bed1a6c3d1",
+      "mime": "video/mp4",
+      "bytes": 29740281,
+      "sources": [
+        "/__framediff-cache/sha256%3Afd3b5d79657871aea4e041c6f3959de5c6e7b1005d45d8411f7dc9bed1a6c3d1"
+      ]
+    },
+    "a133b071-aaab-4e52-a27e-d17b68001c94": {
+      "name": "latest2ar2_bright-keynote-2026-06-15-16-12-27.mp4",
+      "contentHash": "sha256:c42fccf490eb830f04664f374fae499921f004eb055daa2b9aad96375f6a78fe",
+      "mime": "video/mp4",
+      "bytes": 11621099,
+      "sources": [
+        "/__framediff-cache/sha256%3Ac42fccf490eb830f04664f374fae499921f004eb055daa2b9aad96375f6a78fe"
+      ]
+    },
+    "f753f5f7-6248-421f-a1c9-521038083aaf": {
+      "name": "latest2ar2_lighttwistnewsroom-2026-06-17-21-40-53.mp4",
+      "contentHash": "sha256:b22aacd27fa06eda5ed267ff317ea5cd7a0ed4fe3d61fa07474829008d884bd9",
+      "mime": "video/mp4",
+      "bytes": 58964872,
+      "sources": [
+        "/__framediff-cache/sha256%3Ab22aacd27fa06eda5ed267ff317ea5cd7a0ed4fe3d61fa07474829008d884bd9"
+      ]
+    },
+    "d56f429f-3ab7-452f-bc9a-d0c2b51b5a77": {
+      "name": "latest2br1_SmartestPerson_Standalone-2026-05-12-13-47-09.mp4",
+      "contentHash": "sha256:748c9a0aa6eb8da6a5e3bb67b1688df43c45ad02018eb4ea1f1290659e19626a",
+      "mime": "video/mp4",
+      "bytes": 51151686,
+      "sources": [
+        "/__framediff-cache/sha256%3A748c9a0aa6eb8da6a5e3bb67b1688df43c45ad02018eb4ea1f1290659e19626a"
+      ]
+    },
+    "c50127ee-3950-4bbe-a6f4-30ffc1bdc4a5": {
+      "name": "LightTwist Audio Quente.aac",
+      "contentHash": "sha256:347e0ff1ef890573794c2e3f8bf7d6d35bcc925b627be13e51fc54672f931d89",
+      "mime": "audio/aac",
+      "bytes": 1296216,
+      "sources": [
+        "/__framediff-cache/sha256%3A347e0ff1ef890573794c2e3f8bf7d6d35bcc925b627be13e51fc54672f931d89"
+      ]
+    },
+    "1ccc7e58-8391-49ee-b6e5-b02c68e1b337": {
+      "name": "magnific_video-upscale_3009454435.mp4",
+      "contentHash": "sha256:a538e919df57390c7607374065a4bd5028bd11100c762f96ca87b5085a0127ec",
+      "mime": "video/mp4",
+      "bytes": 24262119,
+      "sources": [
+        "/__framediff-cache/sha256%3Aa538e919df57390c7607374065a4bd5028bd11100c762f96ca87b5085a0127ec"
+      ]
+    },
+    "c564314e-6dd9-417f-bc06-6a8110964a80": {
+      "name": "NANDO_FX3_0023.mp4",
+      "contentHash": "sha256:f1b859867912e2958c43aa6b59b794126a82576a4e341107c60228e887df1c14",
+      "mime": "video/mp4",
+      "bytes": 537146922,
+      "sources": [
+        "/__framediff-cache/sha256%3Af1b859867912e2958c43aa6b59b794126a82576a4e341107c60228e887df1c14"
+      ]
+    },
+    "3e449888-0514-4079-b9c4-b3e2db9e5036": {
+      "name": "NANDO_FX3_0030.mp4",
+      "contentHash": "sha256:ff45301ed0ae6d0bb4a713b4644b08de11474cd27e9fc4240b397a1b69791366",
+      "mime": "video/mp4",
+      "bytes": 1208237938,
+      "sources": [
+        "/__framediff-cache/sha256%3Aff45301ed0ae6d0bb4a713b4644b08de11474cd27e9fc4240b397a1b69791366"
+      ]
+    },
+    "e24bd202-2f43-4068-a8a6-e01c6a211afa": {
+      "name": "Screen Recording 2026-06-17 at 3.52.13 PM.mov",
+      "contentHash": "sha256:7292fcc6ebd4c1c4385194e1211dcb3e9ab3bcc46965b99b4c0cd89ecf4d37a9",
+      "mime": "video/quicktime",
+      "bytes": 71419672,
+      "sources": [
+        "/__framediff-cache/sha256%3A7292fcc6ebd4c1c4385194e1211dcb3e9ab3bcc46965b99b4c0cd89ecf4d37a9"
+      ]
+    },
+    "cf3cdc78-3fe4-464a-bcc9-e05c2e24cdad": {
+      "name": "stream feio.mp4",
+      "contentHash": "sha256:a45e033ad168291b5618f1692f34f75b0aa8cf344a18717d494d34c40f3f0166",
+      "mime": "video/mp4",
+      "bytes": 91951923,
+      "sources": [
+        "/__framediff-cache/sha256%3Aa45e033ad168291b5618f1692f34f75b0aa8cf344a18717d494d34c40f3f0166"
+      ]
+    },
+    "proxy-open": {
+      "name": "proxy-open.mp4",
+      "contentHash": "sha256:d24e301dcab3c9f6c69cf4f4d9706dc0bd549f703852438837ea255ac7e5b7f7",
+      "mime": "video/mp4",
+      "bytes": 49842584,
+      "sources": [
+        "/__framediff-cache/sha256%3Ad24e301dcab3c9f6c69cf4f4d9706dc0bd549f703852438837ea255ac7e5b7f7"
+      ],
+      "derivedFrom": "c564314e-6dd9-417f-bc06-6a8110964a80"
+    },
+    "proxy-phone": {
+      "name": "proxy-phone.mp4",
+      "contentHash": "sha256:31a63fbb7a34acb69e0545ba9365381062b266c2aa577c680c22fbc26ca273d9",
+      "mime": "video/mp4",
+      "bytes": 81229333,
+      "sources": [
+        "/__framediff-cache/sha256%3A31a63fbb7a34acb69e0545ba9365381062b266c2aa577c680c22fbc26ca273d9"
+      ],
+      "derivedFrom": "3e449888-0514-4079-b9c4-b3e2db9e5036"
+    },
+    "proxy-grid": {
+      "name": "proxy-grid.mp4",
+      "contentHash": "sha256:789ea6134efb37b08ccdf82dd02a1074a43cf430f1b81dd369ed2e831193fadc",
+      "mime": "video/mp4",
+      "bytes": 2496573,
+      "sources": [
+        "/__framediff-cache/sha256%3A789ea6134efb37b08ccdf82dd02a1074a43cf430f1b81dd369ed2e831193fadc"
+      ],
+      "derivedFrom": "cf3cdc78-3fe4-464a-bcc9-e05c2e24cdad"
+    },
+    "proxy-news": {
+      "name": "proxy-news.mp4",
+      "contentHash": "sha256:2d41e8563f702a073b622869307e2df7f4a1056a6d7b968a73fbc67a268f5a47",
+      "mime": "video/mp4",
+      "bytes": 24370767,
+      "sources": [
+        "/__framediff-cache/sha256%3A2d41e8563f702a073b622869307e2df7f4a1056a6d7b968a73fbc67a268f5a47"
+      ],
+      "derivedFrom": "f753f5f7-6248-421f-a1c9-521038083aaf"
+    },
+    "proxy-uizoom": {
+      "name": "proxy-uizoom.mp4",
+      "contentHash": "sha256:90fb751cc30adad6722a07729d205dfbe77580aca96d7cf43332eed35e34e331",
+      "mime": "video/mp4",
+      "bytes": 6995642,
+      "sources": [
+        "/__framediff-cache/sha256%3A90fb751cc30adad6722a07729d205dfbe77580aca96d7cf43332eed35e34e331"
+      ],
+      "derivedFrom": "e24bd202-2f43-4068-a8a6-e01c6a211afa"
+    },
+    "proxy-june3d": {
+      "name": "proxy-june3d.mp4",
+      "contentHash": "sha256:dd88775a2db3ba461abfdeaeb82156b8ac2ca023d23186f39dacec46362be41a",
+      "mime": "video/mp4",
+      "bytes": 2491977,
+      "sources": [
+        "/__framediff-cache/sha256%3Add88775a2db3ba461abfdeaeb82156b8ac2ca023d23186f39dacec46362be41a"
+      ],
+      "derivedFrom": "b1a7edc8-b272-446d-b008-8f357d3dae74"
+    },
+    "proxy-split-l": {
+      "name": "proxy-split-l.mp4",
+      "contentHash": "sha256:315838fcfad6ead347cfe73dabb3165e9450111a7caf873b4028fd83d248bb07",
+      "mime": "video/mp4",
+      "bytes": 2769646,
+      "sources": [
+        "/__framediff-cache/sha256%3A315838fcfad6ead347cfe73dabb3165e9450111a7caf873b4028fd83d248bb07"
+      ],
+      "derivedFrom": "a7593343-316b-4105-a02e-fe56da2590c7"
+    },
+    "proxy-split-r": {
+      "name": "proxy-split-r.mp4",
+      "contentHash": "sha256:8a81bc2063448a4c1d0d97e21e7e4875d30981190461ae10c08bc8848a6b60df",
+      "mime": "video/mp4",
+      "bytes": 10537004,
+      "sources": [
+        "/__framediff-cache/sha256%3A8a81bc2063448a4c1d0d97e21e7e4875d30981190461ae10c08bc8848a6b60df"
+      ],
+      "derivedFrom": "2d1c65c2-e291-4a54-9ba1-baebba370975"
+    },
+    "proxy-cam4": {
+      "name": "proxy-cam4.mp4",
+      "contentHash": "sha256:a3668c45a7565c53fd7363fb46e5181c03f1b849594436205cbda59192d5d67b",
+      "mime": "video/mp4",
+      "bytes": 4747932,
+      "sources": [
+        "/__framediff-cache/sha256%3Aa3668c45a7565c53fd7363fb46e5181c03f1b849594436205cbda59192d5d67b"
+      ],
+      "derivedFrom": "1f7ea0b8-1d9e-4973-98fa-526fde09e1a2"
+    },
+    "proxy-cam6": {
+      "name": "proxy-cam6.mp4",
+      "contentHash": "sha256:c546184a2b47695a7e2fcd5893948314fb0f6a06996593de1c409ff23fcedd6a",
+      "mime": "video/mp4",
+      "bytes": 1697495,
+      "sources": [
+        "/__framediff-cache/sha256%3Ac546184a2b47695a7e2fcd5893948314fb0f6a06996593de1c409ff23fcedd6a"
+      ],
+      "derivedFrom": "1f7ea0b8-1d9e-4973-98fa-526fde09e1a2"
+    },
+    "proxy-keynote-a": {
+      "name": "proxy-keynote-a.mp4",
+      "contentHash": "sha256:ac14963d77bb70877cd8dff34c8a0e7b8fb4b033c44ab27c37ceedef9d2cb3cf",
+      "mime": "video/mp4",
+      "bytes": 25288217,
+      "sources": [
+        "/__framediff-cache/sha256%3Aac14963d77bb70877cd8dff34c8a0e7b8fb4b033c44ab27c37ceedef9d2cb3cf"
+      ],
+      "derivedFrom": "a133b071-aaab-4e52-a27e-d17b68001c94"
+    },
+    "proxy-hf-talk": {
+      "name": "proxy-hf-talk.mp4",
+      "contentHash": "sha256:4d60b6aa89101d637222915cd657b436f765c607567e2f90dd9fa018a18a752b",
+      "mime": "video/mp4",
+      "bytes": 2055652,
+      "sources": [
+        "/__framediff-cache/sha256%3A4d60b6aa89101d637222915cd657b436f765c607567e2f90dd9fa018a18a752b"
+      ],
+      "derivedFrom": "3c5d912b-6657-4fd9-8480-cf4e8602c768"
+    },
+    "proxy-magnific": {
+      "name": "proxy-magnific.mp4",
+      "contentHash": "sha256:abaf7c96f22d6810db5ed3549af14d85e61927983fcd8411ee01c02f1d83a734",
+      "mime": "video/mp4",
+      "bytes": 9056816,
+      "sources": [
+        "/__framediff-cache/sha256%3Aabaf7c96f22d6810db5ed3549af14d85e61927983fcd8411ee01c02f1d83a734"
+      ],
+      "derivedFrom": "1ccc7e58-8391-49ee-b6e5-b02c68e1b337"
+    },
+    "proxy-greenwide": {
+      "name": "proxy-greenwide.mp4",
+      "contentHash": "sha256:d7d481e6fad9f20728af60846925af527fae43233a5c672ba3cd4d3f036e73d5",
+      "mime": "video/mp4",
+      "bytes": 2160872,
+      "sources": [
+        "/__framediff-cache/sha256%3Ad7d481e6fad9f20728af60846925af527fae43233a5c672ba3cd4d3f036e73d5"
+      ],
+      "derivedFrom": "666ee08a-03b2-4249-a48f-646e87559269"
+    },
+    "proxy-desk": {
+      "name": "proxy-desk.mp4",
+      "contentHash": "sha256:4e21586fd35dbf71e311adea90c69b5640e5a77fefd1f41a1f321e70c5ff5ad0",
+      "mime": "video/mp4",
+      "bytes": 3916048,
+      "sources": [
+        "/__framediff-cache/sha256%3A4e21586fd35dbf71e311adea90c69b5640e5a77fefd1f41a1f321e70c5ff5ad0"
+      ],
+      "derivedFrom": "24bd8424-47b6-470e-98ac-0920cb2e3421"
+    },
+    "proxy-smartest": {
+      "name": "proxy-smartest.mp4",
+      "contentHash": "sha256:8689c97df58786ad0005a4bc384737a07f4a442c0478f83daed3b4b81f812689",
+      "mime": "video/mp4",
+      "bytes": 4841796,
+      "sources": [
+        "/__framediff-cache/sha256%3A8689c97df58786ad0005a4bc384737a07f4a442c0478f83daed3b4b81f812689"
+      ],
+      "derivedFrom": "d56f429f-3ab7-452f-bc9a-d0c2b51b5a77"
+    },
+    "proxy-blazer": {
+      "name": "proxy-blazer.mp4",
+      "contentHash": "sha256:356d20bc7ce2289124be8d177862508233c3bf9e4bd3277f4aec4933af9ea16b",
+      "mime": "video/mp4",
+      "bytes": 1789247,
+      "durationSeconds": 3.041667,
+      "sources": [
+        "/__framediff-cache/sha256%3A356d20bc7ce2289124be8d177862508233c3bf9e4bd3277f4aec4933af9ea16b"
+      ],
+      "derivedFrom": "5588595d-f8e1-40f0-9f54-611b50d4ff82"
+    },
+    "proxy-tripod": {
+      "name": "proxy-tripod.mp4",
+      "contentHash": "sha256:dce8bac755d3958a5ee476fe0b3e149fe5efea23439245e1457abfe7417d0073",
+      "mime": "video/mp4",
+      "bytes": 7904555,
+      "sources": [
+        "/__framediff-cache/sha256%3Adce8bac755d3958a5ee476fe0b3e149fe5efea23439245e1457abfe7417d0073"
+      ],
+      "derivedFrom": "3b0601e4-5906-49f5-9d39-4b98533c056f"
+    },
+    "proxy-keynote-b": {
+      "name": "proxy-keynote-b.mp4",
+      "contentHash": "sha256:f3edb934063c7b0876310c05354418e5f08ee04896ee3ff0da1b83907dfd63b3",
+      "mime": "video/mp4",
+      "bytes": 11394403,
+      "sources": [
+        "/__framediff-cache/sha256%3Af3edb934063c7b0876310c05354418e5f08ee04896ee3ff0da1b83907dfd63b3"
+      ],
+      "derivedFrom": "50ff4736-f5a8-4667-88f9-ae99551eff0e"
+    },
+    "proxy-flare": {
+      "name": "proxy-flare.mp4",
+      "contentHash": "sha256:989cad3070fbb550759f800baebe73389ed6dcf5a192ef2e0db02ade5522ebf8",
+      "mime": "video/mp4",
+      "bytes": 760402,
+      "sources": [
+        "/__framediff-cache/sha256%3A989cad3070fbb550759f800baebe73389ed6dcf5a192ef2e0db02ade5522ebf8"
+      ],
+      "derivedFrom": "68deb1f4-c321-4c2d-a14c-362cf75343d1"
+    },
+    "c5ff38b5-3ca7-4a28-b782-43dfe8ef5b14": {
+      "name": "skyTimelapse.take1.mp4",
+      "contentHash": "sha256:3148cea9c51077b634f8d50645cb72687786546e9d17672f8d180b9e6d320afa",
+      "mime": "video/mp4",
+      "bytes": 1337653,
+      "sources": [
+        "/__framediff-cache/sha256%3A3148cea9c51077b634f8d50645cb72687786546e9d17672f8d180b9e6d320afa"
+      ],
+      "generator": {
+        "gen": "skyTimelapse",
+        "take": 1,
+        "recipeHash": "sha256:ea7d5d87f8af2953f405efbdf3f6f79a94537df0fcc41fe8b3f7d61dc3c7a2e9",
+        "endpoint": "bytedance/seedance-2.0/fast/text-to-video",
+        "prompt": "",
+        "requestId": "019f3dea-727b-7ee1-8d08-bb3f5010cca0",
+        "seed": 819809739,
+        "at": "2026-07-07T18:51:39.394Z"
+      }
+    },
+    "playground-bed": {
+      "name": "playground-bed.m4a",
+      "contentHash": "sha256:c0cab879a60f6930ba6c680632afb2aba4fab31d79a5bfd6571cc05b30e9b7d5",
+      "mime": "audio/mp4",
+      "bytes": 260621,
+      "sources": [
+        "/__framediff-cache/sha256%3Ac0cab879a60f6930ba6c680632afb2aba4fab31d79a5bfd6571cc05b30e9b7d5"
+      ]
+    },
+    "playground-shine": {
+      "name": "playground-shine.wav",
+      "contentHash": "sha256:f75de1efabed79d7998ca37bad32eabb1cfd9db2aa37735fc2bbe8248b0cc9bd",
+      "mime": "audio/wav",
+      "bytes": 88278,
+      "sources": [
+        "/__framediff-cache/sha256%3Af75de1efabed79d7998ca37bad32eabb1cfd9db2aa37735fc2bbe8248b0cc9bd"
+      ]
+    },
+    "lut-fx3": {
+      "name": "fx3.cube",
+      "contentHash": "sha256:bf4ad296c1335d2661e5d0d55f1312e05e858ab18adc88d8d421253d3adbad2b",
+      "mime": "text/plain",
+      "bytes": 7415024,
+      "sources": [
+        "/__framediff-cache/sha256%3Abf4ad296c1335d2661e5d0d55f1312e05e858ab18adc88d8d421253d3adbad2b"
+      ]
+    },
+    "lut-global": {
+      "name": "global.cube",
+      "contentHash": "sha256:508bb3f83ed37cf1dbba324f7c3d1983b798fe82d295a44ad9ef20706639cd9c",
+      "mime": "text/plain",
+      "bytes": 970443,
+      "sources": [
+        "/__framediff-cache/sha256%3A508bb3f83ed37cf1dbba324f7c3d1983b798fe82d295a44ad9ef20706639cd9c"
+      ]
+    },
+    "lut-grid": {
+      "name": "grid.cube",
+      "contentHash": "sha256:b018d3869c74dd6a1e28caec1e7047b11b36c6f47105cc995d167df815914259",
+      "mime": "text/plain",
+      "bytes": 970444,
+      "sources": [
+        "/__framediff-cache/sha256%3Ab018d3869c74dd6a1e28caec1e7047b11b36c6f47105cc995d167df815914259"
+      ]
+    },
+    "lut-hf-talk": {
+      "name": "hf_talk.cube",
+      "contentHash": "sha256:e44b52965b17b613634766d380ff22a3cb1f1b275d124b6b14352a2f619c32d9",
+      "mime": "text/plain",
+      "bytes": 970447,
+      "sources": [
+        "/__framediff-cache/sha256%3Ae44b52965b17b613634766d380ff22a3cb1f1b275d124b6b14352a2f619c32d9"
+      ]
+    },
+    "lut-keynote-b": {
+      "name": "keynote_b.cube",
+      "contentHash": "sha256:6f6ba56915e90a1b921656292c21d84df79970770feb69fb4212de571016b467",
+      "mime": "text/plain",
+      "bytes": 970429,
+      "sources": [
+        "/__framediff-cache/sha256%3A6f6ba56915e90a1b921656292c21d84df79970770feb69fb4212de571016b467"
+      ]
+    },
+    "lut-open": {
+      "name": "open.cube",
+      "contentHash": "sha256:0abeb69d97fcfb29ac4ef8d8efaf40628c84ed0b332dc438ba29ccccd7fc5bc2",
+      "mime": "text/plain",
+      "bytes": 7415018,
+      "sources": [
+        "/__framediff-cache/sha256%3A0abeb69d97fcfb29ac4ef8d8efaf40628c84ed0b332dc438ba29ccccd7fc5bc2"
+      ]
+    },
+    "lut-phone": {
+      "name": "phone.cube",
+      "contentHash": "sha256:8defddd0ee68a5438f7d16d71c28c4bccd51db980ce5ad855050cfb06346de7b",
+      "mime": "text/plain",
+      "bytes": 7415019,
+      "sources": [
+        "/__framediff-cache/sha256%3A8defddd0ee68a5438f7d16d71c28c4bccd51db980ce5ad855050cfb06346de7b"
+      ]
+    },
+    "legacy-clip1": {
+      "name": "clip1.mp4",
+      "contentHash": "sha256:d807d678970e6760794133620d556ff54970a73873b8d3ae65caca86afef3039",
+      "mime": "video/mp4",
+      "bytes": 656234,
+      "sources": [
+        "/__framediff-cache/sha256%3Ad807d678970e6760794133620d556ff54970a73873b8d3ae65caca86afef3039"
+      ]
+    },
+    "legacy-clip2": {
+      "name": "clip2.mp4",
+      "contentHash": "sha256:c4299ac07d99564b655e8f509ccb36b477fe5d1a600ce61be6a3cf3647da0591",
+      "mime": "video/mp4",
+      "bytes": 4301724,
+      "sources": [
+        "/__framediff-cache/sha256%3Ac4299ac07d99564b655e8f509ccb36b477fe5d1a600ce61be6a3cf3647da0591"
+      ]
+    },
+    "legacy-clip3": {
+      "name": "clip3.mp4",
+      "contentHash": "sha256:32ea993e3b8001e1d510775612639d4b151fd09f5d74d2f585c9e1cf0a07a8b6",
+      "mime": "video/mp4",
+      "bytes": 9683957,
+      "sources": [
+        "/__framediff-cache/sha256%3A32ea993e3b8001e1d510775612639d4b151fd09f5d74d2f585c9e1cf0a07a8b6"
+      ]
+    },
+    "legacy-clip4": {
+      "name": "clip4.mp4",
+      "contentHash": "sha256:b1a2aea469367738b39d39f20056b9f69a8221e84bacd6e9786cb2f6254cd3f7",
+      "mime": "video/mp4",
+      "bytes": 903966,
+      "sources": [
+        "/__framediff-cache/sha256%3Ab1a2aea469367738b39d39f20056b9f69a8221e84bacd6e9786cb2f6254cd3f7"
+      ]
+    },
+    "legacy-clip5": {
+      "name": "clip5.mp4",
+      "contentHash": "sha256:a5c581fe1814dc8f9c258b5e2cb1b84e0cdcba3ad4bf4c858a82306275dd420f",
+      "mime": "video/mp4",
+      "bytes": 5803573,
+      "sources": [
+        "/__framediff-cache/sha256%3Aa5c581fe1814dc8f9c258b5e2cb1b84e0cdcba3ad4bf4c858a82306275dd420f"
+      ]
+    },
+    "legacy-clip6": {
+      "name": "clip6.mp4",
+      "contentHash": "sha256:5088ddd8cc52971640115f1b0a60f9e949340565ab95a16d87c7eee0c7aaa7db",
+      "mime": "video/mp4",
+      "bytes": 465414,
+      "sources": [
+        "/__framediff-cache/sha256%3A5088ddd8cc52971640115f1b0a60f9e949340565ab95a16d87c7eee0c7aaa7db"
+      ]
+    },
+    "legacy-music-bed": {
+      "name": "music.m4a",
+      "contentHash": "sha256:f251e648e1b12b42985cf40ff8d0bc89b571decce43ac892fb7fb80ee54e67cf",
+      "mime": "audio/mp4",
+      "bytes": 1036159,
+      "sources": [
+        "/__framediff-cache/sha256%3Af251e648e1b12b42985cf40ff8d0bc89b571decce43ac892fb7fb80ee54e67cf"
+      ]
+    },
+    "hero-reference-video": {
+      "name": "hero-reference.mp4",
+      "contentHash": "sha256:89d2c7f75f5d87bdb51666f05a3c3a9811a24d6fa2b07013be338b08b3d0c23d",
+      "mime": "video/mp4",
+      "bytes": 76674588,
+      "sources": [
+        "/__framediff-cache/sha256%3A89d2c7f75f5d87bdb51666f05a3c3a9811a24d6fa2b07013be338b08b3d0c23d"
+      ]
+    },
+    "hero-reference-audio": {
+      "name": "hero-reference-audio.m4a",
+      "contentHash": "sha256:470f3482a406563ed72d9eac945f26d42d26c40a7de3028ebdfdc131fc601ede",
+      "mime": "audio/mp4",
+      "bytes": 967378,
+      "sources": [
+        "/__framediff-cache/sha256%3A470f3482a406563ed72d9eac945f26d42d26c40a7de3028ebdfdc131fc601ede"
+      ]
+    }
+  }
+}

@@ -1,0 +1,45 @@
+<!doctype html><html><head><style>
+ [data-fd-composition]{position:relative;overflow:hidden;background:#0b0c10;color:#e9eaf0;font-family:"SF Pro Display",-apple-system,sans-serif;padding:52px 60px;box-sizing:border-box}
+ h1{font-size:32px;margin:0 0 4px}.sub{margin:0;font-size:13.5px;color:#8b90a5}.sub b{color:#e9eaf0}
+ .cols{display:grid;grid-template-columns:170px 1fr 256px 380px;gap:0 26px;padding:24px 12px 8px;font:600 11px ui-monospace;letter-spacing:1.6px;color:#a29bfe}
+ .thumb{position:relative;width:240px;height:135px;overflow:hidden;border-radius:9px;border:1px solid rgba(255,255,255,.12);background:#07080d}
+ .row{display:grid;grid-template-columns:170px 1fr 256px 380px;gap:0 26px;align-items:start;padding:18px 12px;border-top:1px solid rgba(255,255,255,.08);border-radius:8px}
+ .row.active{background:rgba(162,155,254,.06)}
+ .tc{font:600 16px ui-monospace}.dur{font:12px ui-monospace;color:#8b90a5;margin-top:4px}
+ .shot{font-size:18px;font-weight:700}.beat{margin:6px 0 0;font-size:13.5px;line-height:1.6;color:#c2c6d8}
+ .chips{display:flex;flex-wrap:wrap;gap:6px}
+ .chip{font:11px ui-monospace;border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:3px 10px;color:#8b90a5}
+ .chip.final{color:#7bd88f;border-color:rgba(123,216,143,.4)}
+ .foot{position:absolute;left:60px;bottom:30px;font-size:12px;color:#8b90a5}.foot code{font-family:ui-monospace;color:#a29bfe}
+</style></head><body>
+<main data-fd-composition data-fd-id="HeroScript" data-fd-name="Hero film — run of show" data-fd-width="1920" data-fd-height="1080" data-fd-fps="23.976023976" data-fd-duration="1091" data-fd-kind="script" data-fd-source="src/compositions/HeroScript.html" data-fd-module="src/compositions/StaticCompositions.ts" data-fd-export="heroScriptComp">
+ <h1>Hero film — run of show</h1>
+ <p class="sub">The plan behind <b>HeroWithLowerThird</b>. Rows share the edit's timing; chips point at the comps that realize each beat.</p>
+ <div class="cols"><span>TIME</span><span>BEAT</span><span>REFERENCE</span><span>REALIZED BY</span></div>
+ <section class="row" data-fd-clip data-fd-id="beat-open" data-fd-name="1 · Cold open" data-fd-from="0" data-fd-duration="180" data-fd-prop-status="final">
+  <div><div class="tc"></div><div class="dur"></div></div>
+  <div><div class="shot">1 · Cold open</div><p class="beat">Straight into the footage — no slate, grade already talking.</p></div>
+  <div></div>
+  <div class="chips"><span class="chip final">⧉ HeroRaw · final</span></div>
+ </section>
+ <section class="row" data-fd-clip data-fd-id="beat-brand" data-fd-name="2 · Brand line" data-fd-from="180" data-fd-duration="168" data-fd-prop-status="final">
+  <div><div class="tc"></div><div class="dur"></div></div>
+  <div><div class="shot">2 · Brand line</div><p class="beat">Lower third rises: rendered in realtime — the one claim the film has to land.</p></div>
+  <div class="thumb" data-fd-clip data-fd-id="beat-brand-ref" data-fd-name="LowerThird reference" data-fd-from="180" data-fd-duration="168" data-fd-type="nested" data-fd-comp="LowerThird" data-fd-nested-scale="0.125"></div>
+  <div class="chips"><span class="chip final">⧉ LowerThird · library</span><span class="chip final">⧉ HeroRaw · under</span></div>
+ </section>
+ <section class="row" data-fd-clip data-fd-id="beat-run" data-fd-name="3 · The run" data-fd-from="348" data-fd-duration="623" data-fd-prop-status="final">
+  <div><div class="tc"></div><div class="dur"></div></div>
+  <div><div class="shot">3 · The run</div><p class="beat">Let the footage carry; grade warms across the run.</p></div>
+  <div></div>
+  <div class="chips"><span class="chip final">⧉ HeroRaw · final</span></div>
+ </section>
+ <section class="row" data-fd-clip data-fd-id="beat-endcard" data-fd-name="4 · End card" data-fd-from="971" data-fd-duration="120" data-fd-prop-status="final">
+  <div><div class="tc"></div><div class="dur"></div></div>
+  <div><div class="shot">4 · End card</div><p class="beat">Lockup and out — same end-card comp every film ships with.</p></div>
+  <div class="thumb" data-fd-clip data-fd-id="beat-endcard-ref" data-fd-name="EndCard reference" data-fd-from="971" data-fd-duration="120" data-fd-type="nested" data-fd-comp="EndCard" data-fd-nested-scale="0.125"></div>
+  <div class="chips"><span class="chip final">⧉ EndCard · library</span></div>
+ </section>
+ <p class="foot">kind=<code>script</code> — scrub to see the active beat; <code>planDrift(plan, heroMain)</code> reports where the edit left the plan.</p>
+ <script>const rows=queryAll(".row"),fps=23.976023976,mmss=f=>{const s=Math.round(f/fps);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0")};for(const row of rows){const a=+row.getAttribute("data-fd-from"),d=+row.getAttribute("data-fd-duration");row.querySelector(".tc").textContent=mmss(a)+"–"+mmss(a+d);row.querySelector(".dur").textContent=d+"f"}onFrame(({frame})=>{for(const row of rows){const a=+row.getAttribute("data-fd-from"),d=+row.getAttribute("data-fd-duration");row.classList.toggle("active",frame>=a&&frame<a+d)}})</script>
+</main></body></html>

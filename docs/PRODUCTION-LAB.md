@@ -9,11 +9,11 @@ used by the feature.
 
 ```sh
 npm install
-npm run dev --workspace examples/hero-lower-third
+npm run dev --workspace examples/studio-playground
 ```
 
 Open `http://localhost:5173/?comp=production-lab` (use the port Vite prints if 5173 is occupied).
-`production-lab` is also the example's default composition.
+Studio Playground is the example's default composition; `production-lab` remains directly addressable.
 
 Start with **GUIDE** in the header. Progress is stored locally per guide version. **Start Tour** lands
 on the exact composition, frame, object, and panel for each exercise; the guided-task strip keeps the
@@ -22,7 +22,7 @@ action visible after Properties or Code takes focus.
 ## What the overview contains
 
 The 1,788-frame, 30 fps overview is authored in
-[`ProductionLab.html`](../examples/hero-lower-third/src/compositions/labs/ProductionLab.html). Its persistent HUD is an
+[`ProductionLab.html`](../examples/studio-playground/src/compositions/labs/ProductionLab.html). Its persistent HUD is an
 ordinary `onFrame` callback, so jumping straight to any frame updates the chapter label and progress
 without playing through the intervening frames.
 
@@ -45,7 +45,7 @@ special-case the showcase.
 ## Guided acceptance tour
 
 The source-declared guide lives in
-[`ProductionLabGuide.ts`](../examples/hero-lower-third/src/compositions/labs/ProductionLabGuide.ts). Its 17 workflows
+[`ProductionLabGuide.ts`](../examples/studio-playground/src/compositions/labs/ProductionLabGuide.ts). Its 17 workflows
 cover the feature set as one production journey:
 
 1. Random-access scrub of the complete production graph.
