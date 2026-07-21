@@ -30,7 +30,7 @@ const getResolver = () =>
     createAssetResolver({ manifest: m, cas: new HttpFolderCAS(), trustLocalCacheSources: true }),
   ));
 
-/** Bake a composition to MP4 and persist it in the local-folder CAS (`framediff-cache/` by default) — the
+/** Bake a composition to MP4 and persist it in the configured asset CAS (`assets/` here) — the
  *  derived-output cache, as real files on disk. Returns the content hash. `__bake()` bakes
  *  the previz; ingest the result as `asset://harbor-previz` for the generative comp's ref. */
 (window as unknown as Record<string, unknown>).__bake = async (id = "harbor-previz") => {

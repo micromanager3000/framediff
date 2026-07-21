@@ -12,22 +12,22 @@ export interface Shot {
 }
 
 const RAW: { src: string; dur: number; fx?: "3d" | "cornerpin" }[] = [
-  { src: "/clips/s01.mp4", dur: 44 }, // NANDO_FX3_0023 — open
-  { src: "/clips/s02.mp4", dur: 47 }, // NANDO_FX3_0030
-  { src: "/clips/s03.mp4", dur: 54 }, // stream feio — "your show looks like a Monday morning meeting"
-  { src: "/clips/s04a.mp4", dur: 84 }, // newsroom — the polished contrast (wide)
-  { src: "/clips/s04b.mp4", dur: 24 }, // newsroom — cut 2
-  { src: "/clips/s04c.mp4", dur: 42 }, // newsroom — cut 3
-  { src: "/clips/s05.mp4", dur: 50, fx: "3d" }, // Screen Recording — on a 3D plane (VideoPlane3D)
-  { src: "/clips/s06.mp4", dur: 48 }, // 2026-06-15 — live background removal
-  { src: "/clips/s07.mp4", dur: 50 }, // 2026-04-24 13-35-32 — drop in video and audio
-  { src: "/clips/s08.mp4", dur: 56, fx: "3d" }, // explicacao interface — 3D camera move (VideoPlane3D)
-  { src: "/clips/s09.mp4", dur: 70 }, // keynote — switch cameras / all you need is a camera
-  { src: "/clips/s10.mp4", dur: 38 }, // magnific
-  { src: "/clips/s11.mp4", dur: 58 }, // kling gerar_uma
-  { src: "/clips/s12.mp4", dur: 66 }, // 2026-04-24 13-52-20
-  { src: "/clips/s13.mp4", dur: 58 }, // 2026-04-24 13-57-01
-  { src: "/clips/s14.mp4", dur: 40 }, // keynote 16-01-50 — last live shot
+  { src: "asset://reel-s01", dur: 44 }, // NANDO_FX3_0023 — open
+  { src: "asset://reel-s02", dur: 47 }, // NANDO_FX3_0030
+  { src: "asset://reel-s03", dur: 54 }, // stream feio — "your show looks like a Monday morning meeting"
+  { src: "asset://reel-s04a", dur: 84 }, // newsroom — the polished contrast (wide)
+  { src: "asset://reel-s04b", dur: 24 }, // newsroom — cut 2
+  { src: "asset://reel-s04c", dur: 42 }, // newsroom — cut 3
+  { src: "asset://reel-s05", dur: 50, fx: "3d" }, // Screen Recording — on a 3D plane (VideoPlane3D)
+  { src: "asset://reel-s06", dur: 48 }, // 2026-06-15 — live background removal
+  { src: "asset://reel-s07", dur: 50 }, // 2026-04-24 13-35-32 — drop in video and audio
+  { src: "asset://reel-s08", dur: 56, fx: "3d" }, // explicacao interface — 3D camera move (VideoPlane3D)
+  { src: "asset://reel-s09", dur: 70 }, // keynote — switch cameras / all you need is a camera
+  { src: "asset://reel-s10", dur: 38 }, // magnific
+  { src: "asset://reel-s11", dur: 58 }, // kling gerar_uma
+  { src: "asset://reel-s12", dur: 66 }, // 2026-04-24 13-52-20
+  { src: "asset://reel-s13", dur: 58 }, // 2026-04-24 13-57-01
+  { src: "asset://reel-s14", dur: 40 }, // keynote 16-01-50 — last live shot
 ];
 
 export const SHOTS: Shot[] = (() => {

@@ -273,6 +273,15 @@
       "sources": [
         "/__framediff-cache/sha256%3A2325c5da886ee07f34ea8b72c72b0d9487d9ad9fa436fcfe2a18ffd1a0676fec"
       ]
+    },
+    "music-bed": {
+      "name": "music.m4a",
+      "contentHash": "sha256:79b8da3124852058a0af858f00487c83ba6181912295ddecc68c08ceea1ae5d4",
+      "mime": "audio/mp4",
+      "bytes": 167926,
+      "sources": [
+        "/__framediff-cache/sha256%3A79b8da3124852058a0af858f00487c83ba6181912295ddecc68c08ceea1ae5d4"
+      ]
     }
   }
 }

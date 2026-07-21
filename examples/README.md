@@ -3,6 +3,10 @@
 Examples are standalone consumer projects. They should demonstrate public `framediff` APIs rather
 than accumulating a parallel library of effect and composition helpers.
 
+Each example selects the project-local Git LFS asset store in `framediff.config.json`. Binary assets
+belong in its top-level `assets/` directory and are covered by the example's `.gitattributes`; run
+`git lfs pull` after cloning before starting an asset-backed example.
+
 Use this source layout for curated examples:
 
 ```text

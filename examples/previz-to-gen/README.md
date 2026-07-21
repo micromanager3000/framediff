@@ -35,7 +35,8 @@ Open the printed URL: `?comp=main` (the edit), `?comp=harbor-previz` (the 3D pre
 2. **Drag the comp in** — the previz IS the generator's input: drag `HarborPreviz` from the
    rail onto the workbench's inputs (or click the drop zone and pick it under COMPS). The
    recipe gets `refs: [{ kind: "video", src: "comp://harbor-previz" }]` — and at Generate the
-   comp **bakes on submit**: a current readable, hash-suffixed bake in `framediff-cache/` (or `FRAMEDIFF_CACHE_DIR`) is reused, a stale one
+   comp **bakes on submit**: a current readable, hash-suffixed bake in the Git LFS-backed `assets/`
+   directory is reused, while a stale one
    (scene edited since) re-exports first, automatically. The manual chain (✦ Bake → ingest →
    `asset://<id>` in `framediff.assets.json`) still works when you want an input pinned by hash.
 
@@ -86,3 +87,4 @@ Open the printed URL: `?comp=main` (the edit), `?comp=harbor-previz` (the 3D pre
 | `src/gen/harborShot.gen.ts` | the Seedance recipe — this file IS the generator (`kind: "generate"`) |
 | `src/compositions/Main.html` | synchronized A/B, cut map, pipeline explainer, and music (`kind: "edit"`) |
 | `framediff.assets.json` | asset manifest — the previz bake's id + generated takes land here |
+| `framediff.config.json` | selects the project-local, Git LFS-backed `assets/` store |

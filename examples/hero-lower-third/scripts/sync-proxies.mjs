@@ -1,4 +1,4 @@
-// Mirror public/raw/*.mp4 into the framediff asset cache under stable `proxy-<name>` ids.
+// Mirror public/raw/*.mp4 into the configured FrameDiff asset store under stable `proxy-<name>` ids.
 // Idempotent: re-cut a proxy with make-proxies.sh, run this, and the same asset id points at
 // the new bytes — no source edits needed. (The Studio's ingest endpoint mints fresh uuids; the
 // proxies want STABLE ids so heroEdl.ts can reference them forever.)
@@ -13,9 +13,19 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
 const rawDir = join(root, "public/raw");
+const configPath = join(root, "framediff.config.json");
+const projectConfig = existsSync(configPath) ? JSON.parse(readFileSync(configPath, "utf8")) : null;
+const configuredAssetDir =
+  projectConfig?.assets?.mode === "git-lfs"
+    ? "assets"
+    : projectConfig?.assets?.mode === "local"
+      ? projectConfig.assets.path
+      : null;
 const cacheDir = process.env.FRAMEDIFF_CACHE_DIR
   ? resolve(root, process.env.FRAMEDIFF_CACHE_DIR)
-  : join(root, "framediff-cache");
+  : configuredAssetDir
+    ? resolve(root, configuredAssetDir)
+    : join(root, "framediff-cache");
 const manifestPath = join(root, "framediff.assets.json");
 
 const manifest = existsSync(manifestPath)

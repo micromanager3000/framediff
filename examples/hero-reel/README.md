@@ -26,8 +26,9 @@ extruded-glass logo bumper is a title card (that needs the glTF `render3d` path,
 timing is at 24fps vs the original's 23.976. The point is the framework producing this class of video
 end-to-end.
 
-Assets (clip proxies + audio) are **gitignored** (licensed footage) — regenerate them with the
-transcode block from the spec / the first demo's README, pointed at the LightTwist footage folder.
+Clip proxies and audio are content-addressed in [`framediff.assets.json`](framediff.assets.json),
+stored in [`assets/`](assets), and versioned through Git LFS as selected by
+[`framediff.config.json`](framediff.config.json). Run `git lfs pull` after a fresh checkout.
 
 ## Source organization
 
