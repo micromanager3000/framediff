@@ -84,7 +84,7 @@ const writeOutChunk = async (name: string, data: Uint8Array, position: number) =
   return name;
 };
 
-/** Bake a composition to MP4 and persist it in the local-folder CAS (`framediff-cache/` by default) — the
+/** Bake a composition to MP4 and persist it in the configured asset CAS (`assets/` here) — the
  *  derived-output cache, as real files on disk. Returns the content hash. */
 (window as unknown as Record<string, unknown>).__bake = async (id = "lower-third") => {
   const comp = liveCompositions[id];

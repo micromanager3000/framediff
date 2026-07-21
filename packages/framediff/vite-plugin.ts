@@ -30,8 +30,9 @@ export interface FrameDiffDevOptions {
   /**
    * Folder used for imported media, baked artifacts, and generation results.
    * Relative paths are resolved from Vite's project root. `~` and absolute paths
-   * are also supported. Defaults to the visible `framediff-cache` folder, or the
-   * `FRAMEDIFF_CACHE_DIR` environment variable when it is set.
+   * are also supported. This override takes precedence over `framediff.config.json`.
+   * Without an override, the project config selects local or Git LFS storage; legacy
+   * projects default to the visible `framediff-cache` folder.
    */
   cacheDir?: string;
   /**
@@ -39,6 +40,15 @@ export interface FrameDiffDevOptions {
    * fallback. Linked Git worktrees discover the primary checkout automatically.
    */
   sharedProjectDir?: string;
+}
+
+export type FrameDiffAssetConfig =
+  | { mode: "local"; path: string }
+  | { mode: "git-lfs" };
+
+/** Declarative project metadata. JSON keeps discovery safe for local launchers. */
+export interface FrameDiffProjectConfig {
+  assets?: FrameDiffAssetConfig;
 }
 
 /** This package's root on disk. Module workers (render/encodeWorker.ts) resolve
@@ -94,13 +104,38 @@ function hashFromCacheName(name: string): string | null {
 }
 
 const DEFAULT_CACHE_DIR = "framediff-cache";
+const PROJECT_CONFIG_FILE = "framediff.config.json";
+const GIT_LFS_ASSETS_DIR = "assets";
+const GIT_LFS_ATTRIBUTES = "assets/** filter=lfs diff=lfs merge=lfs -text";
 
-function configuredCacheDir(option?: string): string {
-  const fromOption = option?.trim();
-  if (fromOption) return fromOption;
-  const fromEnvironment = process.env.FRAMEDIFF_CACHE_DIR?.trim();
-  if (fromEnvironment) return fromEnvironment;
-  return DEFAULT_CACHE_DIR;
+function readProjectConfig(root: string): FrameDiffProjectConfig | null {
+  const file = path.join(root, PROJECT_CONFIG_FILE);
+  if (!fs.existsSync(file)) return null;
+
+  let value: unknown;
+  try {
+    value = JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (error) {
+    throw new Error(`${PROJECT_CONFIG_FILE} is not valid JSON: ${String((error as Error).message)}`);
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${PROJECT_CONFIG_FILE} must contain a JSON object.`);
+  }
+
+  const assets = (value as { assets?: unknown }).assets;
+  if (assets == null) return {};
+  if (!assets || typeof assets !== "object" || Array.isArray(assets)) {
+    throw new Error(`${PROJECT_CONFIG_FILE} assets must be an object with mode "local" or "git-lfs".`);
+  }
+  const candidate = assets as { mode?: unknown; path?: unknown };
+  if (candidate.mode === "git-lfs") return { assets: { mode: "git-lfs" } };
+  if (candidate.mode === "local") {
+    if (typeof candidate.path !== "string" || !candidate.path.trim()) {
+      throw new Error(`${PROJECT_CONFIG_FILE} local assets require a non-empty assets.path.`);
+    }
+    return { assets: { mode: "local", path: candidate.path.trim() } };
+  }
+  throw new Error(`${PROJECT_CONFIG_FILE} assets.mode must be "local" or "git-lfs".`);
 }
 
 function resolveLocalPath(root: string, value: string): string {
@@ -110,6 +145,52 @@ function resolveLocalPath(root: string, value: string): string {
       ? path.join(os.homedir(), value.slice(2))
       : value;
   return path.isAbsolute(expanded) ? path.normalize(expanded) : path.resolve(root, expanded);
+}
+
+type ResolvedAssetStorage = {
+  mode: "local" | "git-lfs";
+  directory: string;
+  explicit: boolean;
+};
+
+function resolveAssetStorage(root: string, option?: string): ResolvedAssetStorage {
+  const override = option?.trim() || process.env.FRAMEDIFF_CACHE_DIR?.trim();
+  if (override) return { mode: "local", directory: resolveLocalPath(root, override), explicit: true };
+
+  const configured = readProjectConfig(root)?.assets;
+  if (configured?.mode === "git-lfs") {
+    return { mode: "git-lfs", directory: path.join(root, GIT_LFS_ASSETS_DIR), explicit: true };
+  }
+  if (configured?.mode === "local") {
+    return { mode: "local", directory: resolveLocalPath(root, configured.path), explicit: true };
+  }
+  return { mode: "local", directory: path.join(root, DEFAULT_CACHE_DIR), explicit: false };
+}
+
+function ensureGitLfsAssetStorage(root: string): void {
+  try {
+    execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      cwd: root,
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+  } catch {
+    throw new Error(`${PROJECT_CONFIG_FILE} selects git-lfs, but ${root} is not inside a Git repository.`);
+  }
+  try {
+    execFileSync("git", ["lfs", "version"], { cwd: root, stdio: "ignore" });
+    execFileSync("git", ["lfs", "install", "--local"], { cwd: root, stdio: "ignore" });
+  } catch {
+    throw new Error(`${PROJECT_CONFIG_FILE} selects git-lfs, but Git LFS is not installed or could not be initialized.`);
+  }
+
+  const attributesFile = path.join(root, ".gitattributes");
+  const existing = fs.existsSync(attributesFile) ? fs.readFileSync(attributesFile, "utf8") : "";
+  const lines = existing.split(/\r?\n/);
+  if (!lines.includes(GIT_LFS_ATTRIBUTES)) {
+    const prefix = existing.length && !existing.endsWith("\n") ? `${existing}\n` : existing;
+    fs.writeFileSync(attributesFile, `${prefix}${GIT_LFS_ATTRIBUTES}\n`, "utf8");
+  }
+  fs.mkdirSync(path.join(root, GIT_LFS_ASSETS_DIR), { recursive: true });
 }
 
 /** Map a Vite project inside a linked worktree to the same project in the primary checkout. */
@@ -416,11 +497,12 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
     },
     configureServer(server) {
       const root = server.config.root;
-      const cacheDir = resolveLocalPath(root, configuredCacheDir(options.cacheDir));
-      const hasExplicitCache = !!(options.cacheDir?.trim() || process.env.FRAMEDIFF_CACHE_DIR?.trim());
+      const assetStorage = resolveAssetStorage(root, options.cacheDir);
+      const cacheDir = assetStorage.directory;
+      if (assetStorage.mode === "git-lfs") ensureGitLfsAssetStorage(root);
       const sharedProjectDir = options.sharedProjectDir
         ? resolveLocalPath(root, options.sharedProjectDir)
-        : !hasExplicitCache ? linkedPrimaryProject(root) : null;
+        : !assetStorage.explicit ? linkedPrimaryProject(root) : null;
       const sharedCacheDir = sharedProjectDir ? path.join(sharedProjectDir, DEFAULT_CACHE_DIR) : null;
       const cacheReadDirs = [cacheDir, sharedCacheDir]
         .filter((dir): dir is string => !!dir)
@@ -619,7 +701,7 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
               entries.push(entry);
             }
           }
-          return json(res, 200, { entries, directory: cacheDir });
+          return json(res, 200, { entries, directory: cacheDir, storage: assetStorage.mode });
         }
 
         if (url.pathname === "/__framediff/cache/reveal" && req.method === "POST") {

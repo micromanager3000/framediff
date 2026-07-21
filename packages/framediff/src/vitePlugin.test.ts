@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { Readable } from "node:stream";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { framediffDev, type FrameDiffDevOptions } from "../vite-plugin";
@@ -47,6 +48,15 @@ function devBridge(root: string, options?: FrameDiffDevOptions) {
 
 afterEach(() => vi.unstubAllEnvs());
 
+const gitLfsAvailable = (() => {
+  try {
+    execFileSync("git", ["lfs", "version"], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
 describe("framediffDev local cache folder", () => {
   it("writes to the visible default without reading the former hidden cache", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "framediff-vite-"));
@@ -72,6 +82,83 @@ describe("framediffDev local cache folder", () => {
 
     const listing = await request("/__framediff/cache");
     expect(JSON.parse(listing.body).directory).toBe(path.join(root, "local-files/cache"));
+  });
+
+  it("reads a local asset folder from framediff.config.json", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "framediff-vite-"));
+    fs.writeFileSync(path.join(root, "framediff.config.json"), JSON.stringify({
+      assets: { mode: "local", path: "selected-media" },
+    }));
+    const request = devBridge(root);
+    const bytes = new TextEncoder().encode("configured asset bytes");
+
+    const listing = JSON.parse((await request("/__framediff/cache")).body);
+    expect(listing).toMatchObject({
+      directory: path.join(root, "selected-media"),
+      storage: "local",
+    });
+    const upload = await request("/__framediff/assets/upload?name=Configured.mov", "POST", bytes);
+    expect(upload.status).toBe(200);
+    expect(fs.readdirSync(listing.directory)).toEqual([
+      expect.stringMatching(/^Configured--sha256-[a-f0-9]{64}\.mov$/),
+    ]);
+  });
+
+  it("keeps the explicit plugin folder as a local override of project config", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "framediff-vite-"));
+    fs.writeFileSync(path.join(root, "framediff.config.json"), JSON.stringify({
+      assets: { mode: "git-lfs" },
+    }));
+    const request = devBridge(root, { cacheDir: "override-assets" });
+
+    expect(JSON.parse((await request("/__framediff/cache")).body)).toMatchObject({
+      directory: path.join(root, "override-assets"),
+      storage: "local",
+    });
+    expect(fs.existsSync(path.join(root, ".gitattributes"))).toBe(false);
+  });
+
+  it("rejects a local project config without an asset path", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "framediff-vite-"));
+    fs.writeFileSync(path.join(root, "framediff.config.json"), JSON.stringify({
+      assets: { mode: "local" },
+    }));
+
+    expect(() => devBridge(root)).toThrow("local assets require a non-empty assets.path");
+  });
+
+  it.skipIf(!gitLfsAvailable)("puts Git LFS assets in the project and stages them as LFS pointers", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "framediff-vite-lfs-"));
+    execFileSync("git", ["init", "-q"], { cwd: root });
+    fs.writeFileSync(path.join(root, "framediff.config.json"), JSON.stringify({
+      assets: { mode: "git-lfs" },
+    }, null, 2) + "\n");
+    const request = devBridge(root);
+    const bytes = new TextEncoder().encode("lfs video bytes");
+
+    expect(fs.existsSync(path.join(root, "assets"))).toBe(true);
+    expect(fs.readFileSync(path.join(root, ".gitattributes"), "utf8")).toBe(
+      "assets/** filter=lfs diff=lfs merge=lfs -text\n",
+    );
+    const listing = JSON.parse((await request("/__framediff/cache")).body);
+    expect(listing).toMatchObject({ directory: path.join(root, "assets"), storage: "git-lfs" });
+
+    const upload = await request("/__framediff/assets/upload?name=LFS%20Clip.mp4", "POST", bytes);
+    expect(upload.status).toBe(200);
+    const filename = fs.readdirSync(path.join(root, "assets"))[0];
+    expect(filename).toMatch(/^LFS-Clip--sha256-[a-f0-9]{64}\.mp4$/);
+    expect(execFileSync("git", ["check-attr", "filter", "--", `assets/${filename}`], {
+      cwd: root,
+      encoding: "utf8",
+    }).trim()).toMatch(/filter: lfs$/);
+
+    execFileSync("git", ["add", ".gitattributes", "framediff.config.json", "framediff.assets.json", `assets/${filename}`], { cwd: root });
+    const staged = execFileSync("git", ["show", `:assets/${filename}`], { cwd: root, encoding: "utf8" });
+    expect(staged).toContain("version https://git-lfs.github.com/spec/v1");
+    expect(staged).toContain(`size ${bytes.length}`);
+
+    devBridge(root);
+    expect(fs.readFileSync(path.join(root, ".gitattributes"), "utf8").match(/assets\/\*\*/g)).toHaveLength(1);
   });
 
   it("accepts FRAMEDIFF_CACHE_DIR when no plugin option is supplied", async () => {

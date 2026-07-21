@@ -59,7 +59,7 @@ tables in [src/data/heroAep.gen.ts](src/data/heroAep.gen.ts) — still Studio-ed
   ([src/compositions/HeroPlane3D.ts](src/compositions/HeroPlane3D.ts)) — the project maps dumped
   camera rows and fitted curves into the package's `cameraKeyframesFromProgress()` and
   `defineVideoPlane3DComposition()` APIs. The Studio's camera rig panel edits the generated literals live.
-- **Grade** ([public/luts](public/luts) + [src/effects/luts.ts](src/effects/luts.ts)) — the AEP's `SL GOLD RUSH`
+- **Grade** ([assets](assets) + [src/effects/luts.ts](src/effects/luts.ts)) — the AEP's `SL GOLD RUSH`
   .itx isn't on disk, so 33³ LUTs were **fitted numerically** from time-aligned (raw, reference)
   frame pairs per shot group (S-Log FX3 vs rec709; PSNR 25–39 dB on held-out pairs).
 - **Cards** ([src/compositions/LowerThird.html](src/compositions/LowerThird.html) and
@@ -72,20 +72,21 @@ remaining branded bumper/split behavior. Generic named-look application, grade s
 clip-motion evaluation, wipes, character rises, audio fades, camera-curve expansion, and 3D shot
 construction live in the `framediff` package and are imported here.
 
-`?hero=footage` opens the legacy AE-rendered hero reference comp when present locally. It is not used by
+`?hero=footage` opens the Git LFS-backed legacy AE-rendered hero reference comp. It is not used by
 `Main` and should not be treated as an input for the raw rebuild. `?hero=rebuilt` shows the older
 proxy-only `HeroRebuilt` comp for comparison.
 
 ## Assets
 
-Not committed (licensed footage). `framediff.assets.json` points at content-addressed cache entries for
-the raw files in `/path/to/raw-footage` and the raw-derived per-shot H.264 proxies
-used by the browser renderer. Cache entries use readable `<asset-name>--sha256-<hash>.<ext>` names;
-large entries are symlinked into `framediff-cache/` to avoid duplicating gigabytes of footage.
+The project selects Git LFS in [`framediff.config.json`](framediff.config.json). All manifest-backed
+media and fitted LUTs live in [`assets/`](assets) with readable
+`<asset-name>--sha256-<hash>.<ext>` names and are versioned through Git LFS. A fresh checkout only
+needs `git lfs pull`; it does not need the original editor's local footage folder.
 
 Some source codecs in the raw folder are not browser-friendly (HEVC, ProRes, and 4:2:2 intra H.264).
-Regenerate the raw-derived H.264 proxies with [scripts/make-proxies.sh](scripts/make-proxies.sh);
-those proxies are derived only from raw footage, never from the comparison render.
+Regenerate the raw-derived H.264 proxies with [scripts/make-proxies.sh](scripts/make-proxies.sh), then
+run `node scripts/sync-proxies.mjs` to hash them into `assets/` and update the manifest. Those proxies
+are derived only from raw footage, never from the comparison render.
 
 ## Run
 
@@ -102,8 +103,8 @@ npm run dev --workspace examples/hero-lower-third
   via the vite middleware.
 - `__probe(compId, frames)` — bake single frames through the real export path to
   `out/probe-<id>-f<N>.png`; score them with `scripts/analysis/compare.py main`.
-- `__bake(compId)` — export a nested comp and persist it in **`framediff-cache/`** through
-  `HttpFolderCAS` (the local-folder derived-output cache; survives reloads, no backend).
+- `__bake(compId)` — export a nested comp and persist it in **`assets/`** through
+  `HttpFolderCAS` (the Git LFS-backed derived-output store; survives reloads, no backend).
 - `scripts/analysis/fullcompare.py` — whole-render per-shot PSNR/NCC vs the reference.
   All comparisons pair our frame n with reference frame n+1 (the reference composite samples
   the hero one frame late — measured at six cut boundaries).

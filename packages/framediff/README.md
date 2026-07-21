@@ -63,6 +63,37 @@ readback during export. Built-in adapters do this for graded video, 3D video pla
 `/__framediff-cache/<hash>` URLs, so `framediff.assets.json` remains portable. The folder itself uses
 readable `<name>--sha256-<hash>.<ext>` filenames.
 
+### Project asset storage
+
+Projects can select asset storage with a small `framediff.config.json` at the project root. Keep
+media in a machine-local folder with:
+
+```json
+{
+  "assets": { "mode": "local", "path": "/Volumes/my-project-media" }
+}
+```
+
+Relative paths are resolved from the project root, and `~` is supported. A launcher or project
+setup screen can ask the user for a folder and write that value as `assets.path`.
+
+To version the media with the project instead, use:
+
+```json
+{
+  "assets": { "mode": "git-lfs" }
+}
+```
+
+FrameDiff then creates a top-level `assets/` folder, initializes Git LFS for the repository, and
+adds `assets/** filter=lfs diff=lfs merge=lfs -text` to `.gitattributes`. Imports, generated takes,
+and baked assets are written there under readable content-addressed names. The Studio's normal Git
+commit action stages the config, manifest, attributes, and asset files; Git stores the asset files
+as LFS pointers. Git LFS must be installed before opening a project in this mode.
+
+`framediffDev({ cacheDir })` and `FRAMEDIFF_CACHE_DIR` remain local overrides and take precedence
+over the project config. Projects without the JSON config continue to use `framediff-cache/`.
+
 ## Runtime APIs
 
 | API | Purpose |
