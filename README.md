@@ -21,6 +21,7 @@ The default command opens the Studio Playground in the `hero-lower-third` exampl
 an individual example:
 
 ```sh
+npm run dev --workspace @framediff/example-hero-lower-third
 npm run dev --workspace @framediff/example-determinism-check
 npm run dev --workspace @framediff/example-cloth-showcase
 npm run dev --workspace @framediff/example-previz-to-gen
