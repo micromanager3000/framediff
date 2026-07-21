@@ -1,0 +1,40 @@
+{
+  "metrics": {
+    "blazer": { "psnr_global": 35.61, "psnr_used": 35.61 },
+    "desk": { "psnr_global": 31.56, "psnr_used": 31.56 },
+    "greentrack": { "psnr_global": 24.32, "psnr_used": 24.32 },
+    "greenwide": { "psnr_global": 24.45, "psnr_used": 24.45 },
+    "grid": { "psnr_global": 19.99, "psnr_used": 24.6 },
+    "hf_talk": { "psnr_global": 35.17, "psnr_used": 37.67 },
+    "keynote_a": { "psnr_global": 26.49, "psnr_used": 26.49 },
+    "keynote_b": { "psnr_global": 26.96, "psnr_used": 26.96 },
+    "magnific": { "psnr_global": 28.83, "psnr_used": 28.83 },
+    "news_a": { "psnr_global": 28.58, "psnr_used": 28.58 },
+    "news_b": { "psnr_global": 26.95, "psnr_used": 26.95 },
+    "news_c": { "psnr_global": 34.56, "psnr_used": 34.56 },
+    "open": { "psnr_global": 25.62, "psnr_used": 33.52 },
+    "phone": { "psnr_global": 23.73, "psnr_used": 33.0 },
+    "smartest": { "psnr_global": 26.32, "psnr_used": 26.32 },
+    "tripod": { "psnr_global": 24.97, "psnr_used": 24.97 },
+    "uizoom": { "psnr_global": 19.58, "psnr_used": 19.58 }
+  },
+  "segments": {
+    "blazer": "global.cube",
+    "desk": "global.cube",
+    "greentrack": "global.cube",
+    "greenwide": "global.cube",
+    "grid": "grid.cube",
+    "hf_talk": "hf_talk.cube",
+    "keynote_a": "global.cube",
+    "keynote_b": "global.cube",
+    "magnific": "global.cube",
+    "news_a": "global.cube",
+    "news_b": "global.cube",
+    "news_c": "global.cube",
+    "open": "open.cube",
+    "phone": "phone.cube",
+    "smartest": "global.cube",
+    "tripod": "global.cube",
+    "uizoom": "global.cube"
+  }
+}

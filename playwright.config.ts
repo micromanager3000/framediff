@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const studioPort = 4174;
+const heroPort = 4176;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -23,7 +24,7 @@ export default defineConfig({
   }],
   webServer: [
     {
-      command: `npm run dev --workspace examples/hero-lower-third -- --host 127.0.0.1 --port ${studioPort}`,
+      command: `npm run dev --workspace examples/studio-playground -- --host 127.0.0.1 --port ${studioPort}`,
       url: `http://127.0.0.1:${studioPort}`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
@@ -33,6 +34,14 @@ export default defineConfig({
     {
       command: "npm run dev --workspace examples/previz-to-gen -- --host 127.0.0.1 --port 4175",
       url: "http://127.0.0.1:4175",
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      stdout: "pipe",
+      stderr: "pipe",
+    },
+    {
+      command: `npm run dev --workspace examples/hero-lower-third -- --host 127.0.0.1 --port ${heroPort}`,
+      url: `http://127.0.0.1:${heroPort}`,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
       stdout: "pipe",

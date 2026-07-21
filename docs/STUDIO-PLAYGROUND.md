@@ -1,6 +1,6 @@
 # Studio Playground acceptance project
 
-`examples/hero-lower-third` opens on **Studio Playground**, a source-backed project designed for
+`examples/studio-playground` opens on **Studio Playground**, a source-backed project designed for
 repeatable exploratory testing. It is intentionally a nested production graph, not a flat showcase:
 
 ```text
@@ -54,12 +54,12 @@ observable success condition and a tested composition/frame target.
 
 ```sh
 npm ci
-npm run dev --workspace examples/hero-lower-third
+npm run dev --workspace examples/studio-playground
 # http://localhost:5173/ defaults to ?comp=studio-playground
 
-npm run check --workspace examples/hero-lower-third
-npm run build --workspace examples/hero-lower-third
-npx vitest run examples/hero-lower-third/src/compositions/playground/StudioPlaygroundGuide.test.ts
+npm run check --workspace examples/studio-playground
+npm run build --workspace examples/studio-playground
+npx vitest run examples/studio-playground/src/compositions/playground/StudioPlaygroundGuide.test.ts
 npx playwright test tests/e2e/studio-playground.spec.ts --project=chromium
 ```
 
