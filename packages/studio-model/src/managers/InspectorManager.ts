@@ -24,7 +24,8 @@ export class InspectorManager {
   public start(): void {
     if (this.unsubscribe) return;
     this.unsubscribe = this.session.state.subscribe((state) => {
-      const selectedObjectId = state.selection?.objectId ?? state.selectedItemId;
+      const compositionId = state.compositions.find((entry) => entry.key === state.currentKey)?.id;
+      const selectedObjectId = state.selection?.objectId ?? state.selectedItemId ?? compositionId;
       // Probe transitions are also source-revision boundaries. Reload the selected object's
       // details so Undo/Redo and HMR cannot leave a source-backed field showing a stale draft.
       const key = `${state.currentKey}:${state.selection?.kind ?? ""}:${selectedObjectId ?? ""}:${state.timelineByComposition[state.currentKey]?.length ?? 0}:${state.animationsByComposition[state.currentKey]?.length ?? 0}:${state.loading}`;
@@ -42,7 +43,8 @@ export class InspectorManager {
   public async load(): Promise<void> {
     const state = this.session.state.get();
     const generation = ++this.generation;
-    const selectedObjectId = state.selection?.objectId ?? state.selectedItemId;
+    const compositionId = state.compositions.find((entry) => entry.key === state.currentKey)?.id;
+    const selectedObjectId = state.selection?.objectId ?? state.selectedItemId ?? compositionId;
     if (!selectedObjectId || state.selection?.kind === "animation") {
       this.state.set({ details: null, loading: false, editing: false, error: null });
       return;

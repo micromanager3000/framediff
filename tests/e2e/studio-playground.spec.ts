@@ -71,6 +71,7 @@ test("embedded composition textures never escape into stray network requests", a
   await expect(page.locator(".top-status")).toHaveText("ready");
   await expect(page.locator('[data-fd-id="rich-headline"]')).toContainText("Click any object. Edit the document.");
   await expect(page.locator(".transport")).toHaveCount(0);
+  await expect(page.getByRole("slider", { name: "Preview frame" })).toHaveCount(0);
   await expect(page.getByRole("group", { name: /Timeline/ })).toHaveCount(0);
   const gradientBounds = await page.locator('[data-fd-id="gradient-panel"]').boundingBox();
   expect(gradientBounds).not.toBeNull();
@@ -91,6 +92,7 @@ test("direct manipulation is immediate and writes bound geometry to composition 
     await page.goto("/?comp=direct-manipulation-lab");
     await expect(page.locator(".top-status")).toHaveText("ready");
     await expect(page.locator(".transport")).toBeVisible();
+    await expect(page.getByRole("slider", { name: "Preview frame" })).toBeVisible();
     await expect(page.getByRole("group", { name: /Timeline/ })).toHaveCount(0);
     await expect(page.getByText("Make movable", { exact: false })).toHaveCount(0);
     await expect(page.locator('[data-fd-id="move-card"]')).toHaveAttribute("data-fd-x", String(originalX));
@@ -171,6 +173,7 @@ test("a JSON-only property edit hot-patches the comp without reloading Studio", 
     await page.goto("/?comp=cloth-lab");
     await expect(page.locator(".top-status")).toHaveText("ready");
     await expect(page.locator(".transport")).toBeVisible();
+    await expect(page.getByRole("slider", { name: "Preview frame" })).toBeVisible();
     await expect(page.getByRole("group", { name: /Timeline/ })).toHaveCount(0);
     await page.getByRole("button", { name: "PROPS", exact: true }).click();
     const gravity = page.locator('label[title$="/simulation/gravityY"] input[type="number"]');
