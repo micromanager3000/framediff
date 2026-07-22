@@ -5,6 +5,8 @@
 
   export let viewModel: TimelineViewModel;
   export let onselect: () => void = () => {};
+  export let acceptCompositionDrop = false;
+  export let oncompositiondrop: (compositionKey: string, from: number) => void = () => {};
   const store = viewModel.store;
 
   const LABEL_W = 54;
@@ -14,6 +16,8 @@
   let viewportW = 0;
   let userPpf = 0; // 0 = fit-to-width
   let restoredZoomFor = "";
+  let compositionDropFrame: number | null = null;
+  const COMP_DRAG_MIME = "application/x-framediff-comp";
 
   $: duration = Math.max(1, $store.durationInFrames);
   $: pad = Math.max($store.fps, Math.round(duration * 0.15));
@@ -58,6 +62,38 @@
   }
 
   const time = (frame: number) => `${(frame / Math.max(1, $store.fps)).toFixed(1)}s`;
+
+  function isCompositionDrag(event: DragEvent): boolean {
+    return acceptCompositionDrop && (event.dataTransfer?.types.includes(COMP_DRAG_MIME) ?? false);
+  }
+
+  function frameAtDrop(event: DragEvent): number {
+    if (!scroller) return $store.frame;
+    const rect = scroller.getBoundingClientRect();
+    const contentX = event.clientX - rect.left + scroller.scrollLeft - LABEL_W;
+    return Math.round(axisStart + contentX / Math.max(0.0001, ppf));
+  }
+
+  function dragCompositionOver(event: DragEvent): void {
+    if (!isCompositionDrag(event)) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+    compositionDropFrame = frameAtDrop(event);
+  }
+
+  function dragCompositionLeave(event: DragEvent): void {
+    if (event.relatedTarget instanceof Node && event.currentTarget instanceof HTMLElement && event.currentTarget.contains(event.relatedTarget)) return;
+    compositionDropFrame = null;
+  }
+
+  function dropComposition(event: DragEvent): void {
+    if (!isCompositionDrag(event)) return;
+    event.preventDefault();
+    const sourceKey = event.dataTransfer?.getData(COMP_DRAG_MIME);
+    const from = frameAtDrop(event);
+    compositionDropFrame = null;
+    if (sourceKey) oncompositiondrop(sourceKey, from);
+  }
   const animationKeys = (animation: (typeof $store.animations)[number]) => {
     const byFrame = new Map<number, string[]>();
     for (const [property, binding] of Object.entries(animation.bindings)) {
@@ -442,7 +478,18 @@
     <span class="summary">renders {rw.from}–{rw.to}f · {time(rw.to - rw.from)} out · snap ⌥ off{#if $store.animations.length} · {$store.animations.length} motion{#if $store.unrollGroups.length} · {$store.unrollGroups.length} helper{/if}{#if $store.animationDiagnostics.length} · {$store.animationDiagnostics.length} note{/if}{/if}</span>
   </header>
 
-  <div class="tl-scroll" bind:this={scroller} bind:clientWidth={viewportW} onwheel={onWheel}>
+  <div
+    class="tl-scroll"
+    class:composition-drop-target={compositionDropFrame != null}
+    role="group"
+    aria-label={acceptCompositionDrop ? "Timeline; drop a composition to add it at a frame" : "Timeline tracks"}
+    bind:this={scroller}
+    bind:clientWidth={viewportW}
+    onwheel={onWheel}
+    ondragover={dragCompositionOver}
+    ondragleave={dragCompositionLeave}
+    ondrop={dropComposition}
+  >
     <div class="tl-canvas" style:width={`${LABEL_W + axisLen * ppf}px`}>
       <div class="render-row">
         <div class="render-row-label" title="Only the render window ships — output t0 is its left edge">RENDER</div>
@@ -608,6 +655,11 @@
       {/each}
 
       <div class="playhead" style:left={`${LABEL_W + ($store.frame - axisStart) * ppf}px`}></div>
+      {#if compositionDropFrame != null}
+        <div class="composition-drop-guide" style:left={`${LABEL_W + (compositionDropFrame - axisStart) * ppf}px`}>
+          <span>ADD COMP · {compositionDropFrame}f</span>
+        </div>
+      {/if}
       {#if activeSnap != null}
         <div class="snap-guide" style:left={`${LABEL_W + (activeSnap - axisStart) * ppf}px`}></div>
       {/if}

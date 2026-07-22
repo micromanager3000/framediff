@@ -100,7 +100,7 @@
       {#if field.control.slider}
         <input type="range" bind:value={numberDraft} min={field.control.min} max={field.control.max} step={field.control.step ?? 0.01} disabled={disabled || !field.editable} onchange={commitNumber} />
       {/if}
-      <input type="number" bind:value={numberDraft} min={field.control.min} max={field.control.max} step={field.control.step ?? 0.01} disabled={disabled || !field.editable} onblur={commitNumber} onchange={commitNumber} />
+      <input aria-label={`${field.label} number`} type="number" bind:value={numberDraft} min={field.control.min} max={field.control.max} step={field.control.step ?? 0.01} disabled={disabled || !field.editable} onblur={commitNumber} onchange={commitNumber} />
       {#if field.control.unit}<i>{field.control.unit}</i>{/if}
     </div>
   {:else if field.control?.type === "color"}

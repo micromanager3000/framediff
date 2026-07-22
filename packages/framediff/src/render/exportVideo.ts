@@ -90,6 +90,8 @@ interface AudioClip { src: string; startFrame: number; endFrame: number; trimSta
 export function buildAudioClips(samples: { n: number; src: string; time: number; volume: number }[]): AudioClip[] {
   const bySrc = new Map<string, { n: number; time: number; volume: number }[]>();
   for (const s of samples) {
+    // Negative trim is visual/audio pre-roll. Audio stays silent until its source reaches t0.
+    if (s.time < 0) continue;
     if (!bySrc.has(s.src)) bySrc.set(s.src, []);
     bySrc.get(s.src)!.push(s);
   }

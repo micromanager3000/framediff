@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "desk",
+      "from": 0,
+      "durationInFrames": 96
+    },
+    {
+      "id": "tripod",
+      "from": 96,
+      "durationInFrames": 96
+    },
+    {
+      "id": "keynote",
+      "from": 192,
+      "durationInFrames": 96
+    },
+    {
+      "id": "teal-wash",
+      "from": 25,
+      "durationInFrames": 51
+    }
+  ]
+}

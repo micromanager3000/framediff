@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "effects-cloth",
+      "from": 0,
+      "durationInFrames": 160
+    },
+    {
+      "id": "effects-world",
+      "from": 160,
+      "durationInFrames": 160,
+      "trimStart": 1
+    },
+    {
+      "id": "effects-plane",
+      "from": 320,
+      "durationInFrames": 160
+    },
+    {
+      "id": "effects-hud",
+      "from": 0,
+      "durationInFrames": 480,
+      "layer": 20
+    }
+  ]
+}

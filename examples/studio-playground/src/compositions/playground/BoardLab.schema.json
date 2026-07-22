@@ -1,0 +1,12 @@
+{
+  "$defs": {
+    "card": { "type": "object", "properties": { "text": { "type": "string", "title": "Label" }, "x": { "type": "number", "title": "X" }, "y": { "type": "number", "title": "Y" }, "width": { "type": "number", "title": "Width", "minimum": 80 }, "height": { "type": "number", "title": "Height", "minimum": 60 }, "background": { "type": "string", "title": "Color", "format": "color" }, "borderRadius": { "type": "number", "title": "Corner radius", "minimum": 0, "maximum": 80 } } }
+  },
+  "type": "object",
+  "properties": {
+    "title": { "type": "object", "properties": { "text": { "type": "string", "title": "Title" } } },
+    "camera": { "$ref": "#/$defs/card", "title": "Camera" },
+    "subject": { "$ref": "#/$defs/card", "title": "Subject" },
+    "light": { "$ref": "#/$defs/card", "title": "Light" }
+  }
+}

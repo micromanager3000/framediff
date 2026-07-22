@@ -1,0 +1,14 @@
+{
+  "eyebrow": { "text": "Frame-native GSAP adapter", "color": "#a99eff" },
+  "titleLead": { "text": "Seek any frame.", "color": "#f7f5ff" },
+  "titleAccent": { "text": "Land exactly.", "color": "#9f8cff" },
+  "copy": { "text": "A familiar tween authoring surface, driven by FrameDiff’s exact random-access clock.", "color": "#b9b6cf" },
+  "previewLabel": { "text": "01 · PREVIEW" },
+  "previewCopy": { "text": "Scrub freely" },
+  "exportLabel": { "text": "02 · EXPORT" },
+  "exportCopy": { "text": "Same absolute seek" },
+  "sourceLabel": { "text": "03 · SOURCE" },
+  "sourceCopy": { "text": "Frames stay authored" },
+  "badge": { "text": "PAUSED · FRAME DRIVEN" },
+  "product": { "text": "FD", "x": 1030, "y": 620 }
+}

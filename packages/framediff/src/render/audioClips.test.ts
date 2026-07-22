@@ -8,6 +8,11 @@ import { buildAudioClips } from "./exportVideo";
 const s = (n: number, time: number, volume = 1, src = "/a.m4a") => ({ n, src, time, volume });
 
 describe("buildAudioClips", () => {
+  it("keeps negative timeline pre-roll silent and starts audio at source t0", () => {
+    const clips = buildAudioClips([s(0, -2 / 24), s(1, -1 / 24), s(2, 0), s(3, 1 / 24)]);
+    expect(clips).toEqual([{ src: "/a.m4a", startFrame: 2, endFrame: 4, trimStart: 0, volume: 1 }]);
+  });
+
   it("merges a contiguous constant-volume run", () => {
     const clips = buildAudioClips([s(0, 0), s(1, 1 / 24), s(2, 2 / 24)]);
     expect(clips).toEqual([{ src: "/a.m4a", startFrame: 0, endFrame: 3, trimStart: 0, volume: 1 }]);

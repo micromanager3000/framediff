@@ -1,0 +1,1 @@
+{ "type": "object", "properties": { "title": { "type": "object", "title": "Rundown", "properties": { "text": { "type": "string", "title": "Title" } } } } }

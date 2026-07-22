@@ -1,0 +1,9 @@
+{
+  "params": {
+    "margin": 90,
+    "waveCycles": 2,
+    "amplitude": 0.25,
+    "hueEnd": 300,
+    "dotSize": 80
+  }
+}

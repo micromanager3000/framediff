@@ -4,17 +4,21 @@
   .dot{position:absolute;width:80px;height:80px;border-radius:50%;box-shadow:0 0 50px currentColor}
   .label{position:absolute;left:18px;bottom:16px;font-size:18px;letter-spacing:.08em}
 </style></head><body>
-<main data-fd-composition data-fd-id="DetCheck" data-fd-width="640" data-fd-height="360" data-fd-fps="30" data-fd-duration="60" data-fd-source="src/compositions/DetCheck.html" data-fd-module="src/compositions/DetCheck.ts" data-fd-export="detCheckComposition">
-  <div class="grid"></div><div class="dot"></div><div class="label"></div>
+<main data-fd-composition data-fd-id="DetCheck" data-fd-width="640" data-fd-height="360" data-fd-fps="30" data-fd-duration="60" data-fd-kind="scene" data-fd-source="src/compositions/DetCheck.html" data-fd-module="src/compositions/DetCheck.ts" data-fd-export="detCheckComposition" data-fd-document="src/compositions/DetCheck.comp.json" data-fd-schema="src/compositions/DetCheck.schema.json">
+  <div class="grid"></div><div class="dot" data-fd-id="procedural-dot" data-fd-name="Procedural motion"></div><div class="label"></div>
   <script>
     const ease = (t) => t < .5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
+    let params = document.params;
+    onDocument((next) => { params = next.params; });
     onFrame(({frame,durationInFrames,width,height}) => {
       const t = frame/(durationInFrames-1);
-      const x = 90+(width-180)*ease(t);
-      const y = height/2+Math.sin(frame/durationInFrames*Math.PI*4)*height/4;
-      const hue = Math.round(frame/durationInFrames*300);
+      const x = params.margin+(width-params.margin*2)*ease(t);
+      const y = height/2+Math.sin(t*Math.PI*2*params.waveCycles)*height*params.amplitude;
+      const hue = Math.round(t*params.hueEnd);
       const dot = query(".dot");
-      dot.style.left = `${x-40}px`; dot.style.top = `${y-40}px`; dot.style.background = `hsl(${hue} 75% 55%)`; dot.style.color = `hsl(${hue} 75% 55%)`;
+      const radius = params.dotSize/2;
+      dot.style.width = `${params.dotSize}px`; dot.style.height = `${params.dotSize}px`;
+      dot.style.left = `${x-radius}px`; dot.style.top = `${y-radius}px`; dot.style.background = `hsl(${hue} 75% 55%)`; dot.style.color = `hsl(${hue} 75% 55%)`;
       query(".label").textContent = `frame ${String(Math.floor(frame)).padStart(3,"0")}`;
     });
   </script>

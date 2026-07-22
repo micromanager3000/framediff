@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "editorial-media",
+      "from": 0,
+      "durationInFrames": 180,
+      "layer": 0,
+      "trimStart": 0,
+      "playbackRate": 1
+    },
+    {
+      "id": "editorial-wash",
+      "from": 15,
+      "durationInFrames": 142,
+      "layer": 0
+    },
+    {
+      "id": "editorial-glass",
+      "from": 26,
+      "durationInFrames": 116,
+      "layer": 1
+    },
+    {
+      "id": "editorial-copy",
+      "from": 43,
+      "durationInFrames": 88,
+      "layer": 1
+    },
+    {
+      "id": "editorial-grade",
+      "from": 0,
+      "durationInFrames": 180,
+      "layer": 0
+    }
+  ]
+}

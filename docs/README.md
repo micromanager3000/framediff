@@ -8,6 +8,8 @@ layout, and the example-to-package promotion rule.
 
 - [HTML-COMPOSITIONS.md](./HTML-COMPOSITIONS.md) — authored HTML and `data-fd-*` ABI.
 - [STUDIO-EDITING-CONTRACTS.md](./STUDIO-EDITING-CONTRACTS.md) — source authority and edit behavior.
+- [COMPOSITION-AUTHORING.md](./COMPOSITION-AUTHORING.md) — JSON documents, direct preview tools,
+  optional timelines, effect workspaces, and invalidation behavior.
 - [AGENT-API.md](./AGENT-API.md) — Studio agent inspection, checks, snapshots, and commands.
 - [SVELTEKIT-STUDIO-ARCHITECTURE.md](./SVELTEKIT-STUDIO-ARCHITECTURE.md) — implemented editor/runtime
   package boundaries and dependency direction.

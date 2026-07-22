@@ -88,6 +88,8 @@
         linear-gradient(90deg, rgba(17,18,14,.22) 1px, transparent 1px);
       background-size: 28px 28px;
     }
+    [data-grid="false"] .atmosphere::before,
+    [data-grid="false"] .poster-source::before { display: none; }
     .poster-source::after {
       content: "";
       position: absolute;
@@ -231,7 +233,7 @@
   </style>
 </head>
 <body>
-  <main data-fd-composition data-fd-id="KineticCloth" data-fd-width="1280" data-fd-height="720" data-fd-fps="30" data-fd-duration="240" data-fd-source="src/compositions/KineticCloth.html" data-fd-module="src/compositions/KineticCloth.ts" data-fd-export="kineticClothComposition">
+  <main data-fd-composition data-fd-id="KineticCloth" data-fd-width="1280" data-fd-height="720" data-fd-fps="30" data-fd-duration="240" data-fd-kind="3d" data-fd-source="src/compositions/KineticCloth.html" data-fd-module="src/compositions/KineticCloth.ts" data-fd-export="kineticClothComposition" data-fd-document="src/compositions/KineticCloth.comp.json" data-fd-schema="src/compositions/KineticCloth.schema.json">
     <div class="atmosphere" data-fd-id="atmosphere"></div>
     <div class="halo"></div>
     <div class="floor-glow"></div>
@@ -246,7 +248,7 @@
       <div class="poster-meter"><i></i></div>
     </article>
 
-    <canvas class="cloth-canvas" data-fd-id="cloth-surface" data-fd-cloth data-fd-cloth-source="#kinetic-poster" data-fd-cloth-refresh="frame" aria-label="HTML poster rendered as simulated cloth" data-fd-x="0" data-fd-y="0" data-fd-width="1280" data-fd-height="720"></canvas>
+    <canvas class="cloth-canvas" data-fd-id="cloth-surface" data-fd-cloth data-fd-cloth-source="#kinetic-poster" data-fd-cloth-refresh="frame" aria-label="HTML poster rendered as simulated cloth"></canvas>
 
     <div class="tick-rail"><i></i><i></i><i></i><i></i><i></i></div>
     <div class="hud" data-fd-id="interface-overlay">

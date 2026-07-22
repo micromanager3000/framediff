@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "effects-scene",
+      "from": 0,
+      "durationInFrames": 240
+    },
+    {
+      "id": "effects-audio",
+      "from": 0,
+      "durationInFrames": 240
+    }
+  ]
+}

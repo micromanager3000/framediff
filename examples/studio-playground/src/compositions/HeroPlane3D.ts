@@ -6,7 +6,7 @@ import {
   type VirtualCameraPose,
 } from "framediff";
 import { FPS } from "../data/constants";
-import { AE_PLANE_CAMERA_MOVES } from "../data/heroAep.gen";
+import cameraDocument from "../data/heroPlaneCameras.comp.json";
 import { HERO_SHOTS } from "../data/heroEdl";
 import { heroShotLook } from "../effects/heroGrade";
 import {
@@ -16,7 +16,7 @@ import {
 } from "../effects/heroLooks";
 import { heroBackdrop } from "./HeroRaw";
 
-type PlaneCameraMove = (typeof AE_PLANE_CAMERA_MOVES)[number];
+type PlaneCameraMove = (typeof cameraDocument.moves)[number];
 const FIT_PROGRESS: Record<string, Array<[number, number]>> = {
   uizoom: [[0, 0], [0.07, 0], [0.14, 0.015], [0.211, 0.04], [0.281, 0.085], [0.351, 0.15], [0.421, 0.24], [0.491, 0.355], [0.561, 0.505], [0.632, 0.66], [0.702, 0.795], [0.772, 0.895], [0.842, 0.96], [0.912, 0.99], [0.947, 1], [1, 1]],
 };
@@ -43,12 +43,14 @@ function cameraPose(move: PlaneCameraMove, end: boolean): VirtualCameraPose {
 
 export const heroPlaneShotComps: Record<string, StudioComposition> = Object.fromEntries(
   HERO_SHOTS.filter((shot) => shot.fx === "plane3d").map((shot) => {
-    const move = AE_PLANE_CAMERA_MOVES.find((candidate) => candidate.name === shot.name)!;
+    const moveIndex = cameraDocument.moves.findIndex((candidate) => candidate.name === shot.name);
+    const move = cameraDocument.moves[moveIndex]!;
     const id = `HeroPlane3D.${shot.name}`;
+    const clipId = `plane-${shot.name}`;
     const composition = defineVideoPlane3DComposition({
       id,
       name: shot.name,
-      clipId: `plane-${shot.name}`,
+      clipId,
       src: shot.src,
       width: 1920,
       height: 1080,
@@ -57,6 +59,7 @@ export const heroPlaneShotComps: Record<string, StudioComposition> = Object.from
       trimStart: shot.trimStart,
       playbackRate: shot.playbackRate,
       background: heroBackdrop,
+      document: cameraDocument,
       canvasAttributes: heroGradeAttributes(shot.name),
       setup: setupHeroLookData,
       effect: {
@@ -84,13 +87,20 @@ export const heroPlaneShotComps: Record<string, StudioComposition> = Object.from
       meta: {
         file: "src/compositions/HeroPlane3D.ts",
         library: true,
-        deps: ["src/data/heroAep.gen.ts", "src/data/heroEdl.ts", "src/effects/heroLooks.ts", "src/effects/heroGrade.ts", "src/effects/luts.ts"],
+        deps: ["src/data/heroEdl.ts", "src/effects/heroLooks.ts", "src/effects/heroGrade.ts", "src/effects/luts.ts"],
+        document: {
+          file: "src/data/heroPlaneCameras.comp.json",
+          schema: "src/data/heroPlaneCameras.schema.json",
+          bindings: { [clipId]: `/moves/${moveIndex}` },
+          hotUpdate: "remount",
+          inspector: {
+            kind: "camera",
+            title: "3D CAMERA + PLANE",
+            editor: { label: "Open camera workspace", description: "Camera, focus, plane, and motion-blur parameters backed by composition JSON." },
+          },
+        },
       },
     }) as StudioComposition;
-    composition.meta = {
-      ...composition.meta,
-      editableData: [{ type: "camera3d", file: "src/data/heroAep.gen.ts", exportName: "AE_PLANE_CAMERA_MOVES", title: "3D CAMERA + PLANE" }],
-    };
     return [id, composition];
   }),
 );

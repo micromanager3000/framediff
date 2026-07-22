@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "items": [
+    { "id": "audio-visual", "from": 0, "durationInFrames": 240, "layer": 0 },
+    { "id": "audio-bed", "from": 0, "durationInFrames": 240, "layer": 0 }
+  ]
+}

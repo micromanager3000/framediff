@@ -1,5 +1,6 @@
 import { derived, type Readable } from "svelte/store";
 import {
+  resolveCompositionAuthoring,
   timelineItemLabel,
   type AnimationMutation,
   type AnimationSnapshot,
@@ -24,6 +25,7 @@ export interface InspectorSnapshot {
   frame: number;
   autoKey: boolean;
   gestureDraft: GestureDraftSnapshot | null;
+  canRecordGesture: boolean;
   itemLabel?: string;
   editing: boolean;
   error: string | null;
@@ -45,6 +47,12 @@ export class InspectorViewModel {
       const unrollGroup = state.selection?.kind === "animation"
         ? (state.unrollGroupsByComposition[state.currentKey] ?? []).find((entry) => entry.id === state.selection?.objectId)
         : undefined;
+      const authoring = resolveCompositionAuthoring(
+        composition,
+        state.timelineByComposition[state.currentKey] ?? [],
+        state.animationsByComposition[state.currentKey] ?? [],
+        state.unrollGroupsByComposition[state.currentKey] ?? [],
+      );
       const elementAnimations = state.selection?.kind === "element"
         ? (state.animationsByComposition[state.currentKey] ?? []).filter((entry) =>
           entry.target.includes(`data-fd-id="${state.selection?.objectId}"`) || entry.target.includes(`data-fd-id='${state.selection?.objectId}'`),
@@ -60,6 +68,7 @@ export class InspectorViewModel {
         frame: state.frame,
         autoKey: state.autoKey,
         gestureDraft: state.gestureDraft,
+        canRecordGesture: authoring.directManipulation && authoring.transport,
         itemLabel: animation?.id ?? unrollGroup?.id ?? (state.selection?.kind === "element" ? state.selection.objectId : item ? timelineItemLabel(item) : undefined),
         editing: state.editing || managerState.editing,
         error: state.error ?? managerState.error,

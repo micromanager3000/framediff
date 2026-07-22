@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "items": [
+    { "id": "plan-open", "from": 0, "durationInFrames": 75, "layer": 0 },
+    { "id": "plan-demo", "from": 75, "durationInFrames": 105, "layer": 0 },
+    { "id": "plan-close", "from": 180, "durationInFrames": 60, "layer": 0 }
+  ]
+}

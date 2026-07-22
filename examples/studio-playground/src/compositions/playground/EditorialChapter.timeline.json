@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "edit-timeline",
+      "from": 0,
+      "durationInFrames": 120
+    },
+    {
+      "id": "edit-grade",
+      "from": 120,
+      "durationInFrames": 120
+    },
+    {
+      "id": "edit-production",
+      "from": 240,
+      "durationInFrames": 120,
+      "trimStart": 0.84
+    },
+    {
+      "id": "edit-overlay",
+      "from": 360,
+      "durationInFrames": 120
+    },
+    {
+      "id": "editorial-hud",
+      "from": 0,
+      "durationInFrames": 480,
+      "layer": 20
+    }
+  ]
+}

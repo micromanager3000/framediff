@@ -1,5 +1,5 @@
 import { ObservableValue } from "../observable";
-import type { GenerativeWorkspaceSnapshot, ProjectWorkspacePort } from "../types";
+import type { GenerativeWorkspaceSnapshot, ProjectWorkspacePort, StudioSessionState } from "../types";
 import type { StudioSession } from "../StudioSession";
 
 export interface GenerativeManagerState {
@@ -16,6 +16,7 @@ export class GenerativeManager {
   private unsubscribe: (() => void) | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private lastKey = "";
+  private lastCompositions: StudioSessionState["compositions"] | null = null;
   private generation = 0;
 
   public constructor(private readonly session: StudioSession, private readonly workspacePort: ProjectWorkspacePort) {}
@@ -38,8 +39,10 @@ export class GenerativeManager {
       // sessionStorage unavailable (SSR, privacy mode) — the notice is best-effort
     }
     this.unsubscribe = this.session.state.subscribe((state) => {
-      if (state.currentKey === this.lastKey) return;
+      const registryChanged = state.compositions !== this.lastCompositions;
+      if (state.currentKey === this.lastKey && !registryChanged) return;
       this.lastKey = state.currentKey;
+      this.lastCompositions = state.compositions;
       void this.refresh();
     });
     this.timer = setInterval(() => {

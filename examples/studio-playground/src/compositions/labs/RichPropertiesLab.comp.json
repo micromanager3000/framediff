@@ -1,0 +1,45 @@
+{
+  "scene": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+  "kicker": {
+    "x": 110, "y": 88, "width": 1200, "height": 30,
+    "text": "SCENE · JSON DOCUMENT", "color": "#87a3ff", "fontFamily": "Courier New",
+    "fontWeight": "700", "fontStyle": "normal", "fontSize": 22, "lineHeight": 1,
+    "letterSpacing": 3, "textAlign": "left", "textDecoration": "none", "textTransform": "uppercase"
+  },
+  "headline": {
+    "x": 104, "y": 137, "width": 1500, "height": 180,
+    "text": "Click any object. Edit the document.", "color": "#f8f4ff",
+    "fontFamily": "Inter, system-ui, sans-serif", "fontWeight": "800", "fontStyle": "normal",
+    "fontSize": 78, "lineHeight": 0.98, "letterSpacing": -3, "textAlign": "left",
+    "textDecoration": "none", "textTransform": "none", "opacity": 1
+  },
+  "gradientPanel": {
+    "x": 106, "y": 388, "width": 560, "height": 390, "fill": "linear-gradient",
+    "fillColor": "#7c5cff", "gradientAngle": -84,
+    "gradientStops": "#4729dd@0|#d747a5@0.58|#ffb45e@1", "opacity": 0.96,
+    "borderRadius": 38, "blendMode": "screen", "isolation": true
+  },
+  "gradientLabel": { "text": "SCHEMA CONTROLS" },
+  "flexPanel": {
+    "x": 759, "y": 388, "width": 536, "height": 390, "fill": "solid", "fillColor": "#171b2a",
+    "layout": "flex", "flexDirection": "row", "flexWrap": "wrap", "justify": "space-between",
+    "alignItems": "center", "alignContent": "center", "gap": 18, "padding": "42 36 42 36",
+    "borderRadius": 38, "opacity": 1, "blendMode": "normal", "isolation": true
+  },
+  "flexText": { "text": "TEXT" },
+  "flexFill": { "text": "FILL" },
+  "flexLayout": { "text": "FLEX" },
+  "assetPanel": {
+    "x": 1396, "y": 388, "width": 414, "height": 390, "fill": "image", "image": "",
+    "fit": "cover", "imagePosition": "center", "borderRadius": 38, "opacity": 1,
+    "blendMode": "normal", "isolation": true
+  },
+  "assetTitle": { "text": "Choose an image" },
+  "assetCaption": { "text": "asset:// stays portable" },
+  "caption": {
+    "x": 110, "y": 980, "width": 1700, "height": 34,
+    "text": "No timeline: click or drag on canvas · simple fields come from JSON Schema · complex tools can open focused editors",
+    "color": "#9ca2b6", "fontFamily": "Courier New", "fontWeight": "500", "fontSize": 20,
+    "lineHeight": 1.5, "letterSpacing": 0, "textAlign": "left"
+  }
+}

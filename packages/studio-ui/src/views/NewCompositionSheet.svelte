@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { CompositionDescriptor, NewCompositionKind } from "@framediff/studio-model";
+  import { COMPOSITION_KIND_CONTRACTS, type CompositionDescriptor, type NewCompositionKind } from "@framediff/studio-model";
   import { onMount } from "svelte";
   import type { OperationsViewModel } from "../viewmodels/Operations.ViewModel";
 
@@ -12,13 +12,19 @@
   let kind: NewCompositionKind = "edit";
   let seconds = 5;
   let nameInput: HTMLInputElement;
+  const kinds = COMPOSITION_KIND_CONTRACTS.map((contract) => ({
+    value: contract.kind as NewCompositionKind,
+    label: contract.label,
+    help: contract.help,
+  }));
   onMount(() => {
     const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     nameInput.focus();
     return () => returnFocus?.focus();
   });
   $: generate = kind === "generate";
-  $: nestsUnderCurrent = current.kind !== "generate" && current.file?.endsWith(".html") === true;
+  $: nestsUnderCurrent = current.kind === "edit" && current.file?.endsWith(".html") === true;
+  $: kindHelp = kinds.find((option) => option.value === kind)?.help ?? "";
   $: if (generate) seconds = Math.max(1, Math.round(seconds));
   $: frames = Math.max(1, Math.round(seconds * current.fps));
 
@@ -48,7 +54,7 @@
   <div class="sheet" role="dialog" aria-modal="true" aria-label="New composition">
     <header><strong>NEW COMPOSITION</strong><button onclick={onclose} aria-label="Close new composition">×</button></header>
     <label><span>Name</span><input bind:this={nameInput} bind:value={name} placeholder="TitleCard" /></label>
-    <label><span>Kind</span><select bind:value={kind}>{#each ["edit", "3d", "generate", "audio", "plan"] as option}<option value={option}>{option.toUpperCase()}</option>{/each}</select></label>
+    <label><span>Kind</span><select bind:value={kind}>{#each kinds as option}<option value={option.value}>{option.label}</option>{/each}</select><small>{kindHelp}</small></label>
     <label><span>Duration</span><input type="number" min={generate ? 1 : 0.5} step={generate ? 1 : 0.5} bind:value={seconds} /><small>{generate ? `${Math.max(1, Math.round(seconds))}s of video` : `${frames} frames`}</small></label>
     {#if generate}
       <div class="computed">generative recipe · 720p · aspect nearest {current.width}×{current.height} · prompt, model & refs live in the workbench</div>

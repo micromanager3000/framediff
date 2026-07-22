@@ -1,6 +1,7 @@
 import { defineComposition } from "framediff";
 import { defineGsapTimeline } from "framediff/gsap";
 import source from "./GsapMotionLab.html?raw";
+import document from "./GsapMotionLab.comp.json";
 
 export const gsapMotionSetup = defineGsapTimeline(({ gsap, frames, unroll }) => {
   const timeline = gsap.timeline({ paused: true });
@@ -71,4 +72,18 @@ export const gsapMotionSetup = defineGsapTimeline(({ gsap, frames, unroll }) => 
   return timeline;
 });
 
-export const gsapMotionLabComp = defineComposition(source, { setup: gsapMotionSetup });
+export const gsapMotionLabComp = defineComposition(source, {
+  document,
+  setup: gsapMotionSetup,
+  meta: {
+    document: {
+      file: "src/compositions/labs/GsapMotionLab.comp.json",
+      schema: "src/compositions/labs/GsapMotionLab.schema.json",
+      bindings: {
+        eyebrow: "/eyebrow", "motion-title-lead": "/titleLead", "motion-title-accent": "/titleAccent", "motion-copy": "/copy",
+        "card-preview-label": "/previewLabel", "card-preview-copy": "/previewCopy", "card-export-label": "/exportLabel", "card-export-copy": "/exportCopy",
+        "card-source-label": "/sourceLabel", "card-source-copy": "/sourceCopy", "motion-badge": "/badge", "path-product": "/product",
+      },
+    },
+  },
+});

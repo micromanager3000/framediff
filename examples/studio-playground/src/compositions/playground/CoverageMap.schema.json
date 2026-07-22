@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "kicker": { "type": "object", "title": "Kicker", "properties": { "text": { "type": "string", "title": "Text" }, "color": { "type": "string", "title": "Color", "format": "color" } } },
+    "titleA": { "type": "object", "title": "Title", "properties": { "text": { "type": "string", "title": "Text" }, "color": { "type": "string", "title": "Color", "format": "color" } } },
+    "titleB": { "type": "object", "title": "Accent", "properties": { "text": { "type": "string", "title": "Text" }, "color": { "type": "string", "title": "Color", "format": "color" } } },
+    "summary": { "type": "object", "title": "Summary", "properties": { "text": { "type": "string", "title": "Text", "format": "multiline" }, "color": { "type": "string", "title": "Color", "format": "color" } } }
+  }
+}

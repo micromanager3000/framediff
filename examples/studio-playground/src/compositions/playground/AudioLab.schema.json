@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "kicker": { "type": "object", "properties": { "text": { "type": "string", "title": "Kicker" } } },
+    "titleA": { "type": "object", "properties": { "text": { "type": "string", "title": "Title" } } },
+    "titleB": { "type": "object", "properties": { "text": { "type": "string", "title": "Accent title" }, "color": { "type": "string", "title": "Color", "format": "color" } } },
+    "summary": { "type": "object", "properties": { "text": { "type": "string", "title": "Summary", "format": "multiline" } } },
+    "audio": { "type": "object", "title": "Audio mix", "properties": { "src": { "type": "string", "title": "Asset", "format": "asset", "x-accept": "audio" }, "volume": { "type": "number", "title": "Volume", "minimum": 0, "maximum": 1, "multipleOf": 0.01 }, "muted": { "type": "boolean", "title": "Muted" }, "fadeFrom": { "type": "integer", "title": "Fade from" }, "fadeTo": { "type": "integer", "title": "Fade to" } } }
+  }
+}

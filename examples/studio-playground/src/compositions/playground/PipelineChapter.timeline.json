@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "pipeline-text-gen",
+      "from": 0,
+      "durationInFrames": 120
+    },
+    {
+      "id": "pipeline-ref-gen",
+      "from": 120,
+      "durationInFrames": 120
+    },
+    {
+      "id": "pipeline-audio",
+      "from": 240,
+      "durationInFrames": 120
+    },
+    {
+      "id": "pipeline-delivery",
+      "from": 360,
+      "durationInFrames": 120
+    },
+    {
+      "id": "pipeline-hud",
+      "from": 0,
+      "durationInFrames": 480,
+      "layer": 20
+    }
+  ]
+}

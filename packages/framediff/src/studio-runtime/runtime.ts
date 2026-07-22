@@ -40,9 +40,11 @@ import {
   parseObjectArrayStrings,
   rewriteLiteral,
   rewriteStringLiteral,
+  findCompExportName,
   insertRegistryEntry,
   relModule,
   removeRegistryEntry,
+  transformCopiedCompText,
   type FileSet,
   type LiteralLoc,
   type ResolvedExpr,
@@ -68,6 +70,7 @@ import {
 } from "../studio/devfs";
 import type { CacheEntry, CompRegistry, StudioComposition } from "../studio/types";
 import { CAMERA3D_FIELD_KEYS } from "../studio/editableData";
+import { inspectorFieldsFromJsonDocument, jsonPointerValue, setJsonPointerValue } from "../studio/jsonDocument";
 import { exportVideo } from "../render/exportVideo";
 import { captureCompositeFrame } from "../render/captureComposite";
 import { downloadBuffer } from "../save";
@@ -86,6 +89,7 @@ import {
   type GenerativeComposition,
 } from "../generative";
 import { mountComposition, type CompositionHandle } from "../runtime";
+import type { CompositionTimelineDocument } from "../composition";
 import { analyzeGsapSource, analyzeGsapUnrollGroups, insertGsapTweenSource, rewriteGsapAnimationSource, rewriteGsapMotionPathSource, rewriteGsapUnrollSource } from "../gsap/source";
 import { parseMotionPathSvg } from "@framediff/studio-model";
 import { getGsapRuntimeTraces } from "../gsap";
@@ -96,6 +100,7 @@ import {
   removeHtmlAttribute,
   rewriteHtmlAttribute,
   rewriteHtmlAttributes,
+  timelineFromComposition,
   timelineFromHtml,
 } from "../studio/htmlSource";
 import "./preview.css";
@@ -113,6 +118,9 @@ type PreviewRecord = {
   draftIds: Set<string>;
   draftStyles: Map<string, { transform: string; width: string; height: string }>;
 };
+
+const appendJsonPointer = (base: string, property: string): string =>
+  `${base}/${property.replaceAll("~", "~0").replaceAll("/", "~1")}`;
 
 const previewNumeric = (element: Element, name: string, fallback: number): number => {
   const value = Number(element.getAttribute(name));
@@ -263,33 +271,195 @@ const GRADE_PRESETS: Record<string, { label: string; values: Record<string, numb
   moonlit: { label: "Moonlit", values: { exposure: -0.12, temperature: -0.28, contrast: 0.18, saturation: 0.82, vignette: 0.36 } },
 };
 
-function htmlCompositionScaffold(options: {
+type HtmlCompositionScaffoldOptions = {
   id: string;
   exportName: string;
   file: string;
   module: string;
+  documentFile: string;
+  schemaFile: string;
+  timelineFile?: string;
   kind: NewCompositionRequest["kind"];
   width: number;
   height: number;
   fps: number;
   duration: number;
-}): string {
+};
+
+type CompositionScaffoldData = {
+  document: Record<string, unknown>;
+  schema: Record<string, unknown>;
+  bindings: Record<string, string>;
+  timeline?: CompositionTimelineDocument;
+};
+
+const textObjectSchema = (title: string, extra: Record<string, unknown> = {}) => ({
+  type: "object",
+  title,
+  properties: {
+    text: { type: "string", title: "Text" },
+    ...extra,
+  },
+});
+
+function compositionScaffoldData(options: HtmlCompositionScaffoldOptions): CompositionScaffoldData {
+  const title = { text: options.id, color: "#f7f3e8" };
+  const titleSchema = textObjectSchema("Title", { color: { type: "string", title: "Color", format: "color" } });
+  if (options.kind === "edit" || options.kind === "scene") {
+    return {
+      document: {
+        title: {
+          ...title,
+          x: Math.round(options.width * 0.1),
+          y: Math.round(options.height * 0.4),
+          width: Math.round(options.width * 0.8),
+          fontSize: Math.round(options.width * 0.075),
+          textAlign: "center",
+          opacity: 1,
+        },
+      },
+      schema: {
+        type: "object",
+        properties: {
+          title: textObjectSchema("Title", {
+            x: { type: "number", title: "X" }, y: { type: "number", title: "Y" },
+            width: { type: "number", title: "Width", minimum: 80 },
+            fontSize: { type: "number", title: "Font size", minimum: 8, maximum: 240, "x-ui": "slider" },
+            color: { type: "string", title: "Color", format: "color" },
+            textAlign: { type: "string", title: "Align", enum: ["left", "center", "right"] },
+            opacity: { type: "number", title: "Opacity", minimum: 0, maximum: 1, step: 0.01, "x-ui": "slider" },
+          }),
+        },
+      },
+      bindings: { "title-text": "/title" },
+      ...(options.kind === "edit" ? {
+        timeline: { version: 1 as const, items: [{ id: "title", from: 0, durationInFrames: options.duration, layer: 0 }] },
+      } : {}),
+    };
+  }
+  if (options.kind === "audio") {
+    return {
+      document: { audio: { src: "/audio.mp3", volume: 1, muted: false } },
+      schema: {
+        type: "object",
+        properties: {
+          audio: {
+            type: "object", title: "Audio", properties: {
+              src: { type: "string", title: "Asset", format: "asset" },
+              volume: { type: "number", title: "Volume", minimum: 0, maximum: 1, step: 0.01, "x-ui": "slider" },
+              muted: { type: "boolean", title: "Muted" },
+            },
+          },
+        },
+      },
+      bindings: { audio: "/audio" },
+      timeline: { version: 1, items: [{ id: "audio", from: 0, durationInFrames: options.duration, layer: 0 }] },
+    };
+  }
+  if (options.kind === "3d") {
+    return {
+      document: { scene: { background: "#111827", opacity: 1, intensity: 1 } },
+      schema: {
+        type: "object", properties: {
+          scene: {
+            type: "object", title: "Scene", properties: {
+              background: { type: "string", title: "Background", format: "color" },
+              opacity: { type: "number", title: "Opacity", minimum: 0, maximum: 1, step: 0.01, "x-ui": "slider" },
+              intensity: { type: "number", title: "Intensity", minimum: 0, maximum: 4, step: 0.05, "x-ui": "slider" },
+            },
+          },
+        },
+      },
+      bindings: { scene: "/scene" },
+    };
+  }
+  if (options.kind === "plan") {
+    const third = Math.max(1, Math.round(options.duration / 3));
+    return {
+      document: {
+        title,
+        row1: { text: "Describe the opening beat." },
+        row2: { text: "Describe the middle beat." },
+        row3: { text: "Describe the closing beat." },
+      },
+      schema: {
+        type: "object", properties: {
+          title: titleSchema,
+          row1: textObjectSchema("Opening"), row2: textObjectSchema("Middle"), row3: textObjectSchema("Closing"),
+        },
+      },
+      bindings: { "plan-title": "/title", "row-1-text": "/row1", "row-2-text": "/row2", "row-3-text": "/row3" },
+      timeline: {
+        version: 1,
+        items: [
+          { id: "row-1", from: 0, durationInFrames: third, layer: 0 },
+          { id: "row-2", from: third, durationInFrames: third, layer: 0 },
+          { id: "row-3", from: third * 2, durationInFrames: Math.max(1, options.duration - third * 2), layer: 0 },
+        ],
+      },
+    };
+  }
+  if (["board", "moodboard", "storyboard"].includes(options.kind)) {
+    return {
+      document: {
+        title,
+        card1: { text: "First idea", x: Math.round(options.width * 0.1), y: Math.round(options.height * 0.28), width: Math.round(options.width * 0.22), height: Math.round(options.height * 0.3), background: "#293047", borderRadius: 18 },
+        card2: { text: "Second idea", x: Math.round(options.width * 0.39), y: Math.round(options.height * 0.35), width: Math.round(options.width * 0.22), height: Math.round(options.height * 0.3), background: "#3d2851", borderRadius: 18 },
+        card3: { text: "Third idea", x: Math.round(options.width * 0.68), y: Math.round(options.height * 0.25), width: Math.round(options.width * 0.22), height: Math.round(options.height * 0.3), background: "#174840", borderRadius: 18 },
+      },
+      schema: {
+        type: "object", properties: {
+          title: titleSchema,
+          ...Object.fromEntries([1, 2, 3].map((index) => [`card${index}`, textObjectSchema(`Card ${index}`, {
+            x: { type: "number", title: "X" }, y: { type: "number", title: "Y" },
+            width: { type: "number", title: "Width", minimum: 80 }, height: { type: "number", title: "Height", minimum: 60 },
+            background: { type: "string", title: "Color", format: "color" },
+            borderRadius: { type: "number", title: "Corner radius", minimum: 0, maximum: 80, "x-ui": "slider" },
+          })])),
+        },
+      },
+      bindings: { "board-title": "/title", "card-1": "/card1", "card-2": "/card2", "card-3": "/card3" },
+    };
+  }
+  return {
+    document: { title, body: { text: "Start authoring here." } },
+    schema: { type: "object", properties: { title: titleSchema, body: textObjectSchema("Body") } },
+    bindings: { "document-title": "/title", "document-body": "/body" },
+  };
+}
+
+function htmlCompositionScaffold(options: HtmlCompositionScaffoldOptions): string {
   if (options.kind === "plan") return planCompositionScaffold(options);
   const webGpu = options.kind === "3d" ? `
-    <canvas data-fd-id="scene" data-fd-name="Scene" data-fd-type="layers" data-fd-webgpu
-      data-fd-prop-intensity="1" data-fd-prop-intensity-label="Intensity"></canvas>` : "";
+    <canvas data-fd-id="scene" data-fd-name="Scene" data-fd-type="layers" data-fd-webgpu></canvas>` : "";
+  const board = ["board", "moodboard", "storyboard"].includes(options.kind)
+    ? `\n    <h1 class="board-title" data-fd-id="board-title"></h1>
+    <section class="card" data-fd-id="card-1"></section>
+    <section class="card" data-fd-id="card-2"></section>
+    <section class="card" data-fd-id="card-3"></section>`
+    : "";
   const content = options.kind === "audio"
-    ? `\n    <audio data-fd-id="audio" data-fd-type="audio" data-fd-src="/audio.mp3" data-fd-volume="1"></audio>`
-    : webGpu || `\n    <section data-fd-clip data-fd-id="title" data-fd-name="Title" data-fd-from="0" data-fd-duration="${options.duration}" data-fd-opacity="1">
-      <h1 data-fd-id="title-text" data-fd-text="${options.id}"></h1>
-    </section>`;
+    ? `\n    <section class="audio-surface"><h1>${options.id}</h1><p>Select the audio clip to choose an asset and set its level.</p></section><audio data-fd-clip data-fd-id="audio" data-fd-type="audio"></audio>`
+    : webGpu || (options.kind === "edit" ? `\n    <section data-fd-clip data-fd-id="title" data-fd-name="Title">
+      <h1 class="canvas-title" data-fd-id="title-text"></h1>
+    </section>` : board || `\n    <section class="document" data-fd-id="content" data-fd-name="Content">
+      <h1 data-fd-id="document-title"></h1>
+      <p data-fd-id="document-body"></p>
+    </section>`);
   return `<!doctype html>
 <html>
 <head>
   <style>
     [data-fd-composition] { position: relative; overflow: hidden; background: #111; color: white; font-family: system-ui, sans-serif; }
     [data-fd-clip] { position: absolute; inset: 0; display: grid; place-items: center; }
-    h1 { font-size: 96px; margin: 0; }
+    .document { position: absolute; inset: 0; display: grid; place-content: center; gap: 20px; text-align: center; }
+    .document p { color: #aaa; font-size: 24px; }
+    .canvas-title { position: absolute; left: 0; top: 0; margin: 0; }
+    .board-title { position: absolute; left: 7%; top: 8%; margin: 0; font-size: 48px; }
+    .card { position: absolute; left: 0; top: 0; box-sizing: border-box; display: grid; place-items: center; padding: 24px; font-size: 28px; box-shadow: 0 22px 60px #0008; }
+    .audio-surface { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+    .audio-surface p { color: #aaa; }
+    h1 { font-size: 72px; margin: 0; }
     canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
   </style>
 </head>
@@ -298,7 +468,8 @@ function htmlCompositionScaffold(options: {
     data-fd-width="${options.width}" data-fd-height="${options.height}"
     data-fd-fps="${options.fps}" data-fd-duration="${options.duration}"
     data-fd-kind="${options.kind}" data-fd-source="${options.file}"
-    data-fd-module="${options.module}" data-fd-export="${options.exportName}">${content}
+    data-fd-module="${options.module}" data-fd-export="${options.exportName}"
+    data-fd-document="${options.documentFile}" data-fd-schema="${options.schemaFile}"${options.timelineFile ? ` data-fd-timeline-source="${options.timelineFile}"` : ""}>${content}
     <script>
       // Plain JavaScript frame lifecycle. Imported modules can also be supplied as setup
       // in ${options.module} (use that for WebGPU, WebGL, or third-party libraries).
@@ -318,26 +489,15 @@ function htmlCompositionScaffold(options: {
  * shots). Rows are ordinary clips, so the document is scrubbable, its timing edits in
  * the timeline, and generateEditSkeleton() can derive a master from it.
  */
-function planCompositionScaffold(options: {
-  id: string;
-  exportName: string;
-  file: string;
-  module: string;
-  width: number;
-  height: number;
-  fps: number;
-  duration: number;
-}): string {
-  const third = Math.max(1, Math.round(options.duration / 3));
+function planCompositionScaffold(options: HtmlCompositionScaffoldOptions): string {
   const rows = [
-    { id: "row-1", name: "1 · Opening", from: 0, duration: third },
-    { id: "row-2", name: "2 · Middle", from: third, duration: third },
-    { id: "row-3", name: "3 · Closing", from: third * 2, duration: options.duration - third * 2 },
+    { id: "row-1", name: "1 · Opening" },
+    { id: "row-2", name: "2 · Middle" },
+    { id: "row-3", name: "3 · Closing" },
   ];
-  const rowMarkup = rows.map((row) => `    <section class="row" data-fd-clip data-fd-id="${row.id}" data-fd-name="${row.name}"
-      data-fd-from="${row.from}" data-fd-duration="${row.duration}">
+  const rowMarkup = rows.map((row) => `    <section class="row" data-fd-clip data-fd-id="${row.id}" data-fd-name="${row.name}">
       <div class="when"></div>
-      <p data-fd-id="${row.id}-text" data-fd-text="Describe this beat.">Describe this beat.</p>
+      <p data-fd-id="${row.id}-text"></p>
     </section>`).join("\n");
   return `<!doctype html>
 <html>
@@ -356,8 +516,10 @@ function planCompositionScaffold(options: {
     data-fd-width="${options.width}" data-fd-height="${options.height}"
     data-fd-fps="${options.fps}" data-fd-duration="${options.duration}"
     data-fd-kind="plan" data-fd-source="${options.file}"
-    data-fd-module="${options.module}" data-fd-export="${options.exportName}">
-    <h1 data-fd-id="plan-title" data-fd-text="${options.id}">${options.id}</h1>
+    data-fd-module="${options.module}" data-fd-export="${options.exportName}"
+    data-fd-document="${options.documentFile}" data-fd-schema="${options.schemaFile}"
+    data-fd-timeline-source="${options.timelineFile}">
+    <h1 data-fd-id="plan-title"></h1>
 ${rowMarkup}
     <script>
       // Rows are clips: dragging them in the timeline reprints this document, and
@@ -387,12 +549,32 @@ ${rowMarkup}
 `;
 }
 
-function htmlCompositionModule(htmlFile: string, exportName: string, setupImport?: string): string {
+function htmlCompositionModule(
+  htmlFile: string,
+  exportName: string,
+  options: {
+    setupImport?: string;
+    documentFile?: string;
+    schemaFile?: string;
+    bindings?: Record<string, string>;
+    timelineFile?: string;
+  } = {},
+): string {
   const fileName = htmlFile.split("/").pop()!;
-  return `import { defineComposition } from "framediff";
+  const directory = htmlFile.split("/").slice(0, -1).join("/") || ".";
+  const localImport = (file: string): string => {
+    const relative = file.startsWith(`${directory}/`) ? file.slice(directory.length + 1) : file;
+    return relative.startsWith(".") ? relative : `./${relative}`;
+  };
+  const documentImport = options.documentFile ? `import document from ${JSON.stringify(localImport(options.documentFile))};\n` : "";
+  const timelineImport = options.timelineFile ? `import timeline from ${JSON.stringify(localImport(options.timelineFile))};\n` : "";
+  const defineOptions = options.documentFile || options.timelineFile || options.setupImport
+    ? `, {${options.setupImport ? " setup: sourceComposition.setup," : ""}${options.documentFile ? ` document, meta: { document: { file: ${JSON.stringify(options.documentFile)},${options.schemaFile ? ` schema: ${JSON.stringify(options.schemaFile)},` : ""} bindings: ${JSON.stringify(options.bindings ?? {})} }${options.timelineFile ? `, timelineFile: ${JSON.stringify(options.timelineFile)}` : ""} },` : options.timelineFile ? ` meta: { timelineFile: ${JSON.stringify(options.timelineFile)} },` : ""}${options.timelineFile ? " timeline," : ""} }`
+    : "";
+  return `import { defineComposition${options.timelineFile ? ", defineTimelineDocument" : ""} } from "framediff";
 import source from "./${fileName}?raw";
-${setupImport ? `${setupImport}\n` : ""}
-export const ${exportName} = defineComposition(source${setupImport ? ", { setup: sourceComposition.setup }" : ""});
+${documentImport}${timelineImport}${options.setupImport ? `${options.setupImport}\n` : ""}
+${options.timelineFile ? "const timelineDocument = defineTimelineDocument(timeline);\n" : ""}export const ${exportName} = defineComposition(source${options.timelineFile ? defineOptions.replace(" timeline,", " timeline: timelineDocument,") : defineOptions});
 `;
 }
 
@@ -441,6 +623,179 @@ export const ${options.exportName} = generative({
 `;
 }
 
+function moodboardCompositionModule(options: {
+  id: string;
+  exportName: string;
+  file: string;
+  documentFile: string;
+  width: number;
+  height: number;
+  fps: number;
+  durationInFrames: number;
+}): string {
+  const directory = options.file.split("/").slice(0, -1).join("/") || ".";
+  const documentImport = options.documentFile.startsWith(`${directory}/`)
+    ? `./${options.documentFile.slice(directory.length + 1)}`
+    : options.documentFile;
+  return `import { defineMoodboardComposition, type MoodboardData } from "framediff";
+import document from ${JSON.stringify(documentImport)};
+
+export const ${options.exportName} = defineMoodboardComposition(document as MoodboardData, {
+  id: ${JSON.stringify(options.id)},
+  title: ${JSON.stringify(options.id)},
+  width: ${options.width},
+  height: ${options.height},
+  fps: ${options.fps},
+  durationInFrames: ${options.durationInFrames},
+  dataFile: ${JSON.stringify(options.documentFile)},
+  file: ${JSON.stringify(options.file)},
+  module: ${JSON.stringify(options.file)},
+  exportName: ${JSON.stringify(options.exportName)},
+});
+`;
+}
+
+function ownCompositionSourcePaths(composition: StudioComposition): string[] {
+  return [
+    composition.meta?.file,
+    composition.meta?.module,
+    composition.meta?.timelineFile,
+    composition.meta?.document?.file,
+    ...(composition.meta?.deps ?? []),
+    ...(composition.meta?.editableData ?? []).map((source) => source.file),
+  ].filter((file): file is string => !!file);
+}
+
+/**
+ * Render fingerprints follow the composition graph. A parent includes every nested composition's
+ * render inputs, while unrelated compositions and editor-only schemas remain outside the hash.
+ */
+export function compositionSourcePaths(registry: CompRegistry, compositionKey: string): string[] {
+  const visited = new Set<string>();
+  const paths: string[] = [];
+  const visit = (key: string): void => {
+    if (visited.has(key)) return;
+    visited.add(key);
+    const composition = registry[key];
+    if (!composition) return;
+    paths.push(...ownCompositionSourcePaths(composition));
+
+    try {
+      for (const item of timelineFromComposition(composition)) {
+        if (item.content.type !== "nested") continue;
+        const compId = item.content.compId;
+        const child = Object.entries(registry).find(([, candidate]) => candidate.id === compId)?.[0];
+        if (child) visit(child);
+      }
+    } catch {
+      // Source parsing diagnostics are reported by probe(); fingerprints still retain known inputs.
+    }
+
+    if ("recipe" in composition) {
+      for (const ref of (composition as GenerativeComposition).recipe.refs ?? []) {
+        if (ref.src.startsWith("comp://")) visit(ref.src.slice("comp://".length));
+      }
+    }
+  };
+  visit(compositionKey);
+  return [...new Set(paths)];
+}
+
+export function isDocumentOnlyCompositionUpdate(
+  before: StudioComposition | undefined,
+  after: StudioComposition | undefined,
+): boolean {
+  return !!before
+    && !!after
+    && before.document !== after.document
+    && after.meta?.document?.hotUpdate !== "remount"
+    && before.html === after.html
+    && (before.setup === after.setup || String(before.setup) === String(after.setup))
+    && before.width === after.width
+    && before.height === after.height
+    && before.fps === after.fps
+    && before.durationInFrames === after.durationInFrames
+    && JSON.stringify(before.timeline) === JSON.stringify(after.timeline);
+}
+
+function runtimeJsonEqual(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  try { return JSON.stringify(left) === JSON.stringify(right); }
+  catch { return false; }
+}
+
+function ownCompositionRuntimeEqual(before: StudioComposition | undefined, after: StudioComposition | undefined): boolean {
+  return !!before
+    && !!after
+    && before.id === after.id
+    && before.html === after.html
+    && (before.setup === after.setup || String(before.setup) === String(after.setup))
+    && before.width === after.width
+    && before.height === after.height
+    && before.fps === after.fps
+    && before.durationInFrames === after.durationInFrames
+    && runtimeJsonEqual(before.document, after.document)
+    && runtimeJsonEqual(before.timeline, after.timeline)
+    && runtimeJsonEqual("recipe" in before ? before.recipe : undefined, "recipe" in after ? after.recipe : undefined);
+}
+
+function childCompositionKeys(registry: CompRegistry, composition: StudioComposition | undefined): string[] {
+  if (!composition) return [];
+  const children: string[] = [];
+  try {
+    for (const item of timelineFromComposition(composition)) {
+      const content = item.content;
+      if (content.type !== "nested") continue;
+      const child = Object.entries(registry).find(([, candidate]) => candidate.id === content.compId)?.[0];
+      if (child) children.push(child);
+    }
+  } catch {
+    // probe() owns source diagnostics; an unreadable tree simply cannot be considered equal.
+  }
+  if ("recipe" in composition) {
+    for (const ref of (composition as GenerativeComposition).recipe.refs ?? []) {
+      if (!ref.src.startsWith("comp://")) continue;
+      const reference = ref.src.slice("comp://".length);
+      const child = registry[reference]
+        ? reference
+        : Object.entries(registry).find(([, candidate]) => candidate.id === reference)?.[0];
+      if (child) children.push(child);
+    }
+  }
+  return [...new Set(children)].sort();
+}
+
+/** True when this comp and every comp it renders are unchanged across a registry HMR update. */
+export function isCompositionTreeRuntimeEqual(
+  beforeRegistry: CompRegistry,
+  afterRegistry: CompRegistry,
+  compositionKey: string,
+  visited = new Set<string>(),
+): boolean {
+  if (visited.has(compositionKey)) return true;
+  visited.add(compositionKey);
+  const before = beforeRegistry[compositionKey];
+  const after = afterRegistry[compositionKey];
+  if (!ownCompositionRuntimeEqual(before, after)) return false;
+  const beforeChildren = childCompositionKeys(beforeRegistry, before);
+  const afterChildren = childCompositionKeys(afterRegistry, after);
+  if (beforeChildren.length !== afterChildren.length || beforeChildren.some((key, index) => key !== afterChildren[index])) return false;
+  return beforeChildren.every((key) => isCompositionTreeRuntimeEqual(beforeRegistry, afterRegistry, key, visited));
+}
+
+function descendantCompositionTreesEqual(
+  beforeRegistry: CompRegistry,
+  afterRegistry: CompRegistry,
+  before: StudioComposition,
+  after: StudioComposition,
+): boolean {
+  const beforeChildren = childCompositionKeys(beforeRegistry, before);
+  const afterChildren = childCompositionKeys(afterRegistry, after);
+  return beforeChildren.length === afterChildren.length
+    && beforeChildren.every((key, index) => key === afterChildren[index]
+      && isCompositionTreeRuntimeEqual(beforeRegistry, afterRegistry, key));
+}
+
 function describeRegistry(registry: CompRegistry): CompositionDescriptor[] {
   return Object.entries(registry).map(([key, composition]) => ({
     key,
@@ -452,15 +807,11 @@ function describeRegistry(registry: CompRegistry): CompositionDescriptor[] {
     kind: composition.meta?.kind ?? "edit",
     outputKind: composition.meta?.output ?? "video",
     file: composition.meta?.file,
-    sources: [...new Set([
-      composition.meta?.file,
-      composition.meta?.module,
-      ...(composition.meta?.deps ?? []),
-      ...(composition.meta?.editableData ?? []).map((source) => source.file),
-    ].filter((file): file is string => !!file))],
+    sources: compositionSourcePaths(registry, key),
     library: composition.meta?.library,
     render: composition.meta?.render,
     guide: composition.meta?.guide,
+    authoring: composition.meta?.authoring,
   }));
 }
 
@@ -531,6 +882,23 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     return { ok: true, receipt: result.receipt };
   }
 
+  private async commitSourceTexts(
+    label: string,
+    changes: Array<{ before: { file: string; text: string | null; hash: string | null }; text: string | null }>,
+    groupId?: string,
+  ): Promise<ProjectEditResult> {
+    const result = await applySourceEdit({
+      label,
+      ...(groupId ? { groupId } : {}),
+      files: changes.map(({ before, text }) => ({ file: before.file, expectedHash: before.hash, text })),
+    });
+    if (!result.ok || !result.receipt) {
+      return { ok: false, conflicts: result.conflicts, message: result.error ?? "Could not commit the source transaction." };
+    }
+    for (const listener of this.editListeners) listener(result.receipt);
+    return { ok: true, receipt: result.receipt };
+  }
+
   public replaceRegistry(registry: CompRegistry): void {
     const previous = this.registry;
     this.registry = registry;
@@ -540,6 +908,18 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     for (const preview of this.previews) {
       const before = previous[preview.compositionKey];
       const after = registry[preview.compositionKey];
+      if (isCompositionTreeRuntimeEqual(previous, registry, preview.compositionKey)) continue;
+      const canPatchDocument = preview.handle
+        && preview.mountedKey === preview.compositionKey
+        && isDocumentOnlyCompositionUpdate(before, after)
+        && before
+        && after
+        && descendantCompositionTreesEqual(previous, registry, before, after);
+      if (canPatchDocument) {
+        preview.handle!.updateDocument(after.document);
+        emitPreviewNodes(preview);
+        continue;
+      }
       const canSwap = preview.handle
         && preview.stage
         && preview.mountedKey === preview.compositionKey
@@ -569,7 +949,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     // Do not wait for Vite HMR to make an accepted source transaction inspectable. The registry
     // remains the preview authority, while the derived project view reads the just-committed HTML.
     const inspectable = physicalSource == null ? composition : { ...composition, html: physicalSource };
-    const rawItems = timelineFromHtml(inspectable);
+    const rawItems = timelineFromComposition(inspectable);
     const cache = rawItems.some((item) => item.content.type === "nested") ? await this.cacheForProbe() : [];
     const artifactChecks = new Map<string, Promise<{ artifactStatus: "current" | "stale" | "missing" | "remote"; pinnedTake?: number }>>();
     const localChecks = new Map<string, Promise<boolean>>();
@@ -829,6 +1209,9 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       return { ok: false, message: "Atomic placement edits must target one composition." };
     }
     const composition = this.registry[compositionKey];
+    if (composition?.meta?.timelineFile && composition.timeline) {
+      return this.editTimelineDocumentPlacements(compositionKey, composition, requests);
+    }
     const file = composition?.meta?.file;
     if (!composition || !file) return { ok: false, message: "This composition does not declare a source file." };
     const revision = await readSourceRevision(file);
@@ -845,7 +1228,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       const value = request.field === "durationInFrames"
         ? Math.max(1, Math.round(request.value))
         : request.field === "trimStart"
-          ? Math.max(0, Math.round(request.value * 1_000_000) / 1_000_000)
+          ? Math.round(request.value * 1_000_000) / 1_000_000
           : Math.round(request.value);
       const rewritten = rewriteHtmlAttribute(nextText, request.itemId, attribute, value);
       if (rewritten == null) return { ok: false, file, message: `Clip "${request.itemId}" needs a stable data-fd-id before it can be edited.` };
@@ -880,6 +1263,54 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       : { ok: false, file, message: committed.message, receipt: committed.receipt, conflicts: committed.conflicts };
   }
 
+  private async editTimelineDocumentPlacements(
+    compositionKey: string,
+    composition: StudioComposition,
+    requests: PlacementEditRequest[],
+  ): Promise<PlacementEditResult> {
+    const file = composition.meta?.timelineFile;
+    if (!file || !composition.timeline) return { ok: false, message: "This composition has no external timeline document." };
+    const revision = await readSourceRevision(file);
+    if (!revision || revision.text == null) return { ok: false, file, message: `Could not read ${file} through the FrameDiff dev bridge.` };
+    let document: NonNullable<StudioComposition["timeline"]>;
+    try {
+      const parsed = JSON.parse(revision.text) as NonNullable<StudioComposition["timeline"]>;
+      if (parsed?.version !== 1 || !Array.isArray(parsed.items)) throw new Error("expected { version: 1, items: [] }");
+      document = { version: 1, items: parsed.items.map((item) => ({ ...item })) };
+    } catch (error) {
+      return { ok: false, file, message: `${file} is not a valid FrameDiff timeline document: ${error instanceof Error ? error.message : String(error)}` };
+    }
+    const placementById = new Map(document.items.map((item) => [item.id, item]));
+    for (const request of requests) {
+      const placement = placementById.get(request.itemId);
+      if (!placement) return { ok: false, file, message: `Timeline document ${file} has no placement named "${request.itemId}".` };
+      if (request.field === "from") placement.from = Math.round(request.value);
+      else if (request.field === "durationInFrames") placement.durationInFrames = Math.max(1, Math.round(request.value));
+      else if (request.field === "layer") placement.layer = Math.max(0, Math.round(request.value));
+      else placement.trimStart = Math.round(request.value * 1_000_000) / 1_000_000;
+    }
+    const committed = await this.commitSourceText(
+      requests.length === 1 ? "Edit timeline document placement" : "Edit timeline document placements",
+      revision,
+      `${JSON.stringify(document, null, 2)}\n`,
+    );
+    if (!committed.ok) return { ok: false, file, message: committed.message, conflicts: committed.conflicts };
+
+    // Apply the data edit immediately. A later JSON HMR update is harmless, but Studio does not
+    // wait for it and does not remount unrelated compositions.
+    composition.timeline = document;
+    this.probed.delete(compositionKey);
+    await this.probe(compositionKey);
+    for (const preview of this.previews) {
+      if (preview.compositionKey !== compositionKey) continue;
+      preview.handle?.destroy();
+      preview.handle = undefined;
+      preview.mountedKey = undefined;
+      this.renderPreview(preview);
+    }
+    return { ok: true, file, receipt: committed.receipt };
+  }
+
   public async inspectItem(compositionKey: string, itemId: string): Promise<InspectorDetailsSnapshot> {
     const composition = this.registry[compositionKey];
     const item = this.probed.get(compositionKey)?.find((entry) => entry.id === itemId);
@@ -892,6 +1323,38 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       if (resolved?.kind === "literal") this.inspectorLocations.set(locationKey(fieldId), resolved);
       if (resolved?.kind === "string-literal") this.inspectorLocations.set(locationKey(fieldId), resolved);
     };
+
+    const documentMetadata = composition.meta?.document;
+    const documentPointer = documentMetadata?.bindings?.[itemId]
+      ?? (itemId === composition.id ? "" : undefined);
+    if (documentMetadata && documentPointer != null && files[documentMetadata.file]) {
+      try {
+        const document = JSON.parse(files[documentMetadata.file]);
+        const schemaText = documentMetadata.schema ? await readSource(documentMetadata.schema) : null;
+        const schema = schemaText ? JSON.parse(schemaText) : undefined;
+        const fields = inspectorFieldsFromJsonDocument(documentMetadata.file, document, schema, documentPointer);
+        if (fields.length) sections.push({
+          id: `document:${documentPointer || "root"}`,
+          title: documentMetadata.inspector?.title ?? "DOCUMENT PROPERTIES",
+          kind: documentMetadata.inspector?.kind ?? "data",
+          fields,
+          ...(documentMetadata.inspector?.editor ? {
+            editor: {
+              presentation: "inline-modal" as const,
+              label: documentMetadata.inspector.editor.label,
+              description: documentMetadata.inspector.editor.description,
+            },
+          } : {}),
+        });
+      } catch (error) {
+        sections.push({
+          id: "document:error",
+          title: "DOCUMENT PROPERTIES",
+          kind: "data",
+          fields: [{ id: "document:error", label: error instanceof Error ? error.message : String(error), editable: false, valueType: "text" }],
+        });
+      }
+    }
 
     // Generated HTML often contains template expressions rather than rewriteable authored
     // attribute literals. Its explicit editableData declarations remain available below.
@@ -907,6 +1370,11 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
           kind: "grade",
           fields: grade,
           presets: Object.entries(GRADE_PRESETS).map(([id, preset]) => ({ id, label: preset.label })),
+          editor: {
+            presentation: "inline-modal",
+            label: "Open color workspace",
+            description: "A larger effect workspace using the same source-backed controls and presets.",
+          },
         });
       }
     }
@@ -967,8 +1435,18 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   }
 
   public async editInspectorField(request: InspectorFieldEditRequest): Promise<PlacementEditResult> {
+    if (request.fieldId.startsWith("json:")) return this.editJsonDocumentField(request);
     if (request.fieldId.startsWith("html:") || request.fieldId.startsWith("html-target:")) {
       const composition = this.registry[request.compositionKey];
+      const binding = composition && this.documentBinding(composition, request.itemId);
+      if (request.fieldId === "html:data-fd-text" && binding && typeof binding.value.text === "string") {
+        return this.editJsonDocumentValues({
+          compositionKey: request.compositionKey,
+          file: binding.file,
+          edits: [{ pointer: appendJsonPointer(binding.pointer, "text"), value: request.value }],
+          label: "Edit composition document text",
+        });
+      }
       const file = composition?.meta?.file;
       if (!file) return { ok: false, message: "This composition does not declare its HTML source file." };
       const revision = await readSourceRevision(file);
@@ -989,6 +1467,68 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       itemId: request.itemId,
       edits: [{ fieldId: request.fieldId, value: request.value }],
     });
+  }
+
+  private async editJsonDocumentField(request: InspectorFieldEditRequest): Promise<PlacementEditResult> {
+    const match = /^json:([^:]+):(.+)$/.exec(request.fieldId);
+    if (!match) return { ok: false, message: `Invalid JSON document field: ${request.fieldId}` };
+    const file = decodeURIComponent(match[1]);
+    const pointer = decodeURIComponent(match[2]);
+    const composition = this.registry[request.compositionKey];
+    if (!composition || composition.meta?.document?.file !== file) return { ok: false, file, message: `${file} is not the selected composition document.` };
+    return this.editJsonDocumentValues({
+      compositionKey: request.compositionKey,
+      file,
+      edits: [{ pointer, value: request.value }],
+      label: "Edit composition document property",
+    });
+  }
+
+  private documentBinding(composition: StudioComposition, objectId: string): { file: string; pointer: string; value: Record<string, unknown> } | null {
+    const metadata = composition.meta?.document;
+    const pointer = metadata?.bindings?.[objectId];
+    const value = pointer == null ? undefined : jsonPointerValue(composition.document, pointer);
+    return metadata && pointer != null && value != null && typeof value === "object" && !Array.isArray(value)
+      ? { file: metadata.file, pointer, value: value as Record<string, unknown> }
+      : null;
+  }
+
+  private async editJsonDocumentValues(options: {
+    compositionKey: string;
+    file: string;
+    edits: Array<{ pointer: string; value: number | string | boolean }>;
+    label: string;
+    groupId?: string;
+  }): Promise<PlacementEditResult> {
+    const composition = this.registry[options.compositionKey];
+    if (!composition || composition.meta?.document?.file !== options.file) {
+      return { ok: false, file: options.file, message: `${options.file} is not the selected composition document.` };
+    }
+    const revision = await readSourceRevision(options.file);
+    if (!revision || revision.text == null) return { ok: false, file: options.file, message: `Could not read ${options.file}.` };
+    let document: unknown;
+    try { document = JSON.parse(revision.text); }
+    catch (error) { return { ok: false, file: options.file, message: `${options.file} is invalid JSON: ${error instanceof Error ? error.message : String(error)}` }; }
+    for (const edit of options.edits) {
+      if (!setJsonPointerValue(document, edit.pointer, edit.value)) {
+        return { ok: false, file: options.file, message: `Could not resolve ${edit.pointer} in ${options.file}.` };
+      }
+    }
+    const committed = await this.commitSourceText(options.label, revision, `${JSON.stringify(document, null, 2)}\n`, options.groupId);
+    if (!committed.ok) return { ok: false, file: options.file, message: committed.message, conflicts: committed.conflicts };
+
+    // A remount document is consumed while constructing setup/GPU resources. Keep the current
+    // registry object intact so the ensuing Vite JSON HMR update can observe the old/new document
+    // boundary and swap only this composition. Patch documents update immediately in place.
+    if (composition.meta?.document?.hotUpdate === "remount") {
+      return { ok: true, file: options.file, receipt: committed.receipt };
+    }
+    composition.document = document;
+    for (const preview of this.previews) {
+      if (preview.compositionKey !== options.compositionKey) continue;
+      preview.handle?.updateDocument(document);
+    }
+    return { ok: true, file: options.file, receipt: committed.receipt };
   }
 
   public async editInspectorFields(request: InspectorFieldsEditRequest): Promise<PlacementEditResult> {
@@ -1041,14 +1581,25 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   public async editElementProperties(request: PreviewElementEditRequest): Promise<PlacementEditResult> {
     const composition = this.registry[request.compositionKey];
     const file = composition?.meta?.file;
-    if (!composition || !file) return { ok: false, message: "This composition has no editable HTML source." };
-    if (composition.meta?.sourceFormat === "generated") return { ok: false, file, message: "Generated HTML must be unrolled before direct manipulation." };
+    if (!composition) return { ok: false, message: "This composition is unavailable." };
     const entries = Object.entries(request.patch);
     if (!entries.length) return { ok: false, file, message: "No element properties changed." };
     if (entries.some(([, value]) => !Number.isFinite(value))) return { ok: false, file, message: "Element geometry must use finite numbers." };
     if ((request.patch.width != null && request.patch.width < 1) || (request.patch.height != null && request.patch.height < 1)) {
       return { ok: false, file, message: "Element dimensions must be at least one composition pixel." };
     }
+    const binding = this.documentBinding(composition, request.objectId);
+    if (binding) {
+      return this.editJsonDocumentValues({
+        compositionKey: request.compositionKey,
+        file: binding.file,
+        edits: entries.map(([property, value]) => ({ pointer: appendJsonPointer(binding.pointer, property), value })),
+        label: request.label ?? `Edit ${request.objectId} geometry`,
+        groupId: request.groupId,
+      });
+    }
+    if (!file) return { ok: false, message: "This composition has no editable HTML source." };
+    if (composition.meta?.sourceFormat === "generated") return { ok: false, file, message: "Generated HTML must be unrolled before direct manipulation." };
     const attributes: Record<string, number> = {};
     for (const [property, value] of entries) attributes[`data-fd-${property}`] = Math.round(value * 1_000) / 1_000;
     const revision = await readSourceRevision(file);
@@ -1270,22 +1821,52 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (!registryFile) return { ok: false, message: "No COMPOSITIONS registry source file was found." };
     if (!sources[registryFile]) sources[registryFile] = (await readSource(registryFile)) ?? "";
     const isGenerative = request.kind === "generate";
-    const file = isGenerative ? `src/${pascal}.gen.ts` : `src/${pascal}.html`;
-    const module = isGenerative ? file : `src/${pascal}.ts`;
-    const parentFile = selectedParent?.meta?.kind !== "generate" && selectedParent?.meta?.file?.endsWith(".html")
+    const isMoodboard = request.kind === "moodboard";
+    const file = isGenerative ? `src/${pascal}.gen.ts` : isMoodboard ? `src/${pascal}.ts` : `src/${pascal}.html`;
+    const module = isGenerative || isMoodboard ? file : `src/${pascal}.ts`;
+    const documentFile = `src/${pascal}.comp.json`;
+    const schemaFile = `src/${pascal}.schema.json`;
+    const parentFile = (selectedParent?.meta?.kind ?? "edit") === "edit" && selectedParent?.meta?.file?.endsWith(".html")
       ? selectedParent.meta.file
       : undefined;
-    const parentSource = parentFile ? sources[parentFile] ?? await readSource(parentFile) : null;
-    const placedParentSource = parentFile && parentSource && selectedParent
-      ? insertNestedHtmlComposition(parentSource, selectedParent.id, {
+    const finishCreation = async (): Promise<ProjectOperationResult> => {
+      let nested = false;
+      if (parentFile && selectedParent) {
+        const parentRevision = await readSourceRevision(parentFile);
+        let placedParentSource = parentRevision?.text == null ? null : insertNestedHtmlComposition(parentRevision.text, selectedParent.id, {
           compId: pascal,
           name: pascal,
           from: 0,
           durationInFrames: request.durationInFrames,
-        })
-      : null;
-    const finishCreation = async (): Promise<ProjectOperationResult> => {
-      const nested = !!(parentFile && placedParentSource && await writeSource(parentFile, placedParentSource));
+        });
+        if (parentRevision && placedParentSource) {
+          const timelineFile = selectedParent.meta?.timelineFile;
+          if (timelineFile && selectedParent.timeline) {
+            const existingIds = new Set(selectedParent.timeline.items.map((item) => item.id));
+            const insertedItem = timelineFromHtml({ ...selectedParent, html: placedParentSource })
+              .find((item) => !existingIds.has(item.id) && item.content.type === "nested" && item.content.compId === pascal);
+            const timelineRevision = await readSourceRevision(timelineFile);
+            if (insertedItem && timelineRevision?.text) {
+              placedParentSource = removeHtmlAttribute(placedParentSource, insertedItem.id, "data-fd-from") ?? placedParentSource;
+              placedParentSource = removeHtmlAttribute(placedParentSource, insertedItem.id, "data-fd-duration") ?? placedParentSource;
+              try {
+                const currentTimeline = JSON.parse(timelineRevision.text) as CompositionTimelineDocument;
+                if (currentTimeline.version !== 1 || !Array.isArray(currentTimeline.items)) throw new Error("invalid timeline document");
+                const nextTimeline: CompositionTimelineDocument = {
+                  version: 1,
+                  items: [...currentTimeline.items, { id: insertedItem.id, from: 0, durationInFrames: request.durationInFrames }],
+                };
+                nested = (await this.commitSourceTexts(`Nest ${pascal} in ${selectedParent.id}`, [
+                  { before: parentRevision, text: placedParentSource },
+                  { before: timelineRevision, text: `${JSON.stringify(nextTimeline, null, 2)}\n` },
+                ])).ok;
+              } catch { /* leave the new composition top-level when the parent's timeline is invalid */ }
+            }
+          } else {
+            nested = await writeSource(parentFile, placedParentSource);
+          }
+        }
+      }
       return {
         ok: true,
         message: nested
@@ -1311,19 +1892,64 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       }
       return finishCreation();
     }
-    const scaffold = htmlCompositionScaffold({
+    if (isMoodboard) {
+      const moodboardDocument = {
+        camera: { x: Math.round(relative.width * 0.08), y: Math.round(relative.height * 0.12), zoom: 1 },
+        items: [
+          { id: "note-1", type: "note", x: 180, y: 180, width: 300, text: "Double-click this note to edit it." },
+          { id: "note-2", type: "note", x: 560, y: 340, width: 280, rotation: -2, text: "Drag cards, pan the board, and scroll to zoom." },
+        ],
+      };
+      if (!(await writeSource(documentFile, `${JSON.stringify(moodboardDocument, null, 2)}\n`))) return { ok: false, message: `Could not write ${documentFile}.` };
+      if (!(await writeSource(file, moodboardCompositionModule({
+        id: pascal,
+        exportName: varName,
+        file,
+        documentFile,
+        width: relative.width,
+        height: relative.height,
+        fps: relative.fps,
+        durationInFrames: request.durationInFrames,
+      })))) return { ok: false, message: `Wrote ${documentFile}, but could not write ${file}.` };
+      const inserted = insertRegistryEntry(registryFile, sources, { key, varName, importFrom: relModule(registryFile, file) });
+      if (!inserted || !(await writeSource(registryFile, inserted.text))) {
+        return { ok: false, message: `Wrote ${file}, but could not register it in ${registryFile}.` };
+      }
+      return finishCreation();
+    }
+    const baseScaffoldOptions: HtmlCompositionScaffoldOptions = {
       id: pascal,
       exportName: varName,
       file,
       module,
+      documentFile,
+      schemaFile,
       kind: request.kind,
       width: relative.width,
       height: relative.height,
       fps: relative.fps,
       duration: request.durationInFrames,
-    });
+    };
+    const scaffoldData = compositionScaffoldData(baseScaffoldOptions);
+    const timelineFile = scaffoldData.timeline ? `src/${pascal}.timeline.json` : undefined;
+    const scaffoldOptions = { ...baseScaffoldOptions, timelineFile };
+    const scaffold = htmlCompositionScaffold(scaffoldOptions);
     if (!(await writeSource(file, scaffold))) return { ok: false, message: `Could not write ${file}.` };
-    if (!(await writeSource(module, htmlCompositionModule(file, varName)))) return { ok: false, message: `Wrote ${file}, but could not write ${module}.` };
+    if (!(await writeSource(documentFile, `${JSON.stringify(scaffoldData.document, null, 2)}\n`))) {
+      return { ok: false, message: `Wrote ${file}, but could not write ${documentFile}.` };
+    }
+    if (!(await writeSource(schemaFile, `${JSON.stringify(scaffoldData.schema, null, 2)}\n`))) {
+      return { ok: false, message: `Wrote ${file} and ${documentFile}, but could not write ${schemaFile}.` };
+    }
+    if (timelineFile && scaffoldData.timeline && !(await writeSource(timelineFile, `${JSON.stringify(scaffoldData.timeline, null, 2)}\n`))) {
+      return { ok: false, message: `Wrote the composition files, but could not write ${timelineFile}.` };
+    }
+    if (!(await writeSource(module, htmlCompositionModule(file, varName, {
+      documentFile,
+      schemaFile,
+      bindings: scaffoldData.bindings,
+      timelineFile,
+    })))) return { ok: false, message: `Wrote ${file}, but could not write ${module}.` };
     const inserted = insertRegistryEntry(registryFile, sources, { key, varName, importFrom: relModule(registryFile, module) });
     if (!inserted || !(await writeSource(registryFile, inserted.text))) {
       return { ok: false, message: `Wrote ${file} and ${module}, but could not register them in ${registryFile}.` };
@@ -1347,21 +1973,86 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const varName = `${camelName(pascal)}Comp`;
     const sourceFile = source.meta?.file;
     if (!sourceFile) return { ok: false, message: `${source.id} does not declare data-fd-source.` };
+    const sourceDirectory = sourceFile.split("/").slice(0, -1).join("/") || "src";
+    if ("recipe" in source) {
+      const recipeFile = `${sourceDirectory}/${pascal}.gen.ts`;
+      const sourceText = sources[sourceFile] ?? await readSource(sourceFile);
+      const transformed = sourceText == null ? null : transformCopiedCompText(sourceText, {
+        oldId: source.id,
+        newId: pascal,
+        newVar: varName,
+        newFile: recipeFile,
+        library: toLibrary || source.meta?.library === true,
+      });
+      if (!transformed || !(await writeSource(recipeFile, transformed))) return { ok: false, message: `Could not fork ${source.id}'s generative recipe.` };
+      const inserted = insertRegistryEntry(registryFile, sources, { key, varName, importFrom: relModule(registryFile, recipeFile) });
+      if (!inserted || !(await writeSource(registryFile, inserted.text))) return { ok: false, message: `Forked ${recipeFile}, but could not register it.` };
+      return { ok: true, message: `Forked ${source.id} as ${pascal}; the new recipe starts without a pinned take.`, compositionKey: key };
+    }
+    if (source.meta?.kind === "moodboard" && source.meta.document?.file) {
+      const documentFile = `${sourceDirectory}/${pascal}.comp.json`;
+      const moduleFile = `${sourceDirectory}/${pascal}.ts`;
+      const documentText = sources[source.meta.document.file] ?? await readSource(source.meta.document.file);
+      if (documentText == null || !(await writeSource(documentFile, documentText))) return { ok: false, message: `Could not copy ${source.meta.document.file}.` };
+      if (!(await writeSource(moduleFile, moodboardCompositionModule({
+        id: pascal,
+        exportName: varName,
+        file: moduleFile,
+        documentFile,
+        width: source.width,
+        height: source.height,
+        fps: source.fps,
+        durationInFrames: source.durationInFrames,
+      })))) return { ok: false, message: `Copied ${documentFile}, but could not write ${moduleFile}.` };
+      const inserted = insertRegistryEntry(registryFile, sources, { key, varName, importFrom: relModule(registryFile, moduleFile) });
+      if (!inserted || !(await writeSource(registryFile, inserted.text))) return { ok: false, message: `Copied ${moduleFile}, but could not register it.` };
+      return { ok: true, message: `Duplicated ${source.id} as ${pascal}.`, compositionKey: key };
+    }
+    if (source.meta?.sourceFormat === "generated") {
+      return { ok: false, message: `${source.id} is generated by a shared composition factory; duplicate its data/factory entry in code instead.` };
+    }
     let text = sources[sourceFile] ?? await readSource(sourceFile);
     if (text == null) return { ok: false, message: `Could not read ${sourceFile}.` };
-    const directory = sourceFile.split("/").slice(0, -1).join("/") || "src";
+    const directory = sourceDirectory;
     const file = `${directory}/${pascal}.html`;
     const module = `${directory}/${pascal}.ts`;
+    const sourceDocumentFile = source.meta?.document?.file;
+    const sourceSchemaFile = source.meta?.document?.schema;
+    const sourceTimelineFile = source.meta?.timelineFile;
+    const documentFile = sourceDocumentFile ? `${directory}/${pascal}.comp.json` : undefined;
+    const schemaFile = sourceSchemaFile ? `${directory}/${pascal}.schema.json` : undefined;
+    const timelineFile = sourceTimelineFile ? `${directory}/${pascal}.timeline.json` : undefined;
     text = rewriteHtmlAttribute(text, source.id, "data-fd-id", pascal) ?? text;
     text = rewriteHtmlAttribute(text, pascal, "data-fd-source", file) ?? text;
     text = rewriteHtmlAttribute(text, pascal, "data-fd-module", module) ?? text;
     text = rewriteHtmlAttribute(text, pascal, "data-fd-export", varName) ?? text;
     text = rewriteHtmlAttribute(text, pascal, "data-fd-library", toLibrary || source.meta?.library === true) ?? text;
+    if (documentFile) text = rewriteHtmlAttribute(text, pascal, "data-fd-document", documentFile) ?? text;
+    if (schemaFile) text = rewriteHtmlAttribute(text, pascal, "data-fd-schema", schemaFile) ?? text;
+    if (timelineFile) text = rewriteHtmlAttribute(text, pascal, "data-fd-timeline-source", timelineFile) ?? text;
     if (!(await writeSource(file, text))) return { ok: false, message: `Could not write ${file}.` };
+    if (sourceDocumentFile && documentFile) {
+      const documentText = sources[sourceDocumentFile] ?? await readSource(sourceDocumentFile);
+      if (documentText == null || !(await writeSource(documentFile, documentText))) return { ok: false, message: `Wrote ${file}, but could not copy ${sourceDocumentFile}.` };
+    }
+    if (sourceSchemaFile && schemaFile) {
+      const schemaText = sources[sourceSchemaFile] ?? await readSource(sourceSchemaFile);
+      if (schemaText == null || !(await writeSource(schemaFile, schemaText))) return { ok: false, message: `Wrote ${file}, but could not copy ${sourceSchemaFile}.` };
+    }
+    if (sourceTimelineFile && timelineFile) {
+      const timelineText = sources[sourceTimelineFile] ?? await readSource(sourceTimelineFile);
+      if (timelineText == null || !(await writeSource(timelineFile, timelineText))) return { ok: false, message: `Wrote ${file}, but could not copy ${sourceTimelineFile}.` };
+    }
     const setupImport = source.meta?.module && source.meta?.exportName
       ? `import { ${source.meta.exportName} as sourceComposition } from "${relModule(module, source.meta.module)}";`
       : undefined;
-    if (!(await writeSource(module, htmlCompositionModule(file, varName, setupImport)))) return { ok: false, message: `Wrote ${file}, but could not write ${module}.` };
+    if (!(await writeSource(module, htmlCompositionModule(file, varName, {
+      setupImport,
+      documentFile,
+      schemaFile,
+      bindings: source.meta?.document?.bindings,
+      timelineFile,
+    })))) return { ok: false, message: `Wrote ${file}, but could not write ${module}.` };
     const inserted = insertRegistryEntry(registryFile, sources, { key, varName, importFrom: relModule(registryFile, module) });
     if (!inserted || !(await writeSource(registryFile, inserted.text))) return { ok: false, message: `Wrote ${file}, but could not register it.` };
     return {
@@ -1378,12 +2069,19 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (!registryFile) return { ok: false, message: "No COMPOSITIONS registry source file was found." };
     const sources = await this.loadAllSources();
     if (!sources[registryFile]) sources[registryFile] = (await readSource(registryFile)) ?? "";
-    const exportName = composition.meta?.exportName;
+    const exportName = composition.meta?.exportName ?? findCompExportName(composition.id, sources)?.varName;
     if (!exportName) return { ok: false, message: `${composition.id} does not declare data-fd-export and cannot be removed safely.` };
     const escapedId = composition.id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const nestedReference = new RegExp(`\\bdata-fd-comp\\s*=\\s*["']${escapedId}["']`);
+    const ownedFiles = new Set([
+      composition.meta?.file,
+      composition.meta?.module,
+      composition.meta?.document?.file,
+      composition.meta?.document?.schema,
+      composition.meta?.timelineFile,
+    ].filter((entry): entry is string => !!entry));
     const references = Object.entries(sources)
-      .filter(([file]) => file !== registryFile && file !== composition.meta?.file && file !== composition.meta?.module)
+      .filter(([file]) => file !== registryFile && !ownedFiles.has(file))
       .filter(([, text]) => nestedReference.test(text))
       .map(([file]) => file);
     if (references.length) {
@@ -1395,16 +2093,15 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     }
     const file = composition.meta?.file;
     const module = composition.meta?.module;
-    const ownsSources = composition.meta?.sourceFormat !== "generated"
-      && !!file
+    const ownsSources = !!file
+      && (composition.meta?.sourceFormat !== "generated" || composition.meta?.kind === "generate" || composition.meta?.kind === "moodboard")
       && !Object.entries(this.registry).some(([key, other]) => key !== compositionKey && (other.meta?.file === file || (module && other.meta?.module === module)));
     if (!ownsSources) return { ok: true, message: `Unregistered ${composition.id}; its shared source remains in place.` };
-    const deletedFile = await deleteSource(file);
-    const deletedModule = module ? await deleteSource(module) : true;
+    const deletionResults = await Promise.all([...ownedFiles].map((owned) => deleteSource(owned)));
     return {
       ok: true,
-      message: deletedFile && deletedModule
-        ? `Deleted ${composition.id} and its HTML source.`
+      message: deletionResults.every(Boolean)
+        ? `Deleted ${composition.id} and its owned HTML, module, JSON, schema, and timeline sources.`
         : `Unregistered ${composition.id}; remove its remaining source files by hand.`,
     };
   }
@@ -1418,14 +2115,43 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const revision = await readSourceRevision(file);
     const text = revision?.text;
     if (!revision || text == null) return { ok: false, message: `Could not read ${file} through the FrameDiff dev bridge.` };
-    const next = insertNestedHtmlComposition(text, target.id, {
+    let next = insertNestedHtmlComposition(text, target.id, {
       compId: source.id,
       name: source.id,
       from,
       durationInFrames: source.durationInFrames,
     });
     if (!next) return { ok: false, message: `Could not find the ${target.id} composition root in ${file}.` };
-    const committed = await this.commitSourceText(`Nest ${source.id} in ${target.id}`, revision, next);
+    let committed: ProjectEditResult;
+    const timelineFile = target.meta?.timelineFile;
+    if (timelineFile && target.timeline) {
+      const existingIds = new Set(target.timeline.items.map((item) => item.id));
+      const inserted = timelineFromHtml({ ...target, html: next })
+        .find((item) => !existingIds.has(item.id) && item.content.type === "nested" && item.content.compId === source.id);
+      if (!inserted) return { ok: false, message: `Could not identify the new ${source.id} layer in ${file}.` };
+      next = removeHtmlAttribute(next, inserted.id, "data-fd-from") ?? next;
+      next = removeHtmlAttribute(next, inserted.id, "data-fd-duration") ?? next;
+      const timelineRevision = await readSourceRevision(timelineFile);
+      if (!timelineRevision?.text) return { ok: false, message: `Could not read ${timelineFile}.` };
+      let timeline: CompositionTimelineDocument;
+      try {
+        timeline = JSON.parse(timelineRevision.text) as CompositionTimelineDocument;
+        if (timeline.version !== 1 || !Array.isArray(timeline.items)) throw new Error("expected { version: 1, items: [] }");
+      } catch (error) {
+        return { ok: false, message: `${timelineFile} is not a valid timeline document: ${error instanceof Error ? error.message : String(error)}` };
+      }
+      timeline = {
+        version: 1,
+        items: [...timeline.items, { id: inserted.id, from: Math.round(from), durationInFrames: source.durationInFrames }],
+      };
+      committed = await this.commitSourceTexts(`Nest ${source.id} in ${target.id}`, [
+        { before: revision, text: next },
+        { before: timelineRevision, text: `${JSON.stringify(timeline, null, 2)}\n` },
+      ]);
+      if (committed.ok) target.timeline = timeline;
+    } else {
+      committed = await this.commitSourceText(`Nest ${source.id} in ${target.id}`, revision, next);
+    }
     if (!committed.ok) return { ok: false, message: committed.message ?? `Could not write ${file}.` };
     return { ok: true, message: `Nested ${source.id} into ${target.id} at f${Math.round(from)}.`, compositionKey: targetKey, receipt: committed.receipt };
   }
@@ -1857,15 +2583,8 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   }
 
   private async loadCompositionSources(compositionKey: string): Promise<FileSet> {
-    const composition = this.registry[compositionKey];
-    if (!composition) return {};
-    const paths = [
-      composition.meta?.file,
-      composition.meta?.module,
-      ...(composition.meta?.deps ?? []),
-      ...(composition.meta?.editableData ?? []).map((source) => source.file),
-    ].filter((path): path is string => !!path);
-    const entries = await Promise.all([...new Set(paths)].map(async (path) => [path, await readSource(path)] as const));
+    const paths = compositionSourcePaths(this.registry, compositionKey);
+    const entries = await Promise.all(paths.map(async (path) => [path, await readSource(path)] as const));
     return Object.fromEntries(entries.filter((entry): entry is readonly [string, string] => entry[1] != null));
   }
 
@@ -1873,6 +2592,8 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const paths = Object.values(this.registry).flatMap((composition) => [
       composition.meta?.file,
       composition.meta?.module,
+      composition.meta?.timelineFile,
+      composition.meta?.document?.file,
       ...(composition.meta?.deps ?? []),
       ...(composition.meta?.editableData ?? []).map((source) => source.file),
     ]).filter((path): path is string => !!path);

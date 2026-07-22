@@ -1,0 +1,6 @@
+{
+  "title": { "text": "Blocking board" },
+  "camera": { "text": "CAMERA", "x": 190, "y": 360, "width": 310, "height": 180, "background": "#283252", "borderRadius": 24 },
+  "subject": { "text": "SUBJECT", "x": 805, "y": 250, "width": 310, "height": 180, "background": "#4b2d5a", "borderRadius": 24 },
+  "light": { "text": "KEY LIGHT", "x": 1410, "y": 480, "width": 310, "height": 180, "background": "#4b4322", "borderRadius": 24 }
+}

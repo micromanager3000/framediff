@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "author-direct",
+      "from": 0,
+      "durationInFrames": 120
+    },
+    {
+      "id": "author-properties",
+      "from": 120,
+      "durationInFrames": 120
+    },
+    {
+      "id": "author-gsap",
+      "from": 240,
+      "durationInFrames": 120
+    },
+    {
+      "id": "author-effects",
+      "from": 360,
+      "durationInFrames": 120
+    },
+    {
+      "id": "authoring-hud",
+      "from": 0,
+      "durationInFrames": 480,
+      "layer": 20
+    }
+  ]
+}

@@ -39,6 +39,14 @@ describe("persistent editorial lanes", () => {
     });
   });
 
+  it("preserves negative pre-roll so a left extension can hold the first visual frame", () => {
+    expect(frontTrimPlacement(item("video", 30, 0), -10, 30)).toEqual({
+      from: -10,
+      durationInFrames: 70,
+      trimStart: -1,
+    });
+  });
+
   it("marks a bake current only while every recorded source hash still matches", () => {
     const current = new Map([["Comp.html", "sha256:a"], ["Motion.ts", "sha256:b"]]);
     expect(artifactStatusFromInputs({ "Comp.html": "sha256:a", "Motion.ts": "sha256:b" }, current)).toBe("current");

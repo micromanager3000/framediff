@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "scene": { "$ref": "#/$defs/box" },
+    "eyebrow": { "$ref": "#/$defs/boxWithText" },
+    "title": { "$ref": "#/$defs/box" },
+    "titleLead": { "$ref": "#/$defs/text" },
+    "titleAccent": { "$ref": "#/$defs/text" },
+    "moveCard": { "$ref": "#/$defs/rotatedBox" },
+    "moveCardLabel": { "$ref": "#/$defs/text" },
+    "moveCardTitle": { "$ref": "#/$defs/text" },
+    "moveCardCopy": { "$ref": "#/$defs/multilineText" },
+    "resizeCard": { "$ref": "#/$defs/rotatedBox" },
+    "resizeCardLabel": { "$ref": "#/$defs/text" },
+    "resizeCardTitle": { "$ref": "#/$defs/text" },
+    "resizeCardCopy": { "$ref": "#/$defs/multilineText" },
+    "settingsCard": { "$ref": "#/$defs/rotatedBox" },
+    "settingsCardLabel": { "$ref": "#/$defs/text" },
+    "settingsCardTitle": { "$ref": "#/$defs/text" },
+    "settingsCardCopy": { "$ref": "#/$defs/multilineText" },
+    "hint": { "$ref": "#/$defs/box" },
+    "hintLabel": { "$ref": "#/$defs/text" },
+    "hintCopy": { "$ref": "#/$defs/text" }
+  },
+  "$defs": {
+    "box": {
+      "type": "object",
+      "properties": {
+        "x": { "type": "integer", "minimum": -1920, "maximum": 3840 },
+        "y": { "type": "integer", "minimum": -1080, "maximum": 2160 },
+        "width": { "type": "integer", "minimum": 1, "maximum": 3840 },
+        "height": { "type": "integer", "minimum": 1, "maximum": 2160 }
+      }
+    },
+    "rotatedBox": {
+      "type": "object",
+      "properties": {
+        "x": { "type": "integer", "minimum": -1920, "maximum": 3840 },
+        "y": { "type": "integer", "minimum": -1080, "maximum": 2160 },
+        "width": { "type": "integer", "minimum": 1, "maximum": 3840 },
+        "height": { "type": "integer", "minimum": 1, "maximum": 2160 },
+        "rotation": { "type": "number", "minimum": -180, "maximum": 180, "multipleOf": 0.1 }
+      }
+    },
+    "boxWithText": {
+      "type": "object",
+      "properties": {
+        "x": { "type": "integer", "minimum": -1920, "maximum": 3840 },
+        "y": { "type": "integer", "minimum": -1080, "maximum": 2160 },
+        "width": { "type": "integer", "minimum": 1, "maximum": 3840 },
+        "height": { "type": "integer", "minimum": 1, "maximum": 2160 },
+        "text": { "type": "string" }
+      }
+    },
+    "text": { "type": "object", "properties": { "text": { "type": "string" } } },
+    "multilineText": { "type": "object", "properties": { "text": { "type": "string", "format": "multiline" } } }
+  }
+}

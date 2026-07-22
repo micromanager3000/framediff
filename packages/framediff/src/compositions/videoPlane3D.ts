@@ -34,6 +34,8 @@ export interface VideoPlane3DCompositionOptions {
   effect?: VideoPlane3DSetupOptions;
   /** Project setup that must run before the renderer attaches, e.g. loading a custom LUT. */
   setup?: CompositionSetup;
+  /** JSON-backed settings consumed by setup/effect construction. */
+  document?: unknown;
   meta?: CompositionMetadata;
 }
 
@@ -76,6 +78,7 @@ export function defineVideoPlane3DComposition(options: VideoPlane3DCompositionOp
   const source = `<!doctype html><html><head><style>[data-fd-composition],canvas{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;background:${background}}</style></head><body><main ${rootAttributes}><canvas ${canvasAttributes}></canvas></main></body></html>`;
   return defineComposition(source, {
     id: options.id,
+    document: options.document,
     setup: combineCompositionSetups(options.setup, createVideoPlane3DSetup(effect)),
     meta: { ...options.meta, kind: "3d", sourceFormat: "generated", library: options.meta?.library ?? true },
   });

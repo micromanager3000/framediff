@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "excerpt",
+      "from": 0,
+      "durationInFrames": 240,
+      "trimStart": 20
+    }
+  ]
+}

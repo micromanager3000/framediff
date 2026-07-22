@@ -1,0 +1,32 @@
+{
+  "$ref": "#/definitions/root",
+  "definitions": {
+    "root": {
+      "type": "object",
+      "properties": {
+        "moves": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string", "title": "Name" },
+              "startFrame": { "type": "number" }, "endFrame": { "type": "number" },
+              "startCameraX": { "type": "number" }, "startCameraY": { "type": "number" }, "startCameraZ": { "type": "number" },
+              "endCameraX": { "type": "number" }, "endCameraY": { "type": "number" }, "endCameraZ": { "type": "number" },
+              "startTargetX": { "type": "number" }, "startTargetY": { "type": "number" }, "startTargetZ": { "type": "number" },
+              "endTargetX": { "type": "number" }, "endTargetY": { "type": "number" }, "endTargetZ": { "type": "number" },
+              "startFocalLength": { "type": "number", "minimum": 8, "maximum": 200 }, "endFocalLength": { "type": "number", "minimum": 8, "maximum": 200 },
+              "startFocusX": { "type": "number" }, "startFocusY": { "type": "number" }, "startFocusZ": { "type": "number" },
+              "endFocusX": { "type": "number" }, "endFocusY": { "type": "number" }, "endFocusZ": { "type": "number" },
+              "startFocusDistance": { "type": "number" }, "endFocusDistance": { "type": "number" },
+              "startDepthOfField": { "type": "number" }, "endDepthOfField": { "type": "number" },
+              "planeW": { "type": "number" }, "planeH": { "type": "number" }, "planeX": { "type": "number" }, "planeY": { "type": "number" }, "planeZ": { "type": "number" }, "planeScale": { "type": "number" },
+              "planeRotXDeg": { "type": "number" }, "planeRotYDeg": { "type": "number" }, "planeRotZDeg": { "type": "number" },
+              "maxBlur": { "type": "number", "minimum": 0, "maximum": 0.2 }, "shutterAngle": { "type": "number", "minimum": 0, "maximum": 360 }, "motionBlurSamples": { "type": "integer", "minimum": 1, "maximum": 32 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

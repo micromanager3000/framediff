@@ -18,6 +18,7 @@
   export let runtime: CompositionRuntimePort;
   export let session: StudioSession;
   export let interactive = true;
+  export let directManipulation = true;
   export let onselect: () => void = () => {};
 
   type Guide = { axis: "x" | "y"; position: number };
@@ -61,7 +62,7 @@
   }
 
   function beginDrag(event: PointerEvent, node: PreviewNodeSnapshot, mode: DragState["mode"], resizeHandle?: ResizeHandle): void {
-    if (!interactive || (mode === "move" && !node.movable) || (mode === "resize" && !node.resizable)) return;
+    if (!interactive || !directManipulation) return;
     session.pause();
     overlay.setPointerCapture(event.pointerId);
     drag = {
@@ -103,14 +104,16 @@
     const chosen = movable ?? hit;
     session.selectElement(chosen?.ref.objectId ?? null, chosen?.ownerItemId);
     if (chosen) onselect();
-    if (chosen?.movable) beginDrag(event, chosen, "move");
+    // The first gesture may establish explicit geometry. JSON-bound nodes commit to their
+    // document; remaining source-backed nodes materialize data-fd geometry as the drag commits.
+    if (directManipulation && chosen) beginDrag(event, chosen, "move");
   }
 
   function onDoubleClick(event: MouseEvent): void {
     const hit = handle?.hitTest?.(event.clientX, event.clientY);
     if (!hit) return;
     if (hit.nestedCompositionKey) session.enterNested(hit.ownerItemId ?? hit.ref.objectId);
-    else if (hit.text != null) {
+    else if (directManipulation && hit.text != null) {
       textEditing = hit;
       textDraft = hit.text;
       void tick().then(() => textEditor?.focus());
@@ -269,7 +272,7 @@
   }
 
   function beginPathDrag(event: PointerEvent, segment: number, handle: PathHandle): void {
-    if (!selectedAnimation?.editable || !selectedAnimation.motionPath || !pathSegments) return;
+    if (!directManipulation || !selectedAnimation?.editable || !selectedAnimation.motionPath || !pathSegments) return;
     event.preventDefault();
     event.stopPropagation();
     overlay.setPointerCapture(event.pointerId);
@@ -284,7 +287,7 @@
   }
 
   function nudgePathHandle(event: KeyboardEvent, segmentIndex: number, handle: PathHandle): void {
-    if (!selectedAnimation?.motionPath || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+    if (!directManipulation || !selectedAnimation?.motionPath || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
     event.preventDefault();
     const amount = event.shiftKey ? 10 : 1;
     const segments = selectedAnimation.motionPath.segments.map((segment) => ({ from: { ...segment.from }, control1: { ...segment.control1 }, control2: { ...segment.control2 }, to: { ...segment.to } }));
@@ -293,19 +296,9 @@
     void session.editMotionPath(selectedAnimation.id, motionPathToSvg(segments), { label: `Nudge ${selectedAnimation.id} ${handle}` });
   }
 
-  async function makeMovable(): Promise<void> {
-    if (!selected) return;
-    await session.editSelectedElement({
-      x: selected.properties.x,
-      y: selected.properties.y,
-      width: Math.max(1, Math.round(selected.properties.width)),
-      height: Math.max(1, Math.round(selected.properties.height)),
-    }, { label: `Make ${selected.label} movable` });
-  }
-
   function onKeyDown(event: KeyboardEvent): void {
     if (textEditing) return;
-    if (!interactive || !selected || event.defaultPrevented) return;
+    if (!interactive || !directManipulation || !selected || event.defaultPrevented) return;
     const target = event.target as HTMLElement | null;
     if (target?.matches("input, textarea, select, [contenteditable=true]")) return;
     if (event.key === "Escape" && drag) {
@@ -314,7 +307,7 @@
       guides = [];
       return;
     }
-    if (!selected.movable || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
     const amount = event.shiftKey ? 10 : 1;
     const patch = {
       x: selected.properties.x + (event.key === "ArrowLeft" ? -amount : event.key === "ArrowRight" ? amount : 0),
@@ -395,7 +388,7 @@
           aria-label={`Selected ${selected.label}`}
         >
           <span class="selection-label">{selected.label}</span>
-          {#if selected.resizable}
+          {#if directManipulation}
             {#each ["nw", "n", "ne", "e", "se", "s", "sw", "w"] as resizeHandle}
               <button
                 class="resize-handle {resizeHandle}"
@@ -406,11 +399,8 @@
             {/each}
           {/if}
         </div>
-        {#if !selected.movable || !selected.resizable}
-          <button class="make-movable" onpointerdown={(event) => event.stopPropagation()} onclick={() => void makeMovable()}>Make movable · source-backed</button>
-        {/if}
       {/if}
-      {#if textEditing}
+      {#if directManipulation && textEditing}
         <textarea
           class="canvas-text-editor"
           bind:this={textEditor}

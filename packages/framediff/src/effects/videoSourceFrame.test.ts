@@ -9,6 +9,11 @@ describe("sourceFrameForMode", () => {
     expect(sourceTimeAtFrame(10, 25, 2, 1.5)).toBeCloseTo(2 + (10.5 / 25) * 1.5, 12);
   });
 
+  it("holds the first and last source frames when an edit placement extends past the media", () => {
+    expect(sourceTimeAtFrame(-20, 25, 0, 1, 5)).toBe(0);
+    expect(sourceTimeAtFrame(200, 25, 0, 1, 5)).toBeCloseTo(5 - 1e-6, 12);
+  });
+
   it("does not fall back to HTMLVideoElement in capture mode", async () => {
     let fallbackCalls = 0;
     const primaryStalled = { current: false };

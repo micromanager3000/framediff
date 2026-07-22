@@ -34,11 +34,14 @@ to preview, Studio, nesting, and export. There is no component-framework runtime
 `data-fd-id`, width, height, fps, and duration are required and must be positive. Root metadata can
 also declare `data-fd-kind`, `data-fd-library`, `data-fd-alpha`, `data-fd-output`,
 `data-fd-output-frame`, and an export window with `data-fd-render-from`/`data-fd-render-to`.
+Authoring metadata includes `data-fd-timeline="auto|always|hidden"`,
+`data-fd-direct-manipulation`, `data-fd-document`, `data-fd-schema`, and
+`data-fd-timeline-source`.
 
 ## Frame lifecycle
 
-Trusted inline scripts receive `root`, `composition`, `onFrame`, `onCleanup`, `query`, `queryAll`,
-`resolveAsset`, and `interpolate`:
+Trusted inline scripts receive `root`, `composition`, `document`, `onFrame`, `onDocument`,
+`onCleanup`, `query`, `queryAll`, `resolveAsset`, and `interpolate`:
 
 ```html
 <script>
@@ -76,6 +79,11 @@ Timeline nodes remain mounted while inactive so setup state survives scrubbing. 
 grade, video-plane, and three.js adapters skip hidden branches automatically. A custom expensive
 effect can do the same with `isVisualElementActive(canvas, root)`; capture and export also exclude
 inactive visual and audio branches.
+
+When `defineComposition()` receives a JSON `document`, setup code receives its initial value and can
+register `onDocument(next => …)` for data-only Studio edits and HMR. This updates code-driven shaders,
+simulations, or spatial tools without remounting the composition. JSON Schema and object-to-pointer
+bindings are described in [COMPOSITION-AUTHORING.md](./COMPOSITION-AUTHORING.md).
 
 The callback registered with `registerCanvasCapture` receives that canvas's clip-local time in
 seconds. It must reproduce the same GPU state as preview at that time and return a readable canvas.

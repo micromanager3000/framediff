@@ -1,0 +1,26 @@
+{
+  "cloth": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 720,
+    "gravityY": -2.35,
+    "windBase": 3.4,
+    "windGust": 2.2,
+    "damping": 0.044,
+    "stiffness": 0.94,
+    "shearStiffness": 0.82,
+    "bendStiffness": 0.28,
+    "substeps": 3,
+    "iterations": 6,
+    "pins": "corners",
+    "roughness": 0.76,
+    "metalness": 0.04,
+    "cameraFov": 32
+  },
+  "art": {
+    "accent": "#d9ff43",
+    "secondary": "#ff5b35",
+    "showGrid": true
+  }
+}

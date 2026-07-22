@@ -1,0 +1,8 @@
+{
+  "type": "object",
+  "properties": {
+    "content": { "type": "object", "title": "Lower third", "properties": { "opacity": { "type": "number", "title": "Opacity", "minimum": 0, "maximum": 1, "step": 0.01, "x-ui": "slider" } } },
+    "copy": { "type": "object", "title": "Copy", "properties": { "text": { "type": "string", "title": "Text" }, "color": { "type": "string", "title": "Color", "format": "color" } } },
+    "brand": { "type": "object", "title": "Brand", "properties": { "text": { "type": "string", "title": "Text" }, "color": { "type": "string", "title": "Color", "format": "color" } } }
+  }
+}

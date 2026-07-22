@@ -1,11 +1,12 @@
 import type { StudioSessionState } from "./types";
+import { compositionKindAuthoringDefaults } from "./authoring";
 
 export interface NestVerdict {
   ok: boolean;
   why?: string;
 }
 
-/** Guard for nesting source into target: no self, no cycles, and recipes aren't stacks. */
+/** Guard for placing one composition as a timed layer in an edit. */
 export function canNestComposition(
   state: Pick<StudioSessionState, "compositions" | "timelineByComposition">,
   sourceKey: string,
@@ -14,7 +15,9 @@ export function canNestComposition(
   const source = state.compositions.find((entry) => entry.key === sourceKey);
   const target = state.compositions.find((entry) => entry.key === targetKey);
   if (!source || !target) return { ok: false, why: "unknown composition" };
-  if (target.kind === "generate") return { ok: false, why: `${target.id} is generative — a recipe, not a stack` };
+  if (!compositionKindAuthoringDefaults(target.kind).acceptsCompositionDrop) {
+    return { ok: false, why: `${target.id} is a ${target.kind} composition — it does not accept timeline clips` };
+  }
   if (source.id === target.id) return { ok: false, why: `${source.id} can't nest itself` };
   const seen = new Set<string>();
   const contains = (key: string): boolean => {

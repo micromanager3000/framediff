@@ -27,14 +27,17 @@ Every projected property reports one authority:
 
 An editable snapshot also identifies its source span, control schema, animation binding, referenced
 asset/content hash and affected fingerprint consumers when those exist. Unknown CSS and arbitrary
-`onFrame` code keep working, but remain read-only until explicitly materialized.
+`onFrame` code keep working. A stable element's computed CSS geometry can become explicit on its first
+drag/resize commit; computed code and opaque procedural internals still need a registered adapter or
+explicit unroll.
 
 ## Editable HTML ABI
 
-Readable `data-fd-*` attributes are the first-party source ABI. Stable IDs and clip placement remain
-separate from visual element properties. Visual coordinates are authored in composition pixels;
-preview scale/rotation is inverted before drafts or source edits are produced. The overlay never
-becomes composition content and pointer movement never writes source.
+Readable `data-fd-*` attributes are the runtime presentation ABI. They may be authored directly in
+HTML or projected from a bound composition JSON object. Stable IDs and clip placement remain separate
+from visual element properties. Visual coordinates are authored in composition pixels; preview
+scale/rotation is inverted before drafts or source edits are produced. The overlay never becomes
+composition content and pointer movement never writes source.
 
 ## Semantic edits and history
 

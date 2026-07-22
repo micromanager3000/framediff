@@ -1,0 +1,20 @@
+{
+  "simulation": {
+    "gravityY": -2.1,
+    "windBase": 3.2,
+    "windGust": 1.9,
+    "damping": 0.045,
+    "stiffness": 0.93,
+    "bendStiffness": 0.3,
+    "pins": "corners"
+  },
+  "material": {
+    "roughness": 0.76,
+    "metalness": 0.03
+  },
+  "art": {
+    "accent": "#d9ff43",
+    "title": "Physical",
+    "showGrid": true
+  }
+}

@@ -13,6 +13,7 @@
 
 import { Input, BlobSource, UrlSource, ALL_FORMATS, CanvasSink } from "mediabunny";
 import { bgDelay } from "./bgTimer";
+import { clampVisualMediaTime } from "./mediaTime";
 
 const INIT_DEADLINE_MS = 15000;
 const FETCH_RETRIES = 12;
@@ -55,6 +56,7 @@ export function clearVideoFrameBlobCache(): void {
 
 export class VideoFrameSource {
   private sinks = new Map<string, Promise<CanvasSink | null>>();
+  private durations = new Map<string, number>();
   private errors = new Map<string, unknown>();
 
   static clearBlobCache(): void {
@@ -76,6 +78,9 @@ export class VideoFrameSource {
           const input = new Input({ formats: ALL_FORMATS, source });
           const track = await input.getPrimaryVideoTrack();
           if (!track) throw new Error("no primary video track");
+          const metadataDuration = await track.getDurationFromMetadata().catch(() => null);
+          const duration = metadataDuration ?? await track.computeDuration({ skipLiveWait: true }).catch(() => null);
+          if (duration != null && Number.isFinite(duration)) this.durations.set(src, duration);
           this.errors.delete(src);
           return new CanvasSink(track);
         } catch (e) {
@@ -110,7 +115,8 @@ export class VideoFrameSource {
   async frameCanvas(src: string, t: number): Promise<HTMLCanvasElement | null> {
     const sink = await this.loadFresh(src);
     if (!sink) return null;
-    const wrapped = await withDeadline(sink.getCanvas(Math.max(0, t)), INIT_DEADLINE_MS);
+    const sampleTime = clampVisualMediaTime(t, this.durations.get(src));
+    const wrapped = await withDeadline(sink.getCanvas(sampleTime), INIT_DEADLINE_MS);
     if (wrapped === STALLED) {
       // a stalled decode poisons the sink too — drop it so the next call rebuilds
       this.sinks.delete(src);

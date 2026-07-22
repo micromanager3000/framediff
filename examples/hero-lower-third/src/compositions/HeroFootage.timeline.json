@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "hero-reference-video",
+      "from": 0,
+      "durationInFrames": 971
+    },
+    {
+      "id": "hero-reference-audio",
+      "from": 0,
+      "durationInFrames": 971
+    }
+  ]
+}

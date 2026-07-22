@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "production-intro",
+      "from": 0,
+      "durationInFrames": 180,
+      "layer": 0
+    },
+    {
+      "id": "chapter-direct",
+      "from": 180,
+      "durationInFrames": 180,
+      "layer": 0,
+      "trimStart": 0
+    },
+    {
+      "id": "chapter-properties",
+      "from": 360,
+      "durationInFrames": 180,
+      "layer": 0,
+      "trimStart": 0
+    },
+    {
+      "id": "chapter-editorial",
+      "from": 540,
+      "durationInFrames": 180,
+      "layer": 0,
+      "trimStart": 0
+    },
+    {
+      "id": "chapter-motion",
+      "from": 720,
+      "durationInFrames": 180,
+      "layer": 0,
+      "trimStart": 0
+    },
+    {
+      "id": "chapter-grade",
+      "from": 900,
+      "durationInFrames": 288,
+      "layer": 0,
+      "trimStart": 0
+    },
+    {
+      "id": "chapter-hero",
+      "from": 1188,
+      "durationInFrames": 240,
+      "layer": 0,
+      "trimStart": 20
+    },
+    {
+      "id": "chapter-camera",
+      "from": 1428,
+      "durationInFrames": 180,
+      "layer": 0,
+      "trimStart": 0
+    },
+    {
+      "id": "chapter-delivery",
+      "from": 1608,
+      "durationInFrames": 180,
+      "layer": 0,
+      "trimStart": 0
+    },
+    {
+      "id": "production-bed",
+      "from": 0,
+      "durationInFrames": 1788,
+      "trimStart": 0
+    },
+    {
+      "id": "production-hud",
+      "from": 0,
+      "durationInFrames": 1788,
+      "layer": 10
+    },
+    {
+      "id": "nested-blah",
+      "from": 0,
+      "durationInFrames": 150
+    }
+  ]
+}
