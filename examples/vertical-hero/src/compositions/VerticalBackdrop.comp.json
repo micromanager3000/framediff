@@ -1,0 +1,46 @@
+{
+  "headline": {
+    "text": "Ideas move faster in portrait.",
+    "x": 76,
+    "y": 168,
+    "width": 900,
+    "fontSize": 112,
+    "lineHeight": 0.92,
+    "letterSpacing": -5,
+    "color": "#f7f4ff"
+  },
+  "kicker": {
+    "text": "FRAMEDIFF / VERTICAL CUT",
+    "x": 80,
+    "y": 92,
+    "fontSize": 25,
+    "letterSpacing": 5,
+    "color": "#b5f6df"
+  },
+  "orbA": {
+    "x": 530,
+    "y": 610,
+    "width": 680,
+    "height": 680,
+    "scale": 1,
+    "opacity": 0.86,
+    "fill": "radial-gradient",
+    "fillColor": "#7d5cff",
+    "gradientStops": "#8a6cff@0|#7d5cff@0.42|#7d5cff00@1"
+  },
+  "orbB": {
+    "x": -250,
+    "y": 1010,
+    "width": 620,
+    "height": 620,
+    "scale": 1,
+    "opacity": 0.72,
+    "fill": "radial-gradient",
+    "fillColor": "#ff4fa8",
+    "gradientStops": "#ff7dc1@0|#ff4fa8@0.38|#ff4fa800@1"
+  },
+  "motion": {
+    "drift": 34,
+    "pulse": 0.08
+  }
+}

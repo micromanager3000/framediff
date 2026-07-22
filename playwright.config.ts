@@ -47,5 +47,13 @@ export default defineConfig({
       stdout: "pipe",
       stderr: "pipe",
     },
+    {
+      command: "npm run dev --workspace examples/vertical-hero -- --host 127.0.0.1 --port 4180",
+      url: "http://127.0.0.1:4180",
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      stdout: "pipe",
+      stderr: "pipe",
+    },
   ],
 });

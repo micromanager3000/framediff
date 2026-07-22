@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "headline": { "$ref": "#/$defs/textBlock", "title": "Headline" },
+    "kicker": { "$ref": "#/$defs/textBlock", "title": "Kicker" },
+    "orbA": { "$ref": "#/$defs/orb", "title": "Violet Orb" },
+    "orbB": { "$ref": "#/$defs/orb", "title": "Rose Orb" },
+    "motion": {
+      "type": "object",
+      "title": "Motion",
+      "properties": {
+        "drift": { "type": "number", "title": "Drift", "minimum": 0, "maximum": 120, "multipleOf": 1 },
+        "pulse": { "type": "number", "title": "Pulse", "minimum": 0, "maximum": 0.25, "multipleOf": 0.01 }
+      }
+    }
+  },
+  "$defs": {
+    "textBlock": {
+      "type": "object",
+      "properties": {
+        "text": { "type": "string", "title": "Copy", "format": "multiline" },
+        "x": { "type": "number", "minimum": -1080, "maximum": 1080 },
+        "y": { "type": "number", "minimum": -1920, "maximum": 1920 },
+        "width": { "type": "number", "minimum": 100, "maximum": 1080 },
+        "fontSize": { "type": "number", "minimum": 10, "maximum": 220 },
+        "lineHeight": { "type": "number", "minimum": 0.7, "maximum": 2 },
+        "letterSpacing": { "type": "number", "minimum": -10, "maximum": 20 },
+        "color": { "type": "string", "format": "color" }
+      }
+    },
+    "orb": {
+      "type": "object",
+      "properties": {
+        "x": { "type": "number", "minimum": -1080, "maximum": 1080 },
+        "y": { "type": "number", "minimum": -1920, "maximum": 1920 },
+        "width": { "type": "number", "minimum": 40, "maximum": 1400 },
+        "height": { "type": "number", "minimum": 40, "maximum": 1400 },
+        "scale": { "type": "number", "minimum": 0.2, "maximum": 2, "multipleOf": 0.01 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "multipleOf": 0.01 },
+        "fillColor": { "type": "string", "format": "color" }
+      }
+    }
+  }
+}

@@ -39,8 +39,9 @@ deterministic teardown and leaves room for multiple Studio windows or projects.
 - `packages/studio-model`: framework-independent session, models, ports, and managers.
 - `packages/studio-ui`: Svelte views and ViewModels.
 - `packages/framediff/src/studio-runtime`: framework-free HTML composition runtime adapter.
-- `examples/studio-playground`, `examples/hero-lower-third`, `examples/hero-reel`, and
-  `examples/previz-to-gen`: SvelteKit Studio hosts with plain HTML composition projects.
+- `examples/studio-playground`, `examples/hero-lower-third`, `examples/hero-reel`,
+  `examples/previz-to-gen`, and `examples/vertical-hero`: SvelteKit Studio hosts with plain HTML
+  composition projects. `vertical-hero` is the compact from-scratch JSON/HMR acceptance project.
 - `examples/determinism-check`: a custom SvelteKit results view that invokes the HTML renderer.
 
 The Studio route has SSR disabled because composition rendering depends on browser APIs including
