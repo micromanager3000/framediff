@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analyzeGsapSource, analyzeGsapUnrollGroups, insertGsapTweenSource, rewriteGsapAnimationSource, rewriteGsapMotionPathSource, rewriteGsapUnrollSource } from "./source";
+import { analyzeGsapSource, analyzeGsapUnrollGroups, ensureGsapTimelineSource, insertGsapTweenSource, rewriteGsapAnimationSource, rewriteGsapMotionPathSource, rewriteGsapUnrollSource } from "./source";
 
 describe("GSAP registered-source analyzer", () => {
   it("projects literal fromTo and set calls into frame-native bindings", () => {
@@ -125,6 +125,60 @@ describe("GSAP registered-source analyzer", () => {
     });
     expect(result.ok).toBe(true);
     if (result.ok) expect(analyzeGsapSource(result.text, { fps: 30 }).operations[0]).toMatchObject({ id: "card-x", startFrame: 12, durationInFrames: 30 });
+  });
+
+  it("creates and attaches a registered timeline when an authored comp records its first motion", () => {
+    const source = `import { defineComposition } from "framediff";
+import document from "./Card.comp.json";
+import html from "./Card.html?raw";
+
+export const cardComp = defineComposition(html, { document, meta: { document: { file: "src/Card.comp.json" } } });`;
+    const prepared = ensureGsapTimelineSource(source, { fps: 30, file: "src/Card.ts", exportName: "cardComp" });
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+    expect(prepared.text).toContain('import { defineGsapTimeline } from "framediff/gsap";');
+    expect(prepared.text).toContain("setup: framediffRecordedMotionSetup");
+    expect(analyzeGsapSource(prepared.text, { fps: 30, file: "src/Card.ts" }).registered).toBe(true);
+    const inserted = insertGsapTweenSource(prepared.text, {
+      fps: 30,
+      file: "src/Card.ts",
+      id: "card-motion-path",
+      target: '[data-fd-id="card"]',
+      property: "x",
+      from: 20,
+      to: 180,
+      startFrame: 4,
+      durationInFrames: 40,
+      ease: "none",
+    });
+    expect(inserted.ok).toBe(true);
+    if (inserted.ok) expect(analyzeGsapSource(inserted.text, { fps: 30 }).operations[0]).toMatchObject({
+      id: "card-motion-path",
+      startFrame: 4,
+      durationInFrames: 40,
+    });
+  });
+
+  it("combines recorded motion with an existing composition setup", () => {
+    const source = `import { defineComposition } from "framediff";
+const existingSetup = () => undefined;
+export const cardComp = defineComposition("<main></main>", { setup: existingSetup });`;
+    const prepared = ensureGsapTimelineSource(source, { fps: 24, exportName: "cardComp" });
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+    expect(prepared.text).toContain('import { combineCompositionSetups } from "framediff";');
+    expect(prepared.text).toContain("setup: combineCompositionSetups(existingSetup, framediffRecordedMotionSetup)");
+  });
+
+  it("attaches motion to the requested export in a shared composition module", () => {
+    const source = `import { defineComposition } from "framediff";
+export const firstComp = defineComposition(firstSource);
+export const secondComp = defineComposition(secondSource, { document });`;
+    const prepared = ensureGsapTimelineSource(source, { fps: 30, exportName: "secondComp" });
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+    expect(prepared.text).toContain("defineComposition(firstSource)");
+    expect(prepared.text).toContain("defineComposition(secondSource, { setup: framediffRecordedMotionSetup, document })");
   });
 
   it("converts position keys to an editable cubic motion path", () => {

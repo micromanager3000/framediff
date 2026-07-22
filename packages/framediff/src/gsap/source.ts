@@ -82,6 +82,11 @@ export interface InsertGsapTweenOptions extends AnalyzeGsapSourceOptions {
   ease?: string;
 }
 
+export interface EnsureGsapTimelineOptions extends AnalyzeGsapSourceOptions {
+  /** Named composition export whose defineComposition() call should receive the generated setup. */
+  exportName?: string;
+}
+
 export interface RewriteGsapMotionPathOptions extends AnalyzeGsapSourceOptions {
   animationId: string;
   path: string;
@@ -202,6 +207,114 @@ function walk(node: unknown, visitor: (node: Node) => void): void {
     if (["loc", "start", "end", "extra", "errors", "comments", "tokens"].includes(key)) continue;
     walk(child, visitor);
   }
+}
+
+/**
+ * Give a normal authored composition module a writable registered timeline on first use.
+ * This keeps gesture recording and stopwatches immediate: projects do not need to predict that
+ * they will animate something and hand-write GSAP plumbing before opening Studio.
+ */
+export function ensureGsapTimelineSource(source: string, options: EnsureGsapTimelineOptions): GsapSourceRewriteResult {
+  if (analyzeGsapSource(source, options).registered) return { ok: true, text: source };
+  let ast: ReturnType<typeof parse>;
+  try {
+    ast = parse(source, { sourceType: "unambiguous", plugins: ["typescript", "jsx", "decorators-legacy"] });
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+
+  const candidates: Array<{ call: CallExpression; statementStart: number; exportName?: string }> = [];
+  for (const statement of ast.program.body) {
+    const declaration = statement.type === "ExportNamedDeclaration" ? statement.declaration : statement;
+    if (declaration?.type !== "VariableDeclaration") continue;
+    for (const declarator of declaration.declarations) {
+      const init = unwrap(declarator.init as Expression | null | undefined);
+      if (declarator.id.type !== "Identifier" || init?.type !== "CallExpression"
+        || init.callee.type !== "Identifier" || init.callee.name !== "defineComposition") continue;
+      candidates.push({ call: init, statementStart: statement.start ?? 0, exportName: declarator.id.name });
+    }
+  }
+  const target = options.exportName
+    ? candidates.find((candidate) => candidate.exportName === options.exportName)
+    : candidates.length === 1 ? candidates[0] : undefined;
+  if (!target) {
+    return {
+      ok: false,
+      error: options.exportName
+        ? `Could not find defineComposition() for export "${options.exportName}" in this module.`
+        : "This module has multiple compositions; declare data-fd-export so Studio can attach the recorded motion to the right one.",
+    };
+  }
+
+  const uniqueName = (base: string): string => {
+    let name = base;
+    let suffix = 2;
+    while (new RegExp(`\\b${name}\\b`).test(source)) name = `${base}${suffix++}`;
+    return name;
+  };
+  const setupName = uniqueName("framediffRecordedMotionSetup");
+  const edits: Array<{ start: number; end: number; text: string }> = [];
+  let combinesSetups = false;
+  const optionsArgument = target.call.arguments[1];
+  if (!optionsArgument) {
+    const insertion = (target.call.end ?? 1) - 1;
+    edits.push({ start: insertion, end: insertion, text: `, { setup: ${setupName} }` });
+  } else {
+    const compositionOptions = optionsArgument.type === "SpreadElement" ? undefined : unwrap(optionsArgument as Expression);
+    if (compositionOptions?.type !== "ObjectExpression") {
+      return { ok: false, error: "The composition options must be an object literal before Studio can attach recorded motion." };
+    }
+    const setupProperty = compositionOptions.properties.find((property) =>
+      property.type === "ObjectProperty" && propertyName(property) === "setup",
+    );
+    if (!setupProperty) {
+      const insertion = (compositionOptions.start ?? 0) + 1;
+      edits.push({ start: insertion, end: insertion, text: ` setup: ${setupName},` });
+    } else if (setupProperty.type === "ObjectProperty" && setupProperty.value.start != null && setupProperty.value.end != null) {
+      combinesSetups = true;
+      const existing = source.slice(setupProperty.value.start, setupProperty.value.end);
+      if (setupProperty.shorthand && setupProperty.start != null && setupProperty.end != null) {
+        edits.push({
+          start: setupProperty.start,
+          end: setupProperty.end,
+          text: `setup: combineCompositionSetups(${existing}, ${setupName})`,
+        });
+      } else {
+        edits.push({
+          start: setupProperty.value.start,
+          end: setupProperty.value.end,
+          text: `combineCompositionSetups(${existing}, ${setupName})`,
+        });
+      }
+    } else {
+      return { ok: false, error: "Studio cannot safely combine recorded motion with this setup declaration." };
+    }
+  }
+
+  const registration = `const ${setupName} = defineGsapTimeline(({ gsap, frames }) => {\n`
+    + `  const timeline = gsap.timeline({ paused: true });\n`
+    + `  return timeline;\n`
+    + `});\n\n`;
+  edits.push({ start: target.statementStart, end: target.statementStart, text: registration });
+  let text = source;
+  for (const edit of edits.sort((left, right) => right.start - left.start)) {
+    text = text.slice(0, edit.start) + edit.text + text.slice(edit.end);
+  }
+
+  const imports: string[] = [];
+  const hasLocalNamedImport = (module: string, name: string): boolean => ast.program.body.some((statement) =>
+    statement.type === "ImportDeclaration" && statement.source.value === module
+    && statement.specifiers.some((specifier) => specifier.type === "ImportSpecifier"
+      && specifier.imported.type === "Identifier" && specifier.imported.name === name
+      && specifier.local.name === name),
+  );
+  if (!hasLocalNamedImport("framediff/gsap", "defineGsapTimeline")) {
+    imports.push('import { defineGsapTimeline } from "framediff/gsap";');
+  }
+  if (combinesSetups && !hasLocalNamedImport("framediff", "combineCompositionSetups")) {
+    imports.push('import { combineCompositionSetups } from "framediff";');
+  }
+  return { ok: true, text: imports.length ? `${imports.join("\n")}\n${text}` : text };
 }
 
 function timingOf(
