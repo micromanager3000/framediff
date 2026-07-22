@@ -3,6 +3,7 @@ import type {
   AnimationEditRequest,
   AnimationProbeSnapshot,
   AgentFrameSnapshot,
+  CompositionBakeInputsSnapshot,
   CompositionDescriptor,
   CompositionOutputKind,
   CompositionRuntimePort,
@@ -664,39 +665,75 @@ function ownCompositionSourcePaths(composition: StudioComposition): string[] {
   ].filter((file): file is string => !!file);
 }
 
+function resolveCompositionKey(registry: CompRegistry, reference: string): string | undefined {
+  if (registry[reference]) return reference;
+  return Object.entries(registry).find(([, candidate]) => candidate.id === reference)?.[0];
+}
+
+/** The composition and every nested or generative-input composition that contributes pixels. */
+export function compositionRenderKeys(registry: CompRegistry, compositionKey: string): string[] {
+  const visited = new Set<string>();
+  const keys: string[] = [];
+  const visit = (key: string): void => {
+    if (visited.has(key) || !registry[key]) return;
+    visited.add(key);
+    keys.push(key);
+    for (const child of childCompositionKeys(registry, registry[key])) visit(child);
+  };
+  visit(compositionKey);
+  return keys;
+}
+
 /**
  * Render fingerprints follow the composition graph. A parent includes every nested composition's
  * render inputs, while unrelated compositions and editor-only schemas remain outside the hash.
  */
 export function compositionSourcePaths(registry: CompRegistry, compositionKey: string): string[] {
-  const visited = new Set<string>();
-  const paths: string[] = [];
-  const visit = (key: string): void => {
-    if (visited.has(key)) return;
-    visited.add(key);
-    const composition = registry[key];
-    if (!composition) return;
-    paths.push(...ownCompositionSourcePaths(composition));
+  return [...new Set(compositionRenderKeys(registry, compositionKey)
+    .flatMap((key) => ownCompositionSourcePaths(registry[key])))];
+}
 
+/** Asset IDs whose exact content contributes to this composition's rendered tree. */
+export function compositionAssetIds(registry: CompRegistry, compositionKey: string): string[] {
+  const assets: string[] = [];
+  for (const key of compositionRenderKeys(registry, compositionKey)) {
+    const composition = registry[key];
     try {
       for (const item of timelineFromComposition(composition)) {
-        if (item.content.type !== "nested") continue;
-        const compId = item.content.compId;
-        const child = registry[compId] ? compId : Object.entries(registry).find(([, candidate]) => candidate.id === compId)?.[0];
-        if (child) visit(child);
+        const content = item.content;
+        const source = content.type === "video" || content.type === "audio" ? content.src : undefined;
+        if (source?.startsWith("asset://")) assets.push(source.slice("asset://".length));
       }
     } catch {
-      // Source parsing diagnostics are reported by probe(); fingerprints still retain known inputs.
+      // probe() reports malformed source; missing render inputs are surfaced by bake itself.
     }
-
     if ("recipe" in composition) {
       for (const ref of (composition as GenerativeComposition).recipe.refs ?? []) {
-        if (ref.src.startsWith("comp://")) visit(ref.src.slice("comp://".length));
+        if (ref.src.startsWith("asset://")) assets.push(ref.src.slice("asset://".length));
       }
     }
+  }
+  return [...new Set(assets)];
+}
+
+async function compositionRuntimeHash(composition: StudioComposition): Promise<string> {
+  const renderState = {
+    id: composition.id,
+    width: composition.width,
+    height: composition.height,
+    fps: composition.fps,
+    durationInFrames: composition.durationInFrames,
+    html: composition.html,
+    document: composition.document,
+    timeline: composition.timeline,
+    recipe: "recipe" in composition ? (composition as GenerativeComposition).recipe : undefined,
+    setup: composition.setup ? String(composition.setup) : undefined,
+    output: composition.meta?.output,
+    outputFrame: composition.meta?.outputFrame,
+    render: composition.meta?.render,
+    alpha: composition.meta?.alpha,
   };
-  visit(compositionKey);
-  return [...new Set(paths)];
+  return hashString(JSON.stringify(renderState));
 }
 
 export function isDocumentOnlyCompositionUpdate(
@@ -744,7 +781,7 @@ function childCompositionKeys(registry: CompRegistry, composition: StudioComposi
     for (const item of timelineFromComposition(composition)) {
       const content = item.content;
       if (content.type !== "nested") continue;
-      const child = registry[content.compId] ? content.compId : Object.entries(registry).find(([, candidate]) => candidate.id === content.compId)?.[0];
+      const child = resolveCompositionKey(registry, content.compId);
       if (child) children.push(child);
     }
   } catch {
@@ -754,9 +791,7 @@ function childCompositionKeys(registry: CompRegistry, composition: StudioComposi
     for (const ref of (composition as GenerativeComposition).recipe.refs ?? []) {
       if (!ref.src.startsWith("comp://")) continue;
       const reference = ref.src.slice("comp://".length);
-      const child = registry[reference]
-        ? reference
-        : Object.entries(registry).find(([, candidate]) => candidate.id === reference)?.[0];
+      const child = resolveCompositionKey(registry, reference);
       if (child) children.push(child);
     }
   }
@@ -824,6 +859,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   private readonly assetsReady: Promise<void>;
   private inspectorLocations = new Map<string, LiteralLoc | StringLiteralLoc>();
   private editListeners = new Set<ProjectEditListener>();
+  private bakeInputListeners = new Set<() => void>();
   private cacheProbe: Promise<CacheEntry[]> | null = null;
 
   public constructor(registry: CompRegistry) {
@@ -848,6 +884,11 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   public subscribeProjectEdits(listener: ProjectEditListener): () => void {
     this.editListeners.add(listener);
     return () => this.editListeners.delete(listener);
+  }
+
+  public subscribeBakeInputChanges(listener: () => void): () => void {
+    this.bakeInputListeners.add(listener);
+    return () => this.bakeInputListeners.delete(listener);
   }
 
   public async replayProjectEdit(receipt: ProjectEditReceipt, direction: "undo" | "redo"): Promise<ProjectEditResult> {
@@ -1545,10 +1586,15 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const committed = await this.commitSourceText(options.label, revision, `${JSON.stringify(document, null, 2)}\n`, options.groupId);
     if (!committed.ok) return { ok: false, file: options.file, message: committed.message, conflicts: committed.conflicts };
 
-    // A remount document is consumed while constructing setup/GPU resources. Keep the current
-    // registry object intact so the ensuing Vite JSON HMR update can observe the old/new document
-    // boundary and swap only this composition. Patch documents update immediately in place.
+    // A remount document is consumed while constructing setup/GPU resources. Replace the local
+    // registry entry immediately so the preview and Inspector move to the accepted source state
+    // without waiting for Vite's watcher. The ensuing HMR registry contains the same document and
+    // is therefore runtime-equal, avoiding a second remount.
     if (composition.meta?.document?.hotUpdate === "remount") {
+      this.replaceRegistry({
+        ...this.registry,
+        [options.compositionKey]: { ...composition, document },
+      });
       return { ok: true, file: options.file, receipt: committed.receipt };
     }
     composition.document = document;
@@ -1561,8 +1607,26 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
 
   public async editInspectorFields(request: InspectorFieldsEditRequest): Promise<PlacementEditResult> {
     if (!request.edits.length) return { ok: false, message: "No Inspector fields changed." };
-    await this.inspectItem(request.compositionKey, request.itemId);
     const unique = [...new Map(request.edits.map((edit) => [edit.fieldId, edit])).values()];
+    const jsonEdits = unique.map((edit) => {
+      const match = /^json:([^:]+):(.+)$/.exec(edit.fieldId);
+      return match ? { file: decodeURIComponent(match[1]), pointer: decodeURIComponent(match[2]), value: edit.value } : null;
+    });
+    if (jsonEdits.every((edit) => edit != null)) {
+      const files = [...new Set(jsonEdits.map((edit) => edit.file))];
+      if (files.length !== 1) return { ok: false, message: "JSON Inspector batches must target one composition document." };
+      return this.editJsonDocumentValues({
+        compositionKey: request.compositionKey,
+        file: files[0],
+        edits: jsonEdits.map(({ pointer, value }) => ({ pointer, value })),
+        label: request.label ?? (unique.length === 1 ? "Edit composition document property" : "Edit composition document properties"),
+        groupId: request.groupId,
+      });
+    }
+    if (jsonEdits.some((edit) => edit != null)) {
+      return { ok: false, message: "One Inspector gesture cannot mix JSON document fields with code-backed fields." };
+    }
+    await this.inspectItem(request.compositionKey, request.itemId);
     const resolved = unique.map((edit) => ({
       edit,
       location: this.inspectorLocations.get(`${request.compositionKey}:${request.itemId}:${edit.fieldId}`),
@@ -1689,8 +1753,13 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     }));
   }
 
-  public uploadAsset(file: File): Promise<string | null> {
-    return uploadAssetThroughBridge(file);
+  public async uploadAsset(file: File): Promise<string | null> {
+    const assetId = await uploadAssetThroughBridge(file);
+    if (assetId) {
+      await this.loadAssets();
+      for (const listener of this.bakeInputListeners) listener();
+    }
+    return assetId;
   }
 
   public getGitStatus(): Promise<string[] | null> {
@@ -1781,6 +1850,36 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     }));
   }
 
+  public async getCompositionBakeInputs(
+    compositionKey: string,
+    outputKind?: CompositionOutputKind,
+  ): Promise<CompositionBakeInputsSnapshot> {
+    const composition = this.registry[compositionKey];
+    if (!composition) throw new Error(`Unknown composition: ${compositionKey}`);
+    await this.assetsReady;
+    // The manifest is mutable project metadata; do not let a long-lived Studio session fingerprint
+    // an asset:// reference from a stale in-memory mapping.
+    await this.loadAssets();
+    const inputs: Record<string, string> = {};
+    const missing: string[] = [];
+    const kind = outputKind ?? composition.meta?.output ?? "video";
+    inputs["framediff://output-kind"] = await hashString(kind);
+    for (const path of compositionSourcePaths(this.registry, compositionKey)) {
+      const source = await readSource(path);
+      if (source == null) missing.push(path);
+      else inputs[path] = await hashString(source);
+    }
+    for (const key of compositionRenderKeys(this.registry, compositionKey)) {
+      inputs[`composition://${key}`] = await compositionRuntimeHash(this.registry[key]);
+    }
+    for (const assetId of compositionAssetIds(this.registry, compositionKey)) {
+      const asset = this.manifest?.assets[assetId];
+      if (!asset) missing.push(`asset://${assetId}`);
+      else inputs[`asset://${assetId}`] = asset.contentHash;
+    }
+    return { inputs, missing: [...new Set(missing)] };
+  }
+
   public async bakeComposition(
     compositionKey: string,
     onProgress: (progress: RenderProgressSnapshot) => void,
@@ -1790,6 +1889,10 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (!composition) throw new Error(`Unknown composition: ${compositionKey}`);
     await this.assetsReady;
     const kind = outputKind ?? composition.meta?.output ?? "video";
+    const fingerprint = await this.getCompositionBakeInputs(compositionKey, kind);
+    if (fingerprint.missing.length) {
+      throw new Error(`Cannot bake with unresolved render inputs: ${fingerprint.missing.join(", ")}.`);
+    }
     let blob: Blob;
     if (kind === "image") {
       onProgress({ phase: "prepare", completed: 0, total: 1 });
@@ -1824,10 +1927,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     }
     const hash = await hashBlob(blob);
     await new HttpFolderCAS().put(hash, blob, `${composition.id}.${kind}.${blob.type === "image/png" ? "png" : "mp4"}`);
-    const sources = await this.loadCompositionSources(compositionKey);
-    const inputs: Record<string, string> = {};
-    for (const [file, text] of Object.entries(sources)) inputs[file] = await hashString(text);
-    await writeArtifactMeta(hash, { compId: composition.id, label: `${composition.id} ${kind} bake`, inputs, createdAt: new Date().toISOString() });
+    await writeArtifactMeta(hash, { compId: composition.id, label: `${composition.id} ${kind} bake`, inputs: fingerprint.inputs, createdAt: new Date().toISOString() });
     return { bytes: blob.size, filename: hash };
   }
 
@@ -2650,8 +2750,9 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       : undefined;
     const artifacts = cache.filter((entry) => entry.meta?.compId === composition.id);
     if (!artifacts.length) return { artifactStatus: take != null ? "remote" : "missing", ...(take != null ? { pinnedTake: take } : {}) };
-    const sources = await this.loadCompositionSources(compositionKey);
-    const hashes = new Map(await Promise.all(Object.entries(sources).map(async ([file, text]) => [file, await hashString(text)] as const)));
+    const fingerprint = await this.getCompositionBakeInputs(compositionKey);
+    const hashes = new Map<string, string | null>(Object.entries(fingerprint.inputs));
+    for (const input of fingerprint.missing) hashes.set(input, null);
     const current = artifacts.some((entry) => artifactStatusFromInputs(entry.meta?.inputs, hashes) === "current");
     return { artifactStatus: current ? "current" : "stale", ...(take != null ? { pinnedTake: take } : {}) };
   }

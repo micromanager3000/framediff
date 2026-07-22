@@ -6,6 +6,7 @@ import type {
   AnimationProbeSnapshot,
   AssetDescriptor,
   CacheEntryDescriptor,
+  CompositionBakeInputsSnapshot,
   CompositionDescriptor,
   PreviewHandle,
   PreviewOptions,
@@ -68,6 +69,18 @@ class AgentRuntime implements StudioRuntimePort {
   ]; }
   async getGitStatus() { return [" M src/Main.html"]; }
   async listCacheEntries() { return this.cache; }
+  async getCompositionBakeInputs(): Promise<CompositionBakeInputsSnapshot> {
+    const text = this.sources.get("src/Main.html");
+    const inputs: Record<string, string> = {};
+    if (text != null) {
+      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+      inputs["src/Main.html"] = `sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+    }
+    return {
+      inputs,
+      missing: text == null ? ["src/Main.html"] : [],
+    };
+  }
 
   async editPlacement(request: { compositionKey: string; itemId: string; field: "from" | "durationInFrames" | "layer" | "trimStart"; value: number }) { return this.editPlacements([request]); }
   async editPlacements(requests: Array<{ compositionKey: string; itemId: string; field: "from" | "durationInFrames" | "layer" | "trimStart"; value: number }>) {

@@ -2,33 +2,116 @@ import { ObservableValue } from "../observable";
 import { canNestComposition } from "../nesting";
 import type {
   CacheEntryDescriptor,
+  CompositionBakeInputsSnapshot,
+  CompositionDescriptor,
+  CompositionRuntimePort,
   NewCompositionRequest,
   ProjectOperationResult,
   ProjectWorkspacePort,
   RenderProgressSnapshot,
 } from "../types";
 import type { StudioSession } from "../StudioSession";
+import { artifactStatusFromInputs } from "../timeline";
+
+export type CompositionBakeStatus = "checking" | "current" | "stale" | "missing" | "untracked";
+
+export interface CurrentCompositionBakeSnapshot {
+  compositionKey: string;
+  compositionId: string;
+  status: CompositionBakeStatus;
+  artifactCount: number;
+}
+
+type ObservableProjectWorkspace = ProjectWorkspacePort & Pick<Partial<CompositionRuntimePort>, "subscribeProjectEdits">;
+
+export async function compositionBakeSnapshot(
+  composition: CompositionDescriptor,
+  cache: CacheEntryDescriptor[],
+  loadInputs: (compositionKey: string) => Promise<CompositionBakeInputsSnapshot>,
+): Promise<CurrentCompositionBakeSnapshot> {
+  const artifacts = cache.filter((entry) => entry.compId === composition.id);
+  const base = { compositionKey: composition.key, compositionId: composition.id, artifactCount: artifacts.length };
+  if (!artifacts.length) return { ...base, status: "missing" };
+  if (artifacts.every((entry) => !entry.inputs)) return { ...base, status: "untracked" };
+  const snapshot = await loadInputs(composition.key);
+  const hashes = new Map<string, string | null>(Object.entries(snapshot.inputs));
+  for (const input of snapshot.missing) hashes.set(input, null);
+  return {
+    ...base,
+    status: artifacts.some((entry) => artifactStatusFromInputs(entry.inputs, hashes) === "current") ? "current" : "stale",
+  };
+}
 
 export interface ProjectOperationsState {
   cache: CacheEntryDescriptor[];
   cacheLoading: boolean;
   busy: boolean;
   progress: RenderProgressSnapshot | null;
+  currentBake: CurrentCompositionBakeSnapshot | null;
   message: string | null;
   error: string | null;
 }
 
 export class ProjectOperationsManager {
   public readonly state = new ObservableValue<ProjectOperationsState>({
-    cache: [], cacheLoading: false, busy: false, progress: null, message: null, error: null,
+    cache: [], cacheLoading: false, busy: false, progress: null, currentBake: null, message: null, error: null,
   });
+  private sessionUnsubscribe: (() => void) | null = null;
+  private editUnsubscribe: (() => void) | null = null;
+  private inputUnsubscribe: (() => void) | null = null;
+  private lastComposition: CompositionDescriptor | undefined;
+  private bakeGeneration = 0;
 
-  public constructor(private readonly session: StudioSession, private readonly workspace: ProjectWorkspacePort) {}
+  public constructor(private readonly session: StudioSession, private readonly workspace: ObservableProjectWorkspace) {}
+
+  public start(): void {
+    if (this.sessionUnsubscribe) return;
+    this.sessionUnsubscribe = this.session.state.subscribe((state) => {
+      const composition = state.compositions.find((entry) => entry.key === state.currentKey);
+      if (composition === this.lastComposition) return;
+      this.lastComposition = composition;
+      void this.refreshCurrentBake();
+    });
+    this.editUnsubscribe = this.workspace.subscribeProjectEdits?.(() => { void this.refreshCurrentBake(); }) ?? null;
+    this.inputUnsubscribe = this.workspace.subscribeBakeInputChanges?.(() => { void this.refreshCurrentBake(); }) ?? null;
+  }
+
+  public destroy(): void {
+    this.sessionUnsubscribe?.();
+    this.editUnsubscribe?.();
+    this.inputUnsubscribe?.();
+    this.sessionUnsubscribe = null;
+    this.editUnsubscribe = null;
+    this.inputUnsubscribe = null;
+  }
 
   public async refreshCache(): Promise<void> {
     this.state.update((state) => ({ ...state, cacheLoading: true }));
     const cache = await this.workspace.listCacheEntries();
     this.state.update((state) => ({ ...state, cache, cacheLoading: false }));
+    await this.refreshCurrentBake();
+  }
+
+  public async refreshCurrentBake(): Promise<void> {
+    const sessionState = this.session.state.get();
+    const composition = sessionState.compositions.find((entry) => entry.key === sessionState.currentKey);
+    const generation = ++this.bakeGeneration;
+    if (!composition) {
+      this.state.update((state) => ({ ...state, currentBake: null }));
+      return;
+    }
+    const artifacts = this.state.get().cache.filter((entry) => entry.compId === composition.id).length;
+    this.state.update((state) => ({
+      ...state,
+      currentBake: { compositionKey: composition.key, compositionId: composition.id, status: "checking", artifactCount: artifacts },
+    }));
+    const currentBake = await compositionBakeSnapshot(
+      composition,
+      this.state.get().cache,
+      (compositionKey) => this.workspace.getCompositionBakeInputs(compositionKey),
+    );
+    if (generation !== this.bakeGeneration) return;
+    this.state.update((state) => ({ ...state, currentBake }));
   }
 
   /** Resolves to the new composition's key, or null when creation failed (state carries why). */

@@ -69,17 +69,31 @@
   $: fields = cameraFieldMap(section);
   $: endpointTitle = endpoint === "start" ? "Start" : "End";
   $: sceneRevision = `${endpoint}:${disabled}:${section.fields.map((entry) => `${entry.id}:${entry.value ?? entry.text ?? entry.boolean ?? ""}`).join("|")}`;
-  $: if (sceneRevision && initialized && !dragging) syncScene();
+  $: if (sceneRevision && initialized && !dragging) syncSourceRevision(sceneRevision);
   $: if (video && Number.isFinite(planePreviewTime)) seekVideoFrame();
 
   const sourceValue = (key: string, fallback = 0): number => cameraFieldValue(fields, key, fallback);
-  const value = (key: string, fallback = 0): number => draftValues[key] ?? sourceValue(key, fallback);
+  let value: (key: string, fallback?: number) => number;
+  $: value = (key: string, fallback = 0): number => draftValues[key] ?? cameraFieldValue(fields, key, fallback);
   const field = (key: string): InspectorFieldSnapshot | undefined => fields.get(key);
   const keyFor = (side: CameraEndpoint, suffix: string, axis?: string): string => `${side}${suffix}${axis ?? ""}`;
   const rounded = (amount: number, digits = 3): string => Number.isFinite(amount) ? amount.toFixed(digits) : "—";
   const endpointVector = (side: CameraEndpoint, handle: CameraRigHandle): CameraVector =>
     cameraVectorKeys(side, handle).map((key) => value(key)) as CameraVector;
   const randomGroupId = (): string => globalThis.crypto?.randomUUID?.() ?? `camera-rig-${Date.now()}`;
+
+  function syncSourceRevision(_revision: string): void {
+    const next = { ...draftValues };
+    let changed = false;
+    for (const [key, draft] of Object.entries(draftValues)) {
+      if (Math.abs(sourceValue(key) - draft) <= 1e-9) {
+        delete next[key];
+        changed = true;
+      }
+    }
+    if (changed) draftValues = next;
+    syncScene();
+  }
 
   function placeholder(): THREE.CanvasTexture {
     const canvas = document.createElement("canvas");
@@ -332,7 +346,10 @@
       const label = tool === "plane"
         ? `${transformMode === "rotate" ? "Rotate" : "Move"} video plane`
         : `Move ${endpointTitle.toLowerCase()} ${tool === "target" ? "look target" : tool}`;
-      await oncommitmany(edits, { label, groupId: randomGroupId() });
+      const accepted = await oncommitmany(edits, { label, groupId: randomGroupId() });
+      // Keep rendering the exact dragged pose until the JSON-backed section acknowledges it.
+      // This also prevents a pre-HMR Inspector snapshot from producing a visible snap.
+      if (accepted !== false) return;
     }
     const next = { ...draftValues };
     for (const key of keys) delete next[key];

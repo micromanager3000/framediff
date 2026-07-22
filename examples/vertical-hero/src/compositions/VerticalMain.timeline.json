@@ -4,7 +4,7 @@
     {
       "id": "vertical-background",
       "from": 0,
-      "durationInFrames": 180,
+      "durationInFrames": 197,
       "layer": 0,
       "trimStart": 0,
       "name": "Vertical backdrop",
@@ -16,7 +16,7 @@
     {
       "id": "vertical-title",
       "from": 15,
-      "durationInFrames": 165,
+      "durationInFrames": 184,
       "layer": 2,
       "trimStart": 0,
       "name": "Vertical lower third",

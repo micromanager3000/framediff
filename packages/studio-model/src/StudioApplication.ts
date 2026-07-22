@@ -40,6 +40,7 @@ export class StudioApplication {
     this.source.start();
     this.inspector.start();
     this.generative.start();
+    this.operations.start();
     void this.operations.refreshCache();
     this.git.start();
     this.history.start();
@@ -51,6 +52,7 @@ export class StudioApplication {
     this.source.destroy();
     this.inspector.destroy();
     this.generative.destroy();
+    this.operations.destroy();
     this.git.destroy();
     this.history.destroy();
     this.session.destroy();

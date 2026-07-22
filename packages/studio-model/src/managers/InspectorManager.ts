@@ -114,6 +114,10 @@ export class InspectorManager {
   }
 
   private applyEditedValues(edits: Array<{ fieldId: string; value: number | string | boolean }>): void {
+    // A source write can trigger HMR/probing before its request resolves. Any Inspector load that
+    // started in that window describes the pre-edit source and must not overwrite this accepted,
+    // optimistic snapshot when it finishes later.
+    this.generation += 1;
     const values = new Map(edits.map((edit) => [edit.fieldId, edit.value]));
     this.state.update((state) => ({
       ...state,

@@ -117,6 +117,7 @@ export type {
   GenerativeWorkspaceSnapshot,
   NewCompositionKind,
   NewCompositionRequest,
+  CompositionBakeInputsSnapshot,
   ProjectOperationResult,
   PreviewHandle,
   PreviewElementEditRequest,

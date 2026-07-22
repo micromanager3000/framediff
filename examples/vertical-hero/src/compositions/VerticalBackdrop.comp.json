@@ -29,12 +29,12 @@
     "gradientStops": "#8a6cff@0|#7d5cff@0.42|#7d5cff00@1"
   },
   "orbB": {
-    "x": -250,
-    "y": 1010,
-    "width": 620,
-    "height": 620,
-    "scale": 1,
-    "opacity": 0.72,
+    "x": 13,
+    "y": 628,
+    "width": 707.42,
+    "height": 727.69,
+    "scale": 1.52,
+    "opacity": 0.89,
     "fill": "radial-gradient",
     "fillColor": "#ff4fa8",
     "gradientStops": "#ff7dc1@0|#ff4fa8@0.38|#ff4fa800@1"

@@ -123,7 +123,10 @@ export class StudioAgentApi {
     }));
     const revision = await sha256(allFiles.map((file) => `${file}\0${revisions.get(file)?.hash ?? "missing"}`).join("\n"));
     const cache = this.application.operations.state.get().cache;
-    const sourceHashes = new Map([...revisions].map(([file, source]) => [file, source.hash]));
+    const bakeInputs = new Map(await Promise.all(state.compositions.map(async (composition) => [
+      composition.key,
+      await this.application.runtime.getCompositionBakeInputs(composition.key),
+    ] as const)));
     const compositions: AgentCompositionSnapshot[] = state.compositions.map((composition) => ({
       composition,
       objects: state.timelineByComposition[composition.key] ?? [],
@@ -139,7 +142,13 @@ export class StudioAgentApi {
         ...(artifact.label ? { label: artifact.label } : {}),
         bytes: artifact.size,
         ...(artifact.inputs ? { inputs: artifact.inputs } : {}),
-        status: artifactStatusFromInputs(artifact.inputs, sourceHashes),
+        status: artifactStatusFromInputs(
+          artifact.inputs,
+          new Map<string, string | null>([
+            ...Object.entries(bakeInputs.get(composition.key)?.inputs ?? {}),
+            ...(bakeInputs.get(composition.key)?.missing ?? []).map((input) => [input, null] as const),
+          ]),
+        ),
       })),
     }));
     return {

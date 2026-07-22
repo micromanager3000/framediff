@@ -45,12 +45,14 @@
   $: endpointTitle = endpoint === "start" ? "Start" : "End";
   $: endpointFrame = cameraFieldValue(fields, `${endpoint}Frame`);
 
-  const value = (key: string, fallback = 0) => cameraFieldValue(fields, key, fallback);
+  let value: (key: string, fallback?: number) => number;
+  $: value = (key: string, fallback = 0) => cameraFieldValue(fields, key, fallback);
   const field = (key: string): InspectorFieldSnapshot | undefined => fields.get(key);
   const keyFor = (side: CameraEndpoint, suffix: string, axis?: string): string => `${side}${suffix}${axis ?? ""}`;
   const rounded = (amount: number, digits = 2): string => Number.isFinite(amount) ? amount.toFixed(digits) : "—";
   const clamp = (amount: number, min: number, max: number): number => Math.max(min, Math.min(max, amount));
-  const shownValue = (key: string, fallback = 0): number => {
+  let shownValue: (key: string, fallback?: number) => number;
+  $: shownValue = (key: string, fallback = 0): number => {
     if (!inlineDrag) return value(key, fallback);
     const [xKey, , zKey] = cameraVectorKeys(endpoint, inlineDrag.handle);
     if (key === xKey) return inlineDrag.x;

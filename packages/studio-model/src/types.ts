@@ -604,6 +604,13 @@ export interface CacheEntryDescriptor {
   inputs?: Record<string, string>;
 }
 
+/** The exact, content-addressed inputs used to decide whether a composition bake is current. */
+export interface CompositionBakeInputsSnapshot {
+  inputs: Record<string, string>;
+  /** Declared source or asset inputs that cannot currently be resolved. */
+  missing: string[];
+}
+
 export type NewCompositionKind = CompositionKind;
 export interface NewCompositionRequest {
   name: string;
@@ -701,6 +708,10 @@ export interface ProjectWorkspacePort {
     onProgress: (progress: RenderProgressSnapshot) => void,
   ): Promise<RenderResult>;
   listCacheEntries(): Promise<CacheEntryDescriptor[]>;
+  /** Must use the same dependency traversal and hashes as `bakeComposition`. */
+  getCompositionBakeInputs(compositionKey: string, outputKind?: CompositionOutputKind): Promise<CompositionBakeInputsSnapshot>;
+  /** Signals non-source render-input changes such as an updated asset-manifest mapping. */
+  subscribeBakeInputChanges?(listener: () => void): () => void;
   bakeComposition(
     compositionKey: string,
     onProgress: (progress: RenderProgressSnapshot) => void,

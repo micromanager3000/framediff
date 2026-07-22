@@ -25,16 +25,22 @@ const composition = (
 });
 
 const item = (
-  type: "layers" | "nested",
+  type: "layers" | "nested" | "video",
   from = 0,
   durationInFrames = 120,
+  editable?: TimelineItemSnapshot["editable"],
 ): TimelineItemSnapshot => ({
   id: `${type}-item`,
   from,
   durationInFrames,
-  content: type === "layers" ? { type, label: "Canvas" } : { type: "nested", compId: "Child", trimStart: 0 },
+  content: type === "layers"
+    ? { type, label: "Canvas" }
+    : type === "video"
+      ? { type, src: "asset://plate" }
+      : { type: "nested", compId: "Child", trimStart: 0 },
   order: 0,
   origin: "sequence",
+  ...(editable ? { editable } : {}),
 });
 
 describe("composition authoring surfaces", () => {
@@ -69,11 +75,16 @@ describe("composition authoring surfaces", () => {
     });
   });
 
-  it("does not turn a full-span structural scene wrapper into a timeline", () => {
+  it("gives a leaf render comp a scrubber unless it has actual timeline editing", () => {
     const scene = composition("scene");
     expect(shouldShowTimeline(scene, [item("layers")], [], [])).toBe(false);
     expect(shouldShowTimeline(scene, [item("layers", 10, 80)], [], [])).toBe(true);
-    expect(shouldShowTimeline(scene, [item("nested")], [], [])).toBe(true);
+    expect(shouldShowTimeline(scene, [item("nested")], [], [])).toBe(false);
+    expect(shouldShowTimeline(scene, [item("nested", 0, 120, { from: true, duration: true })], [], [])).toBe(true);
+    expect(shouldShowTimeline(scene, [item("nested"), { ...item("video"), id: "video-2", order: 1 }], [], [])).toBe(true);
+
+    const videoPlane = composition("3d");
+    expect(resolveCompositionAuthoring(videoPlane, [item("video")])).toMatchObject({ timeline: false, transport: true });
   });
 
   it("gives timed scripts and storyboards temporal UI without turning static documents into edits", () => {
