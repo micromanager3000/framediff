@@ -1,5 +1,5 @@
 import type { InspectorControlSnapshot, InspectorFieldSnapshot, InspectorOptionSnapshot, TimelineItemSnapshot } from "@framediff/studio-model";
-import type { CompositionConfig } from "../composition";
+import type { CompositionConfig, CompositionTimelinePlacement } from "../composition";
 import type { ColorGradeEffect } from "./types";
 
 export interface HtmlAttributeLocation {
@@ -265,30 +265,49 @@ export function timelineFromHtml(composition: CompositionConfig): TimelineItemSn
   });
 }
 
-/** Merge optional external edit placement data over the content projected from authored HTML. */
+function timelineDocumentContent(placement: CompositionTimelinePlacement): TimelineItemSnapshot["content"] | undefined {
+  const content = placement.content;
+  if (!content) return undefined;
+  if (content.type === "nested") {
+    return { type: "nested", compId: content.composition, trimStart: placement.trimStart ?? 0, playbackRate: placement.playbackRate ?? 1 };
+  }
+  if (content.type === "video") return { type: "video", src: content.src, trimStart: placement.trimStart ?? 0, playbackRate: placement.playbackRate ?? 1 };
+  if (content.type === "audio") return { type: "audio", src: content.src, trimStart: placement.trimStart ?? 0, playbackRate: placement.playbackRate ?? 1 };
+  if (content.type === "camera") return { type: "camera", camera: content.camera };
+  if (content.type === "grade-layer") return { type: "grade-layer" };
+  return { type: "layers", label: content.label ?? placement.name ?? placement.id };
+}
+
+/** Project JSON-authored layers first, with legacy HTML layers retained for compatibility. */
 export function timelineFromComposition(composition: CompositionConfig): TimelineItemSnapshot[] {
-  const items = timelineFromHtml(composition);
-  if (!composition.timeline) return items;
-  const placementById = new Map(composition.timeline.items.map((placement) => [placement.id, placement]));
-  return items.map((item) => {
-    const placement = placementById.get(item.id);
-    if (!placement) return item;
-    const content = "trimStart" in item.content || "playbackRate" in item.content
+  const htmlItems = timelineFromHtml(composition);
+  if (!composition.timeline) return htmlItems;
+  const htmlById = new Map(htmlItems.map((item) => [item.id, item]));
+  const projected = composition.timeline.items.map((placement, order) => {
+    const html = htmlById.get(placement.id);
+    const authoredContent = timelineDocumentContent(placement);
+    const fallbackContent: TimelineItemSnapshot["content"] = { type: "layers", label: placement.name ?? placement.id };
+    const content = authoredContent ?? (html && ("trimStart" in html.content || "playbackRate" in html.content)
       ? {
-          ...item.content,
+          ...html.content,
           ...(placement.trimStart == null ? {} : { trimStart: placement.trimStart }),
           ...(placement.playbackRate == null ? {} : { playbackRate: placement.playbackRate }),
         } as TimelineItemSnapshot["content"]
-      : item.content;
+      : html?.content ?? fallbackContent);
+    htmlById.delete(placement.id);
     return {
-      ...item,
+      ...(html ?? { id: placement.id, order, origin: "sequence" as const }),
+      name: placement.name ?? html?.name,
       from: placement.from,
       durationInFrames: Math.max(1, placement.durationInFrames),
       ...(placement.layer == null ? {} : { layer: placement.layer }),
       content,
+      order,
       origin: "sequence" as const,
-    };
+      editable: { from: true, duration: true, layer: true, trimStart: ["nested", "video", "audio"].includes(content.type) },
+    } satisfies TimelineItemSnapshot;
   });
+  return [...projected, ...htmlItems.filter((item) => htmlById.has(item.id)).map((item, index) => ({ ...item, order: projected.length + index }))];
 }
 
 export function findHtmlElementById(source: string, id: string): HtmlSourceElement | undefined {

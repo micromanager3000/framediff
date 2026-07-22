@@ -4,22 +4,42 @@
     {
       "id": "author-direct",
       "from": 0,
-      "durationInFrames": 120
+      "durationInFrames": 120,
+      "name": "Direct manipulation",
+      "content": {
+        "type": "nested",
+        "composition": "DirectManipulationLab"
+      }
     },
     {
       "id": "author-properties",
       "from": 120,
-      "durationInFrames": 120
+      "durationInFrames": 120,
+      "name": "Schema-driven scene properties",
+      "content": {
+        "type": "nested",
+        "composition": "RichPropertiesLab"
+      }
     },
     {
       "id": "author-gsap",
       "from": 240,
-      "durationInFrames": 120
+      "durationInFrames": 120,
+      "name": "GSAP motion",
+      "content": {
+        "type": "nested",
+        "composition": "GsapMotionLab"
+      }
     },
     {
       "id": "author-effects",
       "from": 360,
-      "durationInFrames": 120
+      "durationInFrames": 120,
+      "name": "Packaged DOM effects",
+      "content": {
+        "type": "nested",
+        "composition": "PackageEffectsLab"
+      }
     },
     {
       "id": "authoring-hud",

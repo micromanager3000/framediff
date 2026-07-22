@@ -113,6 +113,26 @@ function allElements(root: HTMLElement): HTMLElement[] {
 function applyTimelineDocument(root: HTMLElement, composition: CompositionConfig): void {
   if (!composition.timeline) return;
   const placementById = new Map(composition.timeline.items.map((item) => [item.id, item]));
+  for (const placement of composition.timeline.items) {
+    if (!placement.content) continue;
+    let element = Array.from(root.querySelectorAll<HTMLElement>("[data-fd-id]"))
+      .find((candidate) => candidate.dataset.fdId === placement.id);
+    if (!element) {
+      element = document.createElement(placement.content.type === "video" ? "video" : placement.content.type === "audio" ? "audio" : "div");
+      element.setAttribute("data-fd-clip", "");
+      element.setAttribute("data-fd-id", placement.id);
+      element.style.cssText = "position:absolute;inset:0;overflow:hidden;";
+      root.appendChild(element);
+    }
+    if (placement.name) element.setAttribute("data-fd-name", placement.name);
+    element.setAttribute("data-fd-type", placement.content.type);
+    if (placement.content.type === "nested") {
+      element.setAttribute("data-fd-comp", placement.content.composition);
+      if (placement.content.nestedScale != null) element.setAttribute("data-fd-nested-scale", String(placement.content.nestedScale));
+    } else if (placement.content.type === "video" || placement.content.type === "audio") {
+      element.setAttribute("data-fd-src", placement.content.src);
+    } else if (placement.content.type === "camera") element.setAttribute("data-fd-camera", placement.content.camera);
+  }
   for (const element of root.querySelectorAll<HTMLElement>("[data-fd-id]")) {
     const placement = placementById.get(element.dataset.fdId ?? "");
     if (!placement) continue;

@@ -229,32 +229,67 @@
     attachTransform();
   }
 
+  function rigBounds(): THREE.Box3 {
+    const bounds = new THREE.Box3();
+    if (plane) {
+      plane.updateMatrixWorld(true);
+      bounds.expandByObject(plane);
+    }
+    for (const side of endpoints) {
+      bounds.expandByPoint(cameraMarkers[side].position);
+      bounds.expandByPoint(targetMarkers[side].position);
+      bounds.expandByPoint(focusMarkers[side].position);
+    }
+    if (bounds.isEmpty()) bounds.setFromCenterAndSize(new THREE.Vector3(), new THREE.Vector3(2, 2, 2));
+    return bounds;
+  }
+
+  function frameRig(preset: Exclude<ViewPreset, "shot"> = viewPreset === "shot" ? "orbit" : viewPreset): void {
+    if (!editorCamera || !orbit) return;
+    const bounds = rigBounds();
+    const center = bounds.getCenter(new THREE.Vector3());
+    const size = bounds.getSize(new THREE.Vector3());
+    const radius = Math.max(0.35, size.length() * 0.5);
+    const distance = radius / Math.tan(THREE.MathUtils.degToRad(editorCamera.fov * 0.5)) * 1.35;
+    const direction = preset === "top"
+      ? new THREE.Vector3(0, 1, 0.001)
+      : preset === "front"
+        ? new THREE.Vector3(0, 0, 1)
+        : new THREE.Vector3(1, 0.72, 1.2).normalize();
+    editorCamera.position.copy(center).addScaledVector(direction, distance);
+    editorCamera.up.set(0, preset === "top" ? 0 : 1, preset === "top" ? -1 : 0);
+    editorCamera.near = Math.max(0.001, distance / 1000);
+    editorCamera.far = Math.max(100, distance * 100);
+    orbit.target.copy(center);
+    orbit.minDistance = Math.max(0.01, radius * 0.03);
+    orbit.maxDistance = Math.max(100, radius * 100);
+    editorCamera.updateProjectionMatrix();
+    orbit.update();
+  }
+
+  function dolly(factor: number): void {
+    if (!editorCamera || !orbit || viewPreset === "shot") return;
+    const offset = editorCamera.position.clone().sub(orbit.target).multiplyScalar(factor);
+    editorCamera.position.copy(orbit.target).add(offset);
+    orbit.update();
+  }
+
   function setView(next: ViewPreset): void {
     if (!editorCamera || !orbit) return;
     viewPreset = next;
-    if (next === "top") {
-      editorCamera.position.set(0, 7, 0.001);
-      orbit.target.set(0, 0, 0);
-      editorCamera.up.set(0, 0, -1);
-    } else if (next === "front") {
-      editorCamera.position.set(0, 0, 6);
-      orbit.target.set(0, 0, 0);
-      editorCamera.up.set(0, 1, 0);
-    } else if (next === "shot") {
+    if (next === "shot") {
       const camera = endpointVector(endpoint, "camera");
       const target = endpointVector(endpoint, "target");
       editorCamera.position.set(...camera);
       orbit.target.set(...target);
       editorCamera.up.set(0, 1, 0);
       editorCamera.fov = cameraFieldOfView(value(`${endpoint}FocalLength`, 50));
+      editorCamera.updateProjectionMatrix();
+      orbit.update();
     } else {
-      editorCamera.position.set(4.8, 3.4, 5.8);
-      orbit.target.set(0, 0, 0);
-      editorCamera.up.set(0, 1, 0);
       editorCamera.fov = 45;
+      frameRig(next);
     }
-    editorCamera.updateProjectionMatrix();
-    orbit.update();
     syncScene();
   }
 
@@ -322,7 +357,6 @@
   onMount(() => {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x090c0e);
-    scene.fog = new THREE.Fog(0x090c0e, 12, 26);
     editorCamera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
     editorCamera.position.set(4.8, 3.4, 5.8);
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
@@ -333,6 +367,7 @@
     orbit.target.set(0, 0, 0);
     orbit.enableDamping = true;
     orbit.dampingFactor = 0.08;
+    orbit.zoomSpeed = 0.9;
     orbit.update();
 
     const grid = new THREE.GridHelper(14, 28, 0x304554, 0x17232b);
@@ -366,6 +401,7 @@
     }
 
     transform = new TransformControls(editorCamera, renderer.domElement);
+    transform.setSize(0.78);
     transformHelper = transform.getHelper();
     scene.add(transformHelper);
     const eventControl = transform as unknown as {
@@ -390,6 +426,7 @@
     resize();
     initialized = true;
     syncScene();
+    frameRig("orbit");
     const render = () => {
       frameHandle = requestAnimationFrame(render);
       orbit?.update();
@@ -457,6 +494,11 @@
             {#each [{ id: "orbit", label: "3D" }, { id: "top", label: "TOP" }, { id: "front", label: "FRONT" }, { id: "shot", label: "SHOT POV" }] as item (item.id)}
               <button class:active={viewPreset === item.id} onclick={() => setView(item.id as ViewPreset)}>{item.label}</button>
             {/each}
+          </div>
+          <div class="camera-rig-toolset zoom" aria-label="3D view zoom">
+            <button aria-label="Zoom in" onclick={() => dolly(0.78)}>＋</button>
+            <button onclick={() => frameRig()}>FIT</button>
+            <button aria-label="Zoom out" onclick={() => dolly(1.28)}>−</button>
           </div>
         </div>
         <div class="camera-rig-canvas" bind:this={sceneHost}></div>

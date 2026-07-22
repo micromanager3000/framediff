@@ -5,7 +5,12 @@
       "id": "excerpt",
       "from": 0,
       "durationInFrames": 240,
-      "trimStart": 20
+      "trimStart": 20,
+      "name": "Hero seconds 20–30",
+      "content": {
+        "type": "nested",
+        "composition": "HeroRaw"
+      }
     }
   ]
 }

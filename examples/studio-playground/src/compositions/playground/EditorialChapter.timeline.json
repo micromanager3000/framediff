@@ -4,23 +4,43 @@
     {
       "id": "edit-timeline",
       "from": 0,
-      "durationInFrames": 120
+      "durationInFrames": 120,
+      "name": "Editorial timeline",
+      "content": {
+        "type": "nested",
+        "composition": "EditorialLab"
+      }
     },
     {
       "id": "edit-grade",
       "from": 120,
-      "durationInFrames": 120
+      "durationInFrames": 120,
+      "name": "Grade and LUT",
+      "content": {
+        "type": "nested",
+        "composition": "GradeLab"
+      }
     },
     {
       "id": "edit-production",
       "from": 240,
       "durationInFrames": 120,
-      "trimStart": 0.84
+      "trimStart": 0.84,
+      "name": "Nested production",
+      "content": {
+        "type": "nested",
+        "composition": "HeroWithLowerThird"
+      }
     },
     {
       "id": "edit-overlay",
       "from": 360,
-      "durationInFrames": 120
+      "durationInFrames": 120,
+      "name": "Reusable alpha overlay",
+      "content": {
+        "type": "nested",
+        "composition": "LowerThird"
+      }
     },
     {
       "id": "editorial-hud",

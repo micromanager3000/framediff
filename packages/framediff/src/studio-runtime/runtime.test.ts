@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CompRegistry, StudioComposition } from "../studio/types";
+import { generative } from "../generative";
 import {
   compositionSourcePaths,
   createStudioRuntime,
@@ -167,7 +168,7 @@ describe("HtmlStudioRuntime external timeline documents", () => {
     expect(runtime.getCompositions()[0].sources).toContain("src/Camera.timeline.json");
   });
 
-  it("nests a dropped composition by committing HTML structure and timeline JSON together", async () => {
+  it("nests a dropped composition by editing only the JSON timeline document", async () => {
     const targetHtml = '<!doctype html><main data-fd-composition data-fd-id="Main" data-fd-width="1920" data-fd-height="1080" data-fd-fps="24" data-fd-duration="120" data-fd-kind="edit" data-fd-source="src/Main.html"></main>';
     const timeline = { version: 1 as const, items: [] };
     const target = {
@@ -205,12 +206,51 @@ describe("HtmlStudioRuntime external timeline documents", () => {
     const result = await runtime.nestComposition("main", "title", 36);
 
     expect(result.ok).toBe(true);
-    expect(transaction?.files.map((file) => file.file)).toEqual(["src/Main.html", "src/Main.timeline.json"]);
-    expect(transaction?.files[0].text).toContain('data-fd-id="nested-title"');
-    expect(transaction?.files[0].text).not.toContain('data-fd-from="36"');
-    expect(JSON.parse(transaction?.files[1].text ?? "{}")).toEqual({
+    expect(transaction?.files.map((file) => file.file)).toEqual(["src/Main.timeline.json"]);
+    expect(JSON.parse(transaction?.files[0].text ?? "{}")).toEqual({
       version: 1,
-      items: [{ id: "nested-title", from: 36, durationInFrames: 48 }],
+      items: [{
+        id: "nested-title",
+        name: "Title",
+        from: 36,
+        durationInFrames: 48,
+        content: { type: "nested", composition: "title" },
+      }],
+    });
+  });
+});
+
+describe("HtmlStudioRuntime generative recipe documents", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("writes mutable recipe settings and comp refs to JSON without rewriting TypeScript", async () => {
+    const data = { provider: "fal" as const, model: "seedance-2.0", prompt: "Original", refs: [{ kind: "video" as const, src: "comp://input" }], take: 0 };
+    const generated = generative({ id: "Generated", file: "src/Generated.gen.ts", dataFile: "src/Generated.gen.json", ...data });
+    let transaction: { files: Array<{ file: string; text: string }> } | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/__framediff/assets") return new Response("missing", { status: 404 });
+      if (url.startsWith("/__framediff/src?")) {
+        const file = new URL(url, "http://local").searchParams.get("file")!;
+        if (file === "src/Generated.gen.json") return Response.json({ file, text: JSON.stringify(data), hash: "gen-data:1" });
+        return new Response("missing", { status: 404 });
+      }
+      if (url === "/__framediff/edit" && init?.method === "POST") {
+        transaction = JSON.parse(String(init.body));
+        return Response.json({ ok: true, receipt: { id: "edit-gen", label: "Edit generative recipe", before: [], after: [] } });
+      }
+      return new Response("not found", { status: 404 });
+    }));
+    const runtime = createStudioRuntime({ generated } as CompRegistry);
+
+    const result = await runtime.updateGenerativeRecipe("generated", { prompt: "JSON only", refs: [{ kind: "video", src: "comp://new-input" }] });
+
+    expect(result.ok).toBe(true);
+    expect(transaction?.files).toHaveLength(1);
+    expect(transaction?.files[0].file).toBe("src/Generated.gen.json");
+    expect(JSON.parse(transaction?.files[0].text ?? "{}")).toMatchObject({
+      prompt: "JSON only",
+      refs: [{ kind: "video", src: "comp://new-input" }],
     });
   });
 });
@@ -355,8 +395,9 @@ describe("HtmlStudioRuntime composition invalidation graph", () => {
     const parent = {
       ...composition,
       id: "Parent",
-      html: '<main data-fd-composition data-fd-id="Parent" data-fd-width="1920" data-fd-height="1080" data-fd-fps="24" data-fd-duration="48"><div data-fd-clip data-fd-id="leaf" data-fd-type="nested" data-fd-comp="Leaf" data-fd-from="0" data-fd-duration="48"></div></main>',
-      meta: { file: "src/Parent.html", module: "src/Parent.ts" },
+      html: '<main data-fd-composition data-fd-id="Parent" data-fd-width="1920" data-fd-height="1080" data-fd-fps="24" data-fd-duration="48"></main>',
+      timeline: { version: 1 as const, items: [{ id: "leaf", from: 0, durationInFrames: 48, content: { type: "nested" as const, composition: "leaf" } }] },
+      meta: { file: "src/Parent.html", module: "src/Parent.ts", timelineFile: "src/Parent.timeline.json" },
     } satisfies StudioComposition;
     const unrelated = {
       ...composition,
@@ -368,6 +409,7 @@ describe("HtmlStudioRuntime composition invalidation graph", () => {
     expect(compositionSourcePaths(registry, "parent")).toEqual([
       "src/Parent.html",
       "src/Parent.ts",
+      "src/Parent.timeline.json",
       "src/Leaf.html",
       "src/Leaf.ts",
       "src/Leaf.comp.json",
@@ -438,11 +480,11 @@ describe("HtmlStudioRuntime composition creation", () => {
     }, "main");
 
     expect(result).toMatchObject({ ok: true, compositionKey: "new-shot" });
-    expect(sources["src/NewShot.gen.ts"]).toContain('import { generative } from "framediff";');
+    expect(sources["src/NewShot.gen.ts"]).toContain('import { generative, type GenRecipeData } from "framediff";');
     expect(sources["src/NewShot.gen.ts"]).toContain("export const newShotComp = generative({");
     expect(sources["src/NewShot.gen.ts"]).toContain('file: "src/NewShot.gen.ts"');
-    expect(sources["src/NewShot.gen.ts"]).toContain("duration: 5");
-    expect(sources["src/NewShot.gen.ts"]).toContain('aspect: "16:9"');
+    expect(sources["src/NewShot.gen.ts"]).toContain('dataFile: "src/NewShot.gen.json"');
+    expect(JSON.parse(sources["src/NewShot.gen.json"])).toMatchObject({ duration: 5, aspect: "16:9", take: 0 });
     expect(sources["src/NewShot.html"]).toBeUndefined();
     expect(sources["src/config.ts"]).toContain('import { newShotComp } from "./NewShot.gen";');
     expect(sources["src/config.ts"]).toContain('{ main: composition, "new-shot": newShotComp, }');

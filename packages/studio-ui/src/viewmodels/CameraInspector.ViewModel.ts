@@ -19,7 +19,10 @@ export interface CameraPoseSnapshot {
 
 /** Extracts the stable source key without depending on the field's display label. */
 export function cameraFieldKey(field: Pick<InspectorFieldSnapshot, "id">): string {
-  return field.id.slice(field.id.lastIndexOf(":") + 1);
+  const raw = field.id.slice(field.id.lastIndexOf(":") + 1);
+  let decoded = raw;
+  try { decoded = decodeURIComponent(raw); } catch { /* malformed external IDs stay literal */ }
+  return decoded.split("/").filter(Boolean).at(-1) ?? decoded;
 }
 
 export function cameraFieldMap(section: Pick<InspectorSectionSnapshot, "fields">): Map<string, InspectorFieldSnapshot> {

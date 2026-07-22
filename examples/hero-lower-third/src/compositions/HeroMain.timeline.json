@@ -4,22 +4,42 @@
     {
       "id": "hero",
       "from": 0,
-      "durationInFrames": 971
+      "durationInFrames": 971,
+      "name": "Hero raw edit",
+      "content": {
+        "type": "nested",
+        "composition": "HeroRaw"
+      }
     },
     {
       "id": "lower-third",
       "from": 180,
-      "durationInFrames": 168
+      "durationInFrames": 168,
+      "name": "Lower third",
+      "content": {
+        "type": "nested",
+        "composition": "LowerThird"
+      }
     },
     {
       "id": "end-card",
       "from": 953,
-      "durationInFrames": 138
+      "durationInFrames": 138,
+      "name": "End card",
+      "content": {
+        "type": "nested",
+        "composition": "EndCard"
+      }
     },
     {
       "id": "nested-blah",
       "from": 0,
-      "durationInFrames": 150
+      "durationInFrames": 150,
+      "name": "Blah",
+      "content": {
+        "type": "nested",
+        "composition": "Blah"
+      }
     }
   ]
 }

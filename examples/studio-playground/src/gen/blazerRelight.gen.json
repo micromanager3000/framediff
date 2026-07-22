@@ -1,0 +1,17 @@
+{
+  "provider": "fal",
+  "model": "seedance-2.0",
+  "tier": "fast",
+  "prompt": "The presenter turns to camera as warm studio key light blooms on; slow push-in, broadcast look. Match the framing and handheld motion of the reference clip.",
+  "refs": [
+    {
+      "kind": "video",
+      "src": "asset://proxy-blazer"
+    }
+  ],
+  "duration": 4,
+  "resolution": "720p",
+  "aspect": "16:9",
+  "audio": false,
+  "take": 0
+}

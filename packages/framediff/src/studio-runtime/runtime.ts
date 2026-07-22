@@ -80,6 +80,7 @@ import { remapRecipeForModel, rewriteRecipeSource, withRecipe } from "../studio/
 import { GEN_MODELS, genModelOf, genParamValue } from "../genModels";
 import {
   genRecipeSnapshotOf,
+  genRecipeDataOf,
   invalidateGenManifest,
   primeGenTakes,
   recipeHashOf,
@@ -598,27 +599,24 @@ function generativeCompositionModule(options: {
   id: string;
   exportName: string;
   file: string;
+  dataFile: string;
   width: number;
   height: number;
   fps: number;
   durationInFrames: number;
 }): string {
-  const duration = Number((options.durationInFrames / options.fps).toFixed(6));
-  return `import { generative } from "framediff";
+  const directory = options.file.split("/").slice(0, -1).join("/") || ".";
+  const dataImport = options.dataFile.startsWith(`${directory}/`)
+    ? `./${options.dataFile.slice(directory.length + 1)}`
+    : options.dataFile;
+  return `import { generative, type GenRecipeData } from "framediff";
+import data from ${JSON.stringify(dataImport)};
 
 export const ${options.exportName} = generative({
   id: ${JSON.stringify(options.id)},
   file: ${JSON.stringify(options.file)},
-  provider: "fal",
-  model: "seedance-2.0",
-  prompt: "Describe the shot you want to generate.",
-  tier: "fast",
-  resolution: "720p",
-  duration: ${duration},
-  aspect: "${nearestGenerativeAspect(options.width, options.height)}",
-  audio: true,
-  fps: ${options.fps},
-  take: 0,
+  dataFile: ${JSON.stringify(options.dataFile)},
+  ...(data as GenRecipeData),
 });
 `;
 }
@@ -684,7 +682,7 @@ export function compositionSourcePaths(registry: CompRegistry, compositionKey: s
       for (const item of timelineFromComposition(composition)) {
         if (item.content.type !== "nested") continue;
         const compId = item.content.compId;
-        const child = Object.entries(registry).find(([, candidate]) => candidate.id === compId)?.[0];
+        const child = registry[compId] ? compId : Object.entries(registry).find(([, candidate]) => candidate.id === compId)?.[0];
         if (child) visit(child);
       }
     } catch {
@@ -746,7 +744,7 @@ function childCompositionKeys(registry: CompRegistry, composition: StudioComposi
     for (const item of timelineFromComposition(composition)) {
       const content = item.content;
       if (content.type !== "nested") continue;
-      const child = Object.entries(registry).find(([, candidate]) => candidate.id === content.compId)?.[0];
+      const child = registry[content.compId] ? content.compId : Object.entries(registry).find(([, candidate]) => candidate.id === content.compId)?.[0];
       if (child) children.push(child);
     }
   } catch {
@@ -1854,6 +1852,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const isMoodboard = request.kind === "moodboard";
     const file = isGenerative ? `src/${pascal}.gen.ts` : isMoodboard ? `src/${pascal}.ts` : `src/${pascal}.html`;
     const module = isGenerative || isMoodboard ? file : `src/${pascal}.ts`;
+    const generativeDataFile = `src/${pascal}.gen.json`;
     const documentFile = `src/${pascal}.comp.json`;
     const schemaFile = `src/${pascal}.schema.json`;
     const parentFile = (selectedParent?.meta?.kind ?? "edit") === "edit" && selectedParent?.meta?.file?.endsWith(".html")
@@ -1862,39 +1861,39 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const finishCreation = async (): Promise<ProjectOperationResult> => {
       let nested = false;
       if (parentFile && selectedParent) {
-        const parentRevision = await readSourceRevision(parentFile);
-        let placedParentSource = parentRevision?.text == null ? null : insertNestedHtmlComposition(parentRevision.text, selectedParent.id, {
-          compId: pascal,
-          name: pascal,
-          from: 0,
-          durationInFrames: request.durationInFrames,
-        });
-        if (parentRevision && placedParentSource) {
-          const timelineFile = selectedParent.meta?.timelineFile;
-          if (timelineFile && selectedParent.timeline) {
-            const existingIds = new Set(selectedParent.timeline.items.map((item) => item.id));
-            const insertedItem = timelineFromHtml({ ...selectedParent, html: placedParentSource })
-              .find((item) => !existingIds.has(item.id) && item.content.type === "nested" && item.content.compId === pascal);
-            const timelineRevision = await readSourceRevision(timelineFile);
-            if (insertedItem && timelineRevision?.text) {
-              placedParentSource = removeHtmlAttribute(placedParentSource, insertedItem.id, "data-fd-from") ?? placedParentSource;
-              placedParentSource = removeHtmlAttribute(placedParentSource, insertedItem.id, "data-fd-duration") ?? placedParentSource;
-              try {
-                const currentTimeline = JSON.parse(timelineRevision.text) as CompositionTimelineDocument;
-                if (currentTimeline.version !== 1 || !Array.isArray(currentTimeline.items)) throw new Error("invalid timeline document");
-                const nextTimeline: CompositionTimelineDocument = {
-                  version: 1,
-                  items: [...currentTimeline.items, { id: insertedItem.id, from: 0, durationInFrames: request.durationInFrames }],
-                };
-                nested = (await this.commitSourceTexts(`Nest ${pascal} in ${selectedParent.id}`, [
-                  { before: parentRevision, text: placedParentSource },
-                  { before: timelineRevision, text: `${JSON.stringify(nextTimeline, null, 2)}\n` },
-                ])).ok;
-              } catch { /* leave the new composition top-level when the parent's timeline is invalid */ }
-            }
-          } else {
-            nested = await writeSource(parentFile, placedParentSource);
+        const timelineFile = selectedParent.meta?.timelineFile;
+        if (timelineFile && selectedParent.timeline) {
+          const timelineRevision = await readSourceRevision(timelineFile);
+          if (timelineRevision?.text) {
+            try {
+              const currentTimeline = JSON.parse(timelineRevision.text) as CompositionTimelineDocument;
+              if (currentTimeline.version !== 1 || !Array.isArray(currentTimeline.items)) throw new Error("invalid timeline document");
+              const baseId = `nested-${kebabName(pascal)}`;
+              const ids = new Set(currentTimeline.items.map((item) => item.id));
+              let id = baseId;
+              for (let suffix = 2; ids.has(id); suffix += 1) id = `${baseId}-${suffix}`;
+              const nextTimeline: CompositionTimelineDocument = {
+                version: 1,
+                items: [...currentTimeline.items, {
+                  id,
+                  name: pascal,
+                  from: 0,
+                  durationInFrames: request.durationInFrames,
+                  content: { type: "nested", composition: key },
+                }],
+              };
+              nested = (await this.commitSourceText(`Nest ${pascal} in ${selectedParent.id}`, timelineRevision, `${JSON.stringify(nextTimeline, null, 2)}\n`)).ok;
+            } catch { /* leave the new composition top-level when the parent's timeline is invalid */ }
           }
+        } else {
+          const parentRevision = await readSourceRevision(parentFile);
+          const placedParentSource = parentRevision?.text == null ? null : insertNestedHtmlComposition(parentRevision.text, selectedParent.id, {
+            compId: pascal,
+            name: pascal,
+            from: 0,
+            durationInFrames: request.durationInFrames,
+          });
+          if (parentRevision && placedParentSource) nested = await writeSource(parentFile, placedParentSource);
         }
       }
       return {
@@ -1906,16 +1905,33 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       };
     };
     if (isGenerative) {
+      const duration = Number((request.durationInFrames / relative.fps).toFixed(6));
+      const recipeData = {
+        provider: "fal",
+        model: "seedance-2.0",
+        prompt: "Describe the shot you want to generate.",
+        tier: "fast",
+        resolution: "720p",
+        duration,
+        aspect: nearestGenerativeAspect(relative.width, relative.height),
+        audio: true,
+        fps: relative.fps,
+        take: 0,
+      };
+      if (!(await writeSource(generativeDataFile, `${JSON.stringify(recipeData, null, 2)}\n`))) {
+        return { ok: false, message: `Could not write ${generativeDataFile}.` };
+      }
       const recipe = generativeCompositionModule({
         id: pascal,
         exportName: varName,
         file,
+        dataFile: generativeDataFile,
         width: relative.width,
         height: relative.height,
         fps: relative.fps,
         durationInFrames: request.durationInFrames,
       });
-      if (!(await writeSource(file, recipe))) return { ok: false, message: `Could not write ${file}.` };
+      if (!(await writeSource(file, recipe))) return { ok: false, message: `Wrote ${generativeDataFile}, but could not write ${file}.` };
       const inserted = insertRegistryEntry(registryFile, sources, { key, varName, importFrom: relModule(registryFile, file) });
       if (!inserted || !(await writeSource(registryFile, inserted.text))) {
         return { ok: false, message: `Wrote ${file}, but could not register it in ${registryFile}.` };
@@ -2006,6 +2022,25 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const sourceDirectory = sourceFile.split("/").slice(0, -1).join("/") || "src";
     if ("recipe" in source) {
       const recipeFile = `${sourceDirectory}/${pascal}.gen.ts`;
+      const sourceRecipe = (source as GenerativeComposition).recipe;
+      if (sourceRecipe.dataFile) {
+        const dataFile = `${sourceDirectory}/${pascal}.gen.json`;
+        const data = { ...genRecipeDataOf(sourceRecipe), take: 0 };
+        if (!(await writeSource(dataFile, `${JSON.stringify(data, null, 2)}\n`))) return { ok: false, message: `Could not fork ${source.id}'s recipe document.` };
+        if (!(await writeSource(recipeFile, generativeCompositionModule({
+          id: pascal,
+          exportName: varName,
+          file: recipeFile,
+          dataFile,
+          width: source.width,
+          height: source.height,
+          fps: source.fps,
+          durationInFrames: source.durationInFrames,
+        })))) return { ok: false, message: `Wrote ${dataFile}, but could not fork ${source.id}'s module.` };
+        const inserted = insertRegistryEntry(registryFile, sources, { key, varName, importFrom: relModule(registryFile, recipeFile) });
+        if (!inserted || !(await writeSource(registryFile, inserted.text))) return { ok: false, message: `Forked ${recipeFile}, but could not register it.` };
+        return { ok: true, message: `Forked ${source.id} as ${pascal}; the new JSON recipe starts without a pinned take.`, compositionKey: key };
+      }
       const sourceText = sources[sourceFile] ?? await readSource(sourceFile);
       const transformed = sourceText == null ? null : transformCopiedCompText(sourceText, {
         oldId: source.id,
@@ -2102,17 +2137,20 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const exportName = composition.meta?.exportName ?? findCompExportName(composition.id, sources)?.varName;
     if (!exportName) return { ok: false, message: `${composition.id} does not declare data-fd-export and cannot be removed safely.` };
     const escapedId = composition.id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const escapedKey = compositionKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const nestedReference = new RegExp(`\\bdata-fd-comp\\s*=\\s*["']${escapedId}["']`);
+    const documentReference = new RegExp(`(?:"composition"\\s*:\\s*"(?:${escapedKey}|${escapedId})"|comp:\\/\\/(?:${escapedKey}|${escapedId})(?:"|\\b))`);
     const ownedFiles = new Set([
       composition.meta?.file,
       composition.meta?.module,
       composition.meta?.document?.file,
       composition.meta?.document?.schema,
       composition.meta?.timelineFile,
+      "recipe" in composition ? (composition as GenerativeComposition).recipe.dataFile : undefined,
     ].filter((entry): entry is string => !!entry));
     const references = Object.entries(sources)
       .filter(([file]) => file !== registryFile && !ownedFiles.has(file))
-      .filter(([, text]) => nestedReference.test(text))
+      .filter(([, text]) => nestedReference.test(text) || documentReference.test(text))
       .map(([file]) => file);
     if (references.length) {
       return { ok: false, message: `${composition.id} is nested in ${references.join(", ")} — remove it there first.` };
@@ -2142,25 +2180,9 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (!target || !source) return { ok: false, message: "The composition is unavailable." };
     const file = target.meta?.file;
     if (!file || target.meta?.sourceFormat === "generated") return { ok: false, message: `${target.id} does not have a physical HTML source that can accept layers.` };
-    const revision = await readSourceRevision(file);
-    const text = revision?.text;
-    if (!revision || text == null) return { ok: false, message: `Could not read ${file} through the FrameDiff dev bridge.` };
-    let next = insertNestedHtmlComposition(text, target.id, {
-      compId: source.id,
-      name: source.id,
-      from,
-      durationInFrames: source.durationInFrames,
-    });
-    if (!next) return { ok: false, message: `Could not find the ${target.id} composition root in ${file}.` };
     let committed: ProjectEditResult;
     const timelineFile = target.meta?.timelineFile;
     if (timelineFile && target.timeline) {
-      const existingIds = new Set(target.timeline.items.map((item) => item.id));
-      const inserted = timelineFromHtml({ ...target, html: next })
-        .find((item) => !existingIds.has(item.id) && item.content.type === "nested" && item.content.compId === source.id);
-      if (!inserted) return { ok: false, message: `Could not identify the new ${source.id} layer in ${file}.` };
-      next = removeHtmlAttribute(next, inserted.id, "data-fd-from") ?? next;
-      next = removeHtmlAttribute(next, inserted.id, "data-fd-duration") ?? next;
       const timelineRevision = await readSourceRevision(timelineFile);
       if (!timelineRevision?.text) return { ok: false, message: `Could not read ${timelineFile}.` };
       let timeline: CompositionTimelineDocument;
@@ -2170,16 +2192,33 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       } catch (error) {
         return { ok: false, message: `${timelineFile} is not a valid timeline document: ${error instanceof Error ? error.message : String(error)}` };
       }
+      const baseId = `nested-${kebabName(source.id)}`;
+      const ids = new Set(timeline.items.map((item) => item.id));
+      let id = baseId;
+      for (let suffix = 2; ids.has(id); suffix += 1) id = `${baseId}-${suffix}`;
       timeline = {
         version: 1,
-        items: [...timeline.items, { id: inserted.id, from: Math.round(from), durationInFrames: source.durationInFrames }],
+        items: [...timeline.items, {
+          id,
+          name: source.id,
+          from: Math.round(from),
+          durationInFrames: source.durationInFrames,
+          content: { type: "nested", composition: sourceKey },
+        }],
       };
-      committed = await this.commitSourceTexts(`Nest ${source.id} in ${target.id}`, [
-        { before: revision, text: next },
-        { before: timelineRevision, text: `${JSON.stringify(timeline, null, 2)}\n` },
-      ]);
+      committed = await this.commitSourceText(`Nest ${source.id} in ${target.id}`, timelineRevision, `${JSON.stringify(timeline, null, 2)}\n`);
       if (committed.ok) target.timeline = timeline;
     } else {
+      const revision = await readSourceRevision(file);
+      const text = revision?.text;
+      if (!revision || text == null) return { ok: false, message: `Could not read ${file} through the FrameDiff dev bridge.` };
+      const next = insertNestedHtmlComposition(text, target.id, {
+        compId: source.id,
+        name: source.id,
+        from,
+        durationInFrames: source.durationInFrames,
+      });
+      if (!next) return { ok: false, message: `Could not find the ${target.id} composition root in ${file}.` };
       committed = await this.commitSourceText(`Nest ${source.id} in ${target.id}`, revision, next);
     }
     if (!committed.ok) return { ok: false, message: committed.message ?? `Could not write ${file}.` };
@@ -2277,7 +2316,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     return {
       compositionKey,
       recipeId: recipe.id,
-      file: recipe.file,
+      file: recipe.dataFile ?? recipe.file,
       model: recipe.model ?? definition.id,
       modelName: definition.name,
       models: Object.values(GEN_MODELS).map((model) => ({ id: model.id, name: model.name, vendor: model.vendor, baseline: model.baseline })),
@@ -2313,7 +2352,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const composition = this.registry[compositionKey];
     if (!composition || !("recipe" in composition)) return { ok: false, message: "This is not a generative composition." };
     const recipe = (composition as GenerativeComposition).recipe;
-    const file = recipe.file;
+    const file = recipe.dataFile ?? recipe.file;
     if (!file) return { ok: false, message: "The recipe does not declare its source file." };
     const revision = await readSourceRevision(file);
     const source = revision?.text;
@@ -2323,7 +2362,9 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       ? remapRecipeForModel(recipe, requestedModel).next
       : recipe;
     const next = withRecipe(base, remainingPatch as Partial<GenRecipe>);
-    const rewritten = rewriteRecipeSource(source, next);
+    const rewritten = recipe.dataFile
+      ? { text: `${JSON.stringify(genRecipeDataOf(next), null, 2)}\n` }
+      : rewriteRecipeSource(source, next);
     if (!rewritten) return { ok: false, message: `Could not rewrite ${file}.` };
     const committed = await this.commitSourceText("Edit generative recipe", revision, rewritten.text);
     if (!committed.ok) return { ok: false, message: committed.message ?? `Could not rewrite ${file}.` };
@@ -2340,17 +2381,20 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const recipe = (composition as GenerativeComposition).recipe;
     const historical = (await genJobs(recipe.id))?.takes.find((candidate) => candidate.generator.take === take);
     if (!historical) return { ok: false, message: `Take ${take} is unavailable.` };
-    if (!recipe.file) return { ok: false, message: "The recipe does not declare its source file." };
-    const revision = await readSourceRevision(recipe.file);
+    const file = recipe.dataFile ?? recipe.file;
+    if (!file) return { ok: false, message: "The recipe does not declare its source file." };
+    const revision = await readSourceRevision(file);
     const source = revision?.text;
-    if (!revision || source == null) return { ok: false, message: `Could not read ${recipe.file}.` };
+    if (!revision || source == null) return { ok: false, message: `Could not read ${file}.` };
     const draft = forkGenRecipe(recipe, historical.generator.recipe, historical.generator.inputs);
-    const rewritten = rewriteRecipeSource(source, draft);
+    const rewritten = recipe.dataFile
+      ? { text: `${JSON.stringify(genRecipeDataOf(draft), null, 2)}\n` }
+      : rewriteRecipeSource(source, draft);
     if (!rewritten) {
-      return { ok: false, message: `Could not start a new take from take ${take} in ${recipe.file}.` };
+      return { ok: false, message: `Could not start a new take from take ${take} in ${file}.` };
     }
     const committed = await this.commitSourceText(`Start draft from take ${take}`, revision, rewritten.text);
-    if (!committed.ok) return { ok: false, message: committed.message ?? `Could not start a new take from take ${take} in ${recipe.file}.` };
+    if (!committed.ok) return { ok: false, message: committed.message ?? `Could not start a new take from take ${take} in ${file}.` };
     return { ok: true, message: `Started a new take draft from take ${take}. Tweak it, then generate.`, receipt: committed.receipt };
   }
 

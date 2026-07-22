@@ -53,6 +53,28 @@ describe("HTML composition source", () => {
     expect(comp.meta?.timelineFile).toBe("src/Demo.timeline.json");
   });
 
+  it("projects a complete nested layer from JSON without an HTML placeholder", () => {
+    const comp = defineComposition(HTML.replace(/<section[\s\S]*?<\/section>/, ""), {
+      timeline: {
+        version: 1,
+        items: [{
+          id: "nested-title",
+          name: "Title",
+          from: 8,
+          durationInFrames: 42,
+          content: { type: "nested", composition: "title-card" },
+        }],
+      },
+    });
+    expect(timelineFromComposition(comp).find((item) => item.id === "nested-title")).toMatchObject({
+      id: "nested-title",
+      name: "Title",
+      from: 8,
+      durationInFrames: 42,
+      content: { type: "nested", compId: "title-card" },
+    });
+  });
+
   it("rewrites existing values and inserts defaulted placement attributes", () => {
     expect(rewriteHtmlAttribute(HTML, "hero", "data-fd-from", 12)).toContain('data-fd-from="12"');
     const withoutDuration = HTML.replace(' data-fd-duration="30" data-fd-text', " data-fd-text");

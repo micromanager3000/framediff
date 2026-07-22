@@ -1,9 +1,5 @@
-// Recipe → source. The workbench's structural edits (model switch, ref add/remove,
-// param changes) regenerate the whole `generative({ ... })` object literal in the
-// .gen.ts deterministically, preserving everything outside the call. This is the same
-// literal-rewrite contract as every other Studio gesture, just at object granularity:
-// the file stays the single source of truth, and the CODE view shows exactly what a
-// gesture wrote.
+// Legacy recipe → TypeScript source support. New recipes keep mutable values in `.gen.json`;
+// these literal helpers remain for projects that have not migrated yet.
 
 import type { GenRecipe } from "../generative";
 import { genModelOf, genParamValue } from "../genModels";
@@ -87,6 +83,7 @@ export function remapRecipeForModel(recipe: GenRecipe, modelId: string): { next:
   const next: GenRecipe = {
     id: recipe.id,
     file: recipe.file,
+    dataFile: recipe.dataFile,
     provider: recipe.provider ?? "fal",
     model: modelId,
     prompt: recipe.prompt,

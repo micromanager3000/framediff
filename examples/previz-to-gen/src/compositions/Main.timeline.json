@@ -4,12 +4,24 @@
     {
       "id": "synchronized-previz",
       "from": 0,
-      "durationInFrames": 272
+      "durationInFrames": 272,
+      "name": "synchronized previz",
+      "content": {
+        "type": "nested",
+        "composition": "HarborPreviz",
+        "nestedScale": 0.309375
+      }
     },
     {
       "id": "synchronized-generated",
       "from": 0,
-      "durationInFrames": 272
+      "durationInFrames": 272,
+      "name": "synchronized generated take",
+      "content": {
+        "type": "nested",
+        "composition": "harborShot",
+        "nestedScale": 0.309375
+      }
     },
     {
       "id": "music-bed",
