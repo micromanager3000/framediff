@@ -6,11 +6,13 @@ import {
   createClipMotionSetup,
   createWipeRevealSetup,
   defineComposition,
+  defineTimelineDocument,
   interpolate,
   spring,
   type CompositionSetup,
 } from "framediff";
 import source from "./PackageEffectsLab.html?raw";
+import timeline from "./PackageEffectsLab.timeline.json";
 
 const frameMathSetup: CompositionSetup = ({ query, onFrame, onCleanup }) => {
   const stop = onFrame(({ frame, fps }) => {
@@ -24,6 +26,7 @@ const frameMathSetup: CompositionSetup = ({ query, onFrame, onCleanup }) => {
 };
 
 export const packageEffectsLabComp = defineComposition(source, {
+  timeline: defineTimelineDocument(timeline),
   setup: combineCompositionSetups(
     createCharacterRiseSetup({ distance: 72, stagger: 0.3, window: 0.1 }),
     createWipeRevealSetup(),
@@ -50,5 +53,8 @@ export const packageEffectsLabComp = defineComposition(source, {
     createAudioFadeOutSetup({ selector: "[data-fd-id=effects-audio]", from: 170, to: 239, volume: 0.12 }),
     frameMathSetup,
   ),
-  meta: { deps: ["src/compositions/playground/PackageEffectsLab.ts"] },
+  meta: {
+    timelineFile: "src/compositions/playground/PackageEffectsLab.timeline.json",
+    deps: ["src/compositions/playground/PackageEffectsLab.ts"],
+  },
 });

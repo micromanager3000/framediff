@@ -57,6 +57,9 @@ shell, routing conventions, build lifecycle, and future server integration point
 - Source-backed timeline drag/move/trim edits, committed atomically with HMR state preservation
 - Nested-composition navigation with breadcrumbs and an indented composition tree
 - Schema-driven placement, grade-preset, editable-data, and advanced camera inspectors
+- JSON-document and JSON-Schema property projection with in-place data-only preview updates
+- Composition-declared optional timelines and external edit timeline documents
+- Optional expanded effect workspaces using the same source-backed Inspector fields
 - Svelte media and source-code panels
 - Framework-free asset, source, Git, playback, and render managers
 - Git status/checkpoint and MP4 render controls

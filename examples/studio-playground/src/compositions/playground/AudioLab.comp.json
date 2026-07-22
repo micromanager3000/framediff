@@ -1,0 +1,7 @@
+{
+  "kicker": { "text": "AUDIO COMPOSITION · FRAME-DRIVEN MIX" },
+  "titleA": { "text": "Sound lives on" },
+  "titleB": { "text": "the same clock.", "color": "#a694ff" },
+  "summary": { "text": "A real media lane, deterministic volume automation and exact nested timing share the visual frame domain." },
+  "audio": { "src": "asset://playground-bed", "volume": 0.16, "muted": false, "fadeFrom": 150, "fadeTo": 239 }
+}

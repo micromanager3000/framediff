@@ -1,18 +1,51 @@
-import { defineComposition } from "framediff";
+import { defineComposition, defineTimelineDocument } from "framediff";
 import mainSource from "./HeroMain.html?raw";
 import lowerThirdSource from "./LowerThird.html?raw";
 import endCardSource from "./EndCard.html?raw";
 import heroFootageSource from "./HeroFootage.html?raw";
 import excerptSource from "./HeroExcerpt.html?raw";
 import heroScriptSource from "./HeroScript.html?raw";
+import heroFootageTimeline from "./HeroFootage.timeline.json";
+import heroExcerptTimeline from "./HeroExcerpt.timeline.json";
+import heroMainTimeline from "./HeroMain.timeline.json";
+import lowerThirdDocument from "./LowerThird.comp.json";
+import endCardDocument from "./EndCard.comp.json";
+import heroScriptDocument from "./HeroScript.comp.json";
 import { setupHeroGrade } from "../effects/heroLooks";
 import { FPS } from "../data/constants";
 
-export const lowerThirdComp = defineComposition(lowerThirdSource);
-export const heroScriptComp = defineComposition(heroScriptSource);
-export const endCardComp = defineComposition(endCardSource);
-export const heroFootageComp = defineComposition(heroFootageSource);
-export const heroExcerptComp = defineComposition(excerptSource);
+export const lowerThirdComp = defineComposition(lowerThirdSource, {
+  document: lowerThirdDocument,
+  meta: { document: {
+    file: "src/compositions/LowerThird.comp.json",
+    schema: "src/compositions/LowerThird.schema.json",
+    bindings: { "lower-third-content": "/content", "lower-third-copy": "/copy", "lower-third-brand": "/brand" },
+  } },
+});
+export const heroScriptComp = defineComposition(heroScriptSource, {
+  document: heroScriptDocument,
+  meta: { document: {
+    file: "src/compositions/HeroScript.comp.json",
+    schema: "src/compositions/HeroScript.schema.json",
+    bindings: { "hero-script-title": "/title" },
+  } },
+});
+export const endCardComp = defineComposition(endCardSource, {
+  document: endCardDocument,
+  meta: { document: {
+    file: "src/compositions/EndCard.comp.json",
+    schema: "src/compositions/EndCard.schema.json",
+    bindings: { cta: "/cta", "end-card-line": "/line", "end-card-url": "/url", "end-card-shine": "/shine" },
+  } },
+});
+export const heroFootageComp = defineComposition(heroFootageSource, {
+  timeline: defineTimelineDocument(heroFootageTimeline),
+  meta: { timelineFile: "src/compositions/HeroFootage.timeline.json" },
+});
+export const heroExcerptComp = defineComposition(excerptSource, {
+  timeline: defineTimelineDocument(heroExcerptTimeline),
+  meta: { timelineFile: "src/compositions/HeroExcerpt.timeline.json" },
+});
 
 const rebuiltClips = ["clip2", "clip3", "clip5", "clip4", "clip6"]
   .map((clip, index) => `<section data-fd-clip data-fd-id="${clip}" data-fd-name="${clip}" data-fd-from="${index * 144}" data-fd-duration="144" data-fd-src="asset://legacy-${clip}" data-fd-grade-temperature="0.14" data-fd-grade-contrast="-0.2" data-fd-grade-saturation="1.04" data-fd-grade-vignette="0.32"><canvas data-fd-grade-video></canvas></section>`)
@@ -23,5 +56,9 @@ export const heroRebuiltComp = defineComposition(
 );
 
 export const composition = defineComposition(mainSource, {
-  meta: { deps: ["src/data/constants.ts", "src/compositions/HeroRaw.ts", "src/compositions/HeroPlane3D.ts"] },
+  timeline: defineTimelineDocument(heroMainTimeline),
+  meta: {
+    timelineFile: "src/compositions/HeroMain.timeline.json",
+    deps: ["src/data/constants.ts", "src/compositions/HeroRaw.ts", "src/compositions/HeroPlane3D.ts"],
+  },
 });

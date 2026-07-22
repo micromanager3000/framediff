@@ -21,6 +21,7 @@ const state = {
     comp("main", "Main"),
     comp("title", "Title"),
     comp("shot", "Shot", { kind: "generate" }),
+    comp("scene", "Scene", { kind: "scene" }),
     comp("free", "Free"),
   ],
   // main nests title; title nests shot
@@ -50,8 +51,9 @@ describe("canNestComposition", () => {
     expect(canNestComposition(state, "main", "shot").ok).toBe(false);
   });
 
-  it("refuses generative targets — recipes are not stacks", () => {
+  it("refuses targets that do not own an edit timeline", () => {
     expect(canNestComposition(state, "free", "shot").ok).toBe(false);
+    expect(canNestComposition(state, "free", "scene").ok).toBe(false);
   });
 
   it("refuses unknown comps", () => {

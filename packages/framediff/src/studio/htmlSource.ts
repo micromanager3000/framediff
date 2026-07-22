@@ -265,6 +265,32 @@ export function timelineFromHtml(composition: CompositionConfig): TimelineItemSn
   });
 }
 
+/** Merge optional external edit placement data over the content projected from authored HTML. */
+export function timelineFromComposition(composition: CompositionConfig): TimelineItemSnapshot[] {
+  const items = timelineFromHtml(composition);
+  if (!composition.timeline) return items;
+  const placementById = new Map(composition.timeline.items.map((placement) => [placement.id, placement]));
+  return items.map((item) => {
+    const placement = placementById.get(item.id);
+    if (!placement) return item;
+    const content = "trimStart" in item.content || "playbackRate" in item.content
+      ? {
+          ...item.content,
+          ...(placement.trimStart == null ? {} : { trimStart: placement.trimStart }),
+          ...(placement.playbackRate == null ? {} : { playbackRate: placement.playbackRate }),
+        } as TimelineItemSnapshot["content"]
+      : item.content;
+    return {
+      ...item,
+      from: placement.from,
+      durationInFrames: Math.max(1, placement.durationInFrames),
+      ...(placement.layer == null ? {} : { layer: placement.layer }),
+      content,
+      origin: "sequence" as const,
+    };
+  });
+}
+
 export function findHtmlElementById(source: string, id: string): HtmlSourceElement | undefined {
   return flattenHtmlElements(parseHtmlSource(source)).find((element) => value(element, "data-fd-id") === id);
 }

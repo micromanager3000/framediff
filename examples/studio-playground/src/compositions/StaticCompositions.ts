@@ -1,4 +1,4 @@
-import { defineComposition, type StudioComposition } from "framediff";
+import { defineComposition, defineTimelineDocument, type StudioComposition } from "framediff";
 import mainSource from "./HeroMain.html?raw";
 import lowerThirdSource from "./LowerThird.html?raw";
 import endCardSource from "./EndCard.html?raw";
@@ -7,25 +7,129 @@ import heroFootageSource from "./HeroFootage.html?raw";
 import excerptSource from "./HeroExcerpt.html?raw";
 import heroScriptSource from "./HeroScript.html?raw";
 import directManipulationLabSource from "./labs/DirectManipulationLab.html?raw";
+import directManipulationLabDocument from "./labs/DirectManipulationLab.comp.json";
 import richPropertiesLabSource from "./labs/RichPropertiesLab.html?raw";
+import richPropertiesLabDocument from "./labs/RichPropertiesLab.comp.json";
 import editorialLabSource from "./labs/EditorialLab.html?raw";
 import productionLabSource from "./labs/ProductionLab.html?raw";
+import heroFootageTimeline from "./HeroFootage.timeline.json";
+import heroExcerptTimeline from "./HeroExcerpt.timeline.json";
+import heroMainTimeline from "./HeroMain.timeline.json";
+import gradeLabTimeline from "./labs/GradeLab.timeline.json";
+import editorialLabTimeline from "./labs/EditorialLab.timeline.json";
+import productionLabTimeline from "./labs/ProductionLab.timeline.json";
+import lowerThirdDocument from "./LowerThird.comp.json";
+import endCardDocument from "./EndCard.comp.json";
+import heroScriptDocument from "./HeroScript.comp.json";
 import { gsapMotionLabComp } from "./labs/GsapMotionLab";
 import { productionLabGuide } from "./labs/ProductionLabGuide";
 import { setupHeroGrade } from "../effects/heroLooks";
 import { FPS } from "../data/constants";
 
-export const lowerThirdComp = defineComposition(lowerThirdSource);
-export const heroScriptComp = defineComposition(heroScriptSource);
-export const endCardComp = defineComposition(endCardSource);
-export const gradeLabComp = defineComposition(gradeLabSource, { setup: setupHeroGrade });
-export const heroFootageComp = defineComposition(heroFootageSource);
-export const heroExcerptComp = defineComposition(excerptSource);
-export const directManipulationLabComp = defineComposition(directManipulationLabSource);
-export const richPropertiesLabComp = defineComposition(richPropertiesLabSource);
-export const editorialLabComp = defineComposition(editorialLabSource);
+export const lowerThirdComp = defineComposition(lowerThirdSource, {
+  document: lowerThirdDocument,
+  meta: { document: {
+    file: "src/compositions/LowerThird.comp.json",
+    schema: "src/compositions/LowerThird.schema.json",
+    bindings: { "lower-third-content": "/content", "lower-third-copy": "/copy", "lower-third-brand": "/brand" },
+  } },
+});
+export const heroScriptComp = defineComposition(heroScriptSource, {
+  document: heroScriptDocument,
+  meta: { document: {
+    file: "src/compositions/HeroScript.comp.json",
+    schema: "src/compositions/HeroScript.schema.json",
+    bindings: { "hero-script-title": "/title" },
+  } },
+});
+export const endCardComp = defineComposition(endCardSource, {
+  document: endCardDocument,
+  meta: { document: {
+    file: "src/compositions/EndCard.comp.json",
+    schema: "src/compositions/EndCard.schema.json",
+    bindings: { cta: "/cta", "end-card-line": "/line", "end-card-url": "/url", "end-card-shine": "/shine" },
+  } },
+});
+export const gradeLabComp = defineComposition(gradeLabSource, {
+  timeline: defineTimelineDocument(gradeLabTimeline),
+  setup: setupHeroGrade,
+  meta: { timelineFile: "src/compositions/labs/GradeLab.timeline.json" },
+});
+export const heroFootageComp = defineComposition(heroFootageSource, {
+  timeline: defineTimelineDocument(heroFootageTimeline),
+  meta: { timelineFile: "src/compositions/HeroFootage.timeline.json" },
+});
+export const heroExcerptComp = defineComposition(excerptSource, {
+  timeline: defineTimelineDocument(heroExcerptTimeline),
+  meta: { timelineFile: "src/compositions/HeroExcerpt.timeline.json" },
+});
+export const directManipulationLabComp = defineComposition(directManipulationLabSource, {
+  document: directManipulationLabDocument,
+  meta: {
+    authoring: { timeline: "hidden", transport: "always", directManipulation: true },
+    document: {
+      file: "src/compositions/labs/DirectManipulationLab.comp.json",
+      schema: "src/compositions/labs/DirectManipulationLab.schema.json",
+      bindings: {
+        "lab-scene": "/scene",
+        "lab-eyebrow": "/eyebrow",
+        "lab-title": "/title",
+        "lab-title-lead": "/titleLead",
+        "lab-title-accent": "/titleAccent",
+        "move-card": "/moveCard",
+        "move-card-label": "/moveCardLabel",
+        "move-card-title": "/moveCardTitle",
+        "move-card-copy": "/moveCardCopy",
+        "resize-card": "/resizeCard",
+        "resize-card-label": "/resizeCardLabel",
+        "resize-card-title": "/resizeCardTitle",
+        "resize-card-copy": "/resizeCardCopy",
+        "settings-card": "/settingsCard",
+        "settings-card-label": "/settingsCardLabel",
+        "settings-card-title": "/settingsCardTitle",
+        "settings-card-copy": "/settingsCardCopy",
+        "lab-hint": "/hint",
+        "lab-hint-label": "/hintLabel",
+        "lab-hint-copy": "/hintCopy",
+      },
+    },
+  },
+});
+export const richPropertiesLabComp = defineComposition(richPropertiesLabSource, {
+  document: richPropertiesLabDocument,
+  meta: {
+    authoring: { timeline: "hidden", transport: "hidden", directManipulation: true },
+    document: {
+      file: "src/compositions/labs/RichPropertiesLab.comp.json",
+      schema: "src/compositions/labs/RichPropertiesLab.schema.json",
+      bindings: {
+        "rich-scene": "/scene",
+        "rich-kicker": "/kicker",
+        "rich-headline": "/headline",
+        "gradient-panel": "/gradientPanel",
+        "gradient-label": "/gradientLabel",
+        "flex-panel": "/flexPanel",
+        "flex-text": "/flexText",
+        "flex-fill": "/flexFill",
+        "flex-layout": "/flexLayout",
+        "asset-panel": "/assetPanel",
+        "asset-title": "/assetTitle",
+        "asset-caption": "/assetCaption",
+        "rich-caption": "/caption",
+      },
+    },
+  },
+});
+export const editorialLabComp = defineComposition(editorialLabSource, {
+  timeline: defineTimelineDocument(editorialLabTimeline),
+  meta: { timelineFile: "src/compositions/labs/EditorialLab.timeline.json" },
+});
 export const productionLabComp = defineComposition(productionLabSource, {
-  meta: { deps: ["src/compositions/labs/ProductionLabGuide.ts"] },
+  timeline: defineTimelineDocument(productionLabTimeline),
+  meta: {
+    timelineFile: "src/compositions/labs/ProductionLab.timeline.json",
+    deps: ["src/compositions/labs/ProductionLabGuide.ts"],
+  },
 }) as StudioComposition;
 productionLabComp.meta = { ...productionLabComp.meta, guide: productionLabGuide };
 
@@ -38,7 +142,11 @@ export const heroRebuiltComp = defineComposition(
 );
 
 export const composition = defineComposition(mainSource, {
-  meta: { deps: ["src/data/constants.ts", "src/compositions/HeroRaw.ts", "src/compositions/HeroPlane3D.ts"] },
+  timeline: defineTimelineDocument(heroMainTimeline),
+  meta: {
+    timelineFile: "src/compositions/HeroMain.timeline.json",
+    deps: ["src/data/constants.ts", "src/compositions/HeroRaw.ts", "src/compositions/HeroPlane3D.ts"],
+  },
 });
 
 export { gsapMotionLabComp };

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "simulation": {
+      "type": "object",
+      "properties": {
+        "gravityY": { "type": "number", "title": "Gravity", "minimum": -20, "maximum": 10, "multipleOf": 0.1 },
+        "windBase": { "type": "number", "title": "Wind", "minimum": 0, "maximum": 12, "multipleOf": 0.1 },
+        "windGust": { "type": "number", "title": "Gust", "minimum": 0, "maximum": 8, "multipleOf": 0.1 },
+        "damping": { "type": "number", "title": "Damping", "minimum": 0, "maximum": 0.2, "multipleOf": 0.005 },
+        "stiffness": { "type": "number", "title": "Stiffness", "minimum": 0, "maximum": 1, "multipleOf": 0.01 },
+        "bendStiffness": { "type": "number", "title": "Bend stiffness", "minimum": 0, "maximum": 1, "multipleOf": 0.01 },
+        "pins": { "type": "string", "title": "Pins", "enum": ["none", "top", "corners"] }
+      }
+    },
+    "material": {
+      "type": "object",
+      "properties": {
+        "roughness": { "type": "number", "minimum": 0, "maximum": 1, "multipleOf": 0.01 },
+        "metalness": { "type": "number", "minimum": 0, "maximum": 1, "multipleOf": 0.01 }
+      }
+    },
+    "art": {
+      "type": "object",
+      "properties": {
+        "accent": { "type": "string", "format": "color" },
+        "title": { "type": "string" },
+        "showGrid": { "type": "boolean", "title": "Show grid" }
+      }
+    }
+  }
+}

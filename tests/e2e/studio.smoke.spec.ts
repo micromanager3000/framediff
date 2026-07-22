@@ -39,13 +39,13 @@ test("the guide lands on a stable object and preserves it across refresh", async
   await page.getByRole("button", { name: "DONE · NEXT" }).click();
   await expect(page.locator(".breadcrumb button.active")).toHaveText("DirectManipulationLab");
   await expect(page.locator(".inspector > header strong")).toHaveText("move-card");
-  await expect(page.getByRole("spinbutton", { name: "x number" })).toHaveValue("161");
+  await expect(page.getByRole("spinbutton", { name: /^x number$/i })).toHaveValue("161");
 
   await page.evaluate(() => history.replaceState(null, "", "/?comp=direct-manipulation-lab"));
   await page.reload();
   await expect(page.locator(".top-status")).toHaveText("ready");
   await expect(page.locator(".inspector > header strong")).toHaveText("move-card");
-  await expect(page.getByRole("spinbutton", { name: "x number" })).toHaveValue("161");
+  await expect(page.getByRole("spinbutton", { name: /^x number$/i })).toHaveValue("161");
 });
 
 test("compact desktop windows keep every major panel reachable without horizontal clipping", async ({ page }) => {

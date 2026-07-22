@@ -5,13 +5,22 @@ export { StudioAgentApi, exposeStudioAgentApi } from "./agent";
 export { SourceManager, type SourceState } from "./managers/SourceManager";
 export { AssetManager, type AssetState } from "./managers/AssetManager";
 export { GitManager, type GitState } from "./managers/GitManager";
-export { RenderManager, type RenderState } from "./managers/RenderManager";
+export { RenderManager, type RenderExecutor, type RenderState } from "./managers/RenderManager";
 export { InspectorManager, type InspectorManagerState } from "./managers/InspectorManager";
 export { GenerativeManager, type GenerativeManagerState } from "./managers/GenerativeManager";
 export { ProjectOperationsManager, type ProjectOperationsState } from "./managers/ProjectOperationsManager";
 export { HistoryManager, mergeGroupedReceipts, type HistoryState } from "./managers/HistoryManager";
 export { artifactStatusFromInputs, buildTimelineLanes, frontTrimPlacement, timelineItemLabel, type FrontTrimResult } from "./timeline";
 export { canNestComposition, type NestVerdict } from "./nesting";
+export {
+  COMPOSITION_KIND_CONTRACTS,
+  compositionKindContract,
+  compositionKindAuthoringDefaults,
+  resolveCompositionAuthoring,
+  type CompositionKindContract,
+  type CompositionKindAuthoringDefaults,
+  type ResolvedCompositionAuthoring,
+} from "./authoring";
 export {
   fitGesturePath,
   makeArcSegment,
@@ -72,8 +81,11 @@ export type {
   CacheEntryDescriptor,
   ColorGradeEffectSnapshot,
   CompositionDescriptor,
+  CompositionAuthoringDescriptor,
   CompositionKind,
   CompositionOutputKind,
+  CompositionTimelineMode,
+  CompositionTransportMode,
   ProjectObjectKind,
   ProjectObjectRef,
   PropertyAuthority,

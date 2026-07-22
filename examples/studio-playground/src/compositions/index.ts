@@ -28,6 +28,8 @@ import {
   studioPlaygroundComp,
   worldLabComp,
 } from "./playground/StudioPlayground";
+import { planLabComp } from "./playground/PlanLab";
+import { boardLabComp } from "./playground/BoardLab";
 
 export {
   composition,
@@ -55,6 +57,8 @@ export {
   clothLabComp,
   worldLabComp,
   audioLabComp,
+  planLabComp,
+  boardLabComp,
 };
 
 export const baseRegistry: CompRegistry = {
@@ -68,6 +72,8 @@ export const baseRegistry: CompRegistry = {
   "cloth-lab": clothLabComp,
   "world-lab": worldLabComp,
   "audio-lab": audioLabComp,
+  "plan-lab": planLabComp,
+  "board-lab": boardLabComp,
   "production-lab": productionLabComp,
   main: composition,
   "hero-script": heroScriptComp,

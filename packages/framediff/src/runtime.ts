@@ -7,6 +7,8 @@ import type {
 import type { AssetResolver } from "./assets/resolver";
 import { gradeLayerFilter, gradeLayerVignette } from "./effects/gradeLayerCss";
 import { isTimelineElementActive } from "./render/activeElement";
+import { clampVisualMediaTime } from "./render/mediaTime";
+import { jsonPointerValue } from "./studio/jsonDocument";
 import { isolateCompositionStyles } from "./styleScope";
 
 type Cleanup = () => void;
@@ -29,6 +31,7 @@ export interface CompositionHandle {
   readonly root: HTMLElement;
   readonly ready: Promise<void>;
   update(options: Partial<Pick<CompositionFrameState, "frame" | "playing" | "gradeBypass">>): void;
+  updateDocument(document: unknown): void;
   destroy(): void;
 }
 
@@ -105,6 +108,23 @@ function clipWindow(element: HTMLElement, comp: CompositionConfig): ClipWindow |
 
 function allElements(root: HTMLElement): HTMLElement[] {
   return [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))];
+}
+
+function applyTimelineDocument(root: HTMLElement, composition: CompositionConfig): void {
+  if (!composition.timeline) return;
+  const placementById = new Map(composition.timeline.items.map((item) => [item.id, item]));
+  for (const element of root.querySelectorAll<HTMLElement>("[data-fd-id]")) {
+    const placement = placementById.get(element.dataset.fdId ?? "");
+    if (!placement) continue;
+    element.setAttribute("data-fd-from", String(placement.from));
+    element.setAttribute("data-fd-duration", String(Math.max(1, placement.durationInFrames)));
+    if (placement.layer == null) element.removeAttribute("data-fd-layer");
+    else element.setAttribute("data-fd-layer", String(placement.layer));
+    if (placement.trimStart == null) element.removeAttribute("data-fd-trim-start");
+    else element.setAttribute("data-fd-trim-start", String(placement.trimStart));
+    if (placement.playbackRate == null) element.removeAttribute("data-fd-playback-rate");
+    else element.setAttribute("data-fd-playback-rate", String(placement.playbackRate));
+  }
 }
 
 function resolveNested(registry: CompositionRegistry, value: string): CompositionConfig | undefined {
@@ -212,6 +232,72 @@ function applyEditableProperties(element: HTMLElement): void {
   }
 }
 
+const DOCUMENT_PROPERTY_ATTRIBUTES: Record<string, string> = {
+  x: "data-fd-x",
+  y: "data-fd-y",
+  width: "data-fd-width",
+  height: "data-fd-height",
+  rotation: "data-fd-rotation",
+  scale: "data-fd-scale",
+  opacity: "data-fd-opacity",
+  zIndex: "data-fd-z-index",
+  borderRadius: "data-fd-border-radius",
+  text: "data-fd-text",
+  color: "data-fd-color",
+  background: "data-fd-background",
+  fontFamily: "data-fd-font-family",
+  fontWeight: "data-fd-font-weight",
+  fontStyle: "data-fd-font-style",
+  fontSize: "data-fd-font-size",
+  lineHeight: "data-fd-line-height",
+  letterSpacing: "data-fd-letter-spacing",
+  textAlign: "data-fd-text-align",
+  textDecoration: "data-fd-text-decoration",
+  textTransform: "data-fd-text-transform",
+  layout: "data-fd-layout",
+  flexDirection: "data-fd-flex-direction",
+  flexWrap: "data-fd-flex-wrap",
+  justify: "data-fd-justify",
+  alignItems: "data-fd-align-items",
+  alignContent: "data-fd-align-content",
+  gap: "data-fd-gap",
+  padding: "data-fd-padding",
+  blendMode: "data-fd-blend-mode",
+  isolation: "data-fd-isolation",
+  fill: "data-fd-fill",
+  fillColor: "data-fd-fill-color",
+  gradientAngle: "data-fd-gradient-angle",
+  gradientStops: "data-fd-gradient-stops",
+  image: "data-fd-image",
+  fit: "data-fd-fit",
+  imagePosition: "data-fd-image-position",
+  src: "data-fd-src",
+  volume: "data-fd-volume",
+  muted: "data-fd-muted",
+};
+
+/**
+ * A document binding is also the default direct-manipulation adapter. Recognized presentation
+ * properties become the same data-fd runtime attributes used by HTML-authored comps, so preview,
+ * exact render, Inspector, and canvas gestures all read one JSON value.
+ */
+function applyCompositionDocument(root: HTMLElement, composition: CompositionConfig, value: unknown): void {
+  const bindings = composition.meta?.document?.bindings;
+  if (!bindings || value == null || typeof value !== "object") return;
+  const elements = [root, ...Array.from(root.querySelectorAll<HTMLElement>("[data-fd-id]"))];
+  for (const [objectId, pointer] of Object.entries(bindings)) {
+    const element = elements.find((candidate) => candidate.dataset.fdId === objectId);
+    const properties = jsonPointerValue(value, pointer);
+    if (!element || properties == null || typeof properties !== "object" || Array.isArray(properties)) continue;
+    for (const [property, attribute] of Object.entries(DOCUMENT_PROPERTY_ATTRIBUTES)) {
+      const next = (properties as Record<string, unknown>)[property];
+      if (typeof next !== "string" && typeof next !== "number" && typeof next !== "boolean") continue;
+      element.setAttribute(attribute, String(next));
+    }
+    applyEditableProperties(element);
+  }
+}
+
 function gradeOf(element: HTMLElement) {
   return {
     exposure: numeric(element, "data-fd-grade-exposure", 0),
@@ -248,9 +334,13 @@ export function mountComposition(
   const abort = new AbortController();
   const cleanups: Cleanup[] = [];
   const frameListeners = new Set<CompositionFrameListener>();
+  const documentListeners = new Set<(document: unknown) => void | Promise<void>>();
+  let currentDocument = composition.document;
   const nested: NestedMount[] = [];
   const parsed = parseDocument(composition.html);
   const root = parsed.root;
+  applyTimelineDocument(root, composition);
+  applyCompositionDocument(root, composition, currentDocument);
   root.style.position ||= "relative";
   root.style.width ||= `${composition.width}px`;
   root.style.height ||= `${composition.height}px`;
@@ -271,6 +361,39 @@ export function mountComposition(
   const resolveAsset = async (ref: string): Promise<string> => {
     if (!resolver) return ref;
     return (await resolver.resolve(ref)).url;
+  };
+
+  const refreshDocumentMedia = async (): Promise<void> => {
+    await Promise.all(allElements(root).map(async (element) => {
+      if (!(element instanceof HTMLMediaElement)) return;
+      const authored = inheritedValue(element, "data-fd-src") ?? element.getAttribute("src") ?? "";
+      if (!authored) {
+        element.removeAttribute("src");
+        return;
+      }
+      element.setAttribute("data-fd-src", authored);
+      const immediate = resolver?.peek(authored)?.url;
+      if (immediate) element.src = immediate;
+      const url = await resolveAsset(authored);
+      if (!abort.signal.aborted && element.getAttribute("data-fd-src") === authored) element.src = url;
+    }));
+  };
+
+  const refreshDocumentImages = async (): Promise<void> => {
+    await Promise.all(allElements(root).map(async (element) => {
+      if (!element.hasAttribute("data-fd-image")) return;
+      const authored = element.getAttribute("data-fd-image") ?? "";
+      if (!authored) {
+        element.style.backgroundImage = "";
+        return;
+      }
+      const immediate = resolver?.peek(authored)?.url;
+      if (immediate) element.style.backgroundImage = `url("${immediate.replaceAll('"', '%22')}")`;
+      const url = await resolveAsset(authored);
+      if (!abort.signal.aborted && element.getAttribute("data-fd-image") === authored) {
+        element.style.backgroundImage = `url("${url.replaceAll('"', '%22')}")`;
+      }
+    }));
   };
 
   const mediaReady = Promise.all(elements.flatMap((element) => {
@@ -339,6 +462,11 @@ export function mountComposition(
     frameListeners.add(listener);
     return () => frameListeners.delete(listener);
   };
+  const onDocument = (listener: (document: unknown) => void | Promise<void>): Cleanup => {
+    if (abort.signal.aborted) return () => {};
+    documentListeners.add(listener);
+    return () => documentListeners.delete(listener);
+  };
   const onCleanup = (cleanup: Cleanup) => {
     // Async setup may finish after its composition was replaced (for example while the asset
     // manifest is loading). Dispose late resources immediately instead of leaking hidden media,
@@ -356,16 +484,20 @@ export function mountComposition(
     registry,
     resolver,
     signal: abort.signal,
+    document: currentDocument,
     query: <T extends Element = HTMLElement>(selector: string) => root.querySelector<T>(selector),
     queryAll: <T extends Element = HTMLElement>(selector: string) => Array.from(root.querySelectorAll<T>(selector)),
     onFrame,
+    onDocument,
     onCleanup,
     resolveAsset,
   };
 
   const scriptApi = {
     composition,
+    document: currentDocument,
     onFrame,
+    onDocument,
     onCleanup,
     query: setupContext.query,
     queryAll: setupContext.queryAll,
@@ -416,7 +548,10 @@ export function mountComposition(
       if (element instanceof HTMLVideoElement) {
         const trimStart = inheritedNumeric(element, "data-fd-trim-start", 0);
         const rate = inheritedNumeric(element, "data-fd-playback-rate", 1);
-        const target = trimStart + ((local.frame + 0.5) / composition.fps) * rate;
+        const target = clampVisualMediaTime(
+          trimStart + ((local.frame + 0.5) / composition.fps) * rate,
+          element.duration,
+        );
         element.setAttribute("data-framediff-video", "");
         element.dataset.framediffTime = String(target);
         element.playbackRate = rate;
@@ -442,7 +577,8 @@ export function mountComposition(
         element.dataset.framediffVolume = String(volume);
         element.volume = volume;
         element.playbackRate = rate;
-        if (local.active && inDomain && state.playing) {
+        const sourceActive = target >= 0 && (!Number.isFinite(element.duration) || target < element.duration);
+        if (local.active && inDomain && sourceActive && state.playing) {
           if (Math.abs(element.currentTime - target) > 0.5) { try { element.currentTime = target; } catch { /* media may not be ready */ } }
           if (element.paused) void element.play().catch(() => {});
         } else if (!element.paused) element.pause();
@@ -497,6 +633,28 @@ export function mountComposition(
     root,
     ready,
     update,
+    updateDocument(document: unknown) {
+      if (abort.signal.aborted) return;
+      currentDocument = document;
+      applyCompositionDocument(root, composition, document);
+      void refreshDocumentImages().catch((error) => {
+        if (!abort.signal.aborted) console.error("FrameDiff document image update failed.", error);
+      });
+      void refreshDocumentMedia().catch((error) => {
+        if (!abort.signal.aborted) console.error("FrameDiff document media update failed.", error);
+      });
+      root.dispatchEvent(new CustomEvent("framediff:document", { detail: document }));
+      for (const listener of documentListeners) {
+        try {
+          const result = listener(document);
+          if (result) void result.catch((error) => {
+            if (!abort.signal.aborted) console.error("FrameDiff document listener failed.", error);
+          });
+        } catch (error) {
+          if (!abort.signal.aborted) console.error("FrameDiff document listener failed.", error);
+        }
+      }
+    },
     destroy() {
       if (abort.signal.aborted) return;
       abort.abort();
@@ -505,6 +663,7 @@ export function mountComposition(
         try { cleanup(); } catch { /* cleanup should not prevent unmount */ }
       }
       frameListeners.clear();
+      documentListeners.clear();
       host.replaceChildren();
     },
   };

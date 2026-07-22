@@ -44,6 +44,8 @@ export interface MoodboardOptions {
   dataFile?: string;
   /** Project-relative module registering this comp (data-fd-source). */
   file?: string;
+  module?: string;
+  exportName?: string;
 }
 
 const MIN_ZOOM = 0.25;
@@ -94,7 +96,15 @@ export function defineMoodboardComposition(data: MoodboardData, options: Moodboa
 `;
 
   return defineComposition(html, {
-    meta: { sourceFormat: "generated", file: options.file },
+    document: data,
+    meta: {
+      sourceFormat: "generated",
+      file: options.file,
+      module: options.module ?? options.file,
+      exportName: options.exportName,
+      authoring: { timeline: "hidden", transport: "hidden", directManipulation: true },
+      ...(options.dataFile ? { document: { file: options.dataFile, hotUpdate: "patch" } } : {}),
+    },
     setup: createMoodboardSetup(data, { width, height, dataFile: options.dataFile }),
   });
 }
@@ -103,7 +113,7 @@ function createMoodboardSetup(
   data: MoodboardData,
   bounds: { width: number; height: number; dataFile?: string },
 ) {
-  return async ({ root, query, queryAll, signal, onCleanup }: CompositionSetupContext) => {
+  return async ({ root, query, queryAll, signal, onCleanup, onDocument }: CompositionSetupContext) => {
     // The data file is the truth: read it live so persisted edits never have to reload
     // an imported module (which would remount the comp mid-gesture). The inline data
     // argument seeds first mount and non-dev contexts.
@@ -161,7 +171,12 @@ function createMoodboardSetup(
     const place = (card: HTMLElement, item: MoodboardItem) => {
       card.style.transform = `translate(${item.x}px, ${item.y}px) rotate(${item.rotation ?? 0}deg)`;
     };
-    world.replaceChildren(...data.items.map(renderItem));
+    let sizeObserver: ResizeObserver | undefined;
+    const renderCards = () => {
+      world.replaceChildren(...data.items.map(renderItem));
+      if (sizeObserver) for (const card of queryAll<HTMLElement>(".fd-mb-item")) sizeObserver.observe(card);
+    };
+    renderCards();
 
     const applyCamera = () => {
       world.style.transform = `translate(${camera.x}px, ${camera.y}px) scale(${camera.zoom})`;
@@ -328,9 +343,20 @@ function createMoodboardSetup(
     // The first draw can run before the comp stylesheet lays cards out (unstyled cards
     // measure board-wide, which smears the minimap). Card sizes are observed, so the
     // minimap redraws as layout settles — and again whenever images load or cards grow.
-    const sizeObserver = new ResizeObserver(() => drawMinimap());
+    sizeObserver = new ResizeObserver(() => drawMinimap());
     for (const card of queryAll<HTMLElement>(".fd-mb-item")) sizeObserver.observe(card);
-    onCleanup(() => sizeObserver.disconnect());
+    onCleanup(() => sizeObserver?.disconnect());
+    onDocument((next) => {
+      if (!next || typeof next !== "object" || !Array.isArray((next as Partial<MoodboardData>).items)) return;
+      const board = next as MoodboardData;
+      data.items = board.items.map((item) => ({ ...item }));
+      data.camera = { ...(board.camera ?? data.camera) };
+      camera.x = data.camera.x;
+      camera.y = data.camera.y;
+      camera.zoom = data.camera.zoom || 1;
+      renderCards();
+      applyCamera();
+    });
     // Test/debug handle: lets integration tests drive the camera deterministically.
     (root as HTMLElement & { __fdMoodboard?: unknown }).__fdMoodboard = { camera, data, applyCamera };
     onCleanup(() => clearTimeout(persistTimer));

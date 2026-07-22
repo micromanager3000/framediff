@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "cta": { "type": "object", "title": "End card", "properties": { "opacity": { "type": "number", "title": "Opacity", "minimum": 0, "maximum": 1, "step": 0.01, "x-ui": "slider" } } },
+    "line": { "type": "object", "title": "Intro line", "properties": { "text": { "type": "string", "title": "Text" }, "color": { "type": "string", "title": "Color", "format": "color" } } },
+    "url": { "type": "object", "title": "URL", "properties": { "text": { "type": "string", "title": "Text" }, "color": { "type": "string", "title": "Color", "format": "color" } } },
+    "shine": { "type": "object", "title": "Shine audio", "properties": { "src": { "type": "string", "title": "Asset", "format": "asset" }, "volume": { "type": "number", "title": "Volume", "minimum": 0, "maximum": 1, "step": 0.01, "x-ui": "slider" }, "muted": { "type": "boolean", "title": "Muted" } } }
+  }
+}

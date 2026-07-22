@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "shot-01",
+      "from": 0,
+      "durationInFrames": 44
+    },
+    {
+      "id": "shot-02",
+      "from": 44,
+      "durationInFrames": 47
+    },
+    {
+      "id": "shot-03",
+      "from": 91,
+      "durationInFrames": 54
+    },
+    {
+      "id": "shot-04a",
+      "from": 145,
+      "durationInFrames": 84
+    },
+    {
+      "id": "shot-04b",
+      "from": 229,
+      "durationInFrames": 24
+    },
+    {
+      "id": "shot-04c",
+      "from": 253,
+      "durationInFrames": 42
+    },
+    {
+      "id": "shot-05",
+      "from": 295,
+      "durationInFrames": 50
+    },
+    {
+      "id": "shot-06",
+      "from": 345,
+      "durationInFrames": 48
+    },
+    {
+      "id": "shot-07",
+      "from": 393,
+      "durationInFrames": 50
+    },
+    {
+      "id": "shot-08",
+      "from": 443,
+      "durationInFrames": 56
+    },
+    {
+      "id": "shot-09",
+      "from": 499,
+      "durationInFrames": 70
+    },
+    {
+      "id": "shot-10",
+      "from": 569,
+      "durationInFrames": 38
+    },
+    {
+      "id": "shot-11",
+      "from": 607,
+      "durationInFrames": 58
+    },
+    {
+      "id": "shot-12",
+      "from": 665,
+      "durationInFrames": 66
+    },
+    {
+      "id": "shot-13",
+      "from": 731,
+      "durationInFrames": 58
+    },
+    {
+      "id": "shot-14",
+      "from": 789,
+      "durationInFrames": 40
+    },
+    {
+      "id": "caption-meeting",
+      "from": 70,
+      "durationInFrames": 80
+    },
+    {
+      "id": "caption-background",
+      "from": 350,
+      "durationInFrames": 45
+    },
+    {
+      "id": "caption-media",
+      "from": 450,
+      "durationInFrames": 48
+    },
+    {
+      "id": "caption-cameras",
+      "from": 500,
+      "durationInFrames": 40
+    },
+    {
+      "id": "caption-camera",
+      "from": 543,
+      "durationInFrames": 45
+    },
+    {
+      "id": "lower-third",
+      "from": 180,
+      "durationInFrames": 168
+    },
+    {
+      "id": "logo-bumper",
+      "from": 829,
+      "durationInFrames": 54
+    },
+    {
+      "id": "closing",
+      "from": 883,
+      "durationInFrames": 72
+    },
+    {
+      "id": "end-card",
+      "from": 955,
+      "durationInFrames": 137
+    },
+    {
+      "id": "music-bed",
+      "from": 0,
+      "durationInFrames": 1092
+    },
+    {
+      "id": "shine",
+      "from": 145,
+      "durationInFrames": 947
+    },
+    {
+      "id": "logo-reveal",
+      "from": 829,
+      "durationInFrames": 263
+    },
+    {
+      "id": "end-shine",
+      "from": 955,
+      "durationInFrames": 137
+    }
+  ]
+}

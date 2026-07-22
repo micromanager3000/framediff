@@ -1,4 +1,5 @@
 import type { VideoFrameSource } from "../render/videoFrames";
+import { clampVisualMediaTime } from "../render/mediaTime";
 
 const DEFAULT_PREVIEW_DECODE_TIMEOUT_MS = 350;
 
@@ -9,8 +10,8 @@ export type CaptureModeProvider = () => boolean;
 export const isFrameDiffCaptureMode: CaptureModeProvider = () =>
   typeof window !== "undefined" && (window as unknown as { __FRAMEDIFF_CAPTURE_MODE__?: boolean }).__FRAMEDIFF_CAPTURE_MODE__ === true;
 
-export function sourceTimeAtFrame(frame: number, fps: number, trimStart = 0, playbackRate = 1): number {
-  return trimStart + ((frame + 0.5) / fps) * playbackRate;
+export function sourceTimeAtFrame(frame: number, fps: number, trimStart = 0, playbackRate = 1, durationSeconds?: number | null): number {
+  return clampVisualMediaTime(trimStart + ((frame + 0.5) / fps) * playbackRate, durationSeconds);
 }
 
 export interface SourceFrameOptions {

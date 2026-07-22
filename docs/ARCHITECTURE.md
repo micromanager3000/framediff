@@ -98,10 +98,17 @@ Project code is authoritative. The Studio derives canvas, timeline, Inspector, a
 and agent views from the running composition and its declared source metadata. Stable `data-fd-id`
 values join those views.
 
+Settings and complex spatial data may live in a composition JSON document consumed by setup code.
+JSON Schema supplies generic primitive controls, while object-to-JSON-Pointer bindings let direct
+preview tools and the Inspector edit the same data. Edit placement data may live in a separate
+versioned timeline JSON document. See [COMPOSITION-AUTHORING.md](./COMPOSITION-AUTHORING.md).
+
 Editable literal values retain source provenance. A Studio gesture uses guarded source revisions and
-produces a reversible receipt; computed or opaque values remain renderable but read-only until the
-user explicitly materializes or unrolls them. Nested content remains owned by the child composition
-until the user opens that composition. The exact mutation and history rules are in
+produces a reversible receipt. JSON-bound presentation values write their bound JSON Pointer;
+remaining HTML geometry becomes explicit on the first drag or resize, without a preparatory mode.
+Computed code still needs a registered adapter or explicit unroll before its internals can be edited.
+Nested content remains owned by the child composition until the user opens that composition. The
+exact mutation and history rules are in
 [STUDIO-EDITING-CONTRACTS.md](./STUDIO-EDITING-CONTRACTS.md).
 
 The current implementation does not require every frame-phase effect to exist as a separately

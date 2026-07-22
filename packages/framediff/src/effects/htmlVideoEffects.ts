@@ -7,6 +7,8 @@ import { generateWarmGoldLUT, type LUT3D } from "./lut";
 import { createScene3DRenderer, type Plane3DParams } from "./scene3d";
 import type { V3 } from "./mat4";
 import { cameraPoseAtFrame, type CameraInterpolation, type CameraKeyframe, type VirtualCameraPose } from "./camera";
+import { clampVisualMediaTime } from "../render/mediaTime";
+import { sourceTimeAtFrame } from "./videoSourceFrame";
 
 const numeric = (element: Element, name: string, fallback: number): number => {
   const owner = element.closest<HTMLElement>("[data-fd-clip], [data-fd-from], [data-fd-duration]");
@@ -41,7 +43,7 @@ function localFrame(element: Element, fallback: number): number {
 
 function seek(video: HTMLVideoElement, time: number): Promise<void> {
   return new Promise((resolve) => {
-    const target = Math.max(0, Math.min(time, Math.max(0, (video.duration || time + 1) - 0.05)));
+    const target = clampVisualMediaTime(time, video.duration);
     if (video.readyState >= 2 && Math.abs(video.currentTime - target) < 0.04) return resolve();
     let settled = false;
     const finish = () => { if (!settled) { settled = true; resolve(); } };
@@ -172,7 +174,13 @@ export function createGradeVideoSetup(options: GradeVideoSetupOptions = {}): Com
           return;
         }
         const frame = localFrame(canvas, state.frame);
-        const target = numeric(canvas, "data-fd-trim-start", 0) + ((frame + 0.5) / composition.fps) * numeric(canvas, "data-fd-playback-rate", 1);
+        const target = sourceTimeAtFrame(
+          frame,
+          composition.fps,
+          numeric(canvas, "data-fd-trim-start", 0),
+          numeric(canvas, "data-fd-playback-rate", 1),
+          video.duration,
+        );
         canvas.dataset.framediffTime = String(target);
         grade = gradeOf(canvas, state.gradeBypass);
         // Exact capture decodes and renders through the registered capture callback below.
@@ -275,7 +283,13 @@ export function createVideoPlane3DSetup(options: VideoPlane3DSetupOptions = {}):
         const clip = canvas.closest<HTMLElement>("[data-fd-clip], [data-fd-from], [data-fd-duration]");
         const frame = localFrame(canvas, state.frame);
         const duration = Number(clip?.getAttribute("data-fd-duration") ?? composition.durationInFrames);
-        const target = numeric(canvas, "data-fd-trim-start", 0) + ((frame + 0.5) / composition.fps) * numeric(canvas, "data-fd-playback-rate", 1);
+        const target = sourceTimeAtFrame(
+          frame,
+          composition.fps,
+          numeric(canvas, "data-fd-trim-start", 0),
+          numeric(canvas, "data-fd-playback-rate", 1),
+          video.duration,
+        );
         canvas.dataset.framediffTime = String(target);
         pose = planePose(canvas, frame, duration, options, state.gradeBypass);
         if ((window as { __FRAMEDIFF_CAPTURE_MODE__?: boolean }).__FRAMEDIFF_CAPTURE_MODE__) {

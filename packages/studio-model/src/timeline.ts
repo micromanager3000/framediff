@@ -86,7 +86,9 @@ export function frontTrimPlacement(
   return {
     from: Math.round(newFrom),
     durationInFrames: Math.max(1, item.durationInFrames - deltaFrames),
-    trimStart: Math.max(0, trimStart + deltaFrames / Math.max(1, compositionFps) * playbackRate),
+    // Negative trim is intentional pre-roll. Visual sources clamp it to frame one, so extending
+    // the edit left holds rather than starting playback early and losing the original alignment.
+    trimStart: trimStart + deltaFrames / Math.max(1, compositionFps) * playbackRate,
   };
 }
 

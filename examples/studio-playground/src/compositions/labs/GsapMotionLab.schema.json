@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "eyebrow": { "type": "object", "title": "Eyebrow", "properties": { "text": { "type": "string", "title": "Text" }, "color": { "type": "string", "title": "Color", "format": "color" } } },
+    "titleLead": { "type": "object", "title": "Title lead", "properties": { "text": { "type": "string", "title": "Text" }, "color": { "type": "string", "title": "Color", "format": "color" } } },
+    "titleAccent": { "type": "object", "title": "Title accent", "properties": { "text": { "type": "string", "title": "Text" }, "color": { "type": "string", "title": "Color", "format": "color" } } },
+    "copy": { "type": "object", "title": "Body copy", "properties": { "text": { "type": "string", "title": "Text", "format": "textarea" }, "color": { "type": "string", "title": "Color", "format": "color" } } },
+    "previewLabel": { "type": "object", "properties": { "text": { "type": "string", "title": "Text" } } },
+    "previewCopy": { "type": "object", "properties": { "text": { "type": "string", "title": "Text" } } },
+    "exportLabel": { "type": "object", "properties": { "text": { "type": "string", "title": "Text" } } },
+    "exportCopy": { "type": "object", "properties": { "text": { "type": "string", "title": "Text" } } },
+    "sourceLabel": { "type": "object", "properties": { "text": { "type": "string", "title": "Text" } } },
+    "sourceCopy": { "type": "object", "properties": { "text": { "type": "string", "title": "Text" } } },
+    "badge": { "type": "object", "properties": { "text": { "type": "string", "title": "Text" } } },
+    "product": { "type": "object", "title": "Path product", "properties": { "text": { "type": "string", "title": "Text" }, "x": { "type": "number", "title": "Start X" }, "y": { "type": "number", "title": "Start Y" } } }
+  }
+}

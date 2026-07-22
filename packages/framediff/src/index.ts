@@ -2,10 +2,17 @@
 
 export {
   defineComposition,
+  defineTimelineDocument,
   combineCompositionSetups,
   type CompositionConfig,
   type CompositionRegistry,
   type CompositionMetadata,
+  type CompositionAuthoringMetadata,
+  type CompositionTimelineMode,
+  type CompositionTransportMode,
+  type CompositionTimelineDocument,
+  type CompositionTimelinePlacement,
+  type CompositionDocumentMetadata,
   type CompositionKind,
   type CompositionOutputKind,
   type CompositionSetup,

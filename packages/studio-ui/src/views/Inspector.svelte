@@ -3,6 +3,7 @@
   import type { InspectorViewModel } from "../viewmodels/Inspector.ViewModel";
   import type { MediaViewModel } from "../viewmodels/Media.ViewModel";
   import CameraInspector from "./CameraInspector.svelte";
+  import EffectEditorModal from "./EffectEditorModal.svelte";
   import InspectorField from "./InspectorField.svelte";
 
   export let viewModel: InspectorViewModel;
@@ -15,6 +16,10 @@
   let previousItemId: string | undefined;
   let arcCurvature = 0.28;
   let arcDirection: "clockwise" | "counterclockwise" = "clockwise";
+  let editorSectionId: string | null = null;
+
+  $: editorSection = editorSectionId ? $store.sections.find((section) => section.id === editorSectionId) : undefined;
+  $: documentBacked = $store.sections.some((section) => section.id.startsWith("document:"));
 
   $: if ($store.item?.id !== previousItemId) {
     previousItemId = $store.item?.id;
@@ -167,7 +172,7 @@
     <div class="empty inspector-onboarding">
       <span class="empty-icon">⌁</span>
       <strong>Choose what you want to edit</strong>
-      <p>Canvas, timeline, motion and media all resolve to the same source-backed Inspector.</p>
+      <p>Canvas, timeline, motion and media all resolve to the same Inspector and declared data authority.</p>
       <ul>
         <li><b>CANVAS</b><span>Click a stable element to move, resize, edit text or animate it.</span></li>
         <li><b>TIMELINE</b><span>Select a clip for timing, trim, layers, grade and production state.</span></li>
@@ -285,6 +290,16 @@
         </section>
       {/each}
     {:else if $store.item}
+      {#if $store.elementId}
+        <section class="inspector-section">
+          <h3>ELEMENT</h3>
+          <dl>
+            <div><dt>Stable ID</dt><dd>{$store.elementId}</dd></div>
+            <div><dt>Authority</dt><dd>{documentBacked ? "composition JSON" : "source-backed HTML"}</dd></div>
+          </dl>
+          {#if $store.canRecordGesture}<button class="path-action record" onclick={() => viewModel.armGesture()} disabled={$store.editing}>● Record gesture path</button>{/if}
+        </section>
+      {/if}
       <section class="inspector-section">
         <h3>PLACEMENT</h3>
         <label>
@@ -340,16 +355,16 @@
         <h3>ELEMENT</h3>
         <dl>
           <div><dt>Stable ID</dt><dd>{$store.elementId}</dd></div>
-          <div><dt>Authority</dt><dd>source-backed HTML</dd></div>
+          <div><dt>Authority</dt><dd>{documentBacked ? "composition JSON" : "source-backed HTML"}</dd></div>
         </dl>
-        <button class="path-action record" onclick={() => viewModel.armGesture()} disabled={$store.editing}>● Record gesture path</button>
+        {#if $store.canRecordGesture}<button class="path-action record" onclick={() => viewModel.armGesture()} disabled={$store.editing}>● Record gesture path</button>{/if}
         {#if $store.gestureDraft?.status === "preview"}
           <div class="gesture-actions"><button onclick={() => void viewModel.commitGesture()} disabled={!$store.gestureDraft.path}>Commit path</button><button onclick={() => viewModel.cancelGesture()}>Cancel</button></div>
         {/if}
       </section>
     {/if}
 
-    {#if $store.detailsLoading}<div class="panel-empty">Resolving source-backed controls…</div>{/if}
+    {#if $store.detailsLoading}<div class="panel-empty">Resolving authored controls…</div>{/if}
     {#each $store.sections as section (section.id)}
       {#if section.kind === "camera"}
         <CameraInspector
@@ -364,7 +379,10 @@
         />
       {:else}
         <section class="inspector-section advanced kind-{section.kind ?? 'data'}">
-          <h3>{section.title}</h3>
+          <div class="inspector-section-heading">
+            <h3>{section.title}</h3>
+            {#if section.editor}<button class="open-effect-editor" onclick={() => editorSectionId = section.id}>{section.editor.label} <b>↗</b></button>{/if}
+          </div>
           {#if section.presets?.length}
             <div class="preset-grid">
               {#each section.presets as preset (preset.id)}
@@ -389,3 +407,14 @@
     {#if $store.notice}<div class="message notice">{$store.notice}</div>{/if}
   {/if}
 </aside>
+
+{#if editorSection}
+  <EffectEditorModal
+    section={editorSection}
+    assets={$mediaStore.assets}
+    disabled={$store.editing}
+    onclose={() => editorSectionId = null}
+    oncommit={(fieldId, value) => void viewModel.editField(fieldId, value)}
+    onpreset={(presetId) => void viewModel.applyPreset(presetId)}
+  />
+{/if}

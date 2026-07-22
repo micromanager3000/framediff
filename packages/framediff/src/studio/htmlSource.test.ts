@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { defineComposition } from "../composition";
-import { findHtmlElementById, inspectorFieldsFromHtml, rewriteHtmlAttribute, rewriteHtmlAttributes, timelineFromHtml } from "./htmlSource";
+import { findHtmlElementById, inspectorFieldsFromHtml, rewriteHtmlAttribute, rewriteHtmlAttributes, timelineFromComposition, timelineFromHtml } from "./htmlSource";
 
 const HTML = `<!doctype html>
 <html><head><style>.title { color: white }</style></head><body>
@@ -20,6 +20,37 @@ describe("HTML composition source", () => {
       { id: "hero", from: -5, durationInFrames: 45, name: "Hero", content: { type: "video", src: "asset://hero", trimStart: 1.5 } },
       { id: "title", from: 30, durationInFrames: 30, content: { type: "layers", label: "title" } },
     ]);
+  });
+
+  it("reads composition-owned authoring overrides independently", () => {
+    const source = HTML.replace(
+      "data-fd-duration=\"90\"",
+      "data-fd-duration=\"90\" data-fd-kind=\"scene\" data-fd-timeline=\"hidden\" data-fd-transport=\"hidden\" data-fd-direct-manipulation=\"false\"",
+    );
+    expect(defineComposition(source).meta).toMatchObject({
+      kind: "scene",
+      authoring: { timeline: "hidden", transport: "hidden", directManipulation: false },
+    });
+  });
+
+  it("keeps edit placement data in an external timeline document", () => {
+    const comp = defineComposition(HTML, {
+      file: "src/Demo.html",
+      timeline: {
+        version: 1,
+        items: [
+          { id: "hero", from: 12, durationInFrames: 72, layer: 2, trimStart: -0.5 },
+          { id: "title", from: 48, durationInFrames: 20, layer: 3 },
+        ],
+      },
+      meta: { timelineFile: "src/Demo.timeline.json" },
+    });
+
+    expect(timelineFromComposition(comp)).toMatchObject([
+      { id: "hero", from: 12, durationInFrames: 72, layer: 2, content: { trimStart: -0.5 } },
+      { id: "title", from: 48, durationInFrames: 20, layer: 3 },
+    ]);
+    expect(comp.meta?.timelineFile).toBe("src/Demo.timeline.json");
   });
 
   it("rewrites existing values and inserts defaulted placement attributes", () => {

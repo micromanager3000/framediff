@@ -342,6 +342,31 @@ describe("StudioSession", () => {
     });
   });
 
+  it("keeps negative trim when extending a clip left so visual pre-roll can hold frame one", async () => {
+    const runtime = new FakeRuntime();
+    runtime.probeItems = [{
+      id: "video",
+      from: 30,
+      durationInFrames: 30,
+      order: 0,
+      origin: "sequence",
+      editable: { from: true, duration: true, trimStart: true },
+      content: { type: "video", src: "asset://hero", trimStart: 1, playbackRate: 1.5 },
+    }];
+    const session = new StudioSession(runtime, new ManualClock(), "main");
+    await session.start();
+
+    await expect(session.editTimelineItem("video", { from: -10, durationInFrames: 70 })).resolves.toBe(true);
+
+    expect(runtime.edits.at(-1)).toEqual({
+      compositionKey: "main",
+      itemId: "video",
+      field: "trimStart",
+      value: -1,
+    });
+    expect(session.currentItems[0]).toMatchObject({ from: -10, durationInFrames: 70, content: { trimStart: -1 } });
+  });
+
   it("projects safe helper traces and routes unroll through the source-backed runtime", async () => {
     const runtime = new FakeRuntime();
     runtime.animationProbe = {

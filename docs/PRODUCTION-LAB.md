@@ -29,7 +29,7 @@ without playing through the intervening frames.
 | Frames | Real nested chapter | What it proves |
 | --- | --- | --- |
 | 0–179 | Production graph + pinned generated take | HTML/CSS, image/video assets, gradients, blend, frame-authored HUD |
-| 180–359 | `DirectManipulationLab` | Stable canvas selection, move/resize, constraints, computed-geometry materialization |
+| 180–359 | `DirectManipulationLab` | Stable canvas selection, immediate JSON-backed move/resize and constraints |
 | 360–539 | `RichPropertiesLab` | Text, typography, color, gradients, image fills, flex, spacing, opacity, blend/isolation |
 | 540–719 | `EditorialLab` | Source-backed lanes, stacking, real media front trims, proxy/content provenance |
 | 720–899 | `GsapMotionLab` | Frame-authored GSAP, keys/eases, curves, auto-key, arc paths, gesture recording, unroll |
@@ -49,9 +49,9 @@ The source-declared guide lives in
 cover the feature set as one production journey:
 
 1. Random-access scrub of the complete production graph.
-2. Canvas selection, move/resize, constraints, Undo and source persistence.
-3. Explicit materialization of computed geometry.
-4. Direct text editing and typed typography controls.
+2. Canvas selection, move/resize, constraints, Undo and JSON persistence.
+3. Immediate document-backed settings with no activation mode.
+4. Direct JSON text editing and typed typography controls.
 5. Gradients, image fills, flex, spacing, opacity and blend controls.
 6. Portable asset identity, originals, proxies and content hashes.
 7. Real-media front trimming with atomic Undo/Redo.

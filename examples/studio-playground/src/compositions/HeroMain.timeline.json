@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "hero",
+      "from": 0,
+      "durationInFrames": 971
+    },
+    {
+      "id": "lower-third",
+      "from": 180,
+      "durationInFrames": 168
+    },
+    {
+      "id": "end-card",
+      "from": 953,
+      "durationInFrames": 138
+    },
+    {
+      "id": "nested-blah",
+      "from": 0,
+      "durationInFrames": 150
+    }
+  ]
+}

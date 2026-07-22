@@ -268,7 +268,7 @@ export function generative(recipe: GenRecipe): GenerativeComposition {
     <div class="gen-slate"${initial ? " hidden" : ""}><div><div class="gen-id">◇ ${escapeHtml(recipe.id)}</div><div class="gen-prompt">“${prompt}”</div><div class="gen-status">${wantTake > 0 ? `take ${wantTake} not in the cache — regenerate or re-pin` : "no take pinned — Generate runs the recipe"}</div></div></div>
   </main></body></html>`;
   const composition = defineComposition(source, {
-    meta: { kind: "generate", file: recipe.file, library: true },
+    meta: { kind: "generate", file: recipe.file, module: recipe.file, sourceFormat: "generated", library: true },
     setup: ({ query, onCleanup, signal }) => {
       const video = query<HTMLVideoElement>("video")!;
       const slate = query<HTMLElement>(".gen-slate")!;

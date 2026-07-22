@@ -1,0 +1,22 @@
+{
+  "scene": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+  "eyebrow": { "x": 118, "y": 92, "width": 720, "height": 28, "text": "FrameDiff · direct manipulation" },
+  "title": { "x": 110, "y": 142, "width": 1140, "height": 174 },
+  "titleLead": { "text": "Edit JSON at the " },
+  "titleAccent": { "text": "speed of thought." },
+  "moveCard": { "x": 161, "y": 570, "width": 470, "height": 300, "rotation": -5 },
+  "moveCardLabel": { "text": "MOVE" },
+  "moveCardTitle": { "text": "Drag anywhere" },
+  "moveCardCopy": { "text": "The gesture commits exact composition pixels directly to this comp's JSON document." },
+  "resizeCard": { "x": 734, "y": 429, "width": 470, "height": 300, "rotation": 3 },
+  "resizeCardLabel": { "text": "RESIZE" },
+  "resizeCardTitle": { "text": "Pull a corner" },
+  "resizeCardCopy": { "text": "Shift preserves aspect. Alt bypasses sibling snapping. One gesture, one JSON transaction." },
+  "settingsCard": { "x": 1360, "y": 180, "width": 470, "height": 300, "rotation": -2 },
+  "settingsCardLabel": { "text": "SETTINGS" },
+  "settingsCardTitle": { "text": "Edit immediately" },
+  "settingsCardCopy": { "text": "Position, size, rotation, and copy are already JSON-backed—there is nothing to activate first." },
+  "hint": { "x": 118, "y": 976, "width": 1200, "height": 28 },
+  "hintLabel": { "text": "Try it:" },
+  "hintCopy": { "text": "click and drag immediately · arrows nudge · shift = axis/aspect · ⌘Z restores the JSON" }
+}

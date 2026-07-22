@@ -1,0 +1,6 @@
+{
+  "cta": { "opacity": 1 },
+  "line": { "text": "Get your studio up and running today at", "color": "#ffffff" },
+  "url": { "text": "lighttwist.com", "color": "#a29bfe" },
+  "shine": { "src": "asset://playground-shine", "volume": 0.8, "muted": false }
+}

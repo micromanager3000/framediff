@@ -3,6 +3,14 @@ import type { CubicMotionSegment, GestureSample } from "./motionPath";
 
 export type CompositionKind = "edit" | "3d" | "generate" | "audio" | "doc" | "plan" | "scene" | "board" | "moodboard" | "script" | "storyboard" | "locations" | "cast";
 export type CompositionOutputKind = "video" | "image";
+export type CompositionTimelineMode = "auto" | "always" | "hidden";
+export type CompositionTransportMode = "auto" | "always" | "hidden";
+
+export interface CompositionAuthoringDescriptor {
+  timeline?: CompositionTimelineMode;
+  transport?: CompositionTransportMode;
+  directManipulation?: boolean;
+}
 
 /** A source-declared, project-specific route into a real Studio workflow. */
 export interface StudioGuideTarget {
@@ -105,6 +113,8 @@ export interface CompositionDescriptor {
   render?: { from: number; to: number };
   /** Optional project walkthrough. The first declared guide is available from every composition. */
   guide?: StudioGuideDescriptor;
+  /** Composition-owned authoring capabilities; the Svelte app remains the owner of global chrome. */
+  authoring?: CompositionAuthoringDescriptor;
 }
 
 export interface ColorGradeEffectSnapshot {
@@ -494,6 +504,12 @@ export interface InspectorSectionSnapshot {
   kind?: "grade" | "camera" | "data";
   fields: InspectorFieldSnapshot[];
   presets?: { id: string; label: string }[];
+  /** Optional expanded editor for effects or other controls that outgrow the inline Inspector. */
+  editor?: {
+    presentation: "modal" | "inline-modal";
+    label: string;
+    description?: string;
+  };
 }
 
 export interface InspectorDetailsSnapshot {
@@ -588,7 +604,7 @@ export interface CacheEntryDescriptor {
   inputs?: Record<string, string>;
 }
 
-export type NewCompositionKind = "edit" | "3d" | "generate" | "audio" | "plan";
+export type NewCompositionKind = CompositionKind;
 export interface NewCompositionRequest {
   name: string;
   kind: NewCompositionKind;

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
-  import { exposeStudioAgentApi, type AgentCheckResult, type AgentFrameSnapshot, type StudioApplication, type StudioGuideStep } from "@framediff/studio-model";
+  import { exposeStudioAgentApi, resolveCompositionAuthoring, type AgentCheckResult, type AgentFrameSnapshot, type StudioApplication, type StudioGuideStep } from "@framediff/studio-model";
   import CompositionRail from "./views/CompositionRail.svelte";
   import PreviewHost from "./views/PreviewHost.svelte";
   import Timeline from "./views/Timeline.svelte";
@@ -13,6 +13,7 @@
   import NewCompositionSheet from "./views/NewCompositionSheet.svelte";
   import CacheDrawer from "./views/CacheDrawer.svelte";
   import StudioGuide from "./views/StudioGuide.svelte";
+  import DedicatedRenderWindow from "./views/DedicatedRenderWindow.svelte";
   import { StudioShellViewModel } from "./viewmodels/StudioShell.ViewModel";
   import { CompositionRailViewModel } from "./viewmodels/CompositionRail.ViewModel";
   import { TimelineViewModel } from "./viewmodels/Timeline.ViewModel";
@@ -25,6 +26,7 @@
   import { GenerativeViewModel } from "./viewmodels/Generative.ViewModel";
   import { OperationsViewModel } from "./viewmodels/Operations.ViewModel";
   import { restoreStudioSelection, serializeStudioSelection } from "./viewmodels/selectionPersistence";
+  import { postRenderWindowError, postRenderWindowState, renderWindowToken } from "./renderWindow";
   import { observableStore } from "./viewmodels/store";
   import "./studio.css";
 
@@ -46,10 +48,12 @@
   const generative = new GenerativeViewModel(application.generative, application.assets);
   const operations = new OperationsViewModel(application.operations);
   const store = shell.store;
+  const timelineStore = timeline.store;
   const chromeStore = chrome.store;
   const mediaStore = media.store;
   const operationsStore = operations.store;
   const historyStore = observableStore(application.history.state);
+  const dedicatedRenderToken = typeof window === "undefined" ? null : renderWindowToken(window.location.href);
   const compositionStorageKey = typeof window === "undefined" ? "" : `framediff:composition:${window.location.pathname}`;
   const selectionStorageKey = typeof window === "undefined" ? "" : `framediff:selection:${window.location.pathname}`;
   let rememberComposition = false;
@@ -60,6 +64,7 @@
   // Keep selection across an explicit refresh or an HMR fallback. Normal composition saves are
   // accepted by the runtime in place and do not remount this shell.
   let unsubscribeSelection: (() => void) | null = null;
+  let unsubscribeRenderWindow: (() => void) | null = null;
   let agentSurface: ReturnType<typeof exposeStudioAgentApi> | null = null;
   let agentCheck: AgentCheckResult | null = null;
   let agentChecking = false;
@@ -71,6 +76,10 @@
   let guideLoadedId = "";
   let guideCompletedIds: string[] = [];
   let activeGuideStep: StudioGuideStep | null = null;
+
+  $: currentTimelineItems = $timelineStore.lanes.flatMap((lane) => lane.items);
+  $: authoring = resolveCompositionAuthoring($store.current, currentTimelineItems, $timelineStore.animations, $timelineStore.unrollGroups);
+  $: showTimeline = authoring.timeline;
 
   $: agentErrorCount = agentCheck?.diagnostics.filter((diagnostic) => diagnostic.severity === "error").length ?? 0;
   $: agentWarningCount = agentCheck?.diagnostics.filter((diagnostic) => diagnostic.severity === "warning").length ?? 0;
@@ -252,6 +261,18 @@
   }
 
   onMount(() => {
+    if (dedicatedRenderToken) {
+      unsubscribeRenderWindow = application.render.state.subscribe((state) => postRenderWindowState(dedicatedRenderToken, state));
+      void application.start()
+        .then(async () => {
+          const started = await application.render.renderCurrent();
+          if (!started && application.render.state.get().status === "idle") {
+            throw new Error("The requested composition is not available to render.");
+          }
+        })
+        .catch((error) => postRenderWindowError(dedicatedRenderToken, error));
+      return;
+    }
     agentSurface = exposeStudioAgentApi(application);
     const explicitComposition = new URL(window.location.href).searchParams.has("comp");
     const rememberedComposition = explicitComposition ? null : window.sessionStorage.getItem(compositionStorageKey);
@@ -281,11 +302,15 @@
     window.removeEventListener("keyup", onKeyUp);
     window.removeEventListener("blur", onWindowBlur);
     unsubscribeSelection?.();
+    unsubscribeRenderWindow?.();
     agentSurface?.dispose();
     application.destroy();
   });
 </script>
 
+{#if dedicatedRenderToken}
+  <DedicatedRenderWindow viewModel={render} compositionName={$store.current?.id ?? ""} />
+{:else}
 <div class="framediff-studio">
   <header class="topbar">
     <div class="studio-brand"><span class="mark"></span><strong>FRAMEDIFF</strong><span class="edition">STUDIO</span></div>
@@ -399,7 +424,7 @@
       {/if}
     </section>
 
-    <section class="workspace" class:guided={!!activeGuideStep} class:generate-workspace={$store.current?.kind === "generate"}>
+    <section class="workspace" class:guided={!!activeGuideStep} class:generate-workspace={$store.current?.kind === "generate"} class:timeline-hidden={!showTimeline}>
       {#if activeGuideStep}
         <aside class="guide-task-bar" aria-label={`Guided task: ${activeGuideStep.title}`}>
           <div><span>{activeGuideStep.phase} · GUIDED TASK</span><strong>{activeGuideStep.title}</strong></div>
@@ -413,11 +438,11 @@
         <GenerativeWorkbench viewModel={generative} {runtime} {session} />
       {:else}
       <div class="preview-panel">
-        <PreviewHost {runtime} {session} onselect={() => chrome.showRight("inspector")} />
+        <PreviewHost {runtime} {session} directManipulation={authoring.directManipulation} onselect={() => chrome.showRight("inspector")} />
         {#if $store.gradeBypass}<div class="bypass">GRADE BYPASS</div>{/if}
       </div>
 
-      {#if !["moodboard", "locations", "cast"].includes($store.current?.kind ?? "")}
+      {#if authoring.transport}
       <div class="transport">
         <button class="t-btn t-step" onclick={() => shell.setFrame($store.frame - 1)} title="Back one frame (← in the studio, shift for 10)" aria-label="Back one frame">
           <svg viewBox="0 0 14 14"><path d="M3.6 2.5v9" stroke="currentColor" stroke-width="1.5"/><path d="M11.5 2.8v8.4L5.4 7z" fill="currentColor"/></svg>
@@ -432,14 +457,24 @@
         <button class="t-btn t-step" onclick={() => shell.setFrame($store.frame + 1)} title="Forward one frame (→ in the studio, shift for 10)" aria-label="Forward one frame">
           <svg viewBox="0 0 14 14"><path d="M10.4 2.5v9" stroke="currentColor" stroke-width="1.5"/><path d="M2.5 2.8v8.4L8.6 7z" fill="currentColor"/></svg>
         </button>
-        <span class="t-hint">scrub in the timeline below</span>
+        <span class="t-hint">{showTimeline ? "scrub in the timeline below" : "preview time"}</span>
         <button class="t-grade" class:active={$store.gradeBypass} aria-pressed={$store.gradeBypass} onclick={() => shell.setGradeBypass(!$store.gradeBypass)} title="Compare the ungraded image (hold B for momentary bypass)">{$store.gradeBypass ? "GRADE BYPASSED" : "GRADE ON"}<kbd>B</kbd></button>
         <span class="spacer"></span>
         <span class="timecode" title="Output time — 0 is the render window's start">{String($store.frame - ($store.current?.render?.from ?? 0)).padStart(4, "0")}f</span>
         <span class="duration">/ {$store.current?.render ? $store.current.render.to - $store.current.render.from : $store.current?.durationInFrames ?? 0}</span>
       </div>
 
-      <Timeline viewModel={timeline} onselect={() => chrome.showRight("inspector")} />
+      {#if showTimeline}
+        <Timeline
+          viewModel={timeline}
+          acceptCompositionDrop={authoring.acceptsCompositionDrop}
+          onselect={() => chrome.showRight("inspector")}
+          oncompositiondrop={(sourceKey, from) => {
+            const targetKey = $store.current?.key ?? "";
+            void operations.nest(targetKey, sourceKey, from);
+          }}
+        />
+      {/if}
       {/if}
       {/if}
     </section>
@@ -477,3 +512,4 @@
   {/if}
   {#if $chromeStore.cacheOpen}<CacheDrawer viewModel={operations} onclose={() => chrome.setCacheOpen(false)} />{/if}
 </div>
+{/if}

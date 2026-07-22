@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "playground-map",
+      "from": 0,
+      "durationInFrames": 150
+    },
+    {
+      "id": "playground-authoring",
+      "from": 150,
+      "durationInFrames": 480
+    },
+    {
+      "id": "playground-editorial",
+      "from": 630,
+      "durationInFrames": 480
+    },
+    {
+      "id": "playground-effects",
+      "from": 1110,
+      "durationInFrames": 480
+    },
+    {
+      "id": "playground-pipeline",
+      "from": 1590,
+      "durationInFrames": 480
+    },
+    {
+      "id": "playground-audio",
+      "from": 0,
+      "durationInFrames": 2070
+    },
+    {
+      "id": "playground-hud",
+      "from": 0,
+      "durationInFrames": 2070,
+      "layer": 50
+    }
+  ]
+}

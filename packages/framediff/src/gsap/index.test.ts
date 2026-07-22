@@ -14,6 +14,7 @@ function contextFor(
     query: () => null,
     queryAll: () => [],
     onFrame: onFrame as CompositionSetupContext["onFrame"],
+    onDocument: () => () => {},
     onCleanup,
     resolveAsset: async (ref) => ref,
   };
