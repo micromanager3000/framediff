@@ -4,22 +4,42 @@
     {
       "id": "pipeline-text-gen",
       "from": 0,
-      "durationInFrames": 120
+      "durationInFrames": 120,
+      "name": "Text to video recipe",
+      "content": {
+        "type": "nested",
+        "composition": "skyTimelapse"
+      }
     },
     {
       "id": "pipeline-ref-gen",
       "from": 120,
-      "durationInFrames": 120
+      "durationInFrames": 120,
+      "name": "Reference to video recipe",
+      "content": {
+        "type": "nested",
+        "composition": "blazerRelight"
+      }
     },
     {
       "id": "pipeline-audio",
       "from": 240,
-      "durationInFrames": 120
+      "durationInFrames": 120,
+      "name": "Audio composition",
+      "content": {
+        "type": "nested",
+        "composition": "AudioLab"
+      }
     },
     {
       "id": "pipeline-delivery",
       "from": 360,
-      "durationInFrames": 120
+      "durationInFrames": 120,
+      "name": "Delivery end card",
+      "content": {
+        "type": "nested",
+        "composition": "EndCard"
+      }
     },
     {
       "id": "pipeline-hud",

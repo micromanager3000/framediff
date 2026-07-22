@@ -40,6 +40,7 @@ const section: InspectorSectionSnapshot = {
 describe("CameraInspector view model", () => {
   it("uses the source key instead of the human label", () => {
     expect(cameraFieldKey({ id: "data:file.ts:ROWS:endFocusDistance" })).toBe("endFocusDistance");
+    expect(cameraFieldKey({ id: "json:src%2Fcamera.comp.json:%2Fmoves%2F0%2FstartCameraX" })).toBe("startCameraX");
     const fields = cameraFieldMap(section);
     expect(cameraFieldValue(fields, "shutterAngle")).toBe(90);
     expect(cameraFieldValue(fields, "motionBlurSamples")).toBe(9);

@@ -15,14 +15,26 @@ export interface CompositionAuthoringMetadata {
   directManipulation?: boolean;
 }
 
-/** Timing owned by an edit document rather than by the composition's HTML/TypeScript module. */
+/** Layer content owned by an edit document. `composition` is the stable registry key. */
+export type CompositionTimelineContent =
+  | { type: "nested"; composition: string; nestedScale?: number }
+  | { type: "video"; src: string }
+  | { type: "audio"; src: string }
+  | { type: "layers"; label?: string }
+  | { type: "camera"; camera: string }
+  | { type: "grade-layer" };
+
+/** Structure and timing owned by an edit document rather than by composition code. */
 export interface CompositionTimelinePlacement {
   id: string;
+  name?: string;
   from: number;
   durationInFrames: number;
   layer?: number;
   trimStart?: number;
   playbackRate?: number;
+  /** When present, this is a complete JSON-authored layer. Omitted for legacy HTML-backed layers. */
+  content?: CompositionTimelineContent;
 }
 
 export interface CompositionTimelineDocument {
@@ -31,8 +43,26 @@ export interface CompositionTimelineDocument {
 }
 
 /** Validate and narrow a JSON import into FrameDiff's versioned timeline document type. */
-export function defineTimelineDocument(document: { version: number; items: CompositionTimelinePlacement[] }): CompositionTimelineDocument {
-  if (document.version !== 1) throw new Error(`Unsupported composition timeline version: ${document.version}`);
+export function defineTimelineDocument(document: unknown): CompositionTimelineDocument {
+  if (!document || typeof document !== "object") throw new Error("A composition timeline must be an object.");
+  const candidate = document as { version?: unknown; items?: unknown };
+  if (candidate.version !== 1) throw new Error(`Unsupported composition timeline version: ${String(candidate.version)}`);
+  if (!Array.isArray(candidate.items)) throw new Error("A composition timeline needs an items array.");
+  for (const item of candidate.items) {
+    if (!item || typeof item !== "object") throw new Error("Every composition timeline item must be an object.");
+    const value = item as Record<string, unknown>;
+    if (typeof value.id !== "string" || !Number.isFinite(value.from) || !Number.isFinite(value.durationInFrames)) {
+      throw new Error("Every composition timeline item needs an id, from, and durationInFrames.");
+    }
+    if (value.content != null) {
+      if (typeof value.content !== "object" || typeof (value.content as Record<string, unknown>).type !== "string") {
+        throw new Error(`Timeline item ${value.id} has invalid content.`);
+      }
+      const content = value.content as Record<string, unknown>;
+      if (content.type === "nested" && typeof content.composition !== "string") throw new Error(`Nested timeline item ${value.id} needs a composition reference.`);
+      if ((content.type === "video" || content.type === "audio") && typeof content.src !== "string") throw new Error(`${content.type} timeline item ${value.id} needs a src.`);
+    }
+  }
   return document as CompositionTimelineDocument;
 }
 
@@ -148,7 +178,7 @@ export interface CompositionConfig {
   durationInFrames: number;
   setup?: CompositionSetup;
   document?: unknown;
-  /** Optional external edit data. HTML owns layer structure; this document owns placement values. */
+  /** Optional external edit data. Complete JSON-authored items own structure and placement. */
   timeline?: CompositionTimelineDocument;
   meta?: CompositionMetadata;
 }

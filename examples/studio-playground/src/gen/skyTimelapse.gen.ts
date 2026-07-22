@@ -1,20 +1,12 @@
-// A generative comp: this file IS the recipe. Prompt/params are source literals the
-// Studio edits via literal rewrites; `take:` pins which generated output ships (the
-// lockfile — takes live in framediff.assets.json with full provenance). Nothing here
-// regenerates implicitly: the Studio's Generate button is the only paid action.
+// Executable registration stays here. Prompt, params, refs, and the pinned take live in
+// skyTimelapse.gen.json, so Studio edits are document-only and never imply generation.
 
-import { generative } from "framediff";
+import { generative, type GenRecipeData } from "framediff";
+import data from "./skyTimelapse.gen.json";
 
 export const skyTimelapse = generative({
   id: "skyTimelapse",
   file: "src/gen/skyTimelapse.gen.ts",
-  provider: "fal",
-  model: "seedance-2.0",
-  tier: "fast",
-  prompt: "Timelapse of dusk clouds rolling over a city skyline, warm sodium glow rising from the streets below; locked-off wide shot, gentle film grain.",
-  duration: 4,
-  resolution: "720p",
-  aspect: "16:9",
-  audio: false,
-  take: 1,
+  dataFile: "src/gen/skyTimelapse.gen.json",
+  ...(data as GenRecipeData),
 });

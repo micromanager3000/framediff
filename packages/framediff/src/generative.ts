@@ -1,7 +1,8 @@
 // Generative compositions: the generator is a comp, not a panel.
 //
-// A `.gen.ts` file declares a recipe — prompt, refs, params — as source literals, and
-// `generative()` turns it into a StudioComposition whose HTML plays the *pinned take*:
+// A `.gen.ts` module registers executable behavior; mutable prompt/refs/params may live in an
+// adjacent `.gen.json` document. `generative()` turns the merged recipe into a StudioComposition
+// whose HTML plays the *pinned take*:
 // a content-addressed mp4 in the configured local cache (`framediff-cache` by default), recorded in framediff.assets.json with a
 // `generator` provenance block. Takes are the lockfile: `take: N` in source pins what ships,
 // and the recipe hash drifting from the pinned take's hash is what STALE means. Nothing
@@ -25,8 +26,10 @@ export interface GenRef {
 export interface GenRecipe {
   /** Comp id — also the `gen` key takes are recorded under in framediff.assets.json. */
   id: string;
-  /** Project-relative source file (enables literal edits from the Studio). */
+  /** Project-relative executable registration module. */
   file?: string;
+  /** Project-relative JSON document containing mutable recipe settings and composition refs. */
+  dataFile?: string;
   provider?: "fal";
   /** Model id — a key in GEN_MODELS (genModels.ts); the def drives params/refs/cost. */
   model?: string;
@@ -52,7 +55,8 @@ export interface GenRecipe {
 
 /** The reusable part of a generation recipe. Identity, source location, and the selected
  * take belong to the composition that forks the snapshot, not to the historical run. */
-export type GenRecipeSnapshot = Omit<GenRecipe, "id" | "file" | "take">;
+export type GenRecipeSnapshot = Omit<GenRecipe, "id" | "file" | "dataFile" | "take">;
+export type GenRecipeData = Omit<GenRecipe, "id" | "file" | "dataFile">;
 
 /** Durable provenance for each reference submitted to the provider. `src` is the authored
  * recipe reference; local assets and baked comps also record the exact bytes used. */
@@ -63,8 +67,14 @@ export interface GenInputProvenance {
 }
 
 export function genRecipeSnapshotOf(recipe: GenRecipe): GenRecipeSnapshot {
-  const { id: _id, file: _file, take: _take, ...snapshot } = recipe;
+  const { id: _id, file: _file, dataFile: _dataFile, take: _take, ...snapshot } = recipe;
   return snapshot;
+}
+
+/** JSON-authoritative portion of a generative recipe, including its pinned take. */
+export function genRecipeDataOf(recipe: GenRecipe): GenRecipeData {
+  const { id: _id, file: _file, dataFile: _dataFile, ...data } = recipe;
+  return data;
 }
 
 /** Fork a historical snapshot into the current composition's editable recipe. The old take
@@ -84,6 +94,7 @@ export function forkGenRecipe(
     ...(refs ? { refs } : {}),
     id: recipe.id,
     file: recipe.file,
+    dataFile: recipe.dataFile,
     take: recipe.take,
   };
 }
@@ -268,7 +279,7 @@ export function generative(recipe: GenRecipe): GenerativeComposition {
     <div class="gen-slate"${initial ? " hidden" : ""}><div><div class="gen-id">◇ ${escapeHtml(recipe.id)}</div><div class="gen-prompt">“${prompt}”</div><div class="gen-status">${wantTake > 0 ? `take ${wantTake} not in the cache — regenerate or re-pin` : "no take pinned — Generate runs the recipe"}</div></div></div>
   </main></body></html>`;
   const composition = defineComposition(source, {
-    meta: { kind: "generate", file: recipe.file, module: recipe.file, sourceFormat: "generated", library: true },
+    meta: { kind: "generate", file: recipe.file, module: recipe.file, sourceFormat: "generated", library: true, deps: recipe.dataFile ? [recipe.dataFile] : undefined },
     setup: ({ query, onCleanup, signal }) => {
       const video = query<HTMLVideoElement>("video")!;
       const slate = query<HTMLElement>(".gen-slate")!;

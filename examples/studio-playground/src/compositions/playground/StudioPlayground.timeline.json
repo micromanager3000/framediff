@@ -4,27 +4,52 @@
     {
       "id": "playground-map",
       "from": 0,
-      "durationInFrames": 150
+      "durationInFrames": 150,
+      "name": "00 · Capability map",
+      "content": {
+        "type": "nested",
+        "composition": "CoverageMap"
+      }
     },
     {
       "id": "playground-authoring",
       "from": 150,
-      "durationInFrames": 480
+      "durationInFrames": 480,
+      "name": "01 · Authoring systems",
+      "content": {
+        "type": "nested",
+        "composition": "AuthoringChapter"
+      }
     },
     {
       "id": "playground-editorial",
       "from": 630,
-      "durationInFrames": 480
+      "durationInFrames": 480,
+      "name": "02 · Editorial and finishing",
+      "content": {
+        "type": "nested",
+        "composition": "EditorialChapter"
+      }
     },
     {
       "id": "playground-effects",
       "from": 1110,
-      "durationInFrames": 480
+      "durationInFrames": 480,
+      "name": "03 · Simulation and spatial",
+      "content": {
+        "type": "nested",
+        "composition": "EffectsChapter"
+      }
     },
     {
       "id": "playground-pipeline",
       "from": 1590,
-      "durationInFrames": 480
+      "durationInFrames": 480,
+      "name": "04 · Generate and deliver",
+      "content": {
+        "type": "nested",
+        "composition": "PipelineChapter"
+      }
     },
     {
       "id": "playground-audio",

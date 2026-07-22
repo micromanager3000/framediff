@@ -588,7 +588,7 @@ button.camera-rig-prop-title { cursor: pointer; }
 .camera-rig-vector-head { margin-bottom: 4px; }
 .camera-rig-vector-head span, .camera-rig-vector span { overflow: hidden; color: var(--faint); font: 7px/1 var(--mono); text-overflow: ellipsis; white-space: nowrap; }
 .camera-rig-vector-head b { color: var(--faint); font: 7px/1 var(--mono); text-align: center; }
-.camera-rig-vector input, .camera-rig-number input { min-width: 0; width: 100%; padding: 6px 6px; border: 1px solid var(--line-strong); border-radius: 5px; outline: none; background: var(--panel-raised); color: var(--text); font: 8px/1 var(--mono); }
+.camera-rig-vector input, .camera-rig-number input { min-width: 0; width: 100%; min-height: 30px; padding: 6px 7px; border: 1px solid var(--line-strong); border-radius: 5px; outline: none; background: var(--panel-raised); color: var(--text); font: 11px/1 var(--mono); }
 .camera-rig-vector input:focus, .camera-rig-number input:focus { border-color: var(--blue); }
 .camera-rig-vector input:disabled, .camera-rig-number input:disabled { border-style: dashed; color: var(--faint); }
 .camera-rig-number { display: grid; grid-template-columns: 108px minmax(0, 1fr) 52px; align-items: center; gap: 7px; margin-bottom: 6px; }

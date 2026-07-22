@@ -1,7 +1,29 @@
 {
   "version": 1,
   "items": [
-    { "id": "vertical-background", "from": 0, "durationInFrames": 180, "layer": 0, "trimStart": 0 },
-    { "id": "vertical-title", "from": 15, "durationInFrames": 165, "layer": 2, "trimStart": 0 }
+    {
+      "id": "vertical-background",
+      "from": 0,
+      "durationInFrames": 180,
+      "layer": 0,
+      "trimStart": 0,
+      "name": "Vertical backdrop",
+      "content": {
+        "type": "nested",
+        "composition": "vertical-backdrop"
+      }
+    },
+    {
+      "id": "vertical-title",
+      "from": 15,
+      "durationInFrames": 165,
+      "layer": 2,
+      "trimStart": 0,
+      "name": "Vertical lower third",
+      "content": {
+        "type": "nested",
+        "composition": "vertical-lower-third"
+      }
+    }
   ]
 }

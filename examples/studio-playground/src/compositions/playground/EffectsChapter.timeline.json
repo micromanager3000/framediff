@@ -4,18 +4,33 @@
     {
       "id": "effects-cloth",
       "from": 0,
-      "durationInFrames": 160
+      "durationInFrames": 160,
+      "name": "Deterministic cloth",
+      "content": {
+        "type": "nested",
+        "composition": "ClothLab"
+      }
     },
     {
       "id": "effects-world",
       "from": 160,
       "durationInFrames": 160,
-      "trimStart": 1
+      "trimStart": 1,
+      "name": "Native Three scene",
+      "content": {
+        "type": "nested",
+        "composition": "WorldLab"
+      }
     },
     {
       "id": "effects-plane",
       "from": 320,
-      "durationInFrames": 160
+      "durationInFrames": 160,
+      "name": "Video plane camera",
+      "content": {
+        "type": "nested",
+        "composition": "HeroPlane3D.uizoom"
+      }
     },
     {
       "id": "effects-hud",

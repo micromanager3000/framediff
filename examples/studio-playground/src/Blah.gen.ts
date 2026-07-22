@@ -1,16 +1,9 @@
-import { generative } from "framediff";
+import { generative, type GenRecipeData } from "framediff";
+import data from "./Blah.gen.json";
 
 export const blahComp = generative({
   id: "Blah",
   file: "src/Blah.gen.ts",
-  provider: "fal",
-  model: "seedance-2.0",
-  prompt: "Describe the shot you want to generate.",
-  tier: "fast",
-  resolution: "720p",
-  duration: 5,
-  aspect: "16:9",
-  audio: true,
-  fps: 30,
-  take: 0,
+  dataFile: "src/Blah.gen.json",
+  ...(data as GenRecipeData),
 });

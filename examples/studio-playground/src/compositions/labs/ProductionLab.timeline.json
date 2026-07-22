@@ -12,56 +12,96 @@
       "from": 180,
       "durationInFrames": 180,
       "layer": 0,
-      "trimStart": 0
+      "trimStart": 0,
+      "name": "01 · Canvas editing",
+      "content": {
+        "type": "nested",
+        "composition": "DirectManipulationLab"
+      }
     },
     {
       "id": "chapter-properties",
       "from": 360,
       "durationInFrames": 180,
       "layer": 0,
-      "trimStart": 0
+      "trimStart": 0,
+      "name": "02 · Visual properties",
+      "content": {
+        "type": "nested",
+        "composition": "RichPropertiesLab"
+      }
     },
     {
       "id": "chapter-editorial",
       "from": 540,
       "durationInFrames": 180,
       "layer": 0,
-      "trimStart": 0
+      "trimStart": 0,
+      "name": "03 · Editorial timeline",
+      "content": {
+        "type": "nested",
+        "composition": "EditorialLab"
+      }
     },
     {
       "id": "chapter-motion",
       "from": 720,
       "durationInFrames": 180,
       "layer": 0,
-      "trimStart": 0
+      "trimStart": 0,
+      "name": "04 · GSAP, keys and paths",
+      "content": {
+        "type": "nested",
+        "composition": "GsapMotionLab"
+      }
     },
     {
       "id": "chapter-grade",
       "from": 900,
       "durationInFrames": 288,
       "layer": 0,
-      "trimStart": 0
+      "trimStart": 0,
+      "name": "05 · Grade and LUT",
+      "content": {
+        "type": "nested",
+        "composition": "GradeLab"
+      }
     },
     {
       "id": "chapter-hero",
       "from": 1188,
       "durationInFrames": 240,
       "layer": 0,
-      "trimStart": 20
+      "trimStart": 20,
+      "name": "06 · Full nested production",
+      "content": {
+        "type": "nested",
+        "composition": "HeroWithLowerThird"
+      }
     },
     {
       "id": "chapter-camera",
       "from": 1428,
       "durationInFrames": 180,
       "layer": 0,
-      "trimStart": 0
+      "trimStart": 0,
+      "name": "07 · Imported 3D camera",
+      "content": {
+        "type": "nested",
+        "composition": "HeroPlane3D.uizoom"
+      }
     },
     {
       "id": "chapter-delivery",
       "from": 1608,
       "durationInFrames": 180,
       "layer": 0,
-      "trimStart": 0
+      "trimStart": 0,
+      "name": "08 · Audio and delivery",
+      "content": {
+        "type": "nested",
+        "composition": "EndCard"
+      }
     },
     {
       "id": "production-bed",
@@ -78,7 +118,12 @@
     {
       "id": "nested-blah",
       "from": 0,
-      "durationInFrames": 150
+      "durationInFrames": 150,
+      "name": "Blah",
+      "content": {
+        "type": "nested",
+        "composition": "Blah"
+      }
     }
   ]
 }
