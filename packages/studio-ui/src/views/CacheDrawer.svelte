@@ -10,8 +10,14 @@
 
 <aside class="cache-drawer" aria-label="Cache">
   <header><strong>CACHE</strong><button onclick={onclose} aria-label="Close cache">×</button></header>
+  {#if $store.currentBake}
+    <div class="cache-current">
+      <span><b>{$store.currentBake.compositionId}</b><small>current composition</small></span>
+      <i class="state-pill {$store.currentBake.status}">{$store.currentBake.status}</i>
+    </div>
+  {/if}
   <div class="cache-actions">
-    <button onclick={() => void viewModel.bakeCurrent()} disabled={$store.busy}>{$store.busy ? "Baking…" : "Bake current"}</button>
+    <button onclick={() => void viewModel.bakeCurrent()} disabled={$store.busy || $store.currentBake?.status === "checking"}>{$store.progress ? "Baking…" : $store.currentBake?.status === "stale" ? "Bake stale composition" : "Bake current composition"}</button>
     <button onclick={() => void viewModel.refreshCache()}>Refresh</button>
   </div>
   <label class="cache-filter"><span>⌕</span><input bind:value={search} type="search" placeholder="Find an artifact…" aria-label="Find cached artifact" />{#if search}<button onclick={() => search = ""} aria-label="Clear cache search">×</button>{/if}<output>{filteredCache.length}/{$store.cache.length}</output></label>

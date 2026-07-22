@@ -70,6 +70,7 @@ export function artifactStatusFromInputs(
   currentHashes: ReadonlyMap<string, string | null>,
 ): "current" | "stale" | "untracked" {
   if (!inputs) return "untracked";
+  if (Object.keys(inputs).length !== currentHashes.size) return "stale";
   return Object.entries(inputs).every(([file, hash]) => currentHashes.get(file) === hash) ? "current" : "stale";
 }
 

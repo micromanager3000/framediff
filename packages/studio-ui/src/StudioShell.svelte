@@ -77,6 +77,25 @@
   let guideCompletedIds: string[] = [];
   let activeGuideStep: StudioGuideStep | null = null;
 
+  const bakeActionLabel = (status: string): string => status === "current"
+    ? "Bake ✓"
+    : status === "stale"
+      ? "Bake stale"
+      : status === "untracked"
+        ? "Re-bake"
+        : status === "checking"
+          ? "Bake …"
+          : "Bake comp";
+  const bakeActionTitle = (status: string): string => status === "current"
+    ? "The cached artifact matches every current render input. Bake it again."
+    : status === "stale"
+      ? "This composition changed since its cached artifact was built. Bake the current source."
+      : status === "untracked"
+        ? "The cached artifact predates source fingerprints. Bake a tracked replacement."
+        : status === "checking"
+          ? "Checking the current composition against cached artifact inputs."
+          : "This composition has no cached artifact. Bake it now.";
+
   $: currentTimelineItems = $timelineStore.lanes.flatMap((lane) => lane.items);
   $: authoring = resolveCompositionAuthoring($store.current, currentTimelineItems, $timelineStore.animations, $timelineStore.unrollGroups);
   $: showTimeline = authoring.timeline;
@@ -348,6 +367,14 @@
     <div class="top-group" role="group" aria-label="Project actions">
       <button class="top-action" onclick={() => void application.history.undo()} disabled={!$historyStore.undo.length || $historyStore.applying} title={$historyStore.undo.length ? `Undo ${$historyStore.undo[$historyStore.undo.length - 1].label} (⌘/Ctrl+Z)` : "Nothing to undo"}>Undo</button>
       <button class="top-action" onclick={() => void application.history.redo()} disabled={!$historyStore.redo.length || $historyStore.applying} title={$historyStore.redo.length ? `Redo ${$historyStore.redo[$historyStore.redo.length - 1].label} (⌘/Ctrl+Shift+Z)` : "Nothing to redo"}>Redo</button>
+      {#if $operationsStore.currentBake}
+        <button
+          class="top-action bake {$operationsStore.currentBake.status}"
+          onclick={() => void operations.bakeCurrent()}
+          disabled={$operationsStore.busy || $operationsStore.currentBake.status === "checking"}
+          title={bakeActionTitle($operationsStore.currentBake.status)}
+        >{$operationsStore.progress ? "Baking…" : bakeActionLabel($operationsStore.currentBake.status)}</button>
+      {/if}
       <button class="top-action" onclick={() => chrome.setCacheOpen(true)} title="Cached renders and bakes">Cache</button>
       <button class="refresh" onclick={() => void shell.refresh()} title="Reload compositions from source" aria-label="Reload compositions">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13.5 8a5.5 5.5 0 1 1-2-4.24"/><path d="M13.7 2.3v3.2h-3.2"/></svg>

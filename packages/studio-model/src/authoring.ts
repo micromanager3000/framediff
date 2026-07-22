@@ -72,6 +72,14 @@ function hasTemporalProjection(
   unrollGroups: UnrollGroupSnapshot[],
 ): boolean {
   if (animations.length > 0 || unrollGroups.length > 0) return true;
+  if (composition.kind === "scene" || composition.kind === "3d") {
+    if (items.length > 1) return true;
+    return items.some((item) => {
+      if (item.from !== 0 || item.durationInFrames !== composition.durationInFrames) return true;
+      if (item.content.type === "layers") return false;
+      return Object.values(item.editable ?? {}).some(Boolean);
+    });
+  }
   return items.some((item) =>
     item.content.type !== "layers"
     || item.from !== 0

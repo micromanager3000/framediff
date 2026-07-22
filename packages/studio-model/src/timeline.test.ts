@@ -51,6 +51,7 @@ describe("persistent editorial lanes", () => {
     const current = new Map([["Comp.html", "sha256:a"], ["Motion.ts", "sha256:b"]]);
     expect(artifactStatusFromInputs({ "Comp.html": "sha256:a", "Motion.ts": "sha256:b" }, current)).toBe("current");
     expect(artifactStatusFromInputs({ "Comp.html": "sha256:older" }, current)).toBe("stale");
+    expect(artifactStatusFromInputs({ "Comp.html": "sha256:a" }, current)).toBe("stale");
     expect(artifactStatusFromInputs(undefined, current)).toBe("untracked");
   });
 });

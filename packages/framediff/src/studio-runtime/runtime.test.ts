@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CompRegistry, StudioComposition } from "../studio/types";
 import { generative } from "../generative";
 import {
+  compositionAssetIds,
+  compositionRenderKeys,
   compositionSourcePaths,
   createStudioRuntime,
   isCompositionTreeRuntimeEqual,
@@ -258,6 +260,67 @@ describe("HtmlStudioRuntime generative recipe documents", () => {
 describe("HtmlStudioRuntime composition documents", () => {
   afterEach(() => vi.unstubAllGlobals());
 
+  it("commits a JSON-backed XYZ gesture as one atomic document edit", async () => {
+    const document = { moves: [{ name: "shot", startCameraX: -0.66, startCameraY: 0, startCameraZ: 2.8 }] };
+    const comp = {
+      ...composition,
+      document,
+      meta: {
+        ...composition.meta,
+        document: { file: "src/Camera.comp.json", bindings: { shot: "/moves/0" }, hotUpdate: "remount" as const },
+      },
+    } satisfies StudioComposition;
+    let transaction: { label: string; groupId?: string; files: Array<{ file: string; text: string }> } | undefined;
+    let documentText = JSON.stringify(document);
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/__framediff/assets") return new Response("missing", { status: 404 });
+      if (url.startsWith("/__framediff/src?")) {
+        const file = new URL(url, "http://local").searchParams.get("file")!;
+        if (file === "src/Camera.comp.json") return Response.json({ file, text: documentText, hash: "document:1" });
+        return new Response("missing", { status: 404 });
+      }
+      if (url === "/__framediff/edit" && init?.method === "POST") {
+        transaction = JSON.parse(String(init.body));
+        documentText = transaction!.files[0].text;
+        return Response.json({ ok: true, receipt: { id: "move-camera", label: transaction!.label, before: [], after: [] } });
+      }
+      return new Response("not found", { status: 404 });
+    }));
+    const runtime = createStudioRuntime({ main: comp } as CompRegistry);
+    const compositionUpdates = vi.fn();
+    runtime.subscribeCompositions(compositionUpdates);
+    const details = await runtime.inspectItem("main", "shot");
+    const fields = new Map(details.sections[0].fields.map((field) => [field.label, field]));
+
+    const result = await runtime.editInspectorFields({
+      compositionKey: "main",
+      itemId: "shot",
+      edits: [
+        { fieldId: fields.get("Start Camera X")!.id, value: -0.25 },
+        { fieldId: fields.get("Start Camera Y")!.id, value: 0.4 },
+        { fieldId: fields.get("Start Camera Z")!.id, value: 3.1 },
+      ],
+      label: "Move start camera",
+      groupId: "camera-gesture-1",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(transaction).toMatchObject({ label: "Move start camera", groupId: "camera-gesture-1" });
+    expect(transaction?.files).toHaveLength(1);
+    expect(transaction?.files[0].file).toBe("src/Camera.comp.json");
+    expect(compositionUpdates).toHaveBeenCalledOnce();
+    expect(JSON.parse(transaction?.files[0].text ?? "{}")).toMatchObject({
+      moves: [{ startCameraX: -0.25, startCameraY: 0.4, startCameraZ: 3.1 }],
+    });
+    const updatedDetails = await runtime.inspectItem("main", "shot");
+    expect(Object.fromEntries(updatedDetails.sections[0].fields.map((field) => [field.label, field.value]))).toMatchObject({
+      "Start Camera X": -0.25,
+      "Start Camera Y": 0.4,
+      "Start Camera Z": 3.1,
+    });
+  });
+
   it("projects bound JSON Schema properties and edits JSON without rewriting composition code", async () => {
     const document = { params: { strength: 2.5, tint: "#ff00aa", enabled: true }, motion: { drift: 24 } };
     const schema = { type: "object", properties: {
@@ -417,6 +480,93 @@ describe("HtmlStudioRuntime composition invalidation graph", () => {
     expect(compositionSourcePaths(registry, "parent")).not.toContain("src/Leaf.schema.json");
     expect(compositionSourcePaths(registry, "parent")).not.toContain("src/Unrelated.comp.json");
     expect(compositionSourcePaths(registry, "unrelated")).toEqual(["src/Unrelated.html", "src/Unrelated.comp.json"]);
+  });
+
+  it("resolves generative comp refs by registry key or composition ID", () => {
+    const leaf = {
+      ...composition,
+      id: "LeafDisplayId",
+      meta: { file: "src/Leaf.html", document: { file: "src/Leaf.comp.json" } },
+    } satisfies StudioComposition;
+    const generated = generative({
+      id: "Generated",
+      file: "src/Generated.gen.ts",
+      dataFile: "src/Generated.gen.json",
+      prompt: "Use the leaf",
+      refs: [{ kind: "video", src: "comp://LeafDisplayId" }],
+    });
+    const registry = { generated, "leaf-key": leaf } satisfies CompRegistry;
+
+    expect(compositionRenderKeys(registry, "generated")).toEqual(["generated", "leaf-key"]);
+    expect(compositionSourcePaths(registry, "generated")).toEqual([
+      "src/Generated.gen.ts",
+      "src/Generated.gen.json",
+      "src/Leaf.html",
+      "src/Leaf.comp.json",
+    ]);
+  });
+
+  it("tracks asset content dependencies through the complete composition tree", () => {
+    const leaf = {
+      ...composition,
+      id: "Leaf",
+      timeline: { version: 1 as const, items: [{
+        id: "plate", from: 0, durationInFrames: 48,
+        content: { type: "video" as const, src: "asset://plate" },
+      }] },
+    } satisfies StudioComposition;
+    const parent = {
+      ...composition,
+      id: "Parent",
+      timeline: { version: 1 as const, items: [{
+        id: "leaf", from: 0, durationInFrames: 48,
+        content: { type: "nested" as const, composition: "leaf" },
+      }] },
+    } satisfies StudioComposition;
+
+    expect(compositionAssetIds({ parent, leaf }, "parent")).toEqual(["plate"]);
+  });
+
+  it("uses fresh source, runtime, and asset hashes from one authoritative bake-input API", async () => {
+    let plateHash = "sha256:plate-v1";
+    const assetComp = {
+      ...composition,
+      meta: { file: "src/comp.ts", sourceFormat: "generated" as const },
+      timeline: { version: 1 as const, items: [{
+        id: "plate", from: 0, durationInFrames: 48,
+        content: { type: "video" as const, src: "asset://plate" },
+      }] },
+    } satisfies StudioComposition;
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url === "/__framediff/assets") return Response.json({
+        version: 1,
+        assets: { plate: { name: "Plate", contentHash: plateHash, mime: "video/mp4", bytes: 10, sources: [] } },
+      });
+      if (url.startsWith("/__framediff/src?")) {
+        const file = new URL(url, "http://local").searchParams.get("file")!;
+        return file === "src/comp.ts" ? Response.json({ file, text: "export const version = 1;", hash: "unused" }) : new Response("missing", { status: 404 });
+      }
+      return new Response("not found", { status: 404 });
+    }));
+    try {
+      const runtime = createStudioRuntime({ camera: assetComp });
+      const first = await runtime.getCompositionBakeInputs("camera");
+      expect(first.missing).toEqual([]);
+      expect(first.inputs).toMatchObject({
+        "framediff://output-kind": expect.stringMatching(/^sha256:/),
+        "src/comp.ts": expect.stringMatching(/^sha256:/),
+        "composition://camera": expect.stringMatching(/^sha256:/),
+        "asset://plate": "sha256:plate-v1",
+      });
+
+      plateHash = "sha256:plate-v2";
+      expect((await runtime.getCompositionBakeInputs("camera")).inputs["asset://plate"]).toBe("sha256:plate-v2");
+      expect((await runtime.getCompositionBakeInputs("camera", "image")).inputs["framediff://output-kind"])
+        .not.toBe(first.inputs["framediff://output-kind"]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("leaves unrelated preview trees alone but detects a changed document anywhere in a rendered tree", () => {

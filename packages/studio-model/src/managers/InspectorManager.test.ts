@@ -122,4 +122,44 @@ describe("InspectorManager", () => {
     manager.destroy();
     session.destroy();
   });
+
+  it("does not let a pre-edit Inspector load overwrite an accepted optimistic gesture", async () => {
+    let deferLoad = false;
+    let resolveStaleLoad: ((details: { compositionKey: string; itemId: string; sections: Array<{ id: string; title: string; fields: Array<{ id: string; label: string; value: number; editable: boolean }> }> }) => void) | undefined;
+    let resolveEdit: ((result: { ok: true }) => void) | undefined;
+    const details = (value: number) => ({
+      compositionKey: "main",
+      itemId: "shot",
+      sections: [{ id: "camera", title: "CAMERA", fields: [{ id: "cameraX", label: "X", value, editable: true }] }],
+    });
+    const runtime = {
+      getCompositions: () => [composition],
+      subscribeCompositions: () => () => {},
+      probe: async () => [shot],
+      inspectItem: async () => deferLoad
+        ? new Promise<ReturnType<typeof details>>((resolve) => { resolveStaleLoad = resolve; })
+        : details(1),
+      editInspectorFields: async () => new Promise<{ ok: true }>((resolve) => { resolveEdit = resolve; }),
+    } as unknown as CompositionRuntimePort;
+    const session = new StudioSession(runtime, clock, "main");
+    const manager = new InspectorManager(session, runtime);
+    manager.start();
+    await session.start();
+    session.selectItem("shot");
+    await vi.waitFor(() => expect(manager.state.get().details?.itemId).toBe("shot"));
+
+    const edit = manager.editMany([{ fieldId: "cameraX", value: 3 }]);
+    deferLoad = true;
+    const staleLoad = manager.load();
+    await vi.waitFor(() => expect(resolveStaleLoad).toBeTypeOf("function"));
+    resolveEdit?.({ ok: true });
+    expect(await edit).toBe(true);
+    expect(manager.state.get().details?.sections[0].fields[0].value).toBe(3);
+
+    resolveStaleLoad?.(details(1));
+    await staleLoad;
+    expect(manager.state.get().details?.sections[0].fields[0].value).toBe(3);
+    manager.destroy();
+    session.destroy();
+  });
 });
