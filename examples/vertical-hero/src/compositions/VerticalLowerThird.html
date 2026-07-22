@@ -1,0 +1,25 @@
+<!doctype html>
+<html><head><style>
+  [data-fd-composition]{position:relative;overflow:hidden;background:transparent;color:#fff;font-family:Inter,"SF Pro Display",system-ui,sans-serif}
+  .panel,.accent,.copy{position:absolute;will-change:transform,opacity}
+  .panel{border:1px solid rgba(255,255,255,.14);box-shadow:0 32px 90px rgba(0,0,0,.36);backdrop-filter:blur(22px)}
+  .copy{margin:0;white-space:nowrap}
+  .eyebrow{font-family:ui-monospace,monospace;font-weight:700}
+  .name{font-weight:760}
+  .role{font-weight:480}
+</style></head><body>
+<main data-fd-composition data-fd-id="VerticalLowerThird" data-fd-name="Vertical lower third" data-fd-width="1080" data-fd-height="1920" data-fd-fps="30" data-fd-duration="180" data-fd-kind="scene" data-fd-library="true" data-fd-alpha="true" data-fd-source="src/compositions/VerticalLowerThird.html" data-fd-module="src/compositions/VerticalLowerThird.ts" data-fd-export="verticalLowerThirdComp" data-fd-document="src/compositions/VerticalLowerThird.comp.json" data-fd-schema="src/compositions/VerticalLowerThird.schema.json">
+  <div class="panel" data-fd-id="lower-panel"></div>
+  <div class="accent" data-fd-id="lower-accent"></div>
+  <p class="copy eyebrow" data-fd-id="lower-eyebrow"></p>
+  <h2 class="copy name" data-fd-id="lower-name"></h2>
+  <p class="copy role" data-fd-id="lower-role"></p>
+  <script>
+    const pieces=queryAll('.panel,.accent,.copy');
+    onFrame(({frame})=>{
+      const enter=Math.min(1,Math.max(0,frame/18)), exit=Math.min(1,Math.max(0,(180-frame)/16)), show=Math.min(enter,exit);
+      const eased=1-Math.pow(1-show,3);
+      pieces.forEach((piece,index)=>{piece.style.translate=(48*(1-eased)+index*4*(1-eased))+'px 0';piece.style.opacity=String(eased)});
+    });
+  </script>
+</main></body></html>

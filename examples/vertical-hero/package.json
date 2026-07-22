@@ -1,0 +1,29 @@
+{
+  "name": "@framediff/example-vertical-hero",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A from-scratch 9:16 FrameDiff project that validates JSON-first scene editing and external edit timelines.",
+  "scripts": {
+    "prepare": "svelte-kit sync",
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "typecheck": "npm run check"
+  },
+  "dependencies": {
+    "@framediff/studio-model": "*",
+    "@framediff/studio-ui": "*",
+    "framediff": "*"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-static": "^3.0.0",
+    "@sveltejs/kit": "^2.16.0",
+    "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "svelte": "^5.0.0",
+    "svelte-check": "^4.0.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7"
+  }
+}

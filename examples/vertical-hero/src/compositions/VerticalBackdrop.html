@@ -1,0 +1,28 @@
+<!doctype html>
+<html><head><style>
+  [data-fd-composition]{position:relative;overflow:hidden;background:#080b16;color:#fff;font-family:Inter,"SF Pro Display",system-ui,sans-serif}
+  [data-fd-composition]::before{content:"";position:absolute;inset:0;background:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:72px 72px;mask-image:linear-gradient(to bottom,#000,transparent 78%)}
+  .orb{position:absolute;border-radius:50%;filter:blur(10px);will-change:transform,opacity}
+  .headline,.kicker{position:absolute;margin:0;z-index:3}
+  .headline{font-weight:760;max-width:900px}
+  .kicker{font-family:ui-monospace,monospace;font-weight:700}
+  .edge{position:absolute;left:76px;right:76px;bottom:92px;height:2px;background:linear-gradient(90deg,#b5f6df,transparent)}
+</style></head><body>
+<main data-fd-composition data-fd-id="VerticalBackdrop" data-fd-name="Vertical backdrop" data-fd-width="1080" data-fd-height="1920" data-fd-fps="30" data-fd-duration="180" data-fd-kind="scene" data-fd-library="true" data-fd-source="src/compositions/VerticalBackdrop.html" data-fd-module="src/compositions/VerticalBackdrop.ts" data-fd-export="verticalBackdropComp" data-fd-document="src/compositions/VerticalBackdrop.comp.json" data-fd-schema="src/compositions/VerticalBackdrop.schema.json">
+  <div class="orb" data-fd-id="backdrop-orb-a"></div>
+  <div class="orb" data-fd-id="backdrop-orb-b"></div>
+  <p class="kicker" data-fd-id="backdrop-kicker"></p>
+  <h1 class="headline" data-fd-id="backdrop-headline"></h1>
+  <div class="edge"></div>
+  <script>
+    let settings=document;
+    onDocument((next)=>{settings=next});
+    onFrame(({frame})=>{
+      const t=frame/Math.max(1,root.dataset.fdDuration-1), drift=settings.motion.drift, pulse=settings.motion.pulse;
+      const a=query('[data-fd-id="backdrop-orb-a"]'),b=query('[data-fd-id="backdrop-orb-b"]');
+      a.style.translate=(Math.sin(t*Math.PI*2)*drift)+'px '+(Math.cos(t*Math.PI*2)*drift*.55)+'px';
+      b.style.translate=(Math.cos(t*Math.PI*2)*drift*.7)+'px '+(Math.sin(t*Math.PI*2)*drift)+'px';
+      a.style.filter='blur(10px) brightness('+(1+pulse*Math.sin(t*Math.PI*2))+')';
+    });
+  </script>
+</main></body></html>

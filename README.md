@@ -26,6 +26,7 @@ npm run dev --workspace @framediff/example-hero-lower-third
 npm run dev --workspace @framediff/example-determinism-check
 npm run dev --workspace @framediff/example-cloth-showcase
 npm run dev --workspace @framediff/example-previz-to-gen
+npm run dev --workspace @framediff/example-vertical-hero
 ```
 
 ## Repository layout

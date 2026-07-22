@@ -1,0 +1,42 @@
+{
+  "panel": {
+    "x": 72,
+    "y": 1392,
+    "width": 936,
+    "height": 344,
+    "borderRadius": 38,
+    "background": "rgba(8, 11, 22, 0.88)"
+  },
+  "accent": {
+    "x": 106,
+    "y": 1436,
+    "width": 12,
+    "height": 238,
+    "borderRadius": 6,
+    "background": "#b5f6df"
+  },
+  "eyebrow": {
+    "text": "DESIGNING IN PUBLIC",
+    "x": 154,
+    "y": 1442,
+    "fontSize": 23,
+    "letterSpacing": 4,
+    "color": "#b5f6df"
+  },
+  "name": {
+    "text": "Ari Valdez",
+    "x": 150,
+    "y": 1502,
+    "fontSize": 76,
+    "letterSpacing": -2,
+    "color": "#ffffff"
+  },
+  "role": {
+    "text": "Creative technologist · FrameDiff",
+    "x": 154,
+    "y": 1608,
+    "fontSize": 30,
+    "letterSpacing": 0,
+    "color": "#c8c5d2"
+  }
+}

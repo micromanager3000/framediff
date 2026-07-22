@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "panel": { "$ref": "#/$defs/shape", "title": "Panel" },
+    "accent": { "$ref": "#/$defs/shape", "title": "Accent" },
+    "eyebrow": { "$ref": "#/$defs/text", "title": "Eyebrow" },
+    "name": { "$ref": "#/$defs/text", "title": "Name" },
+    "role": { "$ref": "#/$defs/text", "title": "Role" }
+  },
+  "$defs": {
+    "position": {
+      "type": "object",
+      "properties": {
+        "x": { "type": "number", "minimum": -1080, "maximum": 1080 },
+        "y": { "type": "number", "minimum": -1920, "maximum": 1920 },
+        "width": { "type": "number", "minimum": 1, "maximum": 1080 },
+        "height": { "type": "number", "minimum": 1, "maximum": 1920 }
+      }
+    },
+    "shape": {
+      "type": "object",
+      "properties": {
+        "x": { "type": "number", "minimum": -1080, "maximum": 1080 },
+        "y": { "type": "number", "minimum": -1920, "maximum": 1920 },
+        "width": { "type": "number", "minimum": 1, "maximum": 1080 },
+        "height": { "type": "number", "minimum": 1, "maximum": 1920 },
+        "borderRadius": { "type": "number", "minimum": 0, "maximum": 200 },
+        "background": { "type": "string", "title": "Background" }
+      }
+    },
+    "text": {
+      "type": "object",
+      "properties": {
+        "text": { "type": "string", "title": "Copy" },
+        "x": { "type": "number", "minimum": -1080, "maximum": 1080 },
+        "y": { "type": "number", "minimum": -1920, "maximum": 1920 },
+        "fontSize": { "type": "number", "minimum": 8, "maximum": 180 },
+        "letterSpacing": { "type": "number", "minimum": -10, "maximum": 30 },
+        "color": { "type": "string", "format": "color" }
+      }
+    }
+  }
+}

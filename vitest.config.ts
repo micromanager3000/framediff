@@ -9,6 +9,7 @@ export default defineConfig({
       "examples/hero-lower-third/src/**/*.test.ts",
       "examples/studio-playground/src/**/*.test.ts",
       "examples/cloth-showcase/src/**/*.test.ts",
+      "tests/**/*.test.ts",
     ],
     environment: "node",
   },

@@ -1,0 +1,5 @@
+.framediff-cache/
+framediff-cache/
+out/
+build/
+.svelte-kit/
