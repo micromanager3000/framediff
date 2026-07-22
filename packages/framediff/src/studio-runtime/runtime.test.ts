@@ -67,6 +67,60 @@ describe("HtmlStudioRuntime Inspector batches", () => {
   });
 });
 
+describe("HtmlStudioRuntime first recorded motion", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("bootstraps a registered timeline and commits the fitted path as one source edit", async () => {
+    const moduleSource = `import { defineComposition } from "framediff";
+import source from "./Scene.html?raw";
+export const sceneComp = defineComposition(source);`;
+    const scene = {
+      ...composition,
+      id: "Scene",
+      html: '<main data-fd-composition data-fd-id="Scene" data-fd-width="1920" data-fd-height="1080" data-fd-fps="24" data-fd-duration="48"><div data-fd-id="orb"></div></main>',
+      meta: {
+        kind: "scene" as const,
+        file: "src/Scene.html",
+        module: "src/Scene.ts",
+        exportName: "sceneComp",
+        sourceFormat: "html" as const,
+      },
+    } satisfies StudioComposition;
+    let transaction: { label: string; files: Array<{ file: string; text: string }> } | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/__framediff/assets") return new Response("missing", { status: 404 });
+      if (url.startsWith("/__framediff/src?")) {
+        const file = new URL(url, "http://local").searchParams.get("file")!;
+        if (file === "src/Scene.ts") return Response.json({ file, text: moduleSource, hash: "scene:1" });
+        return new Response("missing", { status: 404 });
+      }
+      if (url === "/__framediff/edit" && init?.method === "POST") {
+        transaction = JSON.parse(String(init.body));
+        return Response.json({ ok: true, receipt: { id: "motion-1", label: transaction!.label, before: [], after: [] } });
+      }
+      return new Response("not found", { status: 404 });
+    }));
+    const runtime = createStudioRuntime({ scene } as CompRegistry);
+
+    const result = await runtime.createMotionPath!({
+      compositionKey: "scene",
+      objectId: "orb",
+      path: "M10,20 C30,0 80,100 120,60",
+      startFrame: 3,
+      durationInFrames: 30,
+      label: "Record orb gesture",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(transaction).toMatchObject({ label: "Record orb gesture", files: [{ file: "src/Scene.ts" }] });
+    expect(transaction?.files[0].text).toContain('import { defineGsapTimeline } from "framediff/gsap";');
+    expect(transaction?.files[0].text).toContain("setup: framediffRecordedMotionSetup");
+    expect(transaction?.files[0].text).toContain('id: "orb-motion-path"');
+    expect(transaction?.files[0].text).toContain('path: "M10,20 C30,0 80,100 120,60"');
+  });
+});
+
 describe("HtmlStudioRuntime external timeline documents", () => {
   afterEach(() => vi.unstubAllGlobals());
 

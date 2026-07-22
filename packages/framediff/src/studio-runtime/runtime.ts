@@ -90,7 +90,7 @@ import {
 } from "../generative";
 import { mountComposition, type CompositionHandle } from "../runtime";
 import type { CompositionTimelineDocument } from "../composition";
-import { analyzeGsapSource, analyzeGsapUnrollGroups, insertGsapTweenSource, rewriteGsapAnimationSource, rewriteGsapMotionPathSource, rewriteGsapUnrollSource } from "../gsap/source";
+import { analyzeGsapSource, analyzeGsapUnrollGroups, ensureGsapTimelineSource, insertGsapTweenSource, rewriteGsapAnimationSource, rewriteGsapMotionPathSource, rewriteGsapUnrollSource } from "../gsap/source";
 import { parseMotionPathSvg } from "@framediff/studio-model";
 import { getGsapRuntimeTraces } from "../gsap";
 import {
@@ -1115,11 +1115,17 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   public async createAnimation(request: AnimationCreateRequest): Promise<PlacementEditResult> {
     const composition = this.registry[request.compositionKey];
     const file = composition?.meta?.module;
-    if (!composition || !file) return { ok: false, message: "This composition needs a source module with defineGsapTimeline() before a stopwatch can be enabled." };
+    if (!composition || !file) return { ok: false, message: "This composition needs an authored source module before a stopwatch can be enabled." };
     const revision = await readSourceRevision(file);
     if (!revision?.text) return { ok: false, file, message: `Could not read ${file}.` };
     const id = `${request.objectId}-${request.property}`.replace(/[^A-Za-z0-9_-]+/g, "-");
-    const inserted = insertGsapTweenSource(revision.text, {
+    const prepared = ensureGsapTimelineSource(revision.text, {
+      fps: composition.fps,
+      file,
+      exportName: composition.meta?.exportName,
+    });
+    if (!prepared.ok) return { ok: false, file, message: prepared.error };
+    const inserted = insertGsapTweenSource(prepared.text, {
       fps: composition.fps,
       file,
       id,
@@ -1165,14 +1171,20 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const composition = this.registry[request.compositionKey];
     const file = composition?.meta?.module;
     const segments = parseMotionPathSvg(request.path);
-    if (!composition || !file) return { ok: false, message: "This composition needs a registered GSAP source module for gesture paths." };
+    if (!composition || !file) return { ok: false, message: "This composition needs an authored source module for gesture paths." };
     if (!segments) return { ok: false, file, message: "Gesture fitting did not produce a valid cubic path." };
     const revision = await readSourceRevision(file);
     if (!revision?.text) return { ok: false, file, message: `Could not read ${file}.` };
     const id = `${request.objectId}-motion-path`.replace(/[^A-Za-z0-9_-]+/g, "-");
     const from = segments[0].from;
     const to = segments.at(-1)!.to;
-    const inserted = insertGsapTweenSource(revision.text, {
+    const prepared = ensureGsapTimelineSource(revision.text, {
+      fps: composition.fps,
+      file,
+      exportName: composition.meta?.exportName,
+    });
+    if (!prepared.ok) return { ok: false, file, message: prepared.error };
+    const inserted = insertGsapTweenSource(prepared.text, {
       fps: composition.fps,
       file,
       id,

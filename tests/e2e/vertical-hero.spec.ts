@@ -4,6 +4,7 @@ import { readFile, writeFile } from "node:fs/promises";
 const verticalBase = "http://127.0.0.1:4180";
 const lowerDocumentFile = "examples/vertical-hero/src/compositions/VerticalLowerThird.comp.json";
 const lowerHtmlFile = "examples/vertical-hero/src/compositions/VerticalLowerThird.html";
+const backdropModuleFile = "examples/vertical-hero/src/compositions/VerticalBackdrop.ts";
 const mainTimelineFile = "examples/vertical-hero/src/compositions/VerticalMain.timeline.json";
 const mainHtmlFile = "examples/vertical-hero/src/compositions/VerticalMain.html";
 const generatorFile = "examples/vertical-hero/src/gen/VerticalAtmosphere.gen.ts";
@@ -41,6 +42,51 @@ test("the from-scratch portrait comp edits JSON without rebuilding Studio", asyn
   } finally {
     if (await readFile(lowerDocumentFile, "utf8") !== originalDocumentText) await writeFile(lowerDocumentFile, originalDocumentText);
     if (await readFile(lowerHtmlFile, "utf8") !== originalHtml) await writeFile(lowerHtmlFile, originalHtml);
+  }
+});
+
+test("the first recorded gesture bootstraps motion source and commits without an error", async ({ page }) => {
+  const originalModule = await readFile(backdropModuleFile, "utf8");
+
+  try {
+    await page.goto(`${verticalBase}/?comp=vertical-backdrop`);
+    await expect(page.locator(".top-status")).toHaveText("ready");
+    const orbBounds = await page.locator('[data-fd-id="backdrop-orb-a"]').boundingBox();
+    const overlayBounds = await page.getByRole("application", { name: "Canvas selection and direct manipulation" }).boundingBox();
+    expect(orbBounds).not.toBeNull();
+    expect(overlayBounds).not.toBeNull();
+    await page.mouse.click(orbBounds!.x + orbBounds!.width / 2, orbBounds!.y + orbBounds!.height / 2);
+    await page.getByRole("button", { name: "● Record gesture path" }).click();
+
+    const start = { x: orbBounds!.x + orbBounds!.width / 2, y: orbBounds!.y + orbBounds!.height / 2 };
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    for (let index = 1; index <= 14; index += 1) {
+      await page.mouse.move(start.x - index * 7, start.y + Math.sin(index / 3) * 28, { steps: 2 });
+      await page.waitForTimeout(38);
+    }
+    await page.mouse.up();
+    await expect(page.getByRole("button", { name: "Commit path" })).toBeEnabled();
+    await page.getByRole("button", { name: "Commit path" }).click();
+
+    await expect.poll(async () => readFile(backdropModuleFile, "utf8")).toContain("defineGsapTimeline");
+    const committed = await readFile(backdropModuleFile, "utf8");
+    expect(committed).toContain("setup: framediffRecordedMotionSetup");
+    expect(committed).toContain('id: "backdrop-orb-a-motion-path"');
+    expect(committed).toContain("motionPath:");
+    await expect.poll(async () => page.evaluate(async () => {
+      const inspected = await window.__framediffAgent!.inspect();
+      return inspected.compositions
+        .find((entry) => entry.composition.key === "vertical-backdrop")
+        ?.animations.some((animation) => animation.id === "backdrop-orb-a-motion-path");
+    })).toBe(true);
+    await expect(page.getByText("This module has no inline defineGsapTimeline() registration.", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeEnabled();
+
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect.poll(async () => readFile(backdropModuleFile, "utf8")).toBe(originalModule);
+  } finally {
+    if (await readFile(backdropModuleFile, "utf8") !== originalModule) await writeFile(backdropModuleFile, originalModule);
   }
 });
 
