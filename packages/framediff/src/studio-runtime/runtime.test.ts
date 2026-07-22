@@ -219,12 +219,15 @@ describe("HtmlStudioRuntime composition documents", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("projects bound JSON Schema properties and edits JSON without rewriting composition code", async () => {
-    const document = { params: { strength: 2.5, tint: "#ff00aa", enabled: true } };
-    const schema = { type: "object", properties: { params: { type: "object", properties: {
-      strength: { type: "number", minimum: 0, maximum: 8 },
-      tint: { type: "string", format: "color" },
-      enabled: { type: "boolean" },
-    } } } };
+    const document = { params: { strength: 2.5, tint: "#ff00aa", enabled: true }, motion: { drift: 24 } };
+    const schema = { type: "object", properties: {
+      params: { type: "object", properties: {
+        strength: { type: "number", minimum: 0, maximum: 8 },
+        tint: { type: "string", format: "color" },
+        enabled: { type: "boolean" },
+      } },
+      motion: { type: "object", properties: { drift: { type: "number", minimum: 0, maximum: 120 } } },
+    } };
     const comp = {
       ...composition,
       document,
@@ -254,6 +257,9 @@ describe("HtmlStudioRuntime composition documents", () => {
 
     const details = await runtime.inspectItem("main", "shot");
     expect(details.sections[0].fields.map((field) => field.control?.type)).toEqual(["number", "color", "boolean"]);
+    const compositionDetails = await runtime.inspectItem("main", "CameraComp");
+    expect(compositionDetails.sections[0]).toMatchObject({ title: "COMPOSITION PROPERTIES" });
+    expect(compositionDetails.sections[0].fields.map((field) => field.label)).toEqual(["Drift"]);
     const strength = details.sections[0].fields[0];
     const result = await runtime.editInspectorField({ compositionKey: "main", itemId: "shot", fieldId: strength.id, value: 4.5 });
 

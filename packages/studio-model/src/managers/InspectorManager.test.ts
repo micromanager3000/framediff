@@ -30,6 +30,29 @@ const clock: AnimationClock = {
 };
 
 describe("InspectorManager", () => {
+  it("loads composition-level controls when nothing is selected", async () => {
+    const inspectItem = vi.fn(async (compositionKey: string, itemId: string) => ({
+      compositionKey,
+      itemId,
+      sections: [{ id: "composition", title: "COMPOSITION PROPERTIES", fields: [] }],
+    }));
+    const runtime = {
+      getCompositions: () => [composition],
+      subscribeCompositions: () => () => {},
+      probe: async () => [shot],
+      inspectItem,
+    } as unknown as CompositionRuntimePort;
+    const session = new StudioSession(runtime, clock, "main");
+    const manager = new InspectorManager(session, runtime);
+    manager.start();
+    await session.start();
+
+    await vi.waitFor(() => expect(manager.state.get().details?.itemId).toBe("Main"));
+    expect(inspectItem).toHaveBeenCalledWith("main", "Main");
+    manager.destroy();
+    session.destroy();
+  });
+
   it("reloads selected source-backed details across a probe boundary", async () => {
     let sourceValue = "before";
     const runtime = {

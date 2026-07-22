@@ -1344,10 +1344,23 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         const document = JSON.parse(files[documentMetadata.file]);
         const schemaText = documentMetadata.schema ? await readSource(documentMetadata.schema) : null;
         const schema = schemaText ? JSON.parse(schemaText) : undefined;
-        const fields = inspectorFieldsFromJsonDocument(documentMetadata.file, document, schema, documentPointer);
+        let fields = inspectorFieldsFromJsonDocument(documentMetadata.file, document, schema, documentPointer);
+        // The composition-level Inspector owns document settings that are not already owned by
+        // a clickable element. This keeps scene-wide motion/simulation controls immediately
+        // available without duplicating every element's properties in the default panel.
+        if (documentPointer === "") {
+          const elementPointers = Object.entries(documentMetadata.bindings ?? {})
+            .filter(([boundItemId, pointer]) => boundItemId !== composition.id && pointer !== "")
+            .map(([, pointer]) => pointer);
+          fields = fields.filter((field) => {
+            if (!field.id.startsWith("json:")) return true;
+            const pointer = decodeURIComponent(field.id.slice(field.id.lastIndexOf(":") + 1));
+            return !elementPointers.some((elementPointer) => pointer === elementPointer || pointer.startsWith(`${elementPointer}/`));
+          });
+        }
         if (fields.length) sections.push({
           id: `document:${documentPointer || "root"}`,
-          title: documentMetadata.inspector?.title ?? "DOCUMENT PROPERTIES",
+          title: documentMetadata.inspector?.title ?? (documentPointer === "" ? "COMPOSITION PROPERTIES" : "DOCUMENT PROPERTIES"),
           kind: documentMetadata.inspector?.kind ?? "data",
           fields,
           ...(documentMetadata.inspector?.editor ? {
@@ -1374,7 +1387,12 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       const fields = inspectorFieldsFromHtml(files[file], itemId);
       const grade = fields.filter((field) => htmlGradeAttributes.includes(field.attribute) || ["data-fd-lut", "data-fd-lut-name", "data-fd-lut-intensity"].includes(field.attribute));
       const properties = fields.filter((field) => !grade.includes(field));
-      if (properties.length) sections.push({ id: "properties", title: "PROPERTIES", kind: "data", fields: properties });
+      if (properties.length) sections.push({
+        id: "properties",
+        title: itemId === composition.id ? "COMPOSITION FORMAT" : "PROPERTIES",
+        kind: "data",
+        fields: properties,
+      });
       if (grade.length) {
         sections.push({
           id: "grade",

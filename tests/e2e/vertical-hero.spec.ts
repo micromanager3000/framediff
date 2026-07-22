@@ -9,6 +9,15 @@ const mainTimelineFile = "examples/vertical-hero/src/compositions/VerticalMain.t
 const mainHtmlFile = "examples/vertical-hero/src/compositions/VerticalMain.html";
 const generatorFile = "examples/vertical-hero/src/gen/VerticalAtmosphere.gen.ts";
 
+async function readOptionalFile(file: string): Promise<string | null> {
+  try {
+    return await readFile(file, "utf8");
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
 test("the from-scratch portrait comp edits JSON without rebuilding Studio", async ({ page }) => {
   const originalDocumentText = await readFile(lowerDocumentFile, "utf8");
   const originalHtml = await readFile(lowerHtmlFile, "utf8");
@@ -20,6 +29,7 @@ test("the from-scratch portrait comp edits JSON without rebuilding Studio", asyn
     await expect(page.locator(".top-status")).toHaveText("ready");
     await expect(page.locator(".transport")).toBeVisible();
     await expect(page.getByRole("group", { name: /Timeline/ })).toHaveCount(0);
+    await expect(page.getByRole("slider", { name: "Preview frame" })).toBeVisible();
     await expect(page.locator('[data-fd-id="lower-name"]')).toHaveText(originalName);
 
     const timeOrigin = await page.evaluate(() => performance.timeOrigin);
@@ -51,6 +61,13 @@ test("the first recorded gesture bootstraps motion source and commits without an
   try {
     await page.goto(`${verticalBase}/?comp=vertical-backdrop`);
     await expect(page.locator(".top-status")).toHaveText("ready");
+    const scrubber = page.getByRole("slider", { name: "Preview frame" });
+    await expect(scrubber).toBeVisible();
+    await scrubber.fill("90");
+    await expect(page.locator(".timecode")).toHaveText("0090f");
+    await expect(page.getByRole("heading", { name: "COMPOSITION PROPERTIES" })).toBeVisible();
+    await expect(page.getByText("Drift", { exact: true })).toBeVisible();
+    await expect(page.getByText("Select a clip for timing, trim, layers, grade and production state.", { exact: true })).toHaveCount(0);
     const orbBounds = await page.locator('[data-fd-id="backdrop-orb-a"]').boundingBox();
     const overlayBounds = await page.getByRole("application", { name: "Canvas selection and direct manipulation" }).boundingBox();
     expect(orbBounds).not.toBeNull();
@@ -69,7 +86,7 @@ test("the first recorded gesture bootstraps motion source and commits without an
     await expect(page.getByRole("button", { name: "Commit path" })).toBeEnabled();
     await page.getByRole("button", { name: "Commit path" }).click();
 
-    await expect.poll(async () => readFile(backdropModuleFile, "utf8")).toContain("defineGsapTimeline");
+    await expect.poll(async () => readOptionalFile(backdropModuleFile)).toContain("defineGsapTimeline");
     const committed = await readFile(backdropModuleFile, "utf8");
     expect(committed).toContain("setup: framediffRecordedMotionSetup");
     expect(committed).toContain('id: "backdrop-orb-a-motion-path"');
@@ -84,9 +101,9 @@ test("the first recorded gesture bootstraps motion source and commits without an
     await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeEnabled();
 
     await page.getByRole("button", { name: "Undo", exact: true }).click();
-    await expect.poll(async () => readFile(backdropModuleFile, "utf8")).toBe(originalModule);
+    await expect.poll(async () => readOptionalFile(backdropModuleFile)).toBe(originalModule);
   } finally {
-    if (await readFile(backdropModuleFile, "utf8") !== originalModule) await writeFile(backdropModuleFile, originalModule);
+    if (await readOptionalFile(backdropModuleFile) !== originalModule) await writeFile(backdropModuleFile, originalModule);
   }
 });
 

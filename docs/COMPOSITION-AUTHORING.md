@@ -128,6 +128,14 @@ applies the kind matrix above: edits/audio/plans retain their primary timeline, 
 only show meaningful temporal projections, and document/board/generate kinds remain timeline-free.
 `hidden` and `always` are explicit overrides. `transport` is independent: procedural code can remain
 scrubbable without inventing a timeline row, while a static scene can declare `transport: "hidden"`.
+Whenever transport is present without the full timeline, Studio renders a compact frame scrubber
+beside play/step controls. A procedural scene therefore remains directly seekable without looking
+like an edit composition or inventing fake clips.
+
+With nothing selected, the Inspector resolves the composition root. Unbound, scene-wide JSON
+settings appear as composition properties, while canvas-bound object fields stay on their clickable
+elements; composition width/height remain separately identified as format controls. Selecting an
+element, clip, animation, or media asset replaces that root view with the corresponding controls.
 
 Composition rows are also native drag sources. Dropping one on an edit timeline inserts a nested
 clip at the pointer's frame; dropping one in a generative composition's input area writes a

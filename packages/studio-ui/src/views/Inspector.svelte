@@ -168,18 +168,30 @@
         <div><dt>Hash</dt><dd title={asset.contentHash}>{asset.contentHash}</dd></div>
       </dl>
     </section>
-  {:else if !$store.item && !$store.elementId && !$store.animation && !$store.unrollGroup}
+  {:else if !$store.item && !$store.elementId && !$store.animation && !$store.unrollGroup && !$store.detailsLoading && !$store.sections.length}
     <div class="empty inspector-onboarding">
       <span class="empty-icon">⌁</span>
-      <strong>Choose what you want to edit</strong>
-      <p>Canvas, timeline, motion and media all resolve to the same Inspector and declared data authority.</p>
-      <ul>
-        <li><b>CANVAS</b><span>Click a stable element to move, resize, edit text or animate it.</span></li>
-        <li><b>TIMELINE</b><span>Select a clip for timing, trim, layers, grade and production state.</span></li>
-        <li><b>MOTION</b><span>Select a ◆ lane or key for tween, ease, path and gesture tools.</span></li>
-        <li><b>MEDIA</b><span>Open Media to inspect portable asset identity, proxy and hash.</span></li>
-      </ul>
-      <small>Double-click a nested clip to edit inside it · open GUIDE for a hands-on route.</small>
+      {#if $store.composition?.kind === "scene" || $store.composition?.kind === "3d"}
+        <strong>Select something in the scene</strong>
+        <p>The Inspector follows your canvas selection and edits its declared JSON or source authority.</p>
+        <ul>
+          <li><b>CANVAS</b><span>Click an element to see its properties; drag or resize it directly when handles appear.</span></li>
+          <li><b>TIME</b><span>Scrub the compact time control to inspect procedural motion at any frame.</span></li>
+          <li><b>MOTION</b><span>Animate a numeric property or record a gesture path from the selected element.</span></li>
+          <li><b>MEDIA</b><span>Open Media to inspect or choose portable project assets.</span></li>
+        </ul>
+        <small>Scene-wide controls appear here automatically when the composition declares them.</small>
+      {:else}
+        <strong>Choose what you want to edit</strong>
+        <p>Canvas, timeline, motion and media all resolve to the same Inspector and declared data authority.</p>
+        <ul>
+          <li><b>CANVAS</b><span>Click a stable element to move, resize, edit text or animate it.</span></li>
+          <li><b>TIMELINE</b><span>Select a clip for timing, trim, layers, grade and production state.</span></li>
+          <li><b>MOTION</b><span>Select a ◆ lane or key for tween, ease, path and gesture tools.</span></li>
+          <li><b>MEDIA</b><span>Open Media to inspect portable asset identity, proxy and hash.</span></li>
+        </ul>
+        <small>Double-click a nested clip to edit inside it · open GUIDE for a hands-on route.</small>
+      {/if}
     </div>
   {:else}
     {#if $store.unrollGroup}

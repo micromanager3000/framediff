@@ -80,6 +80,9 @@
   $: currentTimelineItems = $timelineStore.lanes.flatMap((lane) => lane.items);
   $: authoring = resolveCompositionAuthoring($store.current, currentTimelineItems, $timelineStore.animations, $timelineStore.unrollGroups);
   $: showTimeline = authoring.timeline;
+  $: previewFrom = $store.current?.render?.from ?? 0;
+  $: previewTo = $store.current?.render?.to ?? $store.current?.durationInFrames ?? 1;
+  $: previewLastFrame = Math.max(previewFrom, previewTo - 1);
 
   $: agentErrorCount = agentCheck?.diagnostics.filter((diagnostic) => diagnostic.severity === "error").length ?? 0;
   $: agentWarningCount = agentCheck?.diagnostics.filter((diagnostic) => diagnostic.severity === "warning").length ?? 0;
@@ -457,7 +460,22 @@
         <button class="t-btn t-step" onclick={() => shell.setFrame($store.frame + 1)} title="Forward one frame (→ in the studio, shift for 10)" aria-label="Forward one frame">
           <svg viewBox="0 0 14 14"><path d="M10.4 2.5v9" stroke="currentColor" stroke-width="1.5"/><path d="M2.5 2.8v8.4L8.6 7z" fill="currentColor"/></svg>
         </button>
-        <span class="t-hint">{showTimeline ? "scrub in the timeline below" : "preview time"}</span>
+        {#if showTimeline}
+          <span class="t-hint">scrub in the timeline below</span>
+        {:else}
+          <label class="time-scrubber">
+            <span>TIME</span>
+            <input
+              aria-label="Preview frame"
+              type="range"
+              min={previewFrom}
+              max={previewLastFrame}
+              step="1"
+              value={$store.frame}
+              oninput={(event) => shell.setFrame(Number(event.currentTarget.value))}
+            />
+          </label>
+        {/if}
         <button class="t-grade" class:active={$store.gradeBypass} aria-pressed={$store.gradeBypass} onclick={() => shell.setGradeBypass(!$store.gradeBypass)} title="Compare the ungraded image (hold B for momentary bypass)">{$store.gradeBypass ? "GRADE BYPASSED" : "GRADE ON"}<kbd>B</kbd></button>
         <span class="spacer"></span>
         <span class="timecode" title="Output time — 0 is the render window's start">{String($store.frame - ($store.current?.render?.from ?? 0)).padStart(4, "0")}f</span>
