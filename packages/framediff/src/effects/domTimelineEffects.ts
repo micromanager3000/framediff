@@ -106,30 +106,131 @@ export function createWipeRevealSetup(options: WipeRevealSetupOptions = {}): Com
 export interface CharacterRiseSetupOptions {
   selector?: string;
   characterSelector?: string;
+  textAttribute?: string;
   distance?: number;
   lead?: number;
   stagger?: number;
   window?: number;
 }
 
-/** Stagger child characters using clip-local frame and authored animation start/end attributes. */
+function syncCharacterRiseText(text: HTMLElement, characterSelector: string, textAttribute: string): void {
+  const source = text.getAttribute(textAttribute);
+  if (source == null) return;
+  const characters = Array.from(text.querySelectorAll<HTMLElement>(characterSelector));
+  if (characters.map((character) => character.textContent ?? "").join("") === source) return;
+  text.replaceChildren(...[...source].map((character, index) => {
+    const span = document.createElement("span");
+    span.dataset.fdChar = String(index);
+    span.textContent = character;
+    return span;
+  }));
+}
+
+/**
+ * Stagger child characters using clip-local frame and authored animation start/end attributes.
+ * A `data-fd-text` source is split again after document edits so JSON-backed copy keeps the effect.
+ */
 export function createCharacterRiseSetup(options: CharacterRiseSetupOptions = {}): CompositionSetup {
-  return ({ root, onFrame, onCleanup }) => {
+  return ({ root, onFrame, onDocument, onCleanup }) => {
+    const selector = options.selector ?? "[data-fd-rise-text]";
+    const characterSelector = options.characterSelector ?? "[data-fd-char]";
+    const textAttribute = options.textAttribute ?? "data-fd-text";
+    const sync = () => {
+      for (const text of root.querySelectorAll<HTMLElement>(selector)) {
+        syncCharacterRiseText(text, characterSelector, textAttribute);
+      }
+    };
+    sync();
+    const stopDocument = onDocument(sync);
     const stop = onFrame(() => {
-      for (const text of root.querySelectorAll<HTMLElement>(options.selector ?? "[data-fd-rise-text]")) {
+      for (const text of root.querySelectorAll<HTMLElement>(selector)) {
         const clip = text.closest<HTMLElement>("[data-fd-clip]");
         if (!clip) continue;
+        const setting = (attribute: string, fallback: number) => {
+          const raw = text.getAttribute(attribute);
+          if (raw == null) return fallback;
+          const value = Number(raw);
+          return Number.isFinite(value) ? value : fallback;
+        };
         const frame = localFrame(clip);
         const start = Number(text.dataset.fdAnimStart ?? 0);
         const end = Number(text.dataset.fdAnimEnd ?? 1);
         const progress = (frame - start) / Math.max(1e-6, end - start);
-        const characters = Array.from(text.querySelectorAll<HTMLElement>(options.characterSelector ?? "[data-fd-char]"));
+        const characters = Array.from(text.querySelectorAll<HTMLElement>(characterSelector));
         const last = Math.max(1, characters.length - 1);
+        const lead = setting("data-fd-rise-lead", options.lead ?? 0.02);
+        const stagger = setting("data-fd-rise-stagger", options.stagger ?? 0.23);
+        const window = setting("data-fd-rise-window", options.window ?? 0.08);
+        const distance = setting("data-fd-rise-distance", options.distance ?? 60);
         characters.forEach((character, index) => {
-          const amount = 1 - clamp01((progress - ((options.lead ?? 0.02) + (options.stagger ?? 0.23) * index / last)) / (options.window ?? 0.08));
-          character.style.transform = `translateY(${amount * amount * (options.distance ?? 60)}px)`;
+          const amount = 1 - clamp01((progress - (lead + stagger * index / last)) / window);
+          character.style.transform = `translateY(${amount * amount * distance}px)`;
           character.style.opacity = String(Number(text.dataset.fdTextOpacity ?? 1) * (1 - amount));
         });
+      }
+    });
+    onCleanup(stop);
+    onCleanup(stopDocument);
+  };
+}
+
+export interface SplitScreenRevealMapping {
+  fromPosition: number;
+  toPosition: number;
+  fromEdge: number;
+  toEdge: number;
+}
+
+export interface SplitScreenRevealSetupOptions {
+  motions: ReadonlyMap<string, ClipMotion2D> | Record<string, ClipMotion2D>;
+  selector?: string;
+  keyAttribute?: string;
+  canvasWidth?: number;
+  mapping?: SplitScreenRevealMapping;
+}
+
+export function evaluateSplitScreenRevealEdge(position: number, mapping: SplitScreenRevealMapping): number {
+  const span = mapping.toPosition - mapping.fromPosition;
+  const progress = span === 0 ? 1 : clamp01((position - mapping.fromPosition) / span);
+  return lerp(mapping.fromEdge, mapping.toEdge, progress);
+}
+
+/**
+ * Reveal the right pane of a moving split screen from the pane's package-authored 2D motion.
+ * Element attributes may override the default position-to-edge mapping and canvas width.
+ */
+export function createSplitScreenRevealSetup(options: SplitScreenRevealSetupOptions): CompositionSetup {
+  const lookup = (key: string) => options.motions instanceof Map
+    ? options.motions.get(key)
+    : (options.motions as Record<string, ClipMotion2D>)[key];
+  const fallback = options.mapping ?? {
+    fromPosition: 1,
+    toPosition: 0,
+    fromEdge: options.canvasWidth ?? 1920,
+    toEdge: (options.canvasWidth ?? 1920) / 2,
+  };
+  const numericAttribute = (element: HTMLElement, name: string, value: number) => {
+    const raw = element.getAttribute(name);
+    const parsed = raw == null ? NaN : Number(raw);
+    return Number.isFinite(parsed) ? parsed : value;
+  };
+  return ({ root, onFrame, onCleanup }) => {
+    const stop = onFrame(() => {
+      for (const pane of root.querySelectorAll<HTMLElement>(options.selector ?? "[data-fd-split-reveal]")) {
+        const key = pane.getAttribute(options.keyAttribute ?? "data-fd-split-reveal") ?? "";
+        const motion = lookup(key);
+        const clip = pane.matches("[data-fd-clip]") ? pane : pane.closest<HTMLElement>("[data-fd-clip]");
+        if (!motion || !clip) continue;
+        const mapping = {
+          fromPosition: numericAttribute(pane, "data-fd-split-from-position", fallback.fromPosition),
+          toPosition: numericAttribute(pane, "data-fd-split-to-position", fallback.toPosition),
+          fromEdge: numericAttribute(pane, "data-fd-split-from-edge", fallback.fromEdge),
+          toEdge: numericAttribute(pane, "data-fd-split-to-edge", fallback.toEdge),
+        };
+        const width = numericAttribute(pane, "data-fd-split-canvas-width", options.canvasWidth ?? 1920);
+        const position = evaluateClipMotion2D(motion, localFrame(clip)).x;
+        const edge = Math.max(0, Math.min(width, evaluateSplitScreenRevealEdge(position, mapping)));
+        pane.style.clipPath = `inset(0 0 0 ${(edge / width * 100).toFixed(2)}%)`;
       }
     });
     onCleanup(stop);

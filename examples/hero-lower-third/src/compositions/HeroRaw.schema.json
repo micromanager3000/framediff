@@ -1,0 +1,690 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "backdrop": {
+      "type": "object",
+      "title": "Hero backdrop",
+      "properties": {
+        "background": {
+          "type": "string",
+          "title": "CSS background"
+        }
+      }
+    },
+    "finishing": {
+      "$ref": "#/$defs/grade"
+    },
+    "audio": {
+      "type": "object",
+      "properties": {
+        "bed": {
+          "$ref": "#/$defs/fadingAudio"
+        },
+        "shine": {
+          "$ref": "#/$defs/audio"
+        },
+        "logoReveal": {
+          "$ref": "#/$defs/audio"
+        }
+      }
+    },
+    "motion": {
+      "type": "object",
+      "properties": {
+        "open": {
+          "$ref": "#/$defs/motion"
+        },
+        "phone": {
+          "$ref": "#/$defs/motion"
+        },
+        "news_a": {
+          "$ref": "#/$defs/motion"
+        },
+        "news_b": {
+          "$ref": "#/$defs/motion"
+        },
+        "news_c": {
+          "$ref": "#/$defs/motion"
+        },
+        "hf_talk": {
+          "$ref": "#/$defs/motion"
+        },
+        "magnific": {
+          "$ref": "#/$defs/motion"
+        },
+        "greenwide": {
+          "$ref": "#/$defs/motion"
+        },
+        "greentrack": {
+          "$ref": "#/$defs/motion"
+        },
+        "desk": {
+          "$ref": "#/$defs/motion"
+        },
+        "smartest": {
+          "$ref": "#/$defs/motion"
+        },
+        "blazer": {
+          "$ref": "#/$defs/motion"
+        },
+        "tripod_a": {
+          "$ref": "#/$defs/motion"
+        },
+        "tripod_b": {
+          "$ref": "#/$defs/motion"
+        },
+        "keynote_b": {
+          "$ref": "#/$defs/motion"
+        },
+        "grid_0": {
+          "$ref": "#/$defs/motion"
+        },
+        "grid_1": {
+          "$ref": "#/$defs/motion"
+        },
+        "split_0": {
+          "$ref": "#/$defs/motionWithPath"
+        },
+        "split_1": {
+          "$ref": "#/$defs/motionWithPath"
+        },
+        "keynote_0": {
+          "$ref": "#/$defs/motion"
+        },
+        "keynote_1": {
+          "$ref": "#/$defs/motion"
+        },
+        "keynote_2": {
+          "$ref": "#/$defs/motion"
+        }
+      }
+    },
+    "features": {
+      "type": "object",
+      "properties": {
+        "grid": {
+          "type": "object",
+          "properties": {
+            "dark": {
+              "$ref": "#/$defs/wipe"
+            },
+            "video": {
+              "$ref": "#/$defs/wipe"
+            }
+          }
+        },
+        "split": {
+          "type": "object",
+          "properties": {
+            "rightMask": {
+              "$ref": "#/$defs/splitMask"
+            }
+          }
+        },
+        "keynote": {
+          "type": "object",
+          "properties": {
+            "dark": {
+              "$ref": "#/$defs/wipe"
+            },
+            "middle": {
+              "$ref": "#/$defs/wipe"
+            },
+            "close": {
+              "$ref": "#/$defs/wipe"
+            }
+          }
+        }
+      }
+    },
+    "overlays": {
+      "type": "object",
+      "properties": {
+        "caption-show": {
+          "$ref": "#/$defs/overlay"
+        },
+        "caption-monday": {
+          "$ref": "#/$defs/overlay"
+        },
+        "caption-bgremoval": {
+          "$ref": "#/$defs/overlay"
+        },
+        "caption-dropin": {
+          "$ref": "#/$defs/overlay"
+        },
+        "caption-switch": {
+          "$ref": "#/$defs/overlay"
+        },
+        "card-allyou": {
+          "$ref": "#/$defs/overlay"
+        },
+        "card-closing": {
+          "$ref": "#/$defs/overlay"
+        }
+      }
+    },
+    "bumper": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "title": "Wordmark"
+        },
+        "flare": {
+          "type": "object",
+          "properties": {
+            "src": {
+              "type": "string",
+              "title": "Flare asset",
+              "format": "asset",
+              "x-accept": "video"
+            },
+            "opacity": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "multipleOf": 0.01
+            },
+            "muted": {
+              "type": "boolean"
+            }
+          }
+        },
+        "particleCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "gradient": {
+          "type": "string",
+          "title": "Wordmark gradient"
+        },
+        "springDamping": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 40,
+          "multipleOf": 0.1
+        },
+        "springMass": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 4,
+          "multipleOf": 0.1
+        },
+        "introStartFrame": {
+          "type": "number",
+          "multipleOf": 0.01
+        },
+        "introDurationFrames": {
+          "type": "number",
+          "minimum": 1,
+          "multipleOf": 0.01
+        },
+        "exitDurationFrames": {
+          "type": "number",
+          "minimum": 1,
+          "multipleOf": 0.01
+        }
+      }
+    },
+    "looks": {
+      "type": "object",
+      "title": "Shot and pane looks",
+      "properties": {
+        "open": {
+          "$ref": "#/$defs/look"
+        },
+        "phone": {
+          "$ref": "#/$defs/look"
+        },
+        "news_a": {
+          "$ref": "#/$defs/look"
+        },
+        "news_b": {
+          "$ref": "#/$defs/look"
+        },
+        "news_c": {
+          "$ref": "#/$defs/look"
+        },
+        "hf_talk": {
+          "$ref": "#/$defs/look"
+        },
+        "magnific": {
+          "$ref": "#/$defs/look"
+        },
+        "greenwide": {
+          "$ref": "#/$defs/look"
+        },
+        "greentrack": {
+          "$ref": "#/$defs/look"
+        },
+        "desk": {
+          "$ref": "#/$defs/look"
+        },
+        "smartest": {
+          "$ref": "#/$defs/look"
+        },
+        "blazer": {
+          "$ref": "#/$defs/look"
+        },
+        "tripod_a": {
+          "$ref": "#/$defs/look"
+        },
+        "tripod_b": {
+          "$ref": "#/$defs/look"
+        },
+        "keynote_b": {
+          "$ref": "#/$defs/look"
+        },
+        "grid_1": {
+          "$ref": "#/$defs/look"
+        },
+        "split_0": {
+          "$ref": "#/$defs/look"
+        },
+        "split_1": {
+          "$ref": "#/$defs/look"
+        },
+        "keynote_1": {
+          "$ref": "#/$defs/look"
+        },
+        "keynote_2": {
+          "$ref": "#/$defs/look"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "audio": {
+      "type": "object",
+      "properties": {
+        "src": {
+          "type": "string",
+          "title": "Asset",
+          "format": "asset",
+          "x-accept": "audio"
+        },
+        "volume": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "multipleOf": 0.01
+        },
+        "muted": {
+          "type": "boolean"
+        }
+      }
+    },
+    "fadingAudio": {
+      "type": "object",
+      "properties": {
+        "src": {
+          "type": "string",
+          "title": "Asset",
+          "format": "asset",
+          "x-accept": "audio"
+        },
+        "volume": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "multipleOf": 0.01
+        },
+        "muted": {
+          "type": "boolean"
+        },
+        "fadeFrom": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fadeTo": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "grade": {
+      "type": "object",
+      "title": "Finishing grade",
+      "properties": {
+        "gradeExposure": {
+          "type": "number",
+          "title": "Exposure",
+          "minimum": -2,
+          "maximum": 2,
+          "multipleOf": 0.01
+        },
+        "gradeContrast": {
+          "type": "number",
+          "title": "Contrast",
+          "minimum": -1,
+          "maximum": 1,
+          "multipleOf": 0.01
+        },
+        "gradeSaturation": {
+          "type": "number",
+          "title": "Saturation",
+          "minimum": 0,
+          "maximum": 2,
+          "multipleOf": 0.01
+        },
+        "gradeTemperature": {
+          "type": "number",
+          "title": "Temperature",
+          "minimum": -1,
+          "maximum": 1,
+          "multipleOf": 0.01
+        },
+        "gradeTint": {
+          "type": "number",
+          "title": "Tint",
+          "minimum": -1,
+          "maximum": 1,
+          "multipleOf": 0.01
+        },
+        "gradeHighlights": {
+          "type": "number",
+          "title": "Highlights",
+          "minimum": -1,
+          "maximum": 1,
+          "multipleOf": 0.01
+        },
+        "gradeShadows": {
+          "type": "number",
+          "title": "Shadows",
+          "minimum": -1,
+          "maximum": 1,
+          "multipleOf": 0.01
+        },
+        "gradeVignette": {
+          "type": "number",
+          "title": "Vignette",
+          "minimum": 0,
+          "maximum": 1,
+          "multipleOf": 0.01
+        },
+        "gradeBloom": {
+          "type": "number",
+          "title": "Bloom",
+          "minimum": 0,
+          "maximum": 2,
+          "multipleOf": 0.01
+        },
+        "gradeBloomThreshold": {
+          "type": "number",
+          "title": "Bloom threshold",
+          "minimum": 0,
+          "maximum": 1,
+          "multipleOf": 0.01
+        }
+      }
+    },
+    "motion": {
+      "type": "object",
+      "properties": {
+        "anchorX": {
+          "type": "number",
+          "multipleOf": 0.01
+        },
+        "anchorY": {
+          "type": "number",
+          "multipleOf": 0.01
+        },
+        "sourceWidth": {
+          "type": "number",
+          "minimum": 1,
+          "multipleOf": 0.01
+        },
+        "sourceHeight": {
+          "type": "number",
+          "minimum": 1,
+          "multipleOf": 0.01
+        },
+        "startFrame": {
+          "type": "number",
+          "multipleOf": 0.001
+        },
+        "endFrame": {
+          "type": "number",
+          "multipleOf": 0.001
+        },
+        "startX": {
+          "type": "number",
+          "multipleOf": 0.01
+        },
+        "startY": {
+          "type": "number",
+          "multipleOf": 0.01
+        },
+        "endX": {
+          "type": "number",
+          "multipleOf": 0.01
+        },
+        "endY": {
+          "type": "number",
+          "multipleOf": 0.01
+        },
+        "startScale": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 8,
+          "multipleOf": 0.001
+        },
+        "endScale": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 8,
+          "multipleOf": 0.001
+        },
+        "interpolation": {
+          "type": "string",
+          "enum": [
+            "linear",
+            "smooth"
+          ]
+        }
+      }
+    },
+    "motionWithPath": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/motion"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "path0Frame": {
+              "type": "number"
+            },
+            "path0X": {
+              "type": "number"
+            },
+            "path0Y": {
+              "type": "number"
+            },
+            "path1Frame": {
+              "type": "number"
+            },
+            "path1X": {
+              "type": "number"
+            },
+            "path1Y": {
+              "type": "number"
+            },
+            "path2Frame": {
+              "type": "number"
+            },
+            "path2X": {
+              "type": "number"
+            },
+            "path2Y": {
+              "type": "number"
+            },
+            "path3Frame": {
+              "type": "number"
+            },
+            "path3X": {
+              "type": "number"
+            },
+            "path3Y": {
+              "type": "number"
+            },
+            "path4Frame": {
+              "type": "number"
+            },
+            "path4X": {
+              "type": "number"
+            },
+            "path4Y": {
+              "type": "number"
+            }
+          }
+        }
+      ]
+    },
+    "wipe": {
+      "type": "object",
+      "properties": {
+        "wipe": {
+          "type": "string",
+          "title": "Ease",
+          "enum": [
+            "linear",
+            "smooth",
+            "fast"
+          ]
+        },
+        "wipeFrom": {
+          "type": "number",
+          "title": "Start frame",
+          "multipleOf": 0.01
+        },
+        "wipeTo": {
+          "type": "number",
+          "title": "End frame",
+          "multipleOf": 0.01
+        },
+        "darkFill": {
+          "type": "boolean",
+          "title": "Dark fill"
+        }
+      }
+    },
+    "splitMask": {
+      "type": "object",
+      "properties": {
+        "fromPosition": {
+          "type": "number",
+          "title": "Start pane X",
+          "multipleOf": 0.01
+        },
+        "toPosition": {
+          "type": "number",
+          "title": "End pane X",
+          "multipleOf": 0.01
+        },
+        "fromEdge": {
+          "type": "number",
+          "title": "Start split edge",
+          "multipleOf": 0.01
+        },
+        "toEdge": {
+          "type": "number",
+          "title": "End split edge",
+          "multipleOf": 0.01
+        },
+        "canvasWidth": {
+          "type": "number",
+          "minimum": 1,
+          "multipleOf": 1
+        }
+      }
+    },
+    "overlay": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "xPx": {
+          "type": "number",
+          "title": "X",
+          "minimum": -1920,
+          "maximum": 3840,
+          "multipleOf": 0.01
+        },
+        "yPx": {
+          "type": "number",
+          "title": "Y",
+          "minimum": -1080,
+          "maximum": 2160,
+          "multipleOf": 0.01
+        },
+        "textOpacity": {
+          "type": "number",
+          "title": "Text opacity",
+          "minimum": 0,
+          "maximum": 1,
+          "multipleOf": 0.01
+        },
+        "animStartFrame": {
+          "type": "number",
+          "title": "Animation start",
+          "multipleOf": 0.01
+        },
+        "animEndFrame": {
+          "type": "number",
+          "title": "Animation end",
+          "multipleOf": 0.01
+        },
+        "fontSize": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 300,
+          "multipleOf": 1
+        },
+        "fontWeight": {
+          "type": "number",
+          "minimum": 100,
+          "maximum": 900,
+          "multipleOf": 100
+        },
+        "color": {
+          "type": "string",
+          "format": "color"
+        },
+        "background": {
+          "type": "string",
+          "title": "Card background"
+        }
+      }
+    },
+    "look": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/grade"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "lutKey": {
+              "type": "string",
+              "title": "Fitted LUT key"
+            },
+            "lutName": {
+              "type": "string",
+              "title": "Look name"
+            },
+            "lutIntensity": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "multipleOf": 0.01
+            }
+          }
+        }
+      ]
+    }
+  }
+}

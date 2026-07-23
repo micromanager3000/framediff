@@ -5,6 +5,7 @@ import {
   gradeDataAttributes,
   videoLookKey,
   type GradeParams,
+  type CompositionSetup,
   type VideoLook,
 } from "framediff";
 import { HERO_FALLBACK_GRADE, heroShotLook } from "./heroGrade";
@@ -43,6 +44,11 @@ export const setupHeroLookData = createNamedVideoLookSetup({
   load: preloadLuts,
   lookFor: (key) => resolvedHeroLook(key),
 });
+
+/** Load fitted project LUTs without overriding JSON-authored scalar look controls. */
+export const preloadHeroLutsSetup: CompositionSetup = async () => {
+  await preloadLuts();
+};
 
 export const heroGradeVideoSetup = createGradeVideoSetup({
   lutFor: (canvas) => {

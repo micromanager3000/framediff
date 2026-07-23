@@ -1,5 +1,6 @@
 import type { CompRegistry } from "framediff";
 import { heroRawComp } from "./HeroRaw";
+import { heroRawFeatureComps } from "./HeroRawFeatures";
 import { heroPlaneShotComps } from "./HeroPlane3D";
 import {
   composition,
@@ -42,6 +43,7 @@ export {
   heroFootageComp,
   heroPlaneShotComps,
   heroRawComp,
+  heroRawFeatureComps,
   heroRebuiltComp,
   heroScriptComp,
   lowerThirdComp,
@@ -89,5 +91,6 @@ export const baseRegistry: CompRegistry = {
   "rich-properties-lab": richPropertiesLabComp,
   "editorial-lab": editorialLabComp,
   "gsap-motion-lab": gsapMotionLabComp,
+  ...heroRawFeatureComps,
   ...heroPlaneShotComps,
 };

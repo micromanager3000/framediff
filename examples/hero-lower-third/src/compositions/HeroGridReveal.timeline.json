@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "items": [
+    { "id": "grid-dark", "name": "Grid silhouette", "from": 0, "durationInFrames": 54, "content": { "type": "layers", "label": "Dark fill" } },
+    { "id": "grid-video", "name": "Grid video", "from": 3, "durationInFrames": 51, "trimStart": 0.6623, "playbackRate": 1, "content": { "type": "video", "src": "asset://proxy-grid" } }
+  ]
+}

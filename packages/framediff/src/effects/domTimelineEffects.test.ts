@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { createWipeRevealSetup, evaluateClipMotion2D, type ClipMotion2D } from "./domTimelineEffects";
+import {
+  createWipeRevealSetup,
+  evaluateClipMotion2D,
+  evaluateSplitScreenRevealEdge,
+  type ClipMotion2D,
+} from "./domTimelineEffects";
 import { gradeDataAttributes } from "./gradeAttributes";
 
 describe("project-configurable effect helpers", () => {
@@ -42,5 +47,14 @@ describe("project-configurable effect helpers", () => {
       "data-fd-grade-exposure": 0.2,
       "data-fd-grade-bloom-threshold": 0.55,
     });
+  });
+
+  it("maps a moving pane onto a reusable split-screen edge", () => {
+    const mapping = { fromPosition: 2144, toPosition: 1764, fromEdge: 1920, toEdge: 960 };
+    expect(evaluateSplitScreenRevealEdge(2144, mapping)).toBe(1920);
+    expect(evaluateSplitScreenRevealEdge(1954, mapping)).toBe(1440);
+    expect(evaluateSplitScreenRevealEdge(1764, mapping)).toBe(960);
+    expect(evaluateSplitScreenRevealEdge(2400, mapping)).toBe(1920);
+    expect(evaluateSplitScreenRevealEdge(1500, mapping)).toBe(960);
   });
 });

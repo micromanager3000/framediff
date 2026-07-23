@@ -13,6 +13,7 @@ type JsonSchema = {
   multipleOf?: number;
   properties?: Record<string, JsonSchema>;
   items?: JsonSchema;
+  allOf?: JsonSchema[];
   [key: string]: unknown;
 };
 
@@ -42,13 +43,30 @@ export function setJsonPointerValue(root: unknown, pointer: string, value: unkno
   return true;
 }
 
+function mergeSchemas(base: JsonSchema | undefined, override: JsonSchema | undefined): JsonSchema | undefined {
+  if (!base) return override;
+  if (!override) return base;
+  return {
+    ...base,
+    ...override,
+    ...(base.properties || override.properties
+      ? { properties: { ...base.properties, ...override.properties } }
+      : {}),
+  };
+}
+
 function resolvedSchema(root: JsonSchema | undefined, schema: JsonSchema | undefined, seen = new Set<string>()): JsonSchema | undefined {
-  const ref = schema?.$ref;
-  if (!root || !schema || !ref?.startsWith("#/") || seen.has(ref)) return schema;
+  if (!root || !schema) return schema;
+  const combined = schema.allOf?.reduce<JsonSchema | undefined>(
+    (current, part) => mergeSchemas(current, resolvedSchema(root, part, new Set(seen))),
+    { ...schema, allOf: undefined },
+  ) ?? schema;
+  const ref = combined.$ref;
+  if (!ref?.startsWith("#/") || seen.has(ref)) return combined;
   seen.add(ref);
   const target = jsonPointerValue(root, ref.slice(1)) as JsonSchema | undefined;
   const resolved = resolvedSchema(root, target, seen);
-  return resolved ? { ...resolved, ...schema, $ref: undefined } : schema;
+  return resolved ? mergeSchemas(resolved, { ...combined, $ref: undefined }) : combined;
 }
 
 function schemaAtPointer(schema: JsonSchema | undefined, pointer: string): JsonSchema | undefined {

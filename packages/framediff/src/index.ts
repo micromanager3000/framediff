@@ -133,13 +133,17 @@ export {
   createAudioFadeOutSetup,
   createCharacterRiseSetup,
   createClipMotionSetup,
+  createSplitScreenRevealSetup,
   createWipeRevealSetup,
   evaluateClipMotion2D,
+  evaluateSplitScreenRevealEdge,
   type AudioFadeOutSetupOptions,
   type CharacterRiseSetupOptions,
   type ClipMotion2D,
   type ClipMotionPathPoint,
   type ClipMotionSetupOptions,
+  type SplitScreenRevealMapping,
+  type SplitScreenRevealSetupOptions,
   type WipeRevealSetupOptions,
 } from "./effects/domTimelineEffects";
 export { parseCubeLUT, generateWarmGoldLUT, lutToRGBA8, type LUT3D } from "./effects/lut";

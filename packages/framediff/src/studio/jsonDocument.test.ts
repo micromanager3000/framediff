@@ -67,4 +67,24 @@ describe("composition JSON documents", () => {
     ]);
     expect(fields[0].control).toMatchObject({ min: 8, max: 200, slider: true });
   });
+
+  it("merges allOf properties for extended effect records", () => {
+    const document = { motion: { startX: 960, path0X: 700 } };
+    const schema = {
+      type: "object",
+      properties: { motion: { $ref: "#/$defs/motionWithPath" } },
+      $defs: {
+        motion: { type: "object", properties: { startX: { type: "number", title: "Start X" } } },
+        motionWithPath: {
+          allOf: [
+            { $ref: "#/$defs/motion" },
+            { type: "object", properties: { path0X: { type: "number", title: "Path point X" } } },
+          ],
+        },
+      },
+    };
+
+    const fields = inspectorFieldsFromJsonDocument("src/Hero.comp.json", document, schema, "/motion");
+    expect(fields.map((field) => field.label)).toEqual(["Start X", "Path point X"]);
+  });
 });

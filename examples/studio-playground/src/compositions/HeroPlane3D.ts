@@ -10,9 +10,8 @@ import cameraDocument from "../data/heroPlaneCameras.comp.json";
 import { HERO_SHOTS } from "../data/heroEdl";
 import { heroShotLook } from "../effects/heroGrade";
 import {
-  heroGradeAttributes,
   heroLutKey,
-  setupHeroLookData,
+  preloadHeroLutsSetup,
 } from "../effects/heroLooks";
 import { heroBackdrop } from "./HeroRaw";
 
@@ -60,8 +59,7 @@ export const heroPlaneShotComps: Record<string, StudioComposition> = Object.from
       playbackRate: shot.playbackRate,
       background: heroBackdrop,
       document: cameraDocument,
-      canvasAttributes: heroGradeAttributes(shot.name),
-      setup: setupHeroLookData,
+      setup: preloadHeroLutsSetup,
       effect: {
         cameraKeyframes: cameraKeyframesFromProgress({
           from: cameraPose(move, false),
