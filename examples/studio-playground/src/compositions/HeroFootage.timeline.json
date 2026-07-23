@@ -5,6 +5,7 @@
       "id": "hero-reference-video",
       "from": 0,
       "durationInFrames": 971,
+      "muted": true,
       "name": "Hero reference",
       "content": {
         "type": "video",
@@ -15,6 +16,7 @@
       "id": "hero-reference-audio",
       "from": 0,
       "durationInFrames": 971,
+      "volume": 1,
       "name": "Hero reference audio",
       "content": {
         "type": "audio",

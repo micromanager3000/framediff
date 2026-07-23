@@ -33,9 +33,9 @@ export interface CompositionTimelinePlacement {
   layer?: number;
   trimStart?: number;
   playbackRate?: number;
-  /** Linear media gain. Applies to both audio clips and the audio track of video clips. */
+  /** Linear gain for media clips or media rendered by a nested composition. */
   volume?: number;
-  /** Silence this media clip without discarding its authored volume. */
+  /** Silence this placement without discarding its authored volume. */
   muted?: boolean;
   /** When present, this is a complete JSON-authored layer. Omitted for legacy HTML-backed layers. */
   content?: CompositionTimelineContent;

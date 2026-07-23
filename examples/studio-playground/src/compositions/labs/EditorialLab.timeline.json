@@ -8,6 +8,7 @@
       "layer": 0,
       "trimStart": 0,
       "playbackRate": 1,
+      "muted": true,
       "name": "Real media · front trim me",
       "content": {
         "type": "video",

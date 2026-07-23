@@ -27,6 +27,7 @@
       "id": "music-bed",
       "from": 0,
       "durationInFrames": 240,
+      "volume": 0.5,
       "name": "Music bed",
       "content": {
         "type": "audio",

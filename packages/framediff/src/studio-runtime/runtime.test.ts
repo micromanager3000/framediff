@@ -222,18 +222,20 @@ describe("HtmlStudioRuntime external timeline documents", () => {
     expect(runtime.getCompositions()[0].sources).toContain("src/Camera.timeline.json");
   });
 
-  it("edits video audio and deletes clips or whole lanes as undoable source transactions", async () => {
+  it("edits media or nested audio and deletes clips or whole lanes as undoable source transactions", async () => {
     let timelineText = JSON.stringify({
       version: 1,
       items: [
         { id: "shot", from: 0, durationInFrames: 48, layer: 0, content: { type: "video", src: "asset://shot" } },
         { id: "caption", from: 0, durationInFrames: 48, layer: 0, content: { type: "layers", label: "Caption" } },
+        { id: "nested", from: 0, durationInFrames: 48, layer: 1, volume: 0.5, content: { type: "nested", composition: "child" } },
         { id: "overlay", from: 0, durationInFrames: 48, layer: 2, content: { type: "layers", label: "Overlay" } },
       ],
     });
     let htmlText = `<!doctype html><main data-fd-composition data-fd-id="Edit" data-fd-width="1920" data-fd-height="1080" data-fd-fps="24" data-fd-duration="48" data-fd-kind="edit">
   <section data-fd-clip data-fd-id="shot"><video></video></section>
   <section data-fd-clip data-fd-id="caption">Caption</section>
+  <section data-fd-clip data-fd-id="nested" data-fd-type="nested" data-fd-comp="stale-child" data-fd-nested-scale="2" data-fd-volume="0.9"></section>
   <section data-fd-clip data-fd-id="overlay">Overlay</section>
 </main>`;
     const comp = {
@@ -280,6 +282,45 @@ describe("HtmlStudioRuntime external timeline documents", () => {
     })).ok).toBe(true);
     expect(JSON.parse(timelineText).items[0]).toMatchObject({ id: "shot", volume: 0.35 });
 
+    const nestedDetails = await runtime.inspectItem("main", "nested");
+    expect(nestedDetails.sections.find((section) => section.id === "timeline-content")).toMatchObject({
+      title: "NESTED COMPOSITION",
+      fields: [
+        expect.objectContaining({ id: "timeline:composition", text: "child" }),
+        expect.objectContaining({ id: "timeline:nested-scale", value: 1 }),
+        expect.objectContaining({ id: "timeline:trim-start", value: 0 }),
+        expect.objectContaining({ id: "timeline:playback-rate", value: 1 }),
+      ],
+    });
+    expect(nestedDetails.sections.find((section) => section.id === "timeline-media-audio")).toMatchObject({
+      title: "COMPOSITION AUDIO",
+      fields: [
+        expect.objectContaining({ id: "timeline:volume", value: 0.5 }),
+        expect.objectContaining({ id: "timeline:muted", boolean: false }),
+      ],
+    });
+    expect(nestedDetails.sections.flatMap((section) => section.fields).map((field) => field.id)).not.toEqual(
+      expect.arrayContaining(["html:data-fd-comp", "html:data-fd-nested-scale", "html:data-fd-volume"]),
+    );
+    expect((await runtime.editInspectorField({
+      compositionKey: "main",
+      itemId: "nested",
+      fieldId: "timeline:nested-scale",
+      value: 0.75,
+    })).ok).toBe(true);
+    expect((await runtime.editInspectorField({
+      compositionKey: "main",
+      itemId: "nested",
+      fieldId: "timeline:muted",
+      value: true,
+    })).ok).toBe(true);
+    expect(JSON.parse(timelineText).items.find((item: { id: string }) => item.id === "nested")).toMatchObject({
+      id: "nested",
+      volume: 0.5,
+      muted: true,
+      content: expect.objectContaining({ nestedScale: 0.75 }),
+    });
+
     const deleted = await runtime.deleteTimelineItems({
       compositionKey: "main",
       itemIds: ["shot", "caption"],
@@ -289,12 +330,14 @@ describe("HtmlStudioRuntime external timeline documents", () => {
     expect(transaction?.label).toBe("Delete video layer 1");
     expect(transaction?.files.map((file) => file.file)).toEqual(["src/Edit.timeline.json", "src/Edit.html"]);
     expect(JSON.parse(timelineText).items).toEqual([
+      expect.objectContaining({ id: "nested", layer: 0 }),
       expect.objectContaining({ id: "overlay", layer: 1 }),
     ]);
     expect(htmlText).not.toContain('data-fd-id="shot"');
     expect(htmlText).not.toContain('data-fd-id="caption"');
+    expect(htmlText).toContain('data-fd-id="nested"');
     expect(htmlText).toContain('data-fd-id="overlay"');
-    expect((await runtime.probe("main")).map((item) => item.id)).toEqual(["overlay"]);
+    expect((await runtime.probe("main")).map((item) => item.id)).toEqual(["nested", "overlay"]);
   });
 
   it("nests a dropped composition by editing only the JSON timeline document", async () => {

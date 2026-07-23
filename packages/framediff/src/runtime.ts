@@ -58,8 +58,11 @@ const numeric = (element: Element, name: string, fallback: number): number => {
   return Number.isFinite(value) ? value : fallback;
 };
 
-const propertyOwner = (element: Element): Element =>
-  element.closest("[data-fd-clip], [data-fd-from], [data-fd-duration]") ?? element;
+const propertyOwner = (element: Element): Element => {
+  const root = element.closest("[data-fd-composition]");
+  const owner = element.closest("[data-fd-clip], [data-fd-from], [data-fd-duration]");
+  return owner && owner.closest("[data-fd-composition]") === root ? owner : element;
+};
 
 /** Effect and media controls edited on a clip intentionally override child-node defaults. */
 const inheritedValue = (element: Element, name: string): string | null => {
@@ -78,6 +81,22 @@ const inheritedTruthy = (element: Element, name: string, fallback = false): bool
   const raw = inheritedValue(element, name);
   if (raw == null) return fallback;
   return raw !== "false" && raw !== "0";
+};
+
+/** Apply a nested placement's gain after its child update, so child frame scripts can author
+ *  their own fades first. Each outer nesting level then multiplies the already-effective gain. */
+const applyNestedPlacementAudio = (placement: Element, childRoot: HTMLElement): void => {
+  const placementVolume = Math.max(0, Math.min(1, numeric(placement, "data-fd-volume", 1)));
+  const placementMuted = inheritedTruthy(placement, "data-fd-muted", false);
+  for (const media of childRoot.querySelectorAll<HTMLMediaElement>("audio, video")) {
+    const localMuted = media.dataset.framediffMuted === "true" || media.muted;
+    const exported = Number(media.dataset.framediffVolume ?? media.volume);
+    const exportVolume = Number.isFinite(exported) ? Math.max(0, Math.min(1, exported * placementVolume)) : 0;
+    media.dataset.framediffVolume = String(localMuted || placementMuted ? 0 : exportVolume);
+    media.dataset.framediffMuted = String(localMuted || placementMuted);
+    media.muted = localMuted || placementMuted;
+    media.volume = Math.max(0, Math.min(1, media.volume * placementVolume));
+  }
 };
 
 function parseDocument(source: string): { root: HTMLElement; scripts: string[] } {
@@ -593,7 +612,7 @@ export function mountComposition(
         element.setAttribute("data-framediff-video", "");
         element.dataset.framediffTime = String(target);
         element.playbackRate = rate;
-        const muted = inheritedTruthy(element, "data-fd-muted", element.muted);
+        const muted = inheritedTruthy(element, "data-fd-muted", element.defaultMuted);
         const volume = Math.max(0, Math.min(1, inheritedNumeric(element, "data-fd-volume", 1)));
         element.dataset.framediffVolume = String(muted ? 0 : volume);
         element.dataset.framediffMuted = String(muted);
@@ -614,7 +633,7 @@ export function mountComposition(
         const trimStart = inheritedNumeric(element, "data-fd-trim-start", 0);
         const rate = inheritedNumeric(element, "data-fd-playback-rate", 1);
         const target = trimStart + localTime * rate;
-        const muted = inheritedTruthy(element, "data-fd-muted", element.muted);
+        const muted = inheritedTruthy(element, "data-fd-muted", element.defaultMuted);
         const volume = Math.max(0, Math.min(1, inheritedNumeric(element, "data-fd-volume", 1)));
         element.setAttribute("data-framediff-audio", "");
         element.dataset.framediffTime = String(target);
@@ -651,6 +670,7 @@ export function mountComposition(
         (local.frame / composition.fps * child.playbackRate + child.trimStart) * child.comp.fps,
       ));
       child.handle.update({ frame: childFrame, playing: state.playing && local.active && inDomain, gradeBypass: state.gradeBypass });
+      applyNestedPlacementAudio(child.element, child.handle.root);
     }
 
     // Nested composition trees remain mounted, but a hidden outer clip should not keep driving

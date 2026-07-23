@@ -38,6 +38,7 @@
       "id": "workflow-audio",
       "from": 0,
       "durationInFrames": 420,
+      "volume": 0,
       "name": "Locked dialogue performance",
       "content": {
         "type": "nested",
