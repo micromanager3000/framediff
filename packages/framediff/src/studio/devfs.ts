@@ -3,7 +3,7 @@
 // works as a pure preview against any static server.
 
 import type { CacheEntry } from "./types";
-import type { GenInputProvenance, GenRecipeSnapshot, GenRefKind } from "../generative";
+import type { GenInputProvenance, GenProvider, GenRecipeSnapshot, GenRefKind } from "../generative";
 import type {
   ProjectEditConflict,
   ProjectEditReceipt,
@@ -257,6 +257,7 @@ export async function verifyProvider(provider: string): Promise<VerifyResult> {
 
 export interface GenJob {
   id: string;
+  provider?: GenProvider;
   providerJobId?: string;
   gen: string;
   endpoint: string;
@@ -300,6 +301,7 @@ export interface GenTakeRow {
 }
 
 export async function genSubmit(payload: {
+  provider: GenProvider;
   gen: string;
   endpoint: string;
   recipeHash: string;

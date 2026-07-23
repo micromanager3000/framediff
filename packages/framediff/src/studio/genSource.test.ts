@@ -149,6 +149,30 @@ describe("recipeCanonical — hash compat with shipped takes", () => {
     }
   });
 
+  it("switches the provider with a direct BytePlus model", () => {
+    const { next } = remapRecipeForModel(sky, "seedance-2.0-direct");
+    expect(next.provider).toBe("byteplus");
+    expect(next.model).toBe("seedance-2.0-direct");
+  });
+
+  it("keeps only the first image and audio when switching to LTX audio-to-video", () => {
+    const source: GenRecipe = {
+      ...sky,
+      refs: [
+        { kind: "image", src: "comp://visitor" },
+        { kind: "image", src: "comp://keeper" },
+        { kind: "audio", src: "comp://dialogue" },
+      ],
+    };
+    const { next, droppedRefs } = remapRecipeForModel(source, "ltx-2.3-audio");
+    expect(next.provider).toBe("fal");
+    expect(next.refs).toEqual([
+      { kind: "image", src: "comp://visitor" },
+      { kind: "audio", src: "comp://dialogue" },
+    ]);
+    expect(droppedRefs).toEqual(["comp://keeper"]);
+  });
+
   it("negativePrompt is hashed only for models that send it", () => {
     const kling: GenRecipe = { ...sky, model: "kling-2.5-pro", negativePrompt: "blur" };
     expect(recipeCanonical(kling).negativePrompt).toBe("blur");

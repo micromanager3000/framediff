@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
 import { execFile, execFileSync } from "node:child_process";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { GenInputProvenance, GenRecipeSnapshot, GenRefKind } from "./src/generative";
+import type { GenInputProvenance, GenProvider, GenRecipeSnapshot, GenRefKind } from "./src/generative";
 
 type NextFn = (err?: unknown) => void;
 type DevServer = {
@@ -432,6 +432,8 @@ function providerKey(root: string, provider: string): { key: string; source: "fi
 
 interface GenJobRecord {
   id: string; // stable local attempt id; legacy records used the provider request id
+  /** Missing on legacy records, which were all submitted through fal. */
+  provider?: GenProvider;
   providerJobId?: string;
   gen: string;
   endpoint: string;
@@ -519,6 +521,7 @@ async function falUpload(key: string, buf: Buffer, mime: string, name: string): 
 }
 
 const DATA_URI_MAX = 8 * 1024 * 1024; // fallback when storage upload fails; ~10.7MB base64
+const BYTEPLUS_ARK_BASE = "https://ark.ap-southeast.bytepluses.com/api/v3";
 
 /** Jobs mid-finalization — two overlapping /gen/jobs polls must not ingest a take twice. */
 const finalizing = new Set<string>();
@@ -922,7 +925,32 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
           const provider = url.searchParams.get("provider") ?? "fal";
           const k = providerKey(root, provider);
           if (!k) return json(res, 200, { ok: false, authed: false, error: "no key stored" });
-          if (provider !== "fal") return json(res, 200, { ok: true, authed: true, note: "stored — verification only implemented for fal" });
+          if (provider === "byteplus") {
+            try {
+              // Listing one task is read-only and verifies both the regional API key and
+              // ModelArk access without consuming generation credits.
+              const r = await fetch(`${BYTEPLUS_ARK_BASE}/contents/generations/tasks?page_size=1`, {
+                headers: { authorization: `Bearer ${k.key}` },
+              });
+              const body = (await r.text()).slice(0, 500);
+              if (r.status === 401 || r.status === 403) {
+                let detail = body;
+                try {
+                  const parsed = JSON.parse(body) as { error?: { message?: string }; message?: string };
+                  detail = parsed.error?.message ?? parsed.message ?? body;
+                } catch { /* raw */ }
+                return json(res, 200, { ok: false, authed: false, error: detail || `BytePlus rejected the key (${r.status})` });
+              }
+              return json(res, 200, {
+                ok: true,
+                authed: true,
+                ...(r.ok ? {} : { note: `Key accepted; ModelArk task-list probe returned ${r.status}.` }),
+              });
+            } catch (e) {
+              return json(res, 200, { ok: false, authed: false, error: String((e as Error).message) });
+            }
+          }
+          if (provider !== "fal") return json(res, 200, { ok: true, authed: true, note: "stored — no live verification adapter" });
           try {
             // a status probe on a nonexistent request: 401 = bad key; anything else = authed
             const r = await fetch(
@@ -947,6 +975,7 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
           let attempt: GenJobRecord | null = null;
           try {
             const body = JSON.parse((await readBody(req)).toString("utf8")) as {
+              provider?: GenProvider;
               gen?: string;
               endpoint?: string;
               recipeHash?: string;
@@ -955,12 +984,15 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
               recipe?: GenRecipeSnapshot;
             };
             const { gen, endpoint, recipeHash } = body;
+            const provider = body.provider ?? body.recipe?.provider ?? "fal";
             if (!gen || !endpoint || !recipeHash || !body.input || !body.recipe) {
               return json(res, 400, { error: "gen, endpoint, recipeHash, input, recipe required" });
             }
             if (!/^[a-zA-Z0-9/_.-]+$/.test(endpoint)) return json(res, 400, { error: "bad endpoint" });
-            const k = providerKey(root, "fal");
-            if (!k) return json(res, 400, { error: "no fal key — add one under SERVICES" });
+            if (provider !== "fal" && provider !== "byteplus") return json(res, 400, { error: "unsupported generation provider" });
+            const k = providerKey(root, provider);
+            if (!k) return json(res, 400, { error: `no ${provider} key — add one under SERVICES` });
+            const falStorageKey = provider === "fal" ? k : providerKey(root, "fal");
 
             // resolve refs (asset:// or cache paths) into URLs the model can read
             const manifest = readManifest();
@@ -979,12 +1011,19 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
                 const entry = Object.values(manifest.assets as Record<string, { contentHash?: string; mime?: string; name?: string }>).find((e) => e.contentHash === hash);
                 const mime = ref.mime ?? entry?.mime ?? "application/octet-stream";
                 const name = ref.name ?? entry?.name ?? "ref";
-                try {
-                  return await falUpload(k.key, buf, mime, name);
-                } catch (e) {
-                  if (buf.length <= DATA_URI_MAX) return `data:${mime};base64,${buf.toString("base64")}`;
-                  throw new Error(`ref upload failed and ${name} is too large to inline: ${String((e as Error).message)}`);
+                if (falStorageKey) {
+                  try {
+                    // fal storage is only a public-file relay for direct BytePlus requests;
+                    // generation itself still goes straight to ModelArk.
+                    return await falUpload(falStorageKey.key, buf, mime, name);
+                  } catch (e) {
+                    if (buf.length > DATA_URI_MAX) {
+                      throw new Error(`ref upload failed and ${name} is too large to inline: ${String((e as Error).message)}`);
+                    }
+                  }
                 }
+                if (buf.length <= DATA_URI_MAX) return `data:${mime};base64,${buf.toString("base64")}`;
+                throw new Error(`${name} needs a public URL for ${provider}; configure FAL as an upload relay or use an http(s) asset`);
               }
               return src; // http(s)/data: passthrough
             };
@@ -1004,6 +1043,7 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
             normalizeJobTakes(jobs);
             attempt = {
               id: crypto.randomUUID(),
+              provider,
               gen,
               endpoint,
               recipeHash,
@@ -1014,6 +1054,52 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
               inputs,
             };
             writeJobs(root, [...jobs, attempt]);
+            if (provider === "byteplus") {
+              const prompt = typeof input.prompt === "string" ? input.prompt : "";
+              delete input.prompt;
+              const content: Record<string, unknown>[] = [{ type: "text", text: prompt }];
+              for (const ref of refs) {
+                const refUrl = await refToUrl(ref);
+                if (ref.kind === "video") {
+                  content.push({ type: "video_url", video_url: { url: refUrl }, role: "reference_video" });
+                } else if (ref.kind === "audio") {
+                  content.push({ type: "audio_url", audio_url: { url: refUrl }, role: "reference_audio" });
+                } else {
+                  content.push({
+                    type: "image_url",
+                    image_url: { url: refUrl },
+                    role: ref.kind === "endImage" ? "last_frame" : "reference_image",
+                  });
+                }
+              }
+              const directInput = { model: endpoint, content, ...input };
+              const r = await fetch(`${BYTEPLUS_ARK_BASE}/contents/generations/tasks`, {
+                method: "POST",
+                headers: { authorization: `Bearer ${k.key}`, "content-type": "application/json" },
+                body: JSON.stringify(directInput),
+              });
+              const text = await r.text();
+              if (!r.ok) {
+                let detail = text.slice(0, 500);
+                try {
+                  const parsed = JSON.parse(text) as { error?: { message?: string }; message?: string };
+                  detail = parsed.error?.message ?? parsed.message ?? detail;
+                } catch { /* raw */ }
+                attempt.status = "failed";
+                attempt.error = detail;
+                attempt.doneAt = new Date().toISOString();
+                saveJob(root, attempt);
+                return json(res, r.status, { error: detail, job: attempt });
+              }
+              const task = JSON.parse(text) as { id?: string };
+              if (!task.id) throw new Error("BytePlus accepted the request but returned no task id");
+              attempt.providerJobId = task.id;
+              attempt.statusUrl = `${BYTEPLUS_ARK_BASE}/contents/generations/tasks/${encodeURIComponent(task.id)}`;
+              attempt.responseUrl = attempt.statusUrl;
+              saveJob(root, attempt);
+              return json(res, 200, { job: attempt });
+            }
+
             if (refs.some((r) => r.field)) {
               // explicit mapping (the model registry names the provider field per ref —
               // required for endpoints whose mode isn't a path suffix, e.g. veo3.1 t2v)
@@ -1083,17 +1169,93 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
 
         if (url.pathname === "/__framediff/gen/jobs" && req.method === "GET") {
           const gen = url.searchParams.get("gen");
-          const k = providerKey(root, "fal");
           const jobs = readJobs(root);
           let changed = normalizeJobTakes(jobs) || !fs.existsSync(jobsFile(root));
+          const finalizeTake = async (
+            job: GenJobRecord,
+            artifact: { url: string; content_type?: string; file_name?: string },
+            outputKind: "video" | "image" | "audio",
+            seed?: number,
+          ): Promise<void> => {
+            const media = await fetch(artifact.url);
+            if (!media.ok) throw new Error(`take download ${media.status}`);
+            const buf = Buffer.from(await media.arrayBuffer());
+            const mime = artifact.content_type ?? media.headers.get("content-type")?.split(";", 1)[0]
+              ?? (outputKind === "video" ? "video/mp4" : outputKind === "audio" ? "audio/mpeg" : "image/jpeg");
+            const namedExt = path.extname(artifact.file_name ?? "").slice(1).toLowerCase();
+            const mimeExt = extensionForMime(mime).slice(1);
+            const extension = /^[a-z0-9]{2,5}$/.test(namedExt)
+              ? namedExt
+              : mimeExt || (outputKind === "video" ? "mp4" : outputKind === "audio" ? "mp3" : "jpg");
+            const takeNo = job.take ?? nextJobTake(jobs, job.gen);
+            const { id, entry } = ingestBytes(buf, `${job.gen}.take${takeNo}.${extension}`);
+            const withGen = readManifest();
+            const target = withGen.assets[id] as { generator?: unknown };
+            const existingGen = (entry as { generator?: { take?: number } }).generator;
+            if (!existingGen?.take && target) {
+              target.generator = {
+                gen: job.gen,
+                take: takeNo,
+                recipeHash: job.recipeHash,
+                endpoint: job.endpoint,
+                recipe: job.recipe,
+                inputs: job.inputs,
+                requestId: job.id,
+                seed,
+                outputKind,
+                at: new Date().toISOString(),
+              };
+              fs.writeFileSync(manifestPath, JSON.stringify(withGen, null, 2) + "\n");
+            }
+            job.status = "done";
+            job.take ??= takeNo;
+            job.assetId = id;
+            job.seed = seed;
+            job.outputKind = outputKind;
+            job.doneAt = new Date().toISOString();
+            changed = true;
+          };
           for (const job of jobs) {
             if (job.status !== "queued" && job.status !== "running") continue;
             if (finalizing.has(job.id)) continue;
-            if (!k) break;
+            const provider = job.provider ?? "fal";
+            const k = providerKey(root, provider);
+            if (!k) continue;
             if (!job.statusUrl || !job.responseUrl) continue;
             finalizing.add(job.id);
             try {
-              const s = await fetch(job.statusUrl, { headers: { authorization: `Key ${k.key}` } });
+              const authorization = provider === "byteplus" ? `Bearer ${k.key}` : `Key ${k.key}`;
+              const s = await fetch(job.statusUrl, { headers: { authorization } });
+              if (provider === "byteplus") {
+                const task = (await s.json().catch(() => ({}))) as {
+                  status?: string;
+                  content?: { video_url?: string };
+                  seed?: number;
+                  error?: { code?: string; message?: string } | string;
+                  message?: string;
+                };
+                if (!s.ok) {
+                  job.status = "failed";
+                  job.error = `status ${s.status}: ${
+                    typeof task.error === "string" ? task.error : task.error?.message ?? task.message ?? JSON.stringify(task).slice(0, 300)
+                  }`;
+                  job.doneAt = new Date().toISOString();
+                  changed = true;
+                } else if (task.status === "succeeded" && task.content?.video_url) {
+                  await finalizeTake(job, { url: task.content.video_url }, "video", task.seed);
+                } else if (task.status === "failed" || task.status === "cancelled") {
+                  job.status = "failed";
+                  job.error = typeof task.error === "string"
+                    ? task.error
+                    : task.error?.message ?? task.message ?? `BytePlus task ${task.status}`;
+                  job.doneAt = new Date().toISOString();
+                  changed = true;
+                } else if (job.status !== "running") {
+                  job.status = "running";
+                  changed = true;
+                }
+                continue;
+              }
               const st = (await s.json().catch(() => ({}))) as { status?: string };
               if (!s.ok) {
                 job.status = "failed";
@@ -1104,7 +1266,7 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
                 job.status = "running";
                 changed = true;
               } else if (st.status === "COMPLETED") {
-                const rr = await fetch(job.responseUrl, { headers: { authorization: `Key ${k.key}` } });
+                const rr = await fetch(job.responseUrl, { headers: { authorization } });
                 const out = (await rr.json().catch(() => ({}))) as {
                   video?: { url?: string; content_type?: string; file_name?: string };
                   audio?: { url?: string; content_type?: string; file_name?: string };
@@ -1122,48 +1284,11 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
                 if (!rr.ok || !artifact?.url) {
                   job.status = "failed";
                   job.error = `result ${rr.status}: ${JSON.stringify(out.detail ?? out).slice(0, 300)}`;
+                  job.doneAt = new Date().toISOString();
+                  changed = true;
                 } else {
-                  const media = await fetch(artifact.url);
-                  if (!media.ok) throw new Error(`take download ${media.status}`);
-                  const buf = Buffer.from(await media.arrayBuffer());
-                  const mime = artifact.content_type ?? media.headers.get("content-type")?.split(";", 1)[0]
-                    ?? (outputKind === "video" ? "video/mp4" : outputKind === "audio" ? "audio/mpeg" : "image/jpeg");
-                  const namedExt = path.extname(artifact.file_name ?? "").slice(1).toLowerCase();
-                  const mimeExt = extensionForMime(mime).slice(1);
-                  const extension = /^[a-z0-9]{2,5}$/.test(namedExt)
-                    ? namedExt
-                    : mimeExt || (outputKind === "video" ? "mp4" : outputKind === "audio" ? "mp3" : "jpg");
-                  // The attempt reserves its take number when it is submitted, so failures
-                  // and successes share one durable, chronological take history.
-                  const m = readManifest();
-                  const takeNo = job.take ?? nextJobTake(jobs, job.gen);
-                  const { id, entry } = ingestBytes(buf, `${job.gen}.take${takeNo}.${extension}`);
-                  const withGen = readManifest();
-                  const target = withGen.assets[id] as { generator?: unknown };
-                  const existingGen = (entry as { generator?: { take?: number } }).generator;
-                  if (!existingGen?.take && target) {
-                    target.generator = {
-                      gen: job.gen,
-                      take: takeNo,
-                      recipeHash: job.recipeHash,
-                      endpoint: job.endpoint,
-                      recipe: job.recipe,
-                      inputs: job.inputs,
-                      requestId: job.id,
-                      seed: out.seed,
-                      outputKind,
-                      at: new Date().toISOString(),
-                    };
-                    fs.writeFileSync(manifestPath, JSON.stringify(withGen, null, 2) + "\n");
-                  }
-                  job.status = "done";
-                  job.take ??= takeNo;
-                  job.assetId = id;
-                  job.seed = out.seed;
-                  job.outputKind = outputKind;
+                  await finalizeTake(job, artifact as { url: string; content_type?: string; file_name?: string }, outputKind, out.seed);
                 }
-                job.doneAt = new Date().toISOString();
-                changed = true;
               }
             } catch (e) {
               job.status = "failed";

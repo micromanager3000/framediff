@@ -707,12 +707,13 @@ export interface GenerativeWorkspaceSnapshot {
   liveHash: string;
   status: "never" | "running" | "failed" | "current" | "stale" | "unpinned";
   providerReady: boolean;
+  providerName: string;
   /** Upstream generative inputs that must have an available pinned take before submit. */
   blockedReason?: string;
 }
 
 export interface ProviderCredentialSnapshot {
-  provider: "fal" | "midjourney" | "luma";
+  provider: "fal" | "byteplus" | "midjourney" | "luma";
   name: string;
   envVar: string;
   description: string;

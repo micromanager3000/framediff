@@ -46,7 +46,10 @@ function devBridge(root: string, options?: FrameDiffDevOptions) {
   });
 }
 
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
 
 const gitLfsAvailable = (() => {
   try {
@@ -58,6 +61,93 @@ const gitLfsAvailable = (() => {
 })();
 
 describe("framediffDev local cache folder", () => {
+  it("submits and finalizes a direct BytePlus Seedance task", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "framediff-vite-byteplus-"));
+    const calls: { url: string; init?: RequestInit }[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      calls.push({ url, init });
+      if (url.endsWith("/contents/generations/tasks") && init?.method === "POST") {
+        return new globalThis.Response(JSON.stringify({ id: "cgt-direct-1" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      if (url.endsWith("/contents/generations/tasks/cgt-direct-1")) {
+        return new globalThis.Response(JSON.stringify({
+          id: "cgt-direct-1",
+          status: "succeeded",
+          seed: 12,
+          content: { video_url: "https://media.example/direct.mp4" },
+        }), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      if (url === "https://media.example/direct.mp4") {
+        return new globalThis.Response(new TextEncoder().encode("direct video"), {
+          status: 200,
+          headers: { "content-type": "video/mp4" },
+        });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    }));
+    const request = devBridge(root);
+    await request(
+      "/__framediff/secrets",
+      "PUT",
+      new TextEncoder().encode(JSON.stringify({ provider: "byteplus", key: "ark-test-key-1234" })),
+      { "content-type": "application/json" },
+    );
+
+    const submitted = await request(
+      "/__framediff/gen/submit",
+      "POST",
+      new TextEncoder().encode(JSON.stringify({
+        provider: "byteplus",
+        gen: "dialogue",
+        endpoint: "dreamina-seedance-2-0-fast-260128",
+        recipeHash: "sha256:recipe",
+        input: {
+          prompt: "Image 1 performs to Audio 1.",
+          resolution: "720p",
+          duration: 5,
+          ratio: "9:16",
+          generate_audio: true,
+          watermark: false,
+        },
+        refs: [
+          { kind: "image", src: "https://media.example/portrait.jpg", authoredSrc: "asset://portrait" },
+          { kind: "audio", src: "https://media.example/dialogue.mp3", authoredSrc: "asset://dialogue" },
+        ],
+        recipe: {
+          provider: "byteplus",
+          model: "seedance-2.0-direct",
+          prompt: "Image 1 performs to Audio 1.",
+        },
+      })),
+      { "content-type": "application/json" },
+    );
+    expect(submitted.status).toBe(200);
+    expect(JSON.parse(submitted.body).job).toMatchObject({
+      provider: "byteplus",
+      providerJobId: "cgt-direct-1",
+      status: "queued",
+    });
+
+    const post = calls.find((call) => call.init?.method === "POST");
+    expect(post?.init?.headers).toMatchObject({ authorization: "Bearer ark-test-key-1234" });
+    expect(JSON.parse(String(post?.init?.body))).toMatchObject({
+      model: "dreamina-seedance-2-0-fast-260128",
+      content: [
+        { type: "text", text: "Image 1 performs to Audio 1." },
+        { type: "image_url", image_url: { url: "https://media.example/portrait.jpg" }, role: "reference_image" },
+        { type: "audio_url", audio_url: { url: "https://media.example/dialogue.mp3" }, role: "reference_audio" },
+      ],
+    });
+
+    const jobs = JSON.parse((await request("/__framediff/gen/jobs?gen=dialogue")).body);
+    expect(jobs.jobs[0]).toMatchObject({ provider: "byteplus", status: "done", take: 1, seed: 12 });
+    expect(jobs.takes[0]).toMatchObject({ mime: "video/mp4", generator: { endpoint: "dreamina-seedance-2-0-fast-260128" } });
+  });
+
   it("migrates ignored generation jobs into a repo-tracked numbered ledger", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "framediff-vite-generations-"));
     const legacyDir = path.join(root, ".framediff");
