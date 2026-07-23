@@ -363,7 +363,7 @@
             disabled={$store.editing}
             onclick={requestItemDelete}
           >{confirmDeleteItemId === $store.item.id ? "CONFIRM DELETE" : "DELETE FROM TIMELINE"} <span>{confirmDeleteItemId === $store.item.id ? "!" : "⌫"}</span></button>
-          <p class="delete-hint">Removes this source-backed item. Undo restores it.</p>
+          <p class="delete-hint">{#if $store.item.content.type === "nested"}Removes only this timeline placement. The source composition remains available. Undo restores it.{:else}Removes only this timeline placement. Undo restores it.{/if}</p>
         {/if}
       </section>
 

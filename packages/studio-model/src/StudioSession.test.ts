@@ -38,6 +38,7 @@ const items: TimelineItemSnapshot[] = [
 ];
 
 class FakeRuntime implements CompositionRuntimePort {
+  public compositions = compositions;
   public readonly edits: PlacementEditRequest[] = [];
   public readonly elementEdits: PreviewElementEditRequest[] = [];
   public readonly inspectorEdits: InspectorFieldEditRequest[] = [];
@@ -51,7 +52,7 @@ class FakeRuntime implements CompositionRuntimePort {
   public probeItems: TimelineItemSnapshot[] = items;
   public animationProbe: AnimationProbeSnapshot = { animations: [], diagnostics: [], opaqueCallCount: 0 };
 
-  getCompositions(): CompositionDescriptor[] { return compositions; }
+  getCompositions(): CompositionDescriptor[] { return this.compositions; }
   subscribeCompositions(listener: (next: CompositionDescriptor[]) => void): () => void {
     this.listener = listener;
     return () => { this.listener = null; };
@@ -406,6 +407,33 @@ describe("StudioSession", () => {
     }]);
     expect(session.currentItems).toEqual([expect.objectContaining({ id: "overlay", layer: 1 })]);
     expect(session.state.get()).toMatchObject({ selectedItemId: null, selection: null, notice: "Deleted video layer 1." });
+  });
+
+  it("makes clear that removing a nested placement keeps its source composition", async () => {
+    const runtime = new FakeRuntime();
+    runtime.compositions = [
+      ...runtime.compositions,
+      { key: "dialogue-audio", id: "DialogueAudio", kind: "audio", outputKind: "audio", width: 1920, height: 1080, fps: 24, durationInFrames: 40, library: true },
+    ];
+    runtime.probeItems = [{
+      id: "audio-placement",
+      name: "Locked dialogue",
+      from: 0,
+      durationInFrames: 40,
+      order: 0,
+      origin: "sequence",
+      editable: { from: true, duration: true, layer: true, delete: true },
+      content: { type: "nested", compId: "DialogueAudio", trimStart: 0 },
+    }];
+    const session = new StudioSession(runtime, new ManualClock(), "main");
+    await session.start();
+
+    await expect(session.deleteTimelineItems(["audio-placement"])).resolves.toBe(true);
+
+    expect(session.state.get().compositions.some((composition) => composition.key === "dialogue-audio")).toBe(true);
+    expect(session.state.get().notice).toBe(
+      "Removed Locked dialogue from the timeline. DialogueAudio remains available.",
+    );
   });
 
   it("keeps negative trim when extending a clip left so visual pre-roll can hold frame one", async () => {

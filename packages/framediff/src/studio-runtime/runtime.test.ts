@@ -235,8 +235,9 @@ describe("HtmlStudioRuntime external timeline documents", () => {
     let htmlText = `<!doctype html><main data-fd-composition data-fd-id="Edit" data-fd-width="1920" data-fd-height="1080" data-fd-fps="24" data-fd-duration="48" data-fd-kind="edit">
   <section data-fd-clip data-fd-id="shot"><video></video></section>
   <section data-fd-clip data-fd-id="caption">Caption</section>
-  <section data-fd-clip data-fd-id="nested" data-fd-type="nested" data-fd-comp="stale-child" data-fd-nested-scale="2" data-fd-volume="0.9"></section>
-  <section data-fd-clip data-fd-id="overlay">Overlay</section>
+  <section data-fd-clip data-fd-id="nested" data-fd-type="nested" data-fd-comp="stale-child" data-fd-nested-scale="2" data-fd-volume="0.9">
+    <section data-fd-clip data-fd-id="overlay">Overlay</section>
+  </section>
 </main>`;
     const comp = {
       ...composition,
@@ -338,6 +339,19 @@ describe("HtmlStudioRuntime external timeline documents", () => {
     expect(htmlText).toContain('data-fd-id="nested"');
     expect(htmlText).toContain('data-fd-id="overlay"');
     expect((await runtime.probe("main")).map((item) => item.id)).toEqual(["nested", "overlay"]);
+
+    const unsafe = await runtime.deleteTimelineItems({
+      compositionKey: "main",
+      itemIds: ["nested"],
+    });
+    expect(unsafe).toMatchObject({
+      ok: false,
+      file: "src/Edit.html",
+      message: expect.stringContaining("would also remove timeline item overlay"),
+    });
+    expect(JSON.parse(timelineText).items.map((item: { id: string }) => item.id)).toEqual(["nested", "overlay"]);
+    expect(htmlText).toContain('data-fd-id="nested"');
+    expect(htmlText).toContain('data-fd-id="overlay"');
   });
 
   it("nests a dropped composition by editing only the JSON timeline document", async () => {
