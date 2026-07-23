@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick } from "svelte";
   import type { StudioSession, CompositionRuntimePort } from "@framediff/studio-model";
-  import type { GenerativeViewModel } from "../viewmodels/Generative.ViewModel";
+  import { nextGenerationTake, type GenerativeViewModel } from "../viewmodels/Generative.ViewModel";
   import PreviewHost from "./PreviewHost.svelte";
 
   export let viewModel: GenerativeViewModel;
@@ -17,6 +17,7 @@
   let compDragOver = false;
   let previewCompositionKey = "";
   let previewTake: number | null = null;
+  let failedDraftStarted = "";
   let promptEditor: HTMLTextAreaElement | undefined;
   $: if ($store.workspace && $store.workspace.liveHash !== previousRecipe) {
     previousRecipe = $store.workspace.liveHash;
@@ -26,9 +27,15 @@
   $: if ($store.workspace && $store.workspace.compositionKey !== previewCompositionKey) {
     previewCompositionKey = $store.workspace.compositionKey;
     previewTake = null;
+    failedDraftStarted = "";
   }
   $: previewedTake = $store.workspace?.takes.find((take) => take.take === previewTake) ?? null;
-  $: nextTake = Math.max(0, ...($store.workspace?.takes.map((take) => take.take) ?? [])) + 1;
+  $: nextTake = nextGenerationTake($store.workspace);
+  $: latestJobId = $store.workspace?.jobs.at(-1)?.id ?? "";
+  $: latestFailedTake = $store.failedTakes.find((take) => take.id === latestJobId) ?? null;
+  $: failedAttemptBlocksDraft = !!latestFailedTake
+    && latestFailedTake.matchesCurrentRecipe
+    && failedDraftStarted !== latestFailedTake.id;
   const converted = (raw: string, original: unknown) => typeof original === "boolean" ? raw === "true" : typeof original === "number" ? Number(raw) : raw;
   const takeUrl = (contentHash: string) => `/__framediff-cache/${encodeURIComponent(contentHash)}`;
   const takeExtension = (kind: "video" | "image" | "audio") => kind === "video" ? "mp4" : kind === "audio" ? "mp3" : "jpg";
@@ -71,6 +78,12 @@
     }
     if (await viewModel.startFrom(latest.take)) await editDraft();
   }
+  async function startFromFailedTake(id: string): Promise<void> {
+    if (await viewModel.startFromJob(id)) {
+      failedDraftStarted = id;
+      await editDraft();
+    }
+  }
 </script>
 
 <section class="gen-workbench">
@@ -88,7 +101,7 @@
         <button class="draft-button" disabled={$store.generationActive} onclick={() => void editDraft()}>Back to current draft</button>
       {:else}
         <div><span>GENERATIVE COMPOSITION · {workspace.outputKind}</span><strong>{workspace.modelName}</strong><small class:failed-status={workspace.status === "failed"}>{workspace.mode} · ${workspace.costUsd.toFixed(2)} · {workspace.status}</small></div>
-        <select disabled={$store.generationActive || $store.busy} aria-label="Generation model" value={workspace.model} onchange={(event) => void viewModel.update({ model: event.currentTarget.value })}>
+        <select disabled={$store.generationActive || failedAttemptBlocksDraft || $store.busy} aria-label="Generation model" value={workspace.model} onchange={(event) => void viewModel.update({ model: event.currentTarget.value })}>
           {#each workspace.models as model}<option value={model.id}>{model.name} · {model.baseline}</option>{/each}
         </select>
       {/if}
@@ -97,8 +110,9 @@
       <div
         class="gen-form"
         class:generation-active={$store.generationActive}
+        class:failed-history={failedAttemptBlocksDraft}
         aria-busy={$store.generationActive}
-        inert={$store.generationActive}
+        inert={$store.generationActive || failedAttemptBlocksDraft}
       >
         {#if previewedTake}
           <section class="take-inspector">
@@ -198,7 +212,7 @@
             </div>
           {/if}
           {#if workspace.blockedReason}<div class="message notice">{workspace.blockedReason}</div>{/if}
-          <button class="generate-button" disabled={$store.generationActive || $store.busy || !workspace.providerReady || !!workspace.blockedReason} onclick={() => void viewModel.generate()}>{$store.busy ? "Working…" : `Generate · $${workspace.costUsd.toFixed(2)}`}</button>
+          <button class="generate-button" disabled={$store.generationActive || failedAttemptBlocksDraft || $store.busy || !workspace.providerReady || !!workspace.blockedReason} onclick={() => void viewModel.generate()}>{$store.busy ? "Working…" : `Generate · $${workspace.costUsd.toFixed(2)}`}</button>
           {#if $store.error}<div class="message error">{$store.error}</div>{/if}
         {/if}
       </div>
@@ -232,7 +246,7 @@
         <div class="takes-heading">
           <h3>TAKES</h3>
           <button
-            disabled={$store.generationActive || $store.busy || (!!workspace.takes.length && !workspace.takes.at(-1)?.settings)}
+            disabled={$store.generationActive || failedAttemptBlocksDraft || $store.busy || (!!workspace.takes.length && !workspace.takes.at(-1)?.settings)}
             title="Start the next take with the latest generated take's settings"
             onclick={() => void addTake(workspace)}
           >Add Take</button>
@@ -250,18 +264,25 @@
             </div>
           </div>
         {/each}
-        {#if $store.failedTake}
+        {#each $store.failedTakes.slice().reverse() as failedTake (failedTake.id)}
           <div class="gen-take failed" role="alert">
             <div class="take-preview">
-              <b>take {$store.failedTake.take} · failed</b>
-              <strong>{$store.failedTake.policyRejection ? "Provider content policy" : "Provider error"}</strong>
-              <span>{$store.failedTake.error}</span>
-              <small>Edit the draft, then generate again when it is ready.</small>
+              <b>take {failedTake.take} · failed</b>
+              <strong>{failedTake.policyRejection ? "Provider content policy" : "Provider error"}</strong>
+              <span>{failedTake.error}</span>
+              <small>Attempt saved in framediff.generations.json.</small>
             </div>
-            <code title={$store.failedTake.id}>{$store.failedTake.id.slice(0, 8)}…</code>
+            <div class="failed-take-actions">
+              <code title={failedTake.id}>{failedTake.id.slice(0, 8)}…</code>
+              {#if failedTake.id !== failedDraftStarted}
+                <button onclick={() => void startFromFailedTake(failedTake.id)}>Start take {nextTake} from this</button>
+              {:else}
+                <small>take {nextTake} draft started</small>
+              {/if}
+            </div>
           </div>
-        {/if}
-        {#if !$store.generationActive}
+        {/each}
+        {#if !$store.generationActive && !failedAttemptBlocksDraft}
           <button
             type="button"
             class="gen-take draft draft-take"
@@ -306,7 +327,7 @@
             </a>
           </div>
         {/each}
-        {#if !workspace.takes.length && !$store.generatingTakes.length && !$store.failedTake}
+        {#if !workspace.takes.length && !$store.generatingTakes.length && !$store.failedTakes.length}
           <div class="panel-empty">Generated takes land here and are pinned into source.</div>
         {/if}
       </div>

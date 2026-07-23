@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GenerativeWorkspaceSnapshot } from "@framediff/studio-model";
-import { failedTakeView, generatingTakeViews, readableGenerationError } from "./Generative.ViewModel";
+import { failedTakeViews, generatingTakeViews, nextGenerationTake, readableGenerationError } from "./Generative.ViewModel";
 
 const workspace = {
   takes: [],
@@ -18,7 +18,7 @@ describe("generatingTakeViews", () => {
         { id: "old-job", status: "done", take: 1 },
       ],
     } as GenerativeWorkspaceSnapshot)).toEqual([
-      { id: "queued-job", take: 3, status: "queued" },
+      { id: "queued-job", take: 8, status: "queued" },
       { id: "running-job", take: 7, status: "running" },
     ]);
   });
@@ -40,37 +40,57 @@ describe("generatingTakeViews", () => {
   });
 });
 
-describe("failedTakeView", () => {
-  it("shows the newest failed attempt as the next take", () => {
-    expect(failedTakeView({
+describe("failedTakeViews", () => {
+  it("keeps a failed attempt as a numbered historical take", () => {
+    expect(failedTakeViews({
       ...workspace,
+      liveHash: "sha256:failed",
       takes: [{ take: 2 }],
       jobs: [{
         id: "failed-job",
         status: "failed",
+        recipeHash: "sha256:failed",
         error: 'result 422: [{"msg":"The reference cannot be processed.","type":"content_policy_violation"}]',
       }],
-    } as GenerativeWorkspaceSnapshot)).toEqual({
+    } as GenerativeWorkspaceSnapshot)).toEqual([{
       id: "failed-job",
       take: 3,
       error: "The reference cannot be processed.",
       policyRejection: true,
-    });
+      matchesCurrentRecipe: true,
+    }]);
   });
 
-  it("hides an older failure after a newer job succeeds", () => {
-    expect(failedTakeView({
+  it("retains older failures after a newer job succeeds", () => {
+    expect(failedTakeViews({
       ...workspace,
+      liveHash: "sha256:done",
       jobs: [
-        { id: "failed-job", status: "failed", error: "failed" },
-        { id: "done-job", status: "done", take: 1 },
+        { id: "failed-job", status: "failed", take: 1, recipeHash: "sha256:failed", error: "failed" },
+        { id: "done-job", status: "done", take: 2, recipeHash: "sha256:done" },
       ],
-    } as GenerativeWorkspaceSnapshot)).toBeNull();
+    } as GenerativeWorkspaceSnapshot)).toEqual([{
+      id: "failed-job",
+      take: 1,
+      error: "failed",
+      policyRejection: false,
+      matchesCurrentRecipe: false,
+    }]);
   });
 
   it("extracts a readable message from a truncated provider payload", () => {
     expect(readableGenerationError(
       'result 422: [{"loc":["body"],"msg":"A clear provider message.","ctx":{"reason":"truncated',
     )).toBe("A clear provider message.");
+  });
+});
+
+describe("nextGenerationTake", () => {
+  it("numbers drafts after both successful and failed attempts", () => {
+    expect(nextGenerationTake({
+      ...workspace,
+      takes: [{ take: 2 }],
+      jobs: [{ id: "failed-job", status: "failed", take: 4 }],
+    } as GenerativeWorkspaceSnapshot)).toBe(5);
   });
 });

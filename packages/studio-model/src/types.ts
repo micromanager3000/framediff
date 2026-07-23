@@ -676,9 +676,13 @@ export interface GenerativeTakeSnapshot {
 }
 export interface GenerativeJobSnapshot {
   id: string;
+  providerJobId?: string;
   status: "queued" | "running" | "done" | "failed";
   error?: string;
   take?: number;
+  recipeHash?: string;
+  at?: string;
+  doneAt?: string;
 }
 export interface GenerativeWorkspaceSnapshot {
   compositionKey: string;
@@ -754,6 +758,7 @@ export interface ProjectWorkspacePort {
   submitGeneration(compositionKey: string): Promise<ProjectOperationResult>;
   pinGenerationTake(compositionKey: string, take: number): Promise<ProjectOperationResult>;
   startGenerationFromTake(compositionKey: string, take: number): Promise<ProjectOperationResult>;
+  startGenerationFromJob(compositionKey: string, jobId: string): Promise<ProjectOperationResult>;
   getProviderCredentials(): Promise<ProviderCredentialsSnapshot>;
   configureProvider(provider: string, key: string): Promise<ProjectOperationResult>;
   clearProvider(provider: string): Promise<ProjectOperationResult>;

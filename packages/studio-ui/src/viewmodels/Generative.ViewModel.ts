@@ -20,6 +20,7 @@ export interface FailedTakeView {
   take: number;
   error: string;
   policyRejection: boolean;
+  matchesCurrentRecipe: boolean;
 }
 
 export function readableGenerationError(error?: string): string {
@@ -35,15 +36,27 @@ export function readableGenerationError(error?: string): string {
   return error.length > 280 ? `${error.slice(0, 277)}…` : error;
 }
 
-export function failedTakeView(workspace: GenerativeWorkspaceSnapshot | null): FailedTakeView | null {
-  const latest = workspace?.jobs.at(-1);
-  if (!workspace || latest?.status !== "failed") return null;
-  return {
-    id: latest.id,
-    take: latest.take ?? Math.max(0, ...workspace.takes.map((take) => take.take)) + 1,
-    error: readableGenerationError(latest.error),
-    policyRejection: latest.error?.includes("content_policy_violation") ?? false,
-  };
+export function nextGenerationTake(workspace: GenerativeWorkspaceSnapshot | null): number {
+  if (!workspace) return 1;
+  return Math.max(
+    0,
+    ...workspace.takes.map((take) => take.take),
+    ...workspace.jobs.map((job) => job.take ?? 0),
+  ) + 1;
+}
+
+export function failedTakeViews(workspace: GenerativeWorkspaceSnapshot | null): FailedTakeView[] {
+  if (!workspace) return [];
+  let nextFallback = nextGenerationTake(workspace);
+  return workspace.jobs
+    .filter((job) => job.status === "failed")
+    .map((job) => ({
+      id: job.id,
+      take: job.take ?? nextFallback++,
+      error: readableGenerationError(job.error),
+      policyRejection: job.error?.includes("content_policy_violation") ?? false,
+      matchesCurrentRecipe: job.recipeHash === workspace.liveHash,
+    }));
 }
 
 export function generatingTakeViews(
@@ -51,7 +64,7 @@ export function generatingTakeViews(
   submitting = false,
 ): GeneratingTakeView[] {
   if (!workspace) return [];
-  let nextTake = Math.max(0, ...workspace.takes.map((take) => take.take)) + 1;
+  let nextTake = nextGenerationTake(workspace);
   const active = workspace.jobs
     .filter((job): job is GenerativeJobSnapshot & { status: "queued" | "running" } =>
       job.status === "queued" || job.status === "running")
@@ -68,7 +81,7 @@ export function generatingTakeViews(
 export interface GenerativeViewSnapshot extends GenerativeManagerState {
   assets: AssetState["assets"];
   generatingTakes: GeneratingTakeView[];
-  failedTake: FailedTakeView | null;
+  failedTakes: FailedTakeView[];
   generationActive: boolean;
 }
 
@@ -83,7 +96,7 @@ export class GenerativeViewModel {
         ...generation,
         assets: assetState.assets,
         generatingTakes,
-        failedTake: failedTakeView(generation.workspace),
+        failedTakes: failedTakeViews(generation.workspace),
         generationActive: generatingTakes.length > 0,
       };
     });
@@ -92,6 +105,7 @@ export class GenerativeViewModel {
   public generate() { return this.manager.generate(); }
   public pin(take: number) { return this.manager.pin(take); }
   public startFrom(take: number) { return this.manager.startFrom(take); }
+  public startFromJob(jobId: string) { return this.manager.startFromJob(jobId); }
   public configure(provider: string, key: string) { return this.manager.configure(provider, key); }
   public removeRef(index: number) {
     const workspace = get(this.generationStore).workspace;

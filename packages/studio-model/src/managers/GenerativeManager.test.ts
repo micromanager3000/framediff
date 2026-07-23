@@ -87,4 +87,29 @@ describe("GenerativeManager", () => {
     expect(manager.state.get().message).toBeNull();
     expect(manager.state.get().workspace).toBe(workspace);
   });
+
+  it("refreshes a persisted failed attempt after submission is rejected", async () => {
+    const composition = { key: "generate" } as CompositionDescriptor;
+    const state = new ObservableValue({ currentKey: composition.key, compositions: [composition] } as StudioSessionState);
+    const session = { state } as StudioSession;
+    const failedWorkspace = {
+      jobs: [{ id: "failed-job", status: "failed", take: 1, error: "Provider rejected the request." }],
+      takes: [],
+    } as unknown as GenerativeWorkspaceSnapshot;
+    const getGenerativeWorkspace = vi.fn(async () => failedWorkspace);
+    const manager = new GenerativeManager(session, {
+      submitGeneration: vi.fn(async () => ({ ok: false, message: "Provider rejected the request." })),
+      getGenerativeWorkspace,
+    } as unknown as ProjectWorkspacePort);
+    manager.state.update((current) => ({
+      ...current,
+      workspace: { jobs: [], takes: [] } as unknown as GenerativeWorkspaceSnapshot,
+    }));
+
+    expect(await manager.generate()).toBe(false);
+
+    expect(getGenerativeWorkspace).toHaveBeenCalledOnce();
+    expect(manager.state.get().workspace).toBe(failedWorkspace);
+    expect(manager.state.get().error).toBe("Provider rejected the request.");
+  });
 });
