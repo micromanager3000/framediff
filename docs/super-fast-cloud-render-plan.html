@@ -1098,6 +1098,47 @@ html&gt;body{padding:0}&lt;/style&gt;
     min-width: 640px;
   }
 
+  #fd-cloud-render-plan .plan-cost-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  #fd-cloud-render-plan .plan-cost-metric {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 92px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--muted);
+  }
+
+  #fd-cloud-render-plan .plan-cost-number {
+    color: var(--foreground);
+    font-size: 1.15rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+  }
+
+  #fd-cloud-render-plan .plan-cost-warning {
+    border-color: color-mix(in srgb, var(--destructive) 44%, var(--border));
+    background: color-mix(in srgb, var(--destructive) 8%, transparent);
+  }
+
+  #fd-cloud-render-plan .plan-cost-formula {
+    display: grid;
+    gap: 5px;
+    padding: 12px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--viz-series-1) 10%, transparent);
+  }
+
+  #fd-cloud-render-plan .plan-cost-formula code {
+    overflow-wrap: anywhere;
+  }
+
   @media (max-width: 680px) {
     #fd-cloud-render-plan .plan-pipeline {
       grid-template-columns: 1fr;
@@ -1124,6 +1165,10 @@ html&gt;body{padding:0}&lt;/style&gt;
     #fd-cloud-render-plan .plan-risk {
       grid-template-columns: 1fr;
       gap: 3px;
+    }
+
+    #fd-cloud-render-plan .plan-cost-metrics {
+      grid-template-columns: 1fr;
     }
   }
 &lt;/style&gt;
@@ -1210,6 +1255,8 @@ html&gt;body{padding:0}&lt;/style&gt;
     &lt;div class=&quot;plan-note text-small&quot;&gt;
       Cloud Run is the recommended pilot because it supplies managed L4 drivers, can scale to zero,
       starts GPU instances in roughly five seconds, and lets the API fan out private HTTP tasks.
+      GPU services require instance-based billing, though, so the pilot must compare the latency
+      benefit of services against the more predictable lifecycle cost of Cloud Run jobs.
       Keep the worker protocol provider-neutral so Modal or a later ECS fleet can replace it without
       changing the product API.
     &lt;/div&gt;
@@ -1286,79 +1333,242 @@ html&gt;body{padding:0}&lt;/style&gt;
   &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;cost-heading&quot;&gt;
     &lt;div class=&quot;plan-section-heading&quot;&gt;
       &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;3&lt;/span&gt;
-      &lt;h2 id=&quot;cost-heading&quot;&gt;Rough cloud render cost envelope&lt;/h2&gt;
+      &lt;h2 id=&quot;cost-heading&quot;&gt;Rough cloud render cost model&lt;/h2&gt;
     &lt;/div&gt;
     &lt;p class=&quot;plan-note text-small&quot;&gt;
-      Use this only as a planning envelope until the benchmark pack records real billable seconds.
-      In July 2026, a us-central1 Cloud Run L4 service with 8 vCPU and 32 GiB memory is roughly
-      &lt;strong&gt;$0.000395 per active instance-second&lt;/strong&gt; before free tiers, committed-use
-      discounts, storage, egress, Cloud Tasks, and observability. That is about &lt;strong&gt;$1.42 per
-      fully busy worker-hour&lt;/strong&gt;. The table prices total shard instance-seconds, not user-visible
-      wall time, so a render that finishes in 8 seconds with 12 busy workers can still bill about
-      96 instance-seconds.
+      Planning estimate only—not a quote. The renderer has not yet produced Linux L4 benchmark data,
+      so the throughput multipliers below are deliberately broad. Prices are USD list price in
+      us-central1, checked July 23, 2026, before free tiers or committed-use discounts.
     &lt;/p&gt;
+    &lt;div class=&quot;plan-cost-metrics&quot; aria-label=&quot;Cloud render unit economics&quot;&gt;
+      &lt;div class=&quot;plan-cost-metric&quot;&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;L4 worker list rate&lt;/span&gt;
+        &lt;strong class=&quot;plan-cost-number&quot;&gt;$0.0003947 / sec&lt;/strong&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;8 vCPU + 32 GiB + one non-redundant L4&lt;/span&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;plan-cost-metric&quot;&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;Fully utilized&lt;/span&gt;
+        &lt;strong class=&quot;plan-cost-number&quot;&gt;$1.42 / worker-hour&lt;/strong&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;Parallelism reduces latency, not total work&lt;/span&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;plan-cost-metric&quot;&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;One new worker minimum&lt;/span&gt;
+        &lt;strong class=&quot;plan-cost-number&quot;&gt;$0.0237&lt;/strong&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;One-minute minimum instance lifecycle&lt;/span&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;plan-cost-metric plan-cost-warning&quot;&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;One always-warm worker&lt;/span&gt;
+        &lt;strong class=&quot;plan-cost-number&quot;&gt;≈ $1,037 / month&lt;/strong&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;730 hours; keep min instances at zero for beta&lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;plan-cost-formula text-small&quot;&gt;
+      &lt;strong&gt;Model&lt;/strong&gt;
+      &lt;code&gt;warm compute cost = output seconds × assumed L4-seconds per output second × $0.0003947&lt;/code&gt;
+      &lt;span class=&quot;text-muted&quot;&gt;
+        Assumes 30 fps H.264, assets in-region, one isolated shard per worker, no retries, and no
+        cache hit. At 60 fps, use roughly 2× the render-work estimate until measurements say otherwise.
+      &lt;/span&gt;
+    &lt;/div&gt;
     &lt;div class=&quot;table-responsive&quot;&gt;
       &lt;table class=&quot;table table-sm plan-wide-table&quot;&gt;
         &lt;thead&gt;
           &lt;tr&gt;
-            &lt;th&gt;Output profile&lt;/th&gt;
-            &lt;th&gt;Typical fan-out&lt;/th&gt;
-            &lt;th&gt;Estimated billable compute&lt;/th&gt;
-            &lt;th&gt;Approx. compute cost&lt;/th&gt;
-            &lt;th&gt;Notes&lt;/th&gt;
+            &lt;th&gt;Video length&lt;/th&gt;
+            &lt;th&gt;Simple 1080p&lt;br&gt;&lt;span class=&quot;text-small text-muted&quot;&gt;0.8–2.0 L4-sec / output sec&lt;/span&gt;&lt;/th&gt;
+            &lt;th&gt;Standard 1080p&lt;br&gt;&lt;span class=&quot;text-small text-muted&quot;&gt;1.5–3.7×&lt;/span&gt;&lt;/th&gt;
+            &lt;th&gt;Standard 4K&lt;br&gt;&lt;span class=&quot;text-small text-muted&quot;&gt;3.0–7.5×&lt;/span&gt;&lt;/th&gt;
+            &lt;th&gt;Heavy 4K / WebGPU&lt;br&gt;&lt;span class=&quot;text-small text-muted&quot;&gt;6.0–15×&lt;/span&gt;&lt;/th&gt;
           &lt;/tr&gt;
         &lt;/thead&gt;
         &lt;tbody&gt;
           &lt;tr&gt;
-            &lt;td&gt;10 s 1080p · simple text/image motion&lt;/td&gt;
-            &lt;td&gt;2–4 shards&lt;/td&gt;
-            &lt;td&gt;8–20 L4 instance-sec&lt;/td&gt;
+            &lt;td&gt;10 seconds&lt;/td&gt;
             &lt;td&gt;$0.003–$0.008&lt;/td&gt;
-            &lt;td&gt;Queue and startup dominate unless a warm worker is already active.&lt;/td&gt;
+            &lt;td&gt;$0.006–$0.015&lt;/td&gt;
+            &lt;td&gt;$0.012–$0.030&lt;/td&gt;
+            &lt;td&gt;$0.024–$0.059&lt;/td&gt;
           &lt;/tr&gt;
           &lt;tr&gt;
-            &lt;td&gt;30 s 1080p · normal marketing/video comp&lt;/td&gt;
-            &lt;td&gt;4–12 shards&lt;/td&gt;
-            &lt;td&gt;45–110 L4 instance-sec&lt;/td&gt;
-            &lt;td&gt;$0.018–$0.043&lt;/td&gt;
-            &lt;td&gt;This is the first beta target; cache hits should avoid almost all compute.&lt;/td&gt;
+            &lt;td&gt;30 seconds&lt;/td&gt;
+            &lt;td&gt;$0.009–$0.024&lt;/td&gt;
+            &lt;td&gt;$0.018–$0.044&lt;/td&gt;
+            &lt;td&gt;$0.036–$0.089&lt;/td&gt;
+            &lt;td&gt;$0.071–$0.178&lt;/td&gt;
           &lt;/tr&gt;
           &lt;tr&gt;
-            &lt;td&gt;60 s 1080p · normal marketing/video comp&lt;/td&gt;
-            &lt;td&gt;8–12 shards&lt;/td&gt;
-            &lt;td&gt;90–220 L4 instance-sec&lt;/td&gt;
-            &lt;td&gt;$0.036–$0.087&lt;/td&gt;
-            &lt;td&gt;Longer videos amortize dispatch overhead better, but retries cost more.&lt;/td&gt;
+            &lt;td&gt;1 minute&lt;/td&gt;
+            &lt;td&gt;$0.019–$0.047&lt;/td&gt;
+            &lt;td&gt;$0.036–$0.088&lt;/td&gt;
+            &lt;td&gt;$0.071–$0.178&lt;/td&gt;
+            &lt;td&gt;$0.142–$0.355&lt;/td&gt;
           &lt;/tr&gt;
           &lt;tr&gt;
-            &lt;td&gt;2 min 4K or DOM-heavy comp&lt;/td&gt;
-            &lt;td&gt;8–12 shards&lt;/td&gt;
-            &lt;td&gt;360–900 L4 instance-sec&lt;/td&gt;
-            &lt;td&gt;$0.14–$0.36&lt;/td&gt;
-            &lt;td&gt;Treat as a paid-plan feature until traces prove predictable margins.&lt;/td&gt;
+            &lt;td&gt;2 minutes&lt;/td&gt;
+            &lt;td&gt;$0.038–$0.095&lt;/td&gt;
+            &lt;td&gt;$0.071–$0.175&lt;/td&gt;
+            &lt;td&gt;$0.142–$0.355&lt;/td&gt;
+            &lt;td&gt;$0.284–$0.710&lt;/td&gt;
           &lt;/tr&gt;
           &lt;tr&gt;
-            &lt;td&gt;5 min 4K or effects-heavy comp&lt;/td&gt;
-            &lt;td&gt;12 shards plus adaptive ranges&lt;/td&gt;
-            &lt;td&gt;900–2,250 L4 instance-sec&lt;/td&gt;
-            &lt;td&gt;$0.36–$0.89&lt;/td&gt;
-            &lt;td&gt;Set per-workspace monthly caps and show an estimate before dispatch.&lt;/td&gt;
+            &lt;td&gt;5 minutes&lt;/td&gt;
+            &lt;td&gt;$0.095–$0.237&lt;/td&gt;
+            &lt;td&gt;$0.178–$0.438&lt;/td&gt;
+            &lt;td&gt;$0.355–$0.888&lt;/td&gt;
+            &lt;td&gt;$0.710–$1.776&lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td&gt;10 minutes&lt;/td&gt;
+            &lt;td&gt;$0.189–$0.474&lt;/td&gt;
+            &lt;td&gt;$0.355–$0.876&lt;/td&gt;
+            &lt;td&gt;$0.710–$1.776&lt;/td&gt;
+            &lt;td&gt;$1.421–$3.552&lt;/td&gt;
           &lt;/tr&gt;
         &lt;/tbody&gt;
       &lt;/table&gt;
     &lt;/div&gt;
+    &lt;p class=&quot;text-small text-muted&quot;&gt;
+      These are useful-work estimates for a busy pool. They do not include the lifecycle floor or
+      idle tail of newly created instances. “Simple” means mostly text, SVG, and images; “standard”
+      means a typical marketing composition with video overlays; “heavy” means decode-heavy,
+      effects-heavy, or substantial WebGPU work. Measure and replace the multipliers before pricing
+      the product.
+    &lt;/p&gt;
+    &lt;div class=&quot;plan-subsection&quot;&gt;
+      &lt;h3&gt;Cold-burst cost can dominate short renders&lt;/h3&gt;
+      &lt;p class=&quot;text-small text-muted&quot;&gt;
+        Cloud Run GPU services require instance-based billing. Each new instance has a one-minute
+        minimum, and Cloud Run may keep an idle GPU instance for up to ten minutes after a request.
+        Jobs have the same one-minute minimum per task but terminate predictably. The upper bound
+        below is the documented ten-minute idle-retention exposure, not a promise that every instance
+        will live that long.
+      &lt;/p&gt;
+      &lt;div class=&quot;table-responsive&quot;&gt;
+        &lt;table class=&quot;table table-sm plan-wide-table&quot;&gt;
+          &lt;thead&gt;
+            &lt;tr&gt;
+              &lt;th&gt;New GPU workers&lt;/th&gt;
+              &lt;th&gt;One-minute lifecycle floor&lt;/th&gt;
+              &lt;th&gt;Service idle-tail exposure at 10 min&lt;/th&gt;
+              &lt;th&gt;Planning implication&lt;/th&gt;
+            &lt;/tr&gt;
+          &lt;/thead&gt;
+          &lt;tbody&gt;
+            &lt;tr&gt;
+              &lt;td&gt;1&lt;/td&gt;
+              &lt;td&gt;$0.024&lt;/td&gt;
+              &lt;td&gt;up to $0.237&lt;/td&gt;
+              &lt;td&gt;Best default for a cold 10-second preview&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+              &lt;td&gt;4&lt;/td&gt;
+              &lt;td&gt;$0.095&lt;/td&gt;
+              &lt;td&gt;up to $0.947&lt;/td&gt;
+              &lt;td&gt;Good pilot cap for short interactive renders&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+              &lt;td&gt;8&lt;/td&gt;
+              &lt;td&gt;$0.189&lt;/td&gt;
+              &lt;td&gt;up to $1.895&lt;/td&gt;
+              &lt;td&gt;Use when saved latency is worth the cold floor&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+              &lt;td&gt;12&lt;/td&gt;
+              &lt;td&gt;$0.284&lt;/td&gt;
+              &lt;td&gt;up to $2.842&lt;/td&gt;
+              &lt;td&gt;Reserve for warm demand or long/heavy exports&lt;/td&gt;
+            &lt;/tr&gt;
+          &lt;/tbody&gt;
+        &lt;/table&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;plan-subsection&quot;&gt;
+      &lt;h3&gt;Monthly planning envelope&lt;/h3&gt;
+      &lt;p class=&quot;text-small text-muted&quot;&gt;
+        Midpoint throughput plus a 25% operating buffer for retries, stitcher CPU, orchestration,
+        logs, and normal inefficiency. This assumes enough demand to amortize worker lifecycles; cold
+        isolated bursts can be materially higher as shown above.
+      &lt;/p&gt;
+      &lt;div class=&quot;table-responsive&quot;&gt;
+        &lt;table class=&quot;table table-sm plan-wide-table&quot;&gt;
+          &lt;thead&gt;
+            &lt;tr&gt;
+              &lt;th&gt;Output per month&lt;/th&gt;
+              &lt;th&gt;Standard 1080p&lt;/th&gt;
+              &lt;th&gt;Standard 4K&lt;/th&gt;
+              &lt;th&gt;Heavy 4K / WebGPU&lt;/th&gt;
+            &lt;/tr&gt;
+          &lt;/thead&gt;
+          &lt;tbody&gt;
+            &lt;tr&gt;
+              &lt;td&gt;100 output-min&lt;/td&gt;
+              &lt;td&gt;≈ $7.70&lt;/td&gt;
+              &lt;td&gt;≈ $15.54&lt;/td&gt;
+              &lt;td&gt;≈ $31.08&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+              &lt;td&gt;1,000 output-min&lt;/td&gt;
+              &lt;td&gt;≈ $76.97&lt;/td&gt;
+              &lt;td&gt;≈ $155.41&lt;/td&gt;
+              &lt;td&gt;≈ $310.83&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+              &lt;td&gt;10,000 output-min&lt;/td&gt;
+              &lt;td&gt;≈ $769.67&lt;/td&gt;
+              &lt;td&gt;≈ $1,554.13&lt;/td&gt;
+              &lt;td&gt;≈ $3,108.26&lt;/td&gt;
+            &lt;/tr&gt;
+          &lt;/tbody&gt;
+        &lt;/table&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;plan-subsection&quot;&gt;
+      &lt;h3&gt;Storage and delivery are smaller, but visible&lt;/h3&gt;
+      &lt;div class=&quot;table-responsive&quot;&gt;
+        &lt;table class=&quot;table table-sm plan-wide-table&quot;&gt;
+          &lt;thead&gt;
+            &lt;tr&gt;
+              &lt;th&gt;Example output&lt;/th&gt;
+              &lt;th&gt;Approx. size&lt;/th&gt;
+              &lt;th&gt;Store for one month&lt;/th&gt;
+              &lt;th&gt;One internet download&lt;/th&gt;
+            &lt;/tr&gt;
+          &lt;/thead&gt;
+          &lt;tbody&gt;
+            &lt;tr&gt;
+              &lt;td&gt;1 min 1080p H.264 at 8 Mbps&lt;/td&gt;
+              &lt;td&gt;≈ 0.059 GiB&lt;/td&gt;
+              &lt;td&gt;≈ $0.0012&lt;/td&gt;
+              &lt;td&gt;≈ $0.0070&lt;/td&gt;
+            &lt;/tr&gt;
+            &lt;tr&gt;
+              &lt;td&gt;1 min 4K H.264 at 25 Mbps&lt;/td&gt;
+              &lt;td&gt;≈ 0.183 GiB&lt;/td&gt;
+              &lt;td&gt;≈ $0.0037&lt;/td&gt;
+              &lt;td&gt;≈ $0.0220&lt;/td&gt;
+            &lt;/tr&gt;
+          &lt;/tbody&gt;
+        &lt;/table&gt;
+      &lt;/div&gt;
+      &lt;p class=&quot;text-small text-muted&quot;&gt;
+        Uses us-central1 Standard storage at about $0.02/GiB-month and first-tier general internet
+        transfer at $0.12/GiB, before eligible free usage. Same-region worker-to-bucket transfer is
+        free. Cloud Tasks is negligible at this scale: the first million operations per month are
+        free, then $0.40 per million.
+      &lt;/p&gt;
+    &lt;/div&gt;
     &lt;div class=&quot;viz-grid&quot;&gt;
       &lt;div class=&quot;card&quot;&gt;
-        &lt;strong&gt;Add a product margin buffer&lt;/strong&gt;
-        &lt;p class=&quot;text-small text-muted&quot;&gt;Budget an extra 15–40% for cold starts, failed shard retries, logs/traces, stitcher CPU, object storage operations, and customer downloads.&lt;/p&gt;
+        &lt;strong&gt;Cap cold fan-out&lt;/strong&gt;
+        &lt;p class=&quot;text-small text-muted&quot;&gt;Start at one worker for tiny previews and four for short exports. Add shards only when their latency savings justify another one-minute lifecycle floor.&lt;/p&gt;
       &lt;/div&gt;
       &lt;div class=&quot;card&quot;&gt;
         &lt;strong&gt;Prefer exact-result caching&lt;/strong&gt;
         &lt;p class=&quot;text-small text-muted&quot;&gt;A cached replay should be priced like storage plus egress, not compute; expose that as a customer-facing speed and cost win.&lt;/p&gt;
       &lt;/div&gt;
       &lt;div class=&quot;card&quot;&gt;
-        &lt;strong&gt;Turn costs into launch gates&lt;/strong&gt;
-        &lt;p class=&quot;text-small text-muted&quot;&gt;Log billable instance-seconds per output minute by complexity tier, then enforce quotas before enabling 4K or long-form exports broadly.&lt;/p&gt;
+        &lt;strong&gt;Benchmark services against jobs&lt;/strong&gt;
+        &lt;p class=&quot;text-small text-muted&quot;&gt;Use services for interactive latency only if real lifecycle utilization beats the predictable job floor; keep the same worker manifest for both lanes.&lt;/p&gt;
       &lt;/div&gt;
     &lt;/div&gt;
   &lt;/section&gt;
@@ -1509,10 +1719,10 @@ html&gt;body{padding:0}&lt;/style&gt;
             &lt;td&gt;Worker + infrastructure&lt;/td&gt;
             &lt;td&gt;
               Pinned Chrome/Playwright/ffmpeg image on Cloud Run L4; concurrency one; min instances
-              zero for beta; bounded max instances; private Cloud Tasks ingress; optional warm
-              instance after demand justifies it.
+              zero for beta; bounded max instances; private Cloud Tasks ingress; benchmark the same
+              manifest on Cloud Run jobs before choosing the default execution lane.
             &lt;/td&gt;
-            &lt;td&gt;DOM, video, WebGPU, cancellation, timeout, and cold-start test matrix&lt;/td&gt;
+            &lt;td&gt;DOM, video, WebGPU, cancellation, timeout, cold-start, and billable-lifecycle test matrix&lt;/td&gt;
           &lt;/tr&gt;
           &lt;tr&gt;
             &lt;td&gt;Hosted Studio&lt;/td&gt;
@@ -1668,6 +1878,7 @@ html&gt;body{padding:0}&lt;/style&gt;
       &lt;li&gt;Add exporter timings for prepare, font embed, audio scan/mix, video decode, WebGPU capture, grade pass, DOM clone, SVG/image decode, bitmap transfer, encode, mux, and sink write.&lt;/li&gt;
       &lt;li&gt;Create a reproducible benchmark pack: DOM title, video + overlay, and WebGPU/3D, each at 10 and 30 seconds, 1080p and 4K.&lt;/li&gt;
       &lt;li&gt;Build the pinned Linux Chrome worker image and prove real hardware WebGPU via &lt;code&gt;chrome://gpu&lt;/code&gt; diagnostics—not SwiftShader.&lt;/li&gt;
+      &lt;li&gt;Run the benchmark pack as both a min-zero GPU service and Cloud Run jobs; record useful L4-seconds, total billed lifecycle, cold idle tail, and wall time before selecting the default lane.&lt;/li&gt;
       &lt;li&gt;Add &lt;code&gt;includeAudio: false&lt;/code&gt; ranged export and a separate full-range audio export.&lt;/li&gt;
       &lt;li&gt;Define and golden-test &lt;code&gt;RenderManifestV1&lt;/code&gt;, &lt;code&gt;RenderShardV1&lt;/code&gt;, and &lt;code&gt;SegmentReceiptV1&lt;/code&gt;.&lt;/li&gt;
       &lt;li&gt;Add hosted render RPCs and database migrations with idempotent fingerprint creation.&lt;/li&gt;
@@ -1708,10 +1919,12 @@ html&gt;body{padding:0}&lt;/style&gt;
     &lt;ol class=&quot;plan-sources text-small&quot;&gt;
       &lt;li&gt;&lt;a href=&quot;https://docs.cloud.google.com/run/docs/configuring/services/gpu&quot;&gt;Cloud Run GPU services&lt;/a&gt; — managed L4/RTX GPUs, scale-to-zero, roughly five-second instance startup, one GPU per instance.&lt;/li&gt;
       &lt;li&gt;&lt;a href=&quot;https://docs.cloud.google.com/run/docs/triggering/using-tasks&quot;&gt;Cloud Tasks with Cloud Run&lt;/a&gt; — authenticated, durable asynchronous HTTP task delivery.&lt;/li&gt;
-      &lt;li&gt;&lt;a href=&quot;https://cloud.google.com/run/docs/create-jobs&quot;&gt;Cloud Run jobs&lt;/a&gt; — parallel task model and limits; useful as a fallback, but the one-minute billing minimum makes services a better latency/cost fit for short shards.&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://cloud.google.com/run/docs/create-jobs&quot;&gt;Cloud Run jobs&lt;/a&gt; — parallel task model and limits; the same one-minute minimum applies, but task termination can make cold-burst cost more predictable than a GPU service idle tail.&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://docs.cloud.google.com/run/docs/about-instance-autoscaling#idle-instances&quot;&gt;Cloud Run idle instances&lt;/a&gt; — services may retain idle GPU instances for up to ten minutes to reduce cold starts.&lt;/li&gt;
       &lt;li&gt;&lt;a href=&quot;https://developer.chrome.com/blog/supercharge-web-ai-testing&quot;&gt;Hardware WebGPU in headless Chrome&lt;/a&gt; — verify drivers and renderer identity; do not accept an accidental SwiftShader fallback.&lt;/li&gt;
-      &lt;li&gt;&lt;a href=&quot;https://cloud.google.com/run/pricing&quot;&gt;Cloud Run pricing&lt;/a&gt; — July 2026 us-central1 inputs for the estimate: instance-based services bill CPU at $0.000018 per vCPU-second, memory at $0.000002 per GiB-second, and L4 GPU at $0.0001867 per second before discounts and free tiers.&lt;/li&gt;
-      &lt;li&gt;&lt;a href=&quot;https://cloud.google.com/storage/pricing&quot;&gt;Cloud Storage pricing&lt;/a&gt; — add object storage, operation, retrieval, and download/egress costs outside the compute-only estimates.&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://cloud.google.com/run/pricing&quot;&gt;Cloud Run pricing&lt;/a&gt; — July 23, 2026 us-central1 inputs: instance-based CPU at $0.000018 per vCPU-second, memory at $0.000002 per GiB-second, non-redundant L4 at $0.0001867 per second, and a one-minute minimum lifecycle.&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://cloud.google.com/storage/pricing&quot;&gt;Cloud Storage pricing&lt;/a&gt; — roughly $0.02/GiB-month for regional Standard storage and $0.12/GiB for first-tier general internet transfer; same-location Google Cloud transfer is free.&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://cloud.google.com/tasks/pricing&quot;&gt;Cloud Tasks pricing&lt;/a&gt; — first one million monthly operations free, then $0.40 per million.&lt;/li&gt;
     &lt;/ol&gt;
   &lt;/section&gt;
 &lt;/main&gt;
