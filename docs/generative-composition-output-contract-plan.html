@@ -956,16 +956,64 @@
       top: -48%;
       width: 50%;
       height: 196%;
+      overflow: hidden;
       background:
         radial-gradient(circle at 52% 34%, #d0a07e 0 8%, transparent 8.5%),
         radial-gradient(circle at 51% 46%, #20262a 0 20%, transparent 20.5%),
         linear-gradient(155deg, #925c52, #253541 56%, #101112);
       transition: all .2s ease;
     }
-    .fit-preview[data-fit="cover"] .source-portrait { left: 0; top: -65%; width: 100%; height: 230%; }
+    .fit-preview[data-fit="cover"] .source-portrait {
+      left: 50%;
+      top: 0;
+      width: auto;
+      height: 100%;
+      aspect-ratio: 3 / 4;
+      transform: translateX(-50%);
+    }
     .fit-preview[data-fit="contain"] .source-portrait { left: 37%; top: 0; width: 26%; height: 100%; }
     .fit-preview[data-fit="stretch"] .source-portrait { left: 0; top: 0; width: 100%; height: 100%; }
+    .fit-preview[data-fit="resize"] .source-portrait { left: 33%; top: 0; width: 34%; height: 100%; }
     .fit-preview[data-fit="native"] .source-portrait { left: 33%; top: -16%; width: 34%; height: 132%; }
+    .input-crop-region {
+      display: none;
+      position: absolute;
+      z-index: 2;
+      left: 0;
+      top: 29%;
+      width: 100%;
+      height: 42.2%;
+      border: 1.5px solid var(--pink);
+      border-radius: 2px;
+      box-shadow: 0 0 0 999px rgba(5, 5, 5, .58);
+      cursor: move;
+      touch-action: none;
+    }
+    .fit-preview[data-fit="cover"] .input-crop-region { display: block; }
+    .input-crop-region::before,
+    .input-crop-region::after {
+      position: absolute;
+      width: 5px;
+      height: 5px;
+      border: 1px solid #fff;
+      background: var(--pink);
+      content: "";
+    }
+    .input-crop-region::before { left: -3px; top: -3px; }
+    .input-crop-region::after { right: -3px; bottom: -3px; }
+    .input-crop-region span {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      padding: 2px 4px;
+      border-radius: 3px;
+      background: rgba(0,0,0,.68);
+      color: #fff;
+      font-family: var(--mono);
+      font-size: 5px;
+      white-space: nowrap;
+      transform: translate(-50%, -50%);
+    }
     .fit-preview::after {
       position: absolute;
       right: 6px;
@@ -974,13 +1022,33 @@
       border-radius: 3px;
       background: rgba(0, 0, 0, .6);
       color: rgba(255,255,255,.7);
-      content: "TARGET 16:9";
+      content: "TARGET " attr(data-target);
       font-family: var(--mono);
       font-size: 5px;
     }
     .fit-section { padding: 0 11px 12px; }
     .fit-label { display: flex; justify-content: space-between; margin-bottom: 6px; color: var(--faint); font-family: var(--mono); font-size: 6px; }
     .fit-label b { color: var(--muted); font-weight: 500; }
+    .geometry-rule {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      margin: 9px 0;
+      padding: 8px;
+      border: 1px solid rgba(195, 165, 223, .22);
+      border-radius: 7px;
+      background: rgba(195, 165, 223, .05);
+    }
+    .geometry-rule b {
+      flex: 0 0 auto;
+      padding: 2px 4px;
+      border-radius: 3px;
+      background: rgba(195, 165, 223, .13);
+      color: var(--pink);
+      font-family: var(--mono);
+      font-size: 6px;
+    }
+    .geometry-rule span { color: var(--faint); font-size: 7px; line-height: 1.45; }
     .fit-options { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
     .fit-option {
       padding: 7px;
@@ -994,9 +1062,44 @@
     }
     .fit-option:hover { border-color: var(--line-strong); }
     .fit-option.active { border-color: var(--pink); background: rgba(195, 165, 223, .08); color: var(--text); }
+    .fit-option[hidden] { display: none; }
     .fit-option b { display: block; margin-bottom: 1px; font-size: 8px; }
     .fit-option small { color: var(--faint); font-size: 6px; }
+    .crop-editor {
+      margin-top: 8px;
+      padding: 8px;
+      border: 1px solid rgba(195, 165, 223, .24);
+      border-radius: 7px;
+      background: rgba(195, 165, 223, .05);
+    }
+    .crop-editor[hidden] { display: none; }
+    .crop-editor-head { display: flex; justify-content: space-between; gap: 8px; color: var(--pink); font-family: var(--mono); font-size: 6px; }
+    .crop-values { color: var(--muted); text-align: right; }
+    .crop-range {
+      display: grid;
+      grid-template-columns: 68px 1fr 27px;
+      gap: 6px;
+      align-items: center;
+      margin-top: 7px;
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 6px;
+    }
+    .crop-range input { width: 100%; accent-color: var(--pink); }
+    .crop-range output { color: var(--muted); text-align: right; }
+    .crop-hint { display: block; margin-top: 6px; color: var(--faint); font-size: 6px; line-height: 1.4; }
+    .fit-warning {
+      margin-top: 8px;
+      padding: 7px;
+      border: 1px dashed rgba(224, 172, 87, .35);
+      border-radius: 6px;
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 6px;
+      line-height: 1.45;
+    }
     .mini-field { display: flex; align-items: center; gap: 7px; margin-top: 8px; }
+    .mini-field[hidden], .fit-warning[hidden] { display: none; }
     .mini-field label { width: 60px; color: var(--faint); font-family: var(--mono); font-size: 6px; }
     .mini-field select, .mini-field input {
       flex: 1;
@@ -1588,19 +1691,34 @@
                   <b>APPLIES ONLY HERE</b>
                   LighthouseVisitor → <span id="edge-consumer">Harbor Reshoot</span>. Other uses keep their own handling.
                 </div>
-                <div class="fit-preview" id="fit-preview" data-fit="native"><div class="source-portrait"></div></div>
+                <div class="fit-preview" id="fit-preview" data-fit="contain" data-target="16:9">
+                  <div class="source-portrait" id="source-portrait">
+                    <div class="input-crop-region" id="input-crop-region"><span>DRAG CROP</span></div>
+                  </div>
+                </div>
                 <div class="fit-section">
                   <div class="fit-label"><span>SOURCE</span><b>1152×1536 · 3:4</b></div>
                   <div class="fit-label"><span>TARGET</span><b id="target-dims">1280×720 · 16:9</b></div>
-                  <div class="fit-label" style="margin-top:10px"><span>SIZE HANDLING</span><b id="fit-label">Use source as-is</b></div>
+                  <div class="geometry-rule"><b id="input-relation-label">MIXED AXES</b><span id="input-relation-copy">Width grows while height shrinks. Framing determines the uniform scale direction.</span></div>
+                  <div class="fit-label" style="margin-top:10px"><span>AVAILABLE HANDLING</span><b id="fit-label">Fit inside</b></div>
                   <div class="fit-options">
-                    <button class="fit-option active" data-fit="native"><b>Source as-is</b><small>No preprocessing</small></button>
-                    <button class="fit-option" data-fit="cover"><b>Crop to fill</b><small>Keep aspect + crop</small></button>
-                    <button class="fit-option" data-fit="contain"><b>Fit inside</b><small>Keep aspect + letterbox</small></button>
-                    <button class="fit-option" data-fit="stretch"><b>Stretch</b><small>Resize to exact target</small></button>
+                    <button class="fit-option" data-fit="native"><b>Source as-is</b><small>Exact dimensions; no preprocessing</small></button>
+                    <button class="fit-option" data-fit="resize"><b>Resize proportionally</b><small>Same aspect; one uniform scale</small></button>
+                    <button class="fit-option" data-fit="cover"><b id="cover-title">Crop + scale</b><small id="cover-copy">Keep aspect; fill target</small></button>
+                    <button class="fit-option active" data-fit="contain"><b id="contain-title">Fit + pad</b><small id="contain-copy">Keep all content</small></button>
+                    <button class="fit-option" data-fit="stretch"><b id="stretch-title">Stretch to exact</b><small id="stretch-copy">Independent axis scaling</small></button>
                   </div>
-                  <div class="mini-field"><label>POSITION</label><select><option>Center</option><option>Top</option><option>Face / focal point</option></select></div>
-                  <div class="mini-field"><label>MATTE</label><input type="text" value="#000000" /></div>
+                  <div class="crop-editor" id="crop-editor" hidden>
+                    <div class="crop-editor-head"><b>CROP REGION · TARGET ASPECT LOCKED</b><span class="crop-values" id="crop-values">x 0.0% · y 28.9% · w 100% · h 42.2%</span></div>
+                    <label class="crop-range"><span>HORIZONTAL</span><input id="crop-x" type="range" min="0" max="100" value="50" /><output id="crop-x-value">50%</output></label>
+                    <label class="crop-range"><span>VERTICAL</span><input id="crop-y" type="range" min="0" max="100" value="50" /><output id="crop-y-value">50%</output></label>
+                    <label class="crop-range"><span>REGION SIZE</span><input id="crop-size" type="range" min="40" max="100" value="100" /><output id="crop-size-value">100%</output></label>
+                    <small class="crop-hint">Drag the rectangle in the source preview or use these controls. Coordinates are normalized and stored on this consumer edge.</small>
+                  </div>
+                  <div class="mini-field" id="input-scale-field"><label>RESAMPLE</label><select id="input-scale-method"></select></div>
+                  <div class="mini-field" id="input-position-field"><label>POSITION</label><select><option>Center</option><option>Top</option><option>Face / focal point</option></select></div>
+                  <div class="mini-field" id="input-matte-field"><label>MATTE</label><input type="text" value="#000000" /></div>
+                  <div class="fit-warning" id="input-fit-warning" hidden></div>
                   <button class="apply-fit" id="apply-fit">Apply to this input</button>
                 </div>
               </div>
@@ -1745,7 +1863,7 @@
           <aside class="annotation details-note">The locked summary is visible before Create. A future type change is expressed as “Duplicate as another output,” never mutation.</aside>
           <aside class="annotation workbench-note">The picker is filtered only by locked media type. Dimensions, aspect, and duration never hide a same-output model.</aside>
           <aside class="annotation outputfit-note">Model-native pass-through is the default. If enabled: raw take → crop/scale → custom comp shape. Local resize is free; AI upscale is an explicit separate job, never a creative re-generation.</aside>
-          <aside class="annotation input-note">Sizing lives on the use-site edge, not on LighthouseVisitor itself. Select the input card to edit it.</aside>
+          <aside class="annotation input-note">Sizing lives on the use-site edge. The inspector first classifies source → target dimensions, then exposes only valid framing and resampling choices. Crop stores an explicit normalized region.</aside>
         </div>
 
         <div class="prototype-caption">
@@ -1849,7 +1967,7 @@
             <div class="diagram-node edge">
               <small>CONSUMER EDGE</small>
               <strong>Start-frame input</strong>
-              <code>fit: "cover"<br />position: [0.5, 0.42]</code>
+              <code>fit: "cover"<br />crop: [0, .289, 1, .422]</code>
             </div>
             <span class="diagram-arrow">→</span>
             <div class="diagram-node">
@@ -1870,14 +1988,28 @@
           </ul>
         </article>
 
-        <article class="plan-card">
-          <h3><span class="pill">INPUT FIT</span> Four visual policies</h3>
-          <p>Show policies only for image/video inputs when source and target geometry differ:</p>
+        <article class="plan-card wide">
+          <h3><span class="pill">INPUT FIT</span> Filter by axis relation, then aspect</h3>
+          <p>When a model declares a strict visual input target, compare width and height independently before showing adaptation choices. The axis relation controls resampling choices; the aspect relationship controls framing choices.</p>
+          <div class="table-wrap" style="margin:14px 0 12px">
+            <table>
+              <thead><tr><th>Source → strict target</th><th>Show</th><th>Hide / behavior</th></tr></thead>
+              <tbody>
+                <tr><td>Exact width + height</td><td>Source as-is</td><td>Hide crop, fit, stretch, matte, and resampling.</td></tr>
+                <tr><td>Same aspect; both axes larger</td><td>Scale up proportionally</td><td>Offer local or explicit AI upscale. Crop/letterbox are redundant.</td></tr>
+                <tr><td>Same aspect; both axes smaller</td><td>Scale down proportionally</td><td>Show downsampling only; hide AI upscale and framing.</td></tr>
+                <tr><td>Different aspect; both axes larger</td><td>Crop + upscale, Fit + upscale, Stretch</td><td>Crop exposes region; fit exposes matte; upscale methods are contextual.</td></tr>
+                <tr><td>Different aspect; both axes smaller</td><td>Crop + downscale, Fit + downscale, Stretch</td><td>Hide AI upscale. Label the actual uniform scale for crop/fit.</td></tr>
+                <tr><td>Only one axis changes</td><td>Crop or Fit; Stretch with warning</td><td>A crop may be pixel-exact; fit may pad. Compute outcome from the chosen strategy.</td></tr>
+                <tr><td>One axis grows, the other shrinks</td><td>Crop or Fit; Stretch with warning</td><td>Crop/fit use one uniform scale. Stretch reports both independent scale factors.</td></tr>
+              </tbody>
+            </table>
+          </div>
           <ul>
-            <li><strong>Source as-is</strong> — no preprocessing; default when the provider accepts arbitrary geometry.</li>
-            <li><strong>Crop to fill</strong> — preserve aspect, fill target, expose focal point.</li>
-            <li><strong>Fit inside</strong> — preserve all content, expose matte color.</li>
-            <li><strong>Stretch</strong> — exact target size, explicitly warns about aspect distortion.</li>
+            <li>If the provider accepts arbitrary source geometry, skip the strict-target adapter entirely instead of presenting misleading “Source as-is” beside a required target.</li>
+            <li><strong>Crop</strong> locks the selection to target aspect, supports drag plus horizontal/vertical/size controls, and stores normalized <code>[x, y, width, height]</code> on the consumer edge.</li>
+            <li><strong>Fit</strong> preserves all source content and exposes position plus matte only when padding exists.</li>
+            <li><strong>Stretch</strong> remains available for aspect mismatch but always displays width and height scale factors plus a distortion warning.</li>
           </ul>
         </article>
 
@@ -1899,7 +2031,8 @@
     <span class="key">"role"</span>: <span class="str">"start-frame"</span>,               <span class="comment">// consumer meaning</span>
     <span class="key">"adapt"</span>: {
       <span class="key">"fit"</span>: <span class="str">"cover"</span>,
-      <span class="key">"position"</span>: [0.5, 0.42],
+      <span class="key">"crop"</span>: [0.0, 0.289, 1.0, 0.422],     <span class="comment">// normalized source region; target aspect locked</span>
+      <span class="key">"resample"</span>: <span class="str">"lanczos3"</span>,
       <span class="key">"matte"</span>: <span class="str">"#000000"</span>
     }
   }]
@@ -1958,7 +2091,7 @@
         <article class="phase">
           <span class="phase-num"></span>
           <div><h3>Per-edge input handling</h3><div class="files">GenerativeWorkbench.svelte<br />Inspector.svelte<br />runtime bake/resolve paths</div></div>
-          <p>Make input cards selectable; store role plus adaptation on the ref; render fit/crop/letterbox preview; deterministically preprocess only when requested or required. Include source hash, target geometry, and full adaptation policy in the normalized artifact hash and generation provenance.</p>
+          <p>Make input cards selectable; classify strict target geometry by both axes and aspect; filter handling/resampling controls from that classification; and store role plus adaptation on the ref. Add a target-aspect-locked crop editor with drag and normalized coordinates. Include source hash, target geometry, crop region, resampling method, and full adaptation policy in the artifact hash and generation provenance.</p>
         </article>
         <article class="phase">
           <span class="phase-num"></span>
@@ -1985,6 +2118,8 @@
         <div class="confirm"><span class="check">✓</span><div><strong>Defense in depth</strong><p>A cross-type patch, submit, or pin is rejected even when invoked without the Studio UI.</p></div></div>
         <div class="confirm"><span class="check">✓</span><div><strong>Typed drag/drop</strong><p>Invalid timeline and generation-input drops refuse before changing source.</p></div></div>
         <div class="confirm"><span class="check">✓</span><div><strong>Edge-local fit</strong><p>Two consumers can use the same source with different policies and different artifact hashes.</p></div></div>
+        <div class="confirm"><span class="check">✓</span><div><strong>Dimension-class filtering</strong><p>Exact, both-larger, both-smaller, single-axis, and mixed-axis fixtures expose only their valid framing and resampling controls.</p></div></div>
+        <div class="confirm"><span class="check">✓</span><div><strong>Crop-region fidelity</strong><p>Dragging or editing crop position/size preserves target aspect, persists normalized <code>x/y/w/h</code>, and produces the same artifact after reload.</p></div></div>
         <div class="confirm"><span class="check">✓</span><div><strong>Legacy safety</strong><p>Existing recipes gain a deterministic lock; incompatible historical takes remain accessible.</p></div></div>
         <div class="confirm"><span class="check">✓</span><div><strong>Undoable edits</strong><p>Model, input role, and adaptation changes use existing source transactions and undo/redo.</p></div></div>
         <div class="confirm"><span class="check">✓</span><div><strong>Provenance</strong><p>Generation records preserve raw provider settings; optional presentation records capture custom dimensions and output transform; input adaptation stays separately attributable.</p></div></div>
@@ -2006,7 +2141,7 @@
             <tr><td>Desired output dimensions</td><td>Optional; default to model-native output</td><td>Users can preserve exactly what the model returns or opt into a stable custom comp shape when downstream layout requires one.</td></tr>
             <tr><td>Output shaping</td><td>Create a local derivative only when custom shape is enabled</td><td>Native mode has no extra transform. Crop, scale, letterbox, and matte never overwrite raw takes or spend generation credits; AI upscale is a separate explicit job.</td></tr>
             <tr><td>Changing output later</td><td>Duplicate as another output</td><td>Preserves every existing timeline/input edge and makes identity change visible and undoable.</td></tr>
-            <tr><td>Default input mismatch handling</td><td>Source as-is when supported; Fit inside when normalization is required</td><td>Avoids silently cropping reference information. Users can choose Crop to fill with a visible preview.</td></tr>
+            <tr><td>Default strict-input mismatch handling</td><td>Filter by dimension class; recommend Fit inside for aspect mismatch</td><td>Exact matches pass through; same-aspect changes reduce to one resize; aspect mismatches expose crop/fit/stretch with only the resampling methods relevant to the actual scale direction.</td></tr>
           </tbody>
         </table>
       </div>
@@ -2066,7 +2201,12 @@
             ["seedance-2.0-direct", "Seedance 2.0 direct · BytePlus", "1280×720"],
             ["veo-3.1-fast", "Veo 3.1 fast · Google", "1920×1080"],
             ["kling-2.5-pro", "Kling 2.5 turbo pro · Kuaishou", "1080×1080"],
-            ["wan-2.5", "Wan 2.5 preview · Alibaba", "1024×576"]
+            ["wan-2.5", "Wan 2.5 preview · Alibaba", "1024×576"],
+            ["fixture-video-exact", "Video fixture · Exact source match", "1152×1536"],
+            ["fixture-video-width-up", "Video fixture · Width grows only", "1920×1536"],
+            ["fixture-video-height-down", "Video fixture · Height shrinks only", "1152×1024"],
+            ["fixture-video-large-portrait", "Video fixture · Both grow / same aspect", "2304×3072"],
+            ["fixture-video-large-square", "Video fixture · Both grow / new aspect", "2048×2048"]
           ],
           fields: [
             ["DURATION", "5 seconds"],
@@ -2104,11 +2244,227 @@
         }
       };
       let output = "video";
-      let chosenFit = "native";
+      let chosenFit = "contain";
       let chosenOutputFit = "cover";
       let desiredShapeEnabled = false;
-      const fitNames = { native: "Use source as-is", cover: "Crop to fill", contain: "Fit inside", stretch: "Stretch" };
+      let inputGeometryState = null;
+      const sourceGeometry = { width: 1152, height: 1536 };
+      const cropState = { x: 0.5, y: 0.5, size: 1 };
+      const fitNames = { native: "Use source as-is", resize: "Resize proportionally", cover: "Crop to fill", contain: "Fit inside", stretch: "Stretch" };
+      const fitBadgeNames = { native: "SOURCE", resize: "RESIZE", cover: "CROP", contain: "CONTAIN", stretch: "STRETCH" };
       const outputFitNames = { cover: "Crop to fill", contain: "Fit inside", stretch: "Stretch", custom: "Custom crop" };
+
+      function parseGeometry(value) {
+        const match = String(value).match(/^(\d+)×(\d+)$/);
+        return match ? { width: Number(match[1]), height: Number(match[2]) } : null;
+      }
+
+      function greatestCommonDivisor(a, b) {
+        let left = Math.round(a);
+        let right = Math.round(b);
+        while (right) [left, right] = [right, left % right];
+        return left || 1;
+      }
+
+      function aspectLabel(width, height) {
+        const divisor = greatestCommonDivisor(width, height);
+        const exact = `${width / divisor}:${height / divisor}`;
+        return exact.length <= 7 ? exact : (width / height).toFixed(2);
+      }
+
+      function classifyInputGeometry(target) {
+        const source = sourceGeometry;
+        const widthDelta = Math.sign(target.width - source.width);
+        const heightDelta = Math.sign(target.height - source.height);
+        const widthRatio = target.width / source.width;
+        const heightRatio = target.height / source.height;
+        const aspectSame = Math.abs((source.width / source.height) - (target.width / target.height)) < 0.001;
+        let code;
+        let label;
+        let copy;
+
+        if (widthDelta === 0 && heightDelta === 0) {
+          code = "exact";
+          label = "EXACT MATCH";
+          copy = "Source already matches the strict target. No crop, padding, or resampling is offered.";
+        } else if (widthDelta > 0 && heightDelta > 0) {
+          code = "up-both";
+          label = "TARGET LARGER · BOTH";
+          copy = "Both axes must grow. Upscale methods are available; AI upscale remains an explicit separate job.";
+        } else if (widthDelta < 0 && heightDelta < 0) {
+          code = "down-both";
+          label = "TARGET SMALLER · BOTH";
+          copy = "Both axes shrink. Only downsampling methods are shown; AI upscale is irrelevant and hidden.";
+        } else if (widthDelta > 0 && heightDelta === 0) {
+          code = "width-up";
+          label = "WIDTH GROWS ONLY";
+          copy = "Height already matches. Crop/fit choices determine whether width is created by scale, padding, or distortion.";
+        } else if (widthDelta === 0 && heightDelta > 0) {
+          code = "height-up";
+          label = "HEIGHT GROWS ONLY";
+          copy = "Width already matches. Crop/fit choices determine whether height is created by scale, padding, or distortion.";
+        } else if (widthDelta < 0 && heightDelta === 0) {
+          code = "width-down";
+          label = "WIDTH SHRINKS ONLY";
+          copy = "Height already matches. A crop can avoid resampling; fit may downscale and pad.";
+        } else if (widthDelta === 0 && heightDelta < 0) {
+          code = "height-down";
+          label = "HEIGHT SHRINKS ONLY";
+          copy = "Width already matches. A crop can avoid resampling; fit may downscale and pad.";
+        } else {
+          code = widthDelta > 0 ? "width-up-height-down" : "width-down-height-up";
+          label = "MIXED AXES";
+          copy = widthDelta > 0
+            ? "Width grows while height shrinks. Crop and fit use one uniform scale; stretch would resize axes in opposite directions."
+            : "Width shrinks while height grows. Crop and fit use one uniform scale; stretch would resize axes in opposite directions.";
+        }
+
+        return { source, target, widthDelta, heightDelta, widthRatio, heightRatio, aspectSame, code, label, copy };
+      }
+
+      function transformScaleFor(fit, geometry) {
+        if (fit === "cover") return Math.max(geometry.widthRatio, geometry.heightRatio);
+        if (fit === "contain") return Math.min(geometry.widthRatio, geometry.heightRatio);
+        if (fit === "resize") return geometry.widthRatio;
+        return null;
+      }
+
+      function scaleVerb(scale) {
+        if (scale > 1.001) return "upscale";
+        if (scale < 0.999) return "downscale";
+        return "no resize";
+      }
+
+      function updateCropRegion() {
+        if (!inputGeometryState) return;
+        const targetAspect = inputGeometryState.target.width / inputGeometryState.target.height;
+        const sourceAspect = sourceGeometry.width / sourceGeometry.height;
+        let maxWidth = 100;
+        let maxHeight = 100;
+        if (sourceAspect > targetAspect) maxWidth = (targetAspect / sourceAspect) * 100;
+        else maxHeight = (sourceAspect / targetAspect) * 100;
+        const width = maxWidth * cropState.size;
+        const height = maxHeight * cropState.size;
+        const left = (100 - width) * cropState.x;
+        const top = (100 - height) * cropState.y;
+        const region = document.getElementById("input-crop-region");
+        region.style.left = `${left}%`;
+        region.style.top = `${top}%`;
+        region.style.width = `${width}%`;
+        region.style.height = `${height}%`;
+        document.getElementById("crop-values").textContent =
+          `x ${left.toFixed(1)}% · y ${top.toFixed(1)}% · w ${width.toFixed(1)}% · h ${height.toFixed(1)}%`;
+        document.getElementById("crop-x-value").textContent = `${Math.round(cropState.x * 100)}%`;
+        document.getElementById("crop-y-value").textContent = `${Math.round(cropState.y * 100)}%`;
+        document.getElementById("crop-size-value").textContent = `${Math.round(cropState.size * 100)}%`;
+      }
+
+      function updateInputFitDetails() {
+        if (!inputGeometryState) return;
+        const fit = chosenFit;
+        const geometry = inputGeometryState;
+        const scaleField = document.getElementById("input-scale-field");
+        const scaleSelect = document.getElementById("input-scale-method");
+        const cropEditor = document.getElementById("crop-editor");
+        const positionField = document.getElementById("input-position-field");
+        const matteField = document.getElementById("input-matte-field");
+        const warning = document.getElementById("input-fit-warning");
+        cropEditor.hidden = fit !== "cover";
+        positionField.hidden = fit !== "contain";
+        matteField.hidden = fit !== "contain";
+        warning.hidden = true;
+        warning.textContent = "";
+
+        if (fit === "native") {
+          scaleField.hidden = true;
+        } else if (fit === "stretch") {
+          scaleField.hidden = false;
+          const growsWidth = geometry.widthRatio > 1.001;
+          const growsHeight = geometry.heightRatio > 1.001;
+          const mixed = growsWidth !== growsHeight && Math.abs(geometry.widthRatio - 1) > 0.001 && Math.abs(geometry.heightRatio - 1) > 0.001;
+          const options = mixed
+            ? [["mixed-local", "Mixed-axis resize · local"], ["mixed-ai", "AI upscale enlarged axis · separate job"]]
+            : (growsWidth || growsHeight)
+              ? [["up-local", "High-quality upscale · local"], ["up-ai", "AI upscale · separate job"]]
+              : [["down-local", "High-quality downscale · local"], ["down-area", "Area downsample · local"]];
+          scaleSelect.innerHTML = options.map(([value, label]) => `<option value="${value}">${label}</option>`).join("");
+          warning.hidden = false;
+          warning.textContent = `DISTORTION · Width scales ${geometry.widthRatio.toFixed(2)}× and height ${geometry.heightRatio.toFixed(2)}× independently.`;
+        } else {
+          const scale = transformScaleFor(fit, geometry);
+          scaleField.hidden = Math.abs(scale - 1) < 0.001;
+          if (scale > 1.001) {
+            scaleSelect.innerHTML = `<option value="up-local">High-quality upscale · local</option><option value="up-ai">AI upscale · separate job</option>`;
+          } else if (scale < 0.999) {
+            scaleSelect.innerHTML = `<option value="down-local">High-quality downscale · local</option><option value="down-area">Area downsample · local</option>`;
+          } else {
+            scaleSelect.innerHTML = `<option value="none">Pixel exact · no resampling</option>`;
+          }
+        }
+        updateCropRegion();
+      }
+
+      function setInputFit(fit) {
+        chosenFit = fit;
+        document.querySelectorAll(".input-inspector .fit-option").forEach((item) => {
+          item.classList.toggle("active", item.dataset.fit === chosenFit);
+        });
+        document.getElementById("fit-preview").dataset.fit = chosenFit;
+        const activeTitle = document.querySelector(`.input-inspector .fit-option[data-fit="${chosenFit}"] b`);
+        document.getElementById("fit-label").textContent = activeTitle?.textContent || fitNames[chosenFit];
+        updateInputFitDetails();
+      }
+
+      function updateInputGeometry() {
+        const cfg = outputs[output];
+        const target = output === "audio" ? null : parseGeometry(cfg.raw);
+        const buttons = [...document.querySelectorAll(".input-inspector .fit-option")];
+        if (!target) {
+          inputGeometryState = null;
+          buttons.forEach((button) => { button.hidden = button.dataset.fit !== "native"; });
+          document.getElementById("input-relation-label").textContent = "NO VISUAL TARGET";
+          document.getElementById("input-relation-copy").textContent = "Audio inputs have no width or height adaptation.";
+          document.getElementById("target-dims").textContent = "No visual target";
+          document.getElementById("crop-editor").hidden = true;
+          document.getElementById("input-scale-field").hidden = true;
+          document.getElementById("input-position-field").hidden = true;
+          document.getElementById("input-matte-field").hidden = true;
+          document.getElementById("input-fit-warning").hidden = true;
+          setInputFit("native");
+          return;
+        }
+
+        const geometry = classifyInputGeometry(target);
+        inputGeometryState = geometry;
+        const targetAspect = aspectLabel(target.width, target.height);
+        document.getElementById("target-dims").textContent = `${target.width}×${target.height} · ${targetAspect} · model input shape`;
+        document.getElementById("fit-preview").dataset.target = targetAspect;
+        document.getElementById("input-relation-label").textContent = geometry.label;
+        document.getElementById("input-relation-copy").textContent = geometry.copy;
+
+        const allowedFits = geometry.code === "exact"
+          ? ["native"]
+          : geometry.aspectSame ? ["resize"] : ["cover", "contain", "stretch"];
+        buttons.forEach((button) => { button.hidden = !allowedFits.includes(button.dataset.fit); });
+
+        const coverScale = transformScaleFor("cover", geometry);
+        const containScale = transformScaleFor("contain", geometry);
+        document.getElementById("cover-title").textContent = scaleVerb(coverScale) === "no resize" ? "Crop only" : `Crop + ${scaleVerb(coverScale)}`;
+        document.getElementById("cover-copy").textContent = `${coverScale.toFixed(2)}× uniform scale · choose region`;
+        document.getElementById("contain-title").textContent = scaleVerb(containScale) === "no resize" ? "Fit + pad" : `Fit + ${scaleVerb(containScale)}`;
+        document.getElementById("contain-copy").textContent = `${containScale.toFixed(2)}× uniform scale · preserve all`;
+        document.getElementById("stretch-title").textContent = "Stretch to exact";
+        document.getElementById("stretch-copy").textContent = `${geometry.widthRatio.toFixed(2)}× width · ${geometry.heightRatio.toFixed(2)}× height`;
+        const resizeButton = document.querySelector('.input-inspector .fit-option[data-fit="resize"]');
+        const resizeScale = geometry.widthRatio;
+        resizeButton.querySelector("b").textContent = resizeScale > 1 ? "Scale up proportionally" : "Scale down proportionally";
+        resizeButton.querySelector("small").textContent = `${resizeScale.toFixed(2)}× uniform scale · aspect unchanged`;
+
+        if (!allowedFits.includes(chosenFit)) {
+          chosenFit = geometry.code === "exact" ? "native" : geometry.aspectSame ? "resize" : "contain";
+        }
+        setInputFit(chosenFit);
+      }
 
       function selectOptions(element, items) {
         element.innerHTML = items.map(([value, label, nativeOutput]) =>
@@ -2204,9 +2560,9 @@
         cfg.raw = model[2];
         document.getElementById("details-model").value = cfg.selectedModel;
         document.getElementById("model-select").value = cfg.selectedModel;
-        document.getElementById("target-dims").textContent = output === "audio" ? "No visual target" : `${cfg.raw} · model input shape`;
         renderParameters(cfg);
         refreshShapePresentation();
+        updateInputGeometry();
       }
 
       function renderOutput() {
@@ -2249,9 +2605,9 @@
           document.getElementById("output-target-width").value = cfg.desiredWidth;
           document.getElementById("output-target-height").value = cfg.desiredHeight;
         }
-        document.getElementById("target-dims").textContent = output === "audio" ? "No visual target" : `${cfg.raw} · model input shape`;
         renderParameters(cfg);
         setShapeMode(output === "audio" ? "native" : desiredShapeEnabled ? "custom" : "native");
+        updateInputGeometry();
       }
 
       function go(screen) {
@@ -2301,11 +2657,42 @@
         if (output !== "audio") go("outputfit");
       });
       document.querySelectorAll(".input-inspector .fit-option").forEach((button) => button.addEventListener("click", () => {
-        chosenFit = button.dataset.fit;
-        document.querySelectorAll(".input-inspector .fit-option").forEach((item) => item.classList.toggle("active", item === button));
-        document.getElementById("fit-preview").dataset.fit = chosenFit;
-        document.getElementById("fit-label").textContent = fitNames[chosenFit];
+        setInputFit(button.dataset.fit);
       }));
+      ["crop-x", "crop-y", "crop-size"].forEach((id) => {
+        document.getElementById(id).addEventListener("input", () => {
+          cropState.x = Number(document.getElementById("crop-x").value) / 100;
+          cropState.y = Number(document.getElementById("crop-y").value) / 100;
+          cropState.size = Number(document.getElementById("crop-size").value) / 100;
+          updateCropRegion();
+        });
+      });
+      document.getElementById("input-crop-region").addEventListener("pointerdown", (event) => {
+        const source = document.getElementById("source-portrait");
+        const region = document.getElementById("input-crop-region");
+        const sourceRect = source.getBoundingClientRect();
+        const regionRect = region.getBoundingClientRect();
+        const grabX = event.clientX - regionRect.left;
+        const grabY = event.clientY - regionRect.top;
+        region.setPointerCapture(event.pointerId);
+        const move = (moveEvent) => {
+          const availableX = Math.max(0, sourceRect.width - regionRect.width);
+          const availableY = Math.max(0, sourceRect.height - regionRect.height);
+          cropState.x = availableX ? Math.min(1, Math.max(0, (moveEvent.clientX - sourceRect.left - grabX) / availableX)) : 0.5;
+          cropState.y = availableY ? Math.min(1, Math.max(0, (moveEvent.clientY - sourceRect.top - grabY) / availableY)) : 0.5;
+          document.getElementById("crop-x").value = Math.round(cropState.x * 100);
+          document.getElementById("crop-y").value = Math.round(cropState.y * 100);
+          updateCropRegion();
+        };
+        const stop = () => {
+          region.removeEventListener("pointermove", move);
+          region.removeEventListener("pointerup", stop);
+          region.removeEventListener("pointercancel", stop);
+        };
+        region.addEventListener("pointermove", move);
+        region.addEventListener("pointerup", stop);
+        region.addEventListener("pointercancel", stop);
+      });
       document.querySelectorAll(".output-fit-option").forEach((button) => button.addEventListener("click", () => {
         chosenOutputFit = button.dataset.outputFit;
         document.querySelectorAll(".output-fit-option").forEach((item) => item.classList.toggle("active", item === button));
@@ -2335,7 +2722,7 @@
         });
       });
       document.getElementById("apply-fit").addEventListener("click", () => {
-        document.getElementById("fit-badge").textContent = `FIT · ${chosenFit === "native" ? "SOURCE" : chosenFit.toUpperCase()}`;
+        document.getElementById("fit-badge").textContent = `FIT · ${fitBadgeNames[chosenFit]}`;
         go("workbench");
       });
       document.getElementById("apply-output-fit").addEventListener("click", () => {
