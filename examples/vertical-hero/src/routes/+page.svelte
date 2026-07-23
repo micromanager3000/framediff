@@ -3,8 +3,7 @@
   import { StudioShell, browserAnimationClock } from "@framediff/studio-ui";
   import { studioRuntime } from "$lib/studio-runtime";
 
-  const requested = new URLSearchParams(location.search).get("comp") ?? "vertical-main";
-  const application = new StudioApplication(studioRuntime, browserAnimationClock, requested);
+  const application = new StudioApplication(studioRuntime, browserAnimationClock, "vertical-main");
 </script>
 
 <svelte:head><title>FrameDiff — Vertical Hero</title></svelte:head>

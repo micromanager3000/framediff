@@ -18,9 +18,10 @@ import { lighthouseKeeper } from "./gen/lighthouseKeeper.gen";
 import { lighthouseDialogueAudio } from "./gen/lighthouseDialogueAudio.gen";
 import { lighthouseDialogue } from "./gen/lighthouseDialogue.gen";
 
-/** The Studio registry. "main" is the root edit — the top of the stack; ?comp= picks which
- *  comp to open, and every comp stays reachable in the tree. */
-export const COMPOSITIONS: CompRegistry = {
+/** The Studio registry. The first entry is also the runtime fallback; every other composition
+ *  stays reachable from the project rail. */
+export const COMPOSITIONS = {
+  "lighthouse-workflow": lighthouseWorkflowComp,
   main: mainComp,
   // pre-production comps — ordinary comps in the same graph: the script's rows nest the
   // take/previz they reference, location cards are live cameras into the previz set, the
@@ -38,5 +39,7 @@ export const COMPOSITIONS: CompRegistry = {
   "lighthouse-keeper": lighthouseKeeper,
   "lighthouse-dialogue-audio": lighthouseDialogueAudio,
   "lighthouse-dialogue": lighthouseDialogue,
-  "lighthouse-workflow": lighthouseWorkflowComp,
-};
+} satisfies CompRegistry;
+
+/** The composition served at the project URL. */
+export const PROJECT_ROOT: keyof typeof COMPOSITIONS = "lighthouse-workflow";

@@ -8,13 +8,14 @@ import {
   createAssetResolver,
   loadManifest,
   type AssetResolver,
+  type CompRegistry,
 } from "framediff";
 import { COMPOSITIONS } from "./config";
 
 // The Studio runtime and this dev-hook module both import the registry. Accept updates on this
 // path as well, otherwise Vite propagates a composition save through +page.svelte and remounts
   // the UI even though the HTML preview already knows how to replace its registry in place.
-let liveCompositions = COMPOSITIONS;
+let liveCompositions: CompRegistry = COMPOSITIONS;
 if (import.meta.hot) {
   import.meta.hot.accept("./config", (module) => {
     if (module) liveCompositions = module.COMPOSITIONS;

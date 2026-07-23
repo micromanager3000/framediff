@@ -27,7 +27,7 @@
   import { GenerativeViewModel } from "./viewmodels/Generative.ViewModel";
   import { OperationsViewModel } from "./viewmodels/Operations.ViewModel";
   import { restoreStudioSelection, serializeStudioSelection } from "./viewmodels/selectionPersistence";
-  import { postRenderWindowError, postRenderWindowState, renderWindowToken } from "./renderWindow";
+  import { buildRenderWindowUrl, postRenderWindowError, postRenderWindowState, renderWindowRequest } from "./renderWindow";
   import { observableStore } from "./viewmodels/store";
   import "./studio.css";
 
@@ -54,7 +54,7 @@
   const mediaStore = media.store;
   const operationsStore = operations.store;
   const historyStore = observableStore(application.history.state);
-  const dedicatedRenderToken = typeof window === "undefined" ? null : renderWindowToken(window.location.href);
+  const dedicatedRenderRequest = typeof window === "undefined" ? null : renderWindowRequest(window.name);
   const compositionStorageKey = typeof window === "undefined" ? "" : `framediff:composition:${window.location.pathname}`;
   const selectionStorageKey = typeof window === "undefined" ? "" : `framediff:selection:${window.location.pathname}`;
   let rememberComposition = false;
@@ -260,21 +260,26 @@
   }
 
   onMount(() => {
-    if (dedicatedRenderToken) {
-      unsubscribeRenderWindow = application.render.state.subscribe((state) => postRenderWindowState(dedicatedRenderToken, state));
+    const projectUrl = buildRenderWindowUrl(window.location.href);
+    if (projectUrl !== window.location.href) window.history.replaceState(window.history.state, "", projectUrl);
+    if (dedicatedRenderRequest) {
+      unsubscribeRenderWindow = application.render.state.subscribe((state) => postRenderWindowState(dedicatedRenderRequest.token, state));
       void application.start()
         .then(async () => {
+          if (!session.state.get().compositions.some((composition) => composition.key === dedicatedRenderRequest.compositionKey)) {
+            throw new Error("The requested composition is not available to render.");
+          }
+          session.navigate(dedicatedRenderRequest.compositionKey);
           const started = await application.render.renderCurrent();
           if (!started && application.render.state.get().status === "idle") {
             throw new Error("The requested composition is not available to render.");
           }
         })
-        .catch((error) => postRenderWindowError(dedicatedRenderToken, error));
+        .catch((error) => postRenderWindowError(dedicatedRenderRequest.token, error));
       return;
     }
     agentSurface = exposeStudioAgentApi(application);
-    const explicitComposition = new URL(window.location.href).searchParams.has("comp");
-    const rememberedComposition = explicitComposition ? null : window.sessionStorage.getItem(compositionStorageKey);
+    const rememberedComposition = window.sessionStorage.getItem(compositionStorageKey);
     void application.start().then(() => {
       if (rememberedComposition && session.state.get().compositions.some((composition) => composition.key === rememberedComposition)) {
         shell.open(rememberedComposition);
@@ -303,7 +308,7 @@
   });
 </script>
 
-{#if dedicatedRenderToken}
+{#if dedicatedRenderRequest}
   <DedicatedRenderWindow viewModel={render} compositionName={$store.current?.id ?? ""} />
 {:else}
 <div class="framediff-studio">

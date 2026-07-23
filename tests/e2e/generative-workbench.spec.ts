@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { openComposition } from "./helpers";
 
 test("a draft take is an obvious, repeatable path back to editing", async ({ page }) => {
-  await page.goto("http://127.0.0.1:4175/?comp=harborShot");
+  await openComposition(page, "harborShot", "http://127.0.0.1:4175/");
   await expect(page).toHaveTitle("FrameDiff — Previz to Generation");
   await expect(page.locator(".top-status")).toHaveText("ready");
 

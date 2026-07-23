@@ -1,6 +1,6 @@
 import type { Readable } from "svelte/store";
 import type { RenderManager, RenderState } from "@framediff/studio-model";
-import { openRenderWindow, renderWindowToken, runInRenderWindow } from "../renderWindow";
+import { openRenderWindow, renderWindowRequest, runInRenderWindow } from "../renderWindow";
 import { observableStore } from "./store";
 
 export class RenderViewModel {
@@ -13,7 +13,7 @@ export class RenderViewModel {
   public render(): Promise<boolean> {
     // The render-window document owns the actual export. Keeping DOM/WebGPU capture in a
     // selected, visible document avoids Chrome background-tab throttling and freezing.
-    if (typeof window === "undefined" || renderWindowToken(window.location.href)) {
+    if (typeof window === "undefined" || renderWindowRequest(window.name)) {
       return this.manager.renderCurrent();
     }
     const compositionKey = this.manager.currentCompositionKey;

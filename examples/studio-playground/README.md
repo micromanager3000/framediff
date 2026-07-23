@@ -28,8 +28,8 @@ npm install
 npm run dev --workspace @framediff/example-studio-playground
 ```
 
-The root URL opens `?comp=studio-playground`. Other registered compositions remain directly
-reachable through the `comp` query parameter and through the Studio composition tree.
+The root URL opens `StudioPlayground`. Other registered compositions remain directly
+reachable through the Studio composition tree.
 
 ## Check
 

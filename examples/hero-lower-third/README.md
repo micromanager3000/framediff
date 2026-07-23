@@ -68,8 +68,8 @@ are derived only from raw footage, never from the comparison render.
 ```sh
 npm install                                   # repo root
 npm run dev --workspace examples/hero-lower-third
-# defaults to ?comp=main
-# ?comp=hero | hero-raw | lower-third | end-card | hero-script
+# opens the main project composition
+# use the composition rail for hero, hero-raw, lower-third, end-card, or hero-script
 ```
 
 ## Dev hooks (used by the compare loop)

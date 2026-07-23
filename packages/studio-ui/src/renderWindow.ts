@@ -1,6 +1,12 @@
 import type { RenderProgressSnapshot, RenderResult, RenderState } from "@framediff/studio-model";
 
-export const RENDER_WINDOW_QUERY_PARAM = "framediff-render-window";
+const RENDER_WINDOW_NAME_PREFIX = "framediff-render:";
+const LEGACY_RENDER_WINDOW_QUERY_PARAM = "framediff-render-window";
+
+export interface RenderWindowRequest {
+  token: string;
+  compositionKey: string;
+}
 
 type RenderWindowProgressMessage = {
   type: "framediff:render-window";
@@ -35,14 +41,29 @@ export interface RenderWindowHandle {
   origin: string;
 }
 
-export function renderWindowToken(href: string): string | null {
-  return new URL(href).searchParams.get(RENDER_WINDOW_QUERY_PARAM);
+export function buildRenderWindowName(compositionKey: string, token: string): string {
+  return `${RENDER_WINDOW_NAME_PREFIX}${encodeURIComponent(JSON.stringify({ token, compositionKey }))}`;
 }
 
-export function buildRenderWindowUrl(href: string, compositionKey: string, token: string): string {
+export function renderWindowRequest(name: string): RenderWindowRequest | null {
+  if (!name.startsWith(RENDER_WINDOW_NAME_PREFIX)) return null;
+  try {
+    const value = JSON.parse(decodeURIComponent(name.slice(RENDER_WINDOW_NAME_PREFIX.length))) as Partial<RenderWindowRequest>;
+    return typeof value.token === "string" && value.token
+      && typeof value.compositionKey === "string" && value.compositionKey
+      ? { token: value.token, compositionKey: value.compositionKey }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export function buildRenderWindowUrl(href: string): string {
   const url = new URL(href);
-  url.searchParams.set("comp", compositionKey);
-  url.searchParams.set(RENDER_WINDOW_QUERY_PARAM, token);
+  // Normalize URLs copied from older Studio builds. Render routing now travels in window.name,
+  // so opening a project or renderer never needs composition state in its URL.
+  url.searchParams.delete("comp");
+  url.searchParams.delete(LEGACY_RENDER_WINDOW_QUERY_PARAM);
   return url.href;
 }
 
@@ -53,7 +74,7 @@ function randomToken(): string {
 /** Must be called synchronously from the render-button click so Chrome permits the popup. */
 export function openRenderWindow(compositionKey: string): RenderWindowHandle | null {
   const token = randomToken();
-  const url = buildRenderWindowUrl(window.location.href, compositionKey, token);
+  const url = buildRenderWindowUrl(window.location.href);
   const width = 560;
   const height = 280;
   const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - width) / 2));
@@ -66,6 +87,7 @@ export function openRenderWindow(compositionKey: string): RenderWindowHandle | n
   if (!popup) return null;
 
   // Avoid a white flash while the Studio route loads in the new document.
+  popup.name = buildRenderWindowName(compositionKey, token);
   popup.document.title = "FrameDiff — Opening renderer…";
   popup.document.documentElement.style.cssText = "color-scheme:dark;background:#0e0d0b";
   popup.document.body.style.cssText = "margin:0;background:#0e0d0b";

@@ -19,14 +19,15 @@ npm install          # from the repo root — links the workspace
 npm run dev --workspace examples/previz-to-gen
 ```
 
-Open the printed URL: `?comp=main` (the edit), `?comp=harbor-previz` (the 3D previz),
-`?comp=harborShot` (the generative workbench).
+Open the printed project URL to land on the lighthouse workflow. Use the composition rail to open
+the harbor edit (`Main`), the 3D previz (`HarborPreviz`), or the generative workbench
+(`harborShot`).
 
 ## Dialogue-first lighthouse scene
 
-The project also contains a vertical two-actor lighthouse scene built around an audio approval
-gate. Open `?comp=lighthouse-workflow` for the overview or `?comp=lighthouse-dialogue` for the
-final generative composition.
+The project root is a vertical two-actor lighthouse scene built around an audio approval gate.
+Open the project URL for the overview or choose `lighthouseDialogue` in the composition rail for
+the final generative composition.
 
 ```
 imported Midjourney key frame
@@ -42,13 +43,13 @@ lighthouseVisitor ──▶ lighthouseDialogueAudio
 
 Generate and pin the takes in this order:
 
-1. `?comp=lighthouse-visitor` — Seedream turns the imported coastal key frame into Mara's
+1. Open `lighthouseVisitor` — Seedream turns the imported coastal key frame into Mara's
    lantern-room portrait.
-2. `?comp=lighthouse-keeper` — a second Seedream comp locks Elias independently, so a weak face
+2. Open `lighthouseKeeper` — a second Seedream comp locks Elias independently, so a weak face
    never forces a video reroll.
-3. `?comp=lighthouse-dialogue-audio` — Seed Audio performs the complete 14-second scene for about
+3. Open `lighthouseDialogueAudio` — Seed Audio performs the complete 14-second scene for about
    four cents. Listen, adjust the acting prompt, and pin only an approved reading.
-4. `?comp=lighthouse-dialogue` — Seedance receives the two pinned image bytes and the pinned audio
+4. Open `lighthouseDialogue` — Seedance receives the two pinned image bytes and the pinned audio
    bytes as `@Image1`, `@Image2`, and `@Audio1`. The prompt treats the audio as the master edit:
    exact dialogue, breaths, pauses, room tone, speaker cuts, and the silent reaction beat.
 
@@ -82,7 +83,7 @@ takes keep their media kind for correct preview and download behavior.
 
 3. **Generate** — [src/gen/harborShot.gen.ts](src/gen/harborShot.gen.ts) is the whole recipe:
    `generative({ model: "seedance-2.0", refs: [{ kind: "video", src: "comp://harbor-previz" }], … })`.
-   Open `?comp=harborShot`, add a fal key (⚿ SERVICES in the topbar, or `FAL_KEY` in the env),
+   Open `harborShot` from the composition rail, add a fal key (⚿ SERVICES in the topbar, or `FAL_KEY` in the env),
    and hit **Generate** — the only paid action; nothing regenerates implicitly. The dev bridge
    uploads the bake to the provider, polls the queue, and ingests the finished take with full
    provenance. Pin it by setting `take: N` (the Studio rewrites the literal for you) — the pin

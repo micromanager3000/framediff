@@ -36,7 +36,7 @@ export interface CompMeta extends CompositionMetadata {
 /** A CompositionConfig extended with optional Studio metadata. */
 export type StudioComposition = Omit<CompositionConfig, "meta"> & { meta?: CompMeta };
 
-/** Registry the Studio mounts: id → comp. Ids are the ?comp= keys. */
+/** Registry the Studio mounts: stable composition key → composition. */
 export type CompRegistry = Record<string, StudioComposition>;
 
 export type EditableDataSource =
