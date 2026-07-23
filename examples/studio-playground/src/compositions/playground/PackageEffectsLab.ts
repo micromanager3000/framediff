@@ -1,6 +1,8 @@
 import {
   Easing,
+  clipMotion2DFromDocument,
   combineCompositionSetups,
+  createAudioFadeOutSetup,
   createCharacterRiseSetup,
   createClipMotionSetup,
   createWipeRevealSetup,
@@ -8,7 +10,6 @@ import {
   defineTimelineDocument,
   interpolate,
   spring,
-  type ClipMotion2D,
   type CompositionSetup,
 } from "framediff";
 import source from "./PackageEffectsLab.html?raw";
@@ -17,35 +18,11 @@ import timeline from "./PackageEffectsLab.timeline.json";
 
 type PackageEffectsDocument = typeof document;
 
-function parsePath(value: string): ClipMotion2D["path"] {
-  return value.split("|").flatMap((entry) => {
-    const [frame, x, y] = entry.split(":").map(Number);
-    return [frame, x, y].every(Number.isFinite) ? [{ frame, position: [x, y] as [number, number] }] : [];
-  });
-}
+const motionRows = new Map([["effects-card", clipMotion2DFromDocument(document.motion)]]);
 
-function motionFrom(value: PackageEffectsDocument["motion"]): ClipMotion2D {
-  return {
-    anchor: [value.anchorX, value.anchorY],
-    sourceSize: [value.sourceWidth, value.sourceHeight],
-    startFrame: value.startFrame,
-    endFrame: value.endFrame,
-    startPosition: [value.startX, value.startY],
-    endPosition: [value.endX, value.endY],
-    startScale: value.startScale,
-    endScale: value.endScale,
-    interpolation: value.interpolation as ClipMotion2D["interpolation"],
-    path: parsePath(value.path),
-  };
-}
-
-const motionRows = new Map<string, ClipMotion2D>([["effects-card", motionFrom(document.motion)]]);
-
-const authoredEffectSetup: CompositionSetup = ({ root, document: initial, onFrame, onDocument, onCleanup }) => {
-  let settings = initial as PackageEffectsDocument;
+const authoredEffectSetup: CompositionSetup = ({ root, document: initial, onDocument, onCleanup }) => {
   const apply = (next: PackageEffectsDocument) => {
-    settings = next;
-    motionRows.set("effects-card", motionFrom(next.motion));
+    motionRows.set("effects-card", clipMotion2DFromDocument(next.motion));
     const headline = root.querySelector<HTMLElement>("[data-fd-id=effects-headline]");
     if (headline) {
       headline.dataset.fdAnimStart = String(next.headline.animStartFrame);
@@ -70,18 +47,8 @@ const authoredEffectSetup: CompositionSetup = ({ root, document: initial, onFram
       if (element) element.textContent = text;
     }
   };
-  apply(settings);
+  apply(initial as PackageEffectsDocument);
   const stopDocument = onDocument((next) => apply(next as PackageEffectsDocument));
-  const stopFrame = onFrame(({ frame }) => {
-    const audio = root.querySelector<HTMLAudioElement>("[data-fd-id=effects-audio]");
-    if (!audio) return;
-    const span = Math.max(1e-6, settings.audio.fadeTo - settings.audio.fadeFrom);
-    const progress = Math.max(0, Math.min(1, (frame - settings.audio.fadeFrom) / span));
-    const volume = settings.audio.volume * (1 - progress);
-    audio.dataset.framediffVolume = String(volume);
-    audio.volume = volume;
-  });
-  onCleanup(stopFrame);
   onCleanup(stopDocument);
 };
 
@@ -118,6 +85,13 @@ export const packageEffectsLabComp = defineComposition(source, {
     createCharacterRiseSetup(),
     createWipeRevealSetup(),
     createClipMotionSetup({ motions: motionRows }),
+    createAudioFadeOutSetup({
+      selector: "[data-fd-id=effects-audio]",
+      settings: (value) => {
+        const audio = (value as PackageEffectsDocument).audio;
+        return { from: audio.fadeFrom, to: audio.fadeTo, volume: audio.volume };
+      },
+    }),
     frameMathSetup,
   ),
   meta: {

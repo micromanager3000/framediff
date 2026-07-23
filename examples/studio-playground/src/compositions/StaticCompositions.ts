@@ -28,7 +28,7 @@ import heroScriptDocument from "./HeroScript.comp.json";
 import heroRebuiltDocument from "./HeroRebuilt.comp.json";
 import { gsapMotionLabComp } from "./labs/GsapMotionLab";
 import { productionLabGuide } from "./labs/ProductionLabGuide";
-import { setupHeroGrade } from "../effects/heroLooks";
+import { heroGradeVideoSetup } from "../effects/heroLooks";
 import { FPS } from "../data/constants";
 
 export const lowerThirdComp = defineComposition(lowerThirdSource, {
@@ -58,7 +58,7 @@ export const endCardComp = defineComposition(endCardSource, {
 export const gradeLabComp = defineComposition(gradeLabSource, {
   document: gradeLabDocument,
   timeline: defineTimelineDocument(gradeLabTimeline),
-  setup: setupHeroGrade,
+  setup: heroGradeVideoSetup,
   meta: {
     timelineFile: "src/compositions/labs/GradeLab.timeline.json",
     document: {
@@ -230,7 +230,7 @@ export const heroRebuiltComp = defineComposition(
   {
     document: heroRebuiltDocument,
     timeline: defineTimelineDocument(heroRebuiltTimeline),
-    setup: setupHeroGrade,
+    setup: heroGradeVideoSetup,
     meta: {
       file: "src/compositions/StaticCompositions.ts",
       sourceFormat: "generated",

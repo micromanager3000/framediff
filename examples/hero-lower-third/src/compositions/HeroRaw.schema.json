@@ -77,9 +77,6 @@
         "keynote_b": {
           "$ref": "#/$defs/motion"
         },
-        "grid_0": {
-          "$ref": "#/$defs/motion"
-        },
         "grid_1": {
           "$ref": "#/$defs/motion"
         },
@@ -88,9 +85,6 @@
         },
         "split_1": {
           "$ref": "#/$defs/motionWithPath"
-        },
-        "keynote_0": {
-          "$ref": "#/$defs/motion"
         },
         "keynote_1": {
           "$ref": "#/$defs/motion"
@@ -299,12 +293,6 @@
     "audio": {
       "type": "object",
       "properties": {
-        "src": {
-          "type": "string",
-          "title": "Asset",
-          "format": "asset",
-          "x-accept": "audio"
-        },
         "volume": {
           "type": "number",
           "minimum": 0,
@@ -319,12 +307,6 @@
     "fadingAudio": {
       "type": "object",
       "properties": {
-        "src": {
-          "type": "string",
-          "title": "Asset",
-          "format": "asset",
-          "x-accept": "audio"
-        },
         "volume": {
           "type": "number",
           "minimum": 0,
@@ -564,10 +546,6 @@
           "type": "number",
           "title": "End frame",
           "multipleOf": 0.01
-        },
-        "darkFill": {
-          "type": "boolean",
-          "title": "Dark fill"
         }
       }
     },
@@ -607,19 +585,25 @@
         "text": {
           "type": "string"
         },
-        "xPx": {
-          "type": "number",
-          "title": "X",
-          "minimum": -1920,
-          "maximum": 3840,
-          "multipleOf": 0.01
-        },
-        "yPx": {
-          "type": "number",
-          "title": "Y",
-          "minimum": -1080,
-          "maximum": 2160,
-          "multipleOf": 0.01
+        "position": {
+          "type": "object",
+          "title": "Canvas position",
+          "properties": {
+            "x": {
+              "type": "number",
+              "title": "X",
+              "minimum": -1920,
+              "maximum": 3840,
+              "multipleOf": 0.01
+            },
+            "y": {
+              "type": "number",
+              "title": "Y",
+              "minimum": -1080,
+              "maximum": 2160,
+              "multipleOf": 0.01
+            }
+          }
         },
         "textOpacity": {
           "type": "number",
@@ -654,7 +638,7 @@
           "type": "string",
           "format": "color"
         },
-        "background": {
+        "cardBackground": {
           "type": "string",
           "title": "Card background"
         }
