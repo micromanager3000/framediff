@@ -65,4 +65,26 @@ describe("GenerativeManager", () => {
     expect(await pending).toBe(true);
     expect(manager.state.get().submitting).toBe(false);
   });
+
+  it("replaces the submission notice once the job is visible", async () => {
+    const composition = { key: "generate" } as CompositionDescriptor;
+    const state = new ObservableValue({ currentKey: composition.key, compositions: [composition] } as StudioSessionState);
+    const session = { state } as StudioSession;
+    const workspace = {
+      jobs: [{ id: "failed-job", status: "failed", error: "Provider rejected the request." }],
+      takes: [],
+    } as unknown as GenerativeWorkspaceSnapshot;
+    const manager = new GenerativeManager(session, {
+      getGenerativeWorkspace: vi.fn(async () => workspace),
+    } as unknown as ProjectWorkspacePort);
+    manager.state.update((current) => ({
+      ...current,
+      message: "Submitted generation failed-jo…",
+    }));
+
+    await manager.refresh();
+
+    expect(manager.state.get().message).toBeNull();
+    expect(manager.state.get().workspace).toBe(workspace);
+  });
 });

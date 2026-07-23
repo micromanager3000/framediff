@@ -87,7 +87,7 @@
         </div>
         <button class="draft-button" disabled={$store.generationActive} onclick={() => void editDraft()}>Back to current draft</button>
       {:else}
-        <div><span>GENERATIVE COMPOSITION · {workspace.outputKind}</span><strong>{workspace.modelName}</strong><small>{workspace.mode} · ${workspace.costUsd.toFixed(2)} · {workspace.status}</small></div>
+        <div><span>GENERATIVE COMPOSITION · {workspace.outputKind}</span><strong>{workspace.modelName}</strong><small class:failed-status={workspace.status === "failed"}>{workspace.mode} · ${workspace.costUsd.toFixed(2)} · {workspace.status}</small></div>
         <select disabled={$store.generationActive || $store.busy} aria-label="Generation model" value={workspace.model} onchange={(event) => void viewModel.update({ model: event.currentTarget.value })}>
           {#each workspace.models as model}<option value={model.id}>{model.name} · {model.baseline}</option>{/each}
         </select>
@@ -250,6 +250,17 @@
             </div>
           </div>
         {/each}
+        {#if $store.failedTake}
+          <div class="gen-take failed" role="alert">
+            <div class="take-preview">
+              <b>take {$store.failedTake.take} · failed</b>
+              <strong>{$store.failedTake.policyRejection ? "Provider content policy" : "Provider error"}</strong>
+              <span>{$store.failedTake.error}</span>
+              <small>Edit the draft, then generate again when it is ready.</small>
+            </div>
+            <code title={$store.failedTake.id}>{$store.failedTake.id.slice(0, 8)}…</code>
+          </div>
+        {/if}
         {#if !$store.generationActive}
           <button
             type="button"
@@ -295,7 +306,7 @@
             </a>
           </div>
         {/each}
-        {#if !workspace.takes.length && !$store.generatingTakes.length}
+        {#if !workspace.takes.length && !$store.generatingTakes.length && !$store.failedTake}
           <div class="panel-empty">Generated takes land here and are pinned into source.</div>
         {/if}
       </div>

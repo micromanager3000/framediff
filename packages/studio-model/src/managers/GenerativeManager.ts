@@ -72,7 +72,15 @@ export class GenerativeManager {
     try {
       const workspace = await this.workspacePort.getGenerativeWorkspace(key);
       if (generation !== this.generation) return;
-      this.state.update((state) => ({ ...state, workspace, loading: false, error: null }));
+      this.state.update((state) => ({
+        ...state,
+        workspace,
+        loading: false,
+        error: null,
+        message: state.message?.startsWith("Submitted generation") && workspace?.jobs.length
+          ? null
+          : state.message,
+      }));
     } catch (error) {
       if (generation !== this.generation) return;
       this.state.update((state) => ({ ...state, workspace: null, loading: false, error: error instanceof Error ? error.message : String(error) }));

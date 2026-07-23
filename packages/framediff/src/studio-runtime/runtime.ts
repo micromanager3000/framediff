@@ -62,6 +62,7 @@ import {
   getSecrets,
   gitCommit,
   gitDirty,
+  latestFailedGenJob,
   listCache,
   putSecret,
   readSource,
@@ -2430,7 +2431,17 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     primeGenTakes(data.takes);
     const active = data.jobs.some((job) => job.status === "queued" || job.status === "running");
     const pinned = data.takes.find((take) => take.generator.take === (recipe.take ?? 0));
-    const status = active ? "running" : !data.takes.length ? "never" : !pinned ? "unpinned" : pinned.generator.recipeHash === liveHash ? "current" : "stale";
+    const status = active
+      ? "running"
+      : latestFailedGenJob(data.jobs)
+        ? "failed"
+        : !data.takes.length
+          ? "never"
+          : !pinned
+            ? "unpinned"
+            : pinned.generator.recipeHash === liveHash
+              ? "current"
+              : "stale";
     const assets = await getAssets();
     const secrets = await getSecrets();
     const blockedInputs: string[] = [];
