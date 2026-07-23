@@ -4,7 +4,12 @@
 // file back through the dev filesystem, so board edits are reviewable JSON diffs.
 
 import { defineComposition, type CompositionConfig, type CompositionSetupContext } from "../composition";
-import { readSource, writeSource } from "../studio/devfs";
+import {
+  FRAMEDIFF_ASSET_DRAG_MIME,
+  parseFramediffAssetDragPayload,
+  type FramediffAssetDragPayload,
+} from "@framediff/studio-model";
+import { getAssets, readSource, uploadAsset, writeSource } from "../studio/devfs";
 
 export interface MoodboardItem {
   id: string;
@@ -13,10 +18,14 @@ export interface MoodboardItem {
   y: number;
   rotation?: number;
   width?: number;
+  /** Visual height for image and video cards. */
+  height?: number;
   /** note text, or the caption for image/media cards. */
   text?: string;
   /** image/media source (url or asset://). */
   src?: string;
+  /** MIME type, retained so extensionless asset:// media renders correctly. */
+  mime?: string;
   /** link target. */
   href?: string;
   alt?: string;
@@ -46,6 +55,8 @@ export interface MoodboardOptions {
   file?: string;
   module?: string;
   exportName?: string;
+  /** Keep the moodboard in the reusable project library. */
+  library?: boolean;
 }
 
 const MIN_ZOOM = 0.25;
@@ -66,6 +77,7 @@ export function defineMoodboardComposition(data: MoodboardData, options: Moodboa
   background-image:radial-gradient(rgba(255,255,255,.07) 1px,transparent 1px);background-size:26px 26px;
   border:1px dashed rgba(255,255,255,.12);border-radius:18px;box-sizing:border-box}
  .fd-mb-item{position:absolute;left:0;top:0;width:250px;background:rgba(20,27,32,.97);border:1px solid rgba(255,255,255,.1);border-radius:11px;box-shadow:0 14px 34px rgba(0,0,0,.45);padding:13px;box-sizing:border-box;cursor:grab}
+ .fd-mb-item:hover{border-color:rgba(121,219,200,.36)}
  .fd-mb-item.note{background:linear-gradient(180deg,#242012,#1c180d);border-color:rgba(255,209,102,.28)}
  .fd-mb-item.note p{margin:0;font-size:13px;line-height:1.55;color:#ffe9b3;outline:none}
  .fd-mb-item.image,.fd-mb-item.media{padding:0;overflow:hidden}
@@ -73,12 +85,20 @@ export function defineMoodboardComposition(data: MoodboardData, options: Moodboa
  .fd-mb-cap{padding:9px 12px;font-size:11.5px;font-weight:600;outline:none}
  .fd-mb-item [contenteditable]{user-select:text;cursor:text}
  .fd-mb-item.media .fd-mb-cap{padding:12px 12px 4px}
- .fd-mb-item.media audio,.fd-mb-item.media video{width:calc(100% - 24px);margin:4px 12px 12px;height:32px;filter:invert(.85) hue-rotate(160deg)}
+ .fd-mb-item.media audio{width:calc(100% - 24px);margin:4px 12px 12px;height:32px;filter:invert(.85) hue-rotate(160deg)}
+ .fd-mb-item.media video{display:block;width:calc(100% - 24px);height:150px;margin:6px 12px 12px;border-radius:7px;background:#05080a;object-fit:cover}
  .fd-mb-item.link{cursor:grab}
  .fd-mb-item.link a{color:#79dbc8;font-size:12.5px;font-weight:600;text-decoration:none}
  .fd-mb-item.link small{display:block;font:9.5px ui-monospace;color:#a6b0b5;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .fd-mb-remove{position:absolute;right:7px;top:7px;z-index:3;width:24px;height:24px;display:grid;place-items:center;padding:0;border:1px solid rgba(255,255,255,.16);border-radius:50%;opacity:0;background:rgba(7,10,13,.88);color:#dbe2e1;cursor:pointer;transition:opacity .12s,border-color .12s}
+ .fd-mb-item:hover .fd-mb-remove,.fd-mb-remove:focus{opacity:1}.fd-mb-remove:hover{border-color:#e06b62;color:#ffb5ae}
  .fd-mb-head{position:absolute;top:24px;left:32px;z-index:6;pointer-events:none}
  .fd-mb-head h1{font-size:23px;margin:0 0 2px}.fd-mb-head p{margin:0;font-size:11.5px;color:#a6b0b5}.fd-mb-head b{color:#f3f5f2}
+ .fd-mb-tools{position:absolute;top:22px;right:24px;z-index:7;display:flex;gap:7px}
+ .fd-mb-tools button{padding:7px 10px;border:1px solid rgba(255,255,255,.18);border-radius:7px;background:rgba(7,10,13,.9);color:#c7d1d2;font:700 9px ui-monospace;letter-spacing:.05em;cursor:pointer}
+ .fd-mb-tools button:hover{border-color:rgba(121,219,200,.55);color:#79dbc8}
+ [data-fd-composition]::after{content:"DROP MEDIA TO ADD TO BOARD";position:absolute;inset:14px;z-index:12;display:grid;place-items:center;border:2px dashed rgba(121,219,200,.68);border-radius:16px;opacity:0;background:rgba(6,14,16,.72);color:#aaf5e6;font:800 16px ui-monospace;letter-spacing:.12em;pointer-events:none;transition:opacity .12s}
+ [data-fd-composition].fd-mb-drop::after{opacity:1}
  .fd-mb-mm{position:absolute;right:18px;bottom:18px;z-index:6;width:212px;height:132px;cursor:crosshair;
   background:rgba(7,10,13,.96);border:1px solid rgba(255,255,255,.16);border-radius:10px;overflow:hidden;contain:paint}
  .fd-mb-mm .lbl{position:absolute;left:8px;top:6px;font:700 8.5px ui-monospace;letter-spacing:.9px;color:#69d6c0;z-index:2;pointer-events:none}
@@ -90,7 +110,8 @@ export function defineMoodboardComposition(data: MoodboardData, options: Moodboa
  data-fd-width="${width}" data-fd-height="${height}" data-fd-fps="${options.fps ?? 30}" data-fd-duration="${options.durationInFrames ?? 240}"
  data-fd-kind="moodboard" data-fd-interactive${options.file ? ` data-fd-source="${esc(options.file)}"` : ""}>
  <div class="fd-mb-world"></div>
- <header class="fd-mb-head"><h1>${esc(options.title ?? id)}</h1><p><b>Double-click text</b> to edit · <b>drag cards</b> · <b>drag the board</b> to pan · <b>scroll</b> to zoom · the minimap navigates.</p></header>
+ <header class="fd-mb-head"><h1>${esc(options.title ?? id)}</h1><p><b>Drag media from the Media rail or Finder</b> · drag cards · drag empty space to pan · scroll to zoom.</p></header>
+ <div class="fd-mb-tools"><button type="button" data-fd-mb-add-note>+ NOTE</button></div>
  <div class="fd-mb-mm"><span class="lbl">BOARD</span></div>
 </main></body></html>
 `;
@@ -102,6 +123,9 @@ export function defineMoodboardComposition(data: MoodboardData, options: Moodboa
       file: options.file,
       module: options.module ?? options.file,
       exportName: options.exportName,
+      library: options.library,
+      output: "image",
+      outputFrame: 0,
       authoring: { timeline: "hidden", transport: "hidden", directManipulation: true },
       ...(options.dataFile ? { document: { file: options.dataFile, hotUpdate: "patch" } } : {}),
     },
@@ -113,7 +137,7 @@ function createMoodboardSetup(
   data: MoodboardData,
   bounds: { width: number; height: number; dataFile?: string },
 ) {
-  return async ({ root, query, queryAll, signal, onCleanup, onDocument }: CompositionSetupContext) => {
+  return async ({ root, query, queryAll, signal, onCleanup, onDocument, resolveAsset }: CompositionSetupContext) => {
     // The data file is the truth: read it live so persisted edits never have to reload
     // an imported module (which would remount the comp mid-gesture). The inline data
     // argument seeds first mount and non-dev contexts.
@@ -126,10 +150,20 @@ function createMoodboardSetup(
         }
       } catch { /* keep the seeded data */ }
     }
+    const manifest = await getAssets();
+    const assetMetadata = manifest?.assets ?? {};
     const world = query<HTMLDivElement>(".fd-mb-world")!;
     const minimap = query<HTMLDivElement>(".fd-mb-mm")!;
+    const addNoteButton = query<HTMLButtonElement>("[data-fd-mb-add-note]")!;
     const camera: MoodboardCamera = { x: data.camera.x, y: data.camera.y, zoom: data.camera.zoom || 1 };
     let mmFit: { minX: number; minY: number; s: number; ox: number; oy: number } | null = null;
+
+    const assetOf = (src?: string) => src?.startsWith("asset://")
+      ? assetMetadata[src.slice("asset://".length)]
+      : undefined;
+    const mimeOf = (item: MoodboardItem) => item.mime
+      ?? assetOf(item.src)?.mime
+      ?? (/\.([^.?#]+)(?:[?#]|$)/.exec(item.src ?? "")?.[1]?.toLowerCase() === "mp3" ? "audio/mpeg" : "");
 
     const renderItem = (item: MoodboardItem): HTMLElement => {
       const card = document.createElement("article");
@@ -142,21 +176,29 @@ function createMoodboardSetup(
         card.appendChild(p);
       } else if (item.type === "image") {
         const img = document.createElement("img");
-        img.src = item.src ?? "";
+        if (item.height) img.style.height = `${item.height}px`;
         img.alt = item.alt ?? "";
         const cap = document.createElement("div");
         cap.className = "fd-mb-cap";
-        cap.textContent = item.text ?? "";
+        cap.textContent = item.text ?? assetOf(item.src)?.name ?? "";
         card.append(img, cap);
+        if (item.src) void resolveAsset(item.src).then((url) => {
+          if (!signal.aborted) img.src = url;
+        });
       } else if (item.type === "media") {
         const cap = document.createElement("div");
         cap.className = "fd-mb-cap";
-        cap.textContent = item.text ?? "";
-        const media = document.createElement(/\.(m4a|mp3|wav|ogg)(\?|$)/i.test(item.src ?? "") ? "audio" : "video") as HTMLMediaElement;
-        media.src = item.src ?? "";
+        cap.textContent = item.text ?? assetOf(item.src)?.name ?? "";
+        const audio = mimeOf(item).startsWith("audio/") || /\.(m4a|mp3|wav|ogg)(\?|$)/i.test(item.src ?? "");
+        const media = document.createElement(audio ? "audio" : "video") as HTMLMediaElement;
+        card.classList.add(audio ? "audio" : "video");
+        if (!audio && item.height) media.style.height = `${item.height}px`;
         media.controls = true;
-        media.preload = "none";
+        media.preload = audio ? "none" : "metadata";
         card.append(cap, media);
+        if (item.src) void resolveAsset(item.src).then((url) => {
+          if (!signal.aborted) media.src = url;
+        });
       } else {
         const link = document.createElement("a");
         link.href = item.href ?? "#";
@@ -165,6 +207,21 @@ function createMoodboardSetup(
         small.textContent = (item.href ?? "").replace(/^https?:\/\//, "");
         card.append(link, small);
       }
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "fd-mb-remove";
+      remove.title = `Remove ${item.text ?? assetOf(item.src)?.name ?? item.id} from moodboard`;
+      remove.ariaLabel = remove.title;
+      remove.textContent = "×";
+      remove.onclick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        data.items = data.items.filter((entry) => entry.id !== item.id);
+        renderCards();
+        drawMinimap();
+        persist();
+      };
+      card.appendChild(remove);
       place(card, item);
       return card;
     };
@@ -173,6 +230,7 @@ function createMoodboardSetup(
     };
     let sizeObserver: ResizeObserver | undefined;
     const renderCards = () => {
+      sizeObserver?.disconnect();
       world.replaceChildren(...data.items.map(renderItem));
       if (sizeObserver) for (const card of queryAll<HTMLElement>(".fd-mb-item")) sizeObserver.observe(card);
     };
@@ -186,7 +244,7 @@ function createMoodboardSetup(
       const rect = root.getBoundingClientRect();
       return root.offsetWidth ? rect.width / root.offsetWidth : 1;
     };
-    const toComp = (event: PointerEvent | WheelEvent) => {
+    const toComp = (event: { clientX: number; clientY: number }) => {
       const rect = root.getBoundingClientRect();
       const scale = previewScale();
       return { x: (event.clientX - rect.left) / scale, y: (event.clientY - rect.top) / scale };
@@ -225,6 +283,96 @@ function createMoodboardSetup(
         void writeSource(bounds.dataFile!, `${JSON.stringify({ camera, items: data.items }, null, 2)}\n`);
       }, 600);
     };
+
+    const uniqueItemId = (prefix: string) => {
+      const base = prefix.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 42) || "asset";
+      let id = base;
+      let suffix = 2;
+      while (data.items.some((item) => item.id === id)) id = `${base}-${suffix++}`;
+      return id;
+    };
+    const boardPoint = (point: { x: number; y: number }) => ({
+      x: (point.x - camera.x) / camera.zoom,
+      y: (point.y - camera.y) / camera.zoom,
+    });
+    const addAsset = (asset: FramediffAssetDragPayload, point: { x: number; y: number }, offset = 0) => {
+      if (!/^(image|video|audio)\//.test(asset.mime)) return;
+      const image = asset.mime.startsWith("image/");
+      const position = boardPoint(point);
+      const width = image ? 360 : asset.mime.startsWith("video/") ? 340 : 300;
+      data.items.push({
+        id: uniqueItemId(`asset-${asset.id}`),
+        type: image ? "image" : "media",
+        x: Math.round(position.x - width / 2 + offset * 28),
+        y: Math.round(position.y - 90 + offset * 28),
+        width,
+        ...(image || asset.mime.startsWith("video/") ? { height: Math.round(width * 9 / 16) } : {}),
+        src: `asset://${asset.id}`,
+        mime: asset.mime,
+        text: asset.name,
+        alt: image ? asset.name : undefined,
+      });
+    };
+    const commitAddedItems = () => {
+      renderCards();
+      drawMinimap();
+      persist();
+    };
+
+    let assetDragDepth = 0;
+    const isAssetDrag = (event: DragEvent) => {
+      const types = event.dataTransfer?.types ?? [];
+      return types.includes(FRAMEDIFF_ASSET_DRAG_MIME) || types.includes("Files");
+    };
+    root.addEventListener("dragenter", (event) => {
+      if (!bounds.dataFile || !isAssetDrag(event)) return;
+      assetDragDepth += 1;
+      root.classList.add("fd-mb-drop");
+    }, { signal });
+    root.addEventListener("dragover", (event) => {
+      if (!bounds.dataFile || !isAssetDrag(event)) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+    }, { signal });
+    root.addEventListener("dragleave", (event) => {
+      if (!isAssetDrag(event)) return;
+      assetDragDepth = Math.max(0, assetDragDepth - 1);
+      if (!assetDragDepth) root.classList.remove("fd-mb-drop");
+    }, { signal });
+    root.addEventListener("drop", (event) => {
+      if (!bounds.dataFile || !isAssetDrag(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      assetDragDepth = 0;
+      root.classList.remove("fd-mb-drop");
+      const point = toComp(event);
+      const payload = parseFramediffAssetDragPayload(event.dataTransfer?.getData(FRAMEDIFF_ASSET_DRAG_MIME) ?? "");
+      if (payload) {
+        addAsset(payload, point);
+        commitAddedItems();
+        return;
+      }
+      const files = Array.from(event.dataTransfer?.files ?? []).filter((file) => /^(image|video|audio)\//.test(file.type));
+      void Promise.all(files.map(async (file, index) => {
+        const id = await uploadAsset(file);
+        if (id) addAsset({ id, name: file.name, mime: file.type }, point, index);
+      })).then(() => commitAddedItems());
+    }, { signal });
+
+    addNoteButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const center = boardPoint({ x: bounds.width / 2, y: bounds.height / 2 });
+      data.items.push({
+        id: uniqueItemId("note"),
+        type: "note",
+        x: Math.round(center.x - 130),
+        y: Math.round(center.y - 55),
+        width: 260,
+        text: "Double-click to write a note.",
+      });
+      commitAddedItems();
+    }, { signal });
 
     const navigateMinimap = (event: PointerEvent) => {
       if (!mmFit) return;

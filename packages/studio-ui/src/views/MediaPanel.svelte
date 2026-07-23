@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { FRAMEDIFF_ASSET_DRAG_MIME } from "@framediff/studio-model";
   import { assetMatchesFilter, type MediaKindFilter, type MediaViewModel } from "../viewmodels/Media.ViewModel";
 
   export let viewModel: MediaViewModel;
@@ -57,8 +58,17 @@
           type="button"
           class="asset-row"
           class:selected={$store.selected?.id === asset.id}
+          draggable="true"
           title={`Preview ${asset.name} · asset://${asset.id}`}
           aria-pressed={$store.selected?.id === asset.id}
+          ondragstart={(event) => {
+            event.dataTransfer?.setData(FRAMEDIFF_ASSET_DRAG_MIME, JSON.stringify({
+              id: asset.id,
+              name: asset.name,
+              mime: asset.mime,
+            }));
+            if (event.dataTransfer) event.dataTransfer.effectAllowed = "copy";
+          }}
           onclick={() => {
             viewModel.select(asset.id);
             onselect();

@@ -1,0 +1,85 @@
+{
+  "camera": {
+    "x": 34,
+    "y": 28,
+    "zoom": 0.64
+  },
+  "items": [
+    {
+      "id": "note-reference-rule",
+      "type": "note",
+      "x": 120,
+      "y": 250,
+      "rotation": -1.2,
+      "width": 300,
+      "text": "REFERENCE RULE — this board organizes research. Generation recipes point to the original asset:// media, never to this moodboard composition."
+    },
+    {
+      "id": "lighthouse-keyframe-primary",
+      "type": "image",
+      "x": 480,
+      "y": 170,
+      "rotation": -0.5,
+      "width": 520,
+      "height": 293,
+      "src": "asset://02b421d1-16a5-443e-acc0-2095e120f73b",
+      "mime": "image/png",
+      "alt": "Working lighthouse and fishing boat at blue hour",
+      "text": "PRIMARY WORLD REFERENCE — blue hour, wet granite, working boat, amber lamp"
+    },
+    {
+      "id": "lighthouse-keyframe-alternate",
+      "type": "image",
+      "x": 1070,
+      "y": 220,
+      "rotation": 0.8,
+      "width": 420,
+      "height": 236,
+      "src": "asset://1fc82e7f-efd3-48d9-9edb-00300d90b698",
+      "mime": "image/png",
+      "alt": "Alternate lighthouse establishing frame",
+      "text": "ALTERNATE WORLD REFERENCE — compare sea state and tower silhouette"
+    },
+    {
+      "id": "note-performance",
+      "type": "note",
+      "x": 150,
+      "y": 600,
+      "rotation": 1,
+      "width": 320,
+      "text": "PERFORMANCE — close, restrained, active listening. Warm rotating practical against cold storm-window fill. No glamour poses and no broad gestures."
+    },
+    {
+      "id": "note-palette",
+      "type": "note",
+      "x": 535,
+      "y": 600,
+      "rotation": -0.6,
+      "width": 300,
+      "text": "PALETTE — deep blue water · salt-grey stone · oxidized brass · faded ochre wool · one practical amber sweep."
+    },
+    {
+      "id": "harbor-previz-reference",
+      "type": "media",
+      "x": 900,
+      "y": 610,
+      "rotation": 0.5,
+      "width": 390,
+      "height": 219,
+      "src": "asset://harbor-previz",
+      "mime": "video/mp4",
+      "text": "SPATIAL REFERENCE — rough harbor previz for blocking and geography only"
+    },
+    {
+      "id": "music-reference",
+      "type": "media",
+      "x": 1360,
+      "y": 650,
+      "rotation": -0.7,
+      "width": 320,
+      "src": "asset://music-bed",
+      "mime": "audio/mp4",
+      "text": "TEMP AUDIO — tone reference only; final dialogue performance is generated first"
+    }
+  ]
+}
