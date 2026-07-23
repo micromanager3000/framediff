@@ -1,0 +1,266 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: FrameDiff scale-to-zero NVIDIA L4 render worker on AWS Batch
+
+Parameters:
+  ImageTag:
+    Type: String
+    Default: bootstrap
+    AllowedPattern: "[A-Za-z0-9._-]+"
+  InstanceType:
+    Type: String
+    Default: g6.2xlarge
+    AllowedValues:
+      - g6.xlarge
+      - g6.2xlarge
+  MaxVcpus:
+    Type: Number
+    Default: 8
+    MinValue: 4
+    MaxValue: 64
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+
+Resources:
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireTransientRenderJobs
+            Status: Enabled
+            Prefix: jobs/
+            ExpirationInDays: 30
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+          - Id: ExpireSubmittedSpecs
+            Status: Enabled
+            Prefix: specs/
+            ExpirationInDays: 30
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: FrameDiff
+        - Key: ManagedBy
+          Value: cloudformation
+
+  WorkerRepository:
+    Type: AWS::ECR::Repository
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      EmptyOnDelete: false
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      ImageTagMutability: MUTABLE
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep the latest 12 worker images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 12
+                },
+                "action": { "type": "expire" }
+              }
+            ]
+          }
+      RepositoryName: framediff-cloud-render
+      Tags:
+        - Key: Project
+          Value: FrameDiff
+        - Key: ManagedBy
+          Value: cloudformation
+
+  WorkerLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /framediff/cloud-render
+      RetentionInDays: 14
+      Tags:
+        - Key: Project
+          Value: FrameDiff
+
+  WorkerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Egress-only security group for FrameDiff AWS Batch GPU workers
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: framediff-cloud-render
+        - Key: Project
+          Value: FrameDiff
+
+  BatchInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: framediff-cloud-render-batch-instance
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+      Tags:
+        - Key: Project
+          Value: FrameDiff
+
+  BatchInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: framediff-cloud-render-batch-instance
+      Roles:
+        - !Ref BatchInstanceRole
+
+  JobRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: framediff-cloud-render-job
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: framediff-render-artifacts
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:AbortMultipartUpload
+                Resource: !Sub "${ArtifactBucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: !GetAtt ArtifactBucket.Arn
+      Tags:
+        - Key: Project
+          Value: FrameDiff
+
+  ComputeEnvironment:
+    Type: AWS::Batch::ComputeEnvironment
+    Properties:
+      ComputeEnvironmentName: framediff-cloud-render-l4
+      Type: MANAGED
+      State: ENABLED
+      ReplaceComputeEnvironment: false
+      ComputeResources:
+        Type: EC2
+        AllocationStrategy: BEST_FIT_PROGRESSIVE
+        MinvCpus: 0
+        DesiredvCpus: 0
+        MaxvCpus: !Ref MaxVcpus
+        InstanceTypes:
+          - !Ref InstanceType
+        InstanceRole: !GetAtt BatchInstanceProfile.Arn
+        Subnets: !Ref SubnetIds
+        SecurityGroupIds:
+          - !Ref WorkerSecurityGroup
+        Ec2Configuration:
+          - ImageType: ECS_AL2023_NVIDIA
+        Tags:
+          Project: FrameDiff
+          ScaleToZero: "true"
+      Tags:
+        Project: FrameDiff
+        ManagedBy: cloudformation
+
+  JobQueue:
+    Type: AWS::Batch::JobQueue
+    Properties:
+      JobQueueName: framediff-cloud-render
+      State: ENABLED
+      Priority: 10
+      ComputeEnvironmentOrder:
+        - Order: 1
+          ComputeEnvironment: !Ref ComputeEnvironment
+      Tags:
+        Project: FrameDiff
+        ManagedBy: cloudformation
+
+  CapabilityJobDefinition:
+    Type: AWS::Batch::JobDefinition
+    Properties:
+      JobDefinitionName: framediff-cloud-capability
+      Type: container
+      PlatformCapabilities:
+        - EC2
+      PropagateTags: true
+      RetryStrategy:
+        Attempts: 1
+      Timeout:
+        AttemptDurationSeconds: 3600
+      ContainerProperties:
+        Image: !Sub "${WorkerRepository.RepositoryUri}:${ImageTag}"
+        JobRoleArn: !GetAtt JobRole.Arn
+        ResourceRequirements:
+          - Type: VCPU
+            Value: "8"
+          - Type: MEMORY
+            Value: "28672"
+          - Type: GPU
+            Value: "1"
+        LinuxParameters:
+          InitProcessEnabled: true
+          SharedMemorySize: 4096
+        Environment:
+          - Name: FD_ARTIFACT_BUCKET
+            Value: !Ref ArtifactBucket
+          - Name: FD_REQUIRE_NVIDIA
+            Value: "1"
+          - Name: FD_IMAGE_REVISION
+            Value: !Ref ImageTag
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group: !Ref WorkerLogGroup
+            awslogs-region: !Ref AWS::Region
+            awslogs-stream-prefix: worker
+      Tags:
+        Project: FrameDiff
+        ManagedBy: cloudformation
+
+Outputs:
+  ArtifactBucketName:
+    Value: !Ref ArtifactBucket
+  ComputeEnvironmentArn:
+    Value: !Ref ComputeEnvironment
+  JobDefinitionArn:
+    Value: !Ref CapabilityJobDefinition
+  JobQueueArn:
+    Value: !Ref JobQueue
+  LogGroupName:
+    Value: !Ref WorkerLogGroup
+  RepositoryUri:
+    Value: !GetAtt WorkerRepository.RepositoryUri
