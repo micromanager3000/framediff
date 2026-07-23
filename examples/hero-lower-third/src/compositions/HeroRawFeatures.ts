@@ -31,8 +31,10 @@ const featureStyle = `
 [data-fd-clip],.motion,.fill{position:absolute;inset:0}.motion canvas,canvas{position:absolute;inset:0;width:100%;height:100%}.fill{background:#080a0c}
 `;
 
-const pane = (id: string, motionKey: string, dark = false, attributes = "") =>
-  `<section data-fd-clip data-fd-id="${id}" data-fd-motion-key="${motionKey}" ${attributes}><div class="motion${dark ? " fill" : ""}" data-fd-motion-for="${motionKey}">${dark ? "" : `<canvas data-fd-id="look-${motionKey}" data-fd-grade-video></canvas>`}</div></section>`;
+const pane = (id: string, motionKey: string | null, dark = false, attributes = "") => {
+  const motionAttribute = motionKey ? ` data-fd-motion-for="${motionKey}"` : "";
+  return `<section data-fd-clip data-fd-id="${id}" ${attributes}><div class="motion${dark ? " fill" : ""}"${motionAttribute}>${dark || !motionKey ? "" : `<canvas data-fd-id="look-${motionKey}" data-fd-grade-video></canvas>`}</div></section>`;
+};
 
 function documentSetup(apply: (root: HTMLElement, value: HeroRawDocument) => void): CompositionSetup {
   return ({ root, document: initial, onDocument, onCleanup }) => {
@@ -56,7 +58,7 @@ const gridDocumentSetup = documentSetup((root, value) => {
 
 const gridSource = `<!doctype html><html><head><style>${featureStyle}</style></head><body>
 <main data-fd-composition data-fd-id="HeroGridReveal" data-fd-width="1920" data-fd-height="1080" data-fd-fps="${FPS}" data-fd-duration="54" data-fd-kind="scene" data-fd-library="true" data-fd-alpha="true">
-${pane("grid-dark", "grid_0", true)}
+${pane("grid-dark", null, true)}
 ${pane("grid-video", "grid_1")}
 </main></body></html>`;
 
@@ -83,7 +85,7 @@ export const heroGridRevealComp = defineComposition(gridSource, {
       bindings: {
         HeroGridReveal: "/features/grid",
         "grid-dark": "/features/grid/dark",
-        "grid-video": "/features/grid/video",
+        "grid-video": "/motion/grid_1",
         "look-grid_1": "/looks/grid_1",
       },
       hotUpdate: "remount",
@@ -150,7 +152,7 @@ const keynoteDocumentSetup = documentSetup((root, value) => {
 
 const keynoteSource = `<!doctype html><html><head><style>${featureStyle}</style></head><body>
 <main data-fd-composition data-fd-id="HeroKeynoteStack" data-fd-width="1920" data-fd-height="1080" data-fd-fps="${FPS}" data-fd-duration="56" data-fd-kind="scene" data-fd-library="true" data-fd-alpha="true">
-${pane("keynote-dark", "keynote_0", true)}
+${pane("keynote-dark", null, true)}
 ${pane("keynote-middle", "keynote_1")}
 ${pane("keynote-close", "keynote_2")}
 </main></body></html>`;
@@ -178,8 +180,8 @@ export const heroKeynoteStackComp = defineComposition(keynoteSource, {
       bindings: {
         HeroKeynoteStack: "/features/keynote",
         "keynote-dark": "/features/keynote/dark",
-        "keynote-middle": "/features/keynote/middle",
-        "keynote-close": "/features/keynote/close",
+        "keynote-middle": "/motion/keynote_1",
+        "keynote-close": "/motion/keynote_2",
         "look-keynote_1": "/looks/keynote_1",
         "look-keynote_2": "/looks/keynote_2",
       },
@@ -201,9 +203,9 @@ const overlayIds = [
 
 const overlaySource = `<!doctype html><html><head><style>
 [data-fd-composition]{position:relative;overflow:hidden;background:transparent;color:#fff;font-family:"SF Pro Display",-apple-system,sans-serif}
-[data-fd-clip]{position:absolute;inset:0}.rise{position:absolute;transform:translate(-50%,-76%);white-space:pre;letter-spacing:.5px;line-height:1.12;text-shadow:0 3px 24px rgba(0,0,0,.7);pointer-events:none}.rise span{display:inline-block}
+[data-fd-clip]{position:absolute;inset:0}.position{position:absolute;left:0;top:0}.rise{transform:translate(-50%,-76%);white-space:pre;letter-spacing:.5px;line-height:1.12;text-shadow:0 3px 24px rgba(0,0,0,.7)}.rise span{display:inline-block}
 </style></head><body><main data-fd-composition data-fd-id="HeroTextOverlays" data-fd-width="1920" data-fd-height="1080" data-fd-fps="${FPS}" data-fd-duration="${VIDEO_FRAMES}" data-fd-kind="scene" data-fd-library="true" data-fd-alpha="true">
-${overlayIds.map((id) => `<section data-fd-clip data-fd-id="${id}"><div class="rise" data-fd-id="${id}-text" data-fd-rise-text></div></section>`).join("\n")}
+${overlayIds.map((id) => `<section data-fd-clip data-fd-id="${id}"><div class="position" data-fd-id="${id}-position"><div class="rise" data-fd-id="${id}-text" data-fd-rise-text></div></div></section>`).join("\n")}
 </main></body></html>`;
 
 const overlayDocumentSetup = documentSetup((root, value) => {
@@ -212,13 +214,11 @@ const overlayDocumentSetup = documentSetup((root, value) => {
     const clip = root.querySelector<HTMLElement>(`[data-fd-id="${id}"]`);
     const text = root.querySelector<HTMLElement>(`[data-fd-id="${id}-text"]`);
     if (!clip || !text) continue;
-    clip.style.background = settings.background;
+    clip.style.background = settings.cardBackground;
     text.dataset.fdText = settings.text;
     text.dataset.fdAnimStart = String(settings.animStartFrame);
     text.dataset.fdAnimEnd = String(settings.animEndFrame);
     text.dataset.fdTextOpacity = String(settings.textOpacity);
-    text.style.left = `${settings.xPx}px`;
-    text.style.top = `${settings.yPx}px`;
     text.style.fontSize = `${settings.fontSize}px`;
     text.style.fontWeight = String(settings.fontWeight);
     text.style.color = settings.color;
@@ -244,7 +244,11 @@ export const heroTextOverlaysComp = defineComposition(overlaySource, {
       schema: SCHEMA_FILE,
       bindings: {
         HeroTextOverlays: "/overlays",
-        ...Object.fromEntries(overlayIds.map((id) => [id, `/overlays/${id}`])),
+        ...Object.fromEntries(overlayIds.flatMap((id) => [
+          [id, `/overlays/${id}`],
+          [`${id}-position`, `/overlays/${id}/position`],
+          [`${id}-text`, `/overlays/${id}`],
+        ])),
       },
       inspector: { title: "HERO TEXT OVERLAYS" },
     },

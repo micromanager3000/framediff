@@ -20,11 +20,69 @@ export interface ClipMotion2D {
   path?: ClipMotionPathPoint[];
 }
 
+export type ClipMotion2DDocument = Record<string, unknown> & {
+  anchorX: number;
+  anchorY: number;
+  sourceWidth: number;
+  sourceHeight: number;
+  startFrame: number;
+  endFrame: number;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+  startScale: number;
+  endScale: number;
+  interpolation?: string;
+  /** Compact `frame:x:y|…` form. Numbered `path0Frame/path0X/path0Y` fields are also supported. */
+  path?: string;
+};
+
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 const smoothstep = (value: number) => { const t = clamp01(value); return t * t * (3 - 2 * t); };
 const fastOut = (value: number) => { const t = clamp01(value); return 1 - (1 - t) * (1 - t); };
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const localFrame = (element: HTMLElement): number => Number(element.dataset.fdLocalFrame ?? 0);
+
+function serializedMotionPath(value: ClipMotion2DDocument): ClipMotionPathPoint[] {
+  if (typeof value.path === "string") {
+    return value.path.split("|").flatMap((entry) => {
+      const [frame, x, y] = entry.split(":").map(Number);
+      return [frame, x, y].every(Number.isFinite)
+        ? [{ frame, position: [x, y] as V2 }]
+        : [];
+    });
+  }
+  return Object.keys(value)
+    .flatMap((key) => key.match(/^path(\d+)Frame$/)?.[1] ?? [])
+    .map(Number)
+    .sort((left, right) => left - right)
+    .flatMap((index) => {
+      const frame = value[`path${index}Frame`];
+      const x = value[`path${index}X`];
+      const y = value[`path${index}Y`];
+      return typeof frame === "number" && typeof x === "number" && typeof y === "number"
+        ? [{ frame, position: [x, y] as V2 }]
+        : [];
+    });
+}
+
+/** Convert Inspector-friendly scalar JSON fields into package 2D clip motion. */
+export function clipMotion2DFromDocument(value: ClipMotion2DDocument): ClipMotion2D {
+  const path = serializedMotionPath(value);
+  return {
+    anchor: [Number(value.anchorX), Number(value.anchorY)],
+    sourceSize: [Number(value.sourceWidth), Number(value.sourceHeight)],
+    startFrame: Number(value.startFrame),
+    endFrame: Number(value.endFrame),
+    startPosition: [Number(value.startX), Number(value.startY)],
+    endPosition: [Number(value.endX), Number(value.endY)],
+    startScale: Number(value.startScale),
+    endScale: Number(value.endScale),
+    interpolation: value.interpolation === "smooth" ? "smooth" : "linear",
+    ...(path.length ? { path } : {}),
+  };
+}
 
 export function evaluateClipMotion2D(motion: ClipMotion2D, frame: number): { x: number; y: number; scale: number } {
   const span = motion.endFrame - motion.startFrame;
@@ -237,24 +295,35 @@ export function createSplitScreenRevealSetup(options: SplitScreenRevealSetupOpti
   };
 }
 
-export interface AudioFadeOutSetupOptions {
-  selector: string;
+export interface AudioFadeOutSettings {
   from: number;
   to: number;
   volume?: number;
 }
 
+export type AudioFadeOutSetupOptions = {
+  selector: string;
+} & (
+  | AudioFadeOutSettings
+  | { settings: (document: unknown) => AudioFadeOutSettings }
+);
+
 /** Drive a deterministic composition-frame fade on an authored audio element. */
 export function createAudioFadeOutSetup(options: AudioFadeOutSetupOptions): CompositionSetup {
-  return ({ root, onFrame, onCleanup }) => {
-    const stop = onFrame(({ frame }) => {
+  return ({ root, document, onFrame, onDocument, onCleanup }) => {
+    const resolve = (value: unknown): AudioFadeOutSettings =>
+      "settings" in options ? options.settings(value) : options;
+    let settings = resolve(document);
+    const stopDocument = onDocument((next) => { settings = resolve(next); });
+    const stopFrame = onFrame(({ frame }) => {
       const audio = root.querySelector<HTMLAudioElement>(options.selector);
       if (!audio) return;
-      const progress = clamp01((frame - options.from) / Math.max(1e-6, options.to - options.from));
-      const volume = (options.volume ?? 1) * (1 - progress);
+      const progress = clamp01((frame - settings.from) / Math.max(1e-6, settings.to - settings.from));
+      const volume = (settings.volume ?? 1) * (1 - progress);
       audio.dataset.framediffVolume = String(volume);
       audio.volume = volume;
     });
-    onCleanup(stop);
+    onCleanup(stopDocument);
+    onCleanup(stopFrame);
   };
 }

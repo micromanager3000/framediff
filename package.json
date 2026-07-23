@@ -17,8 +17,7 @@
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
-    "audit:examples": "node scripts/audit-example-authoring.mjs",
-    "check": "npm run audit:examples && npm run typecheck && npm run test:unit && npm run build"
+    "check": "npm run typecheck && npm run test:unit && npm run build"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

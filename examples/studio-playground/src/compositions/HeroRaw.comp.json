@@ -16,19 +16,16 @@
   },
   "audio": {
     "bed": {
-      "src": "asset://c50127ee-3950-4bbe-a6f4-30ffc1bdc4a5",
       "volume": 1,
       "muted": false,
       "fadeFrom": 947,
       "fadeTo": 971
     },
     "shine": {
-      "src": "asset://00b05305-98d7-430a-9e64-985be275837b",
       "volume": 1,
       "muted": false
     },
     "logoReveal": {
-      "src": "asset://9e4a53f5-3007-4cdd-8f49-992db4ebc9d1",
       "volume": 1,
       "muted": false
     }
@@ -259,21 +256,6 @@
       "endScale": 1.075,
       "interpolation": "linear"
     },
-    "grid_0": {
-      "anchorX": 1920,
-      "anchorY": 1080,
-      "sourceWidth": 3840,
-      "sourceHeight": 2160,
-      "startFrame": 0,
-      "endFrame": 0,
-      "startX": 960,
-      "startY": 540,
-      "endX": 960,
-      "endY": 540,
-      "startScale": 0.5,
-      "endScale": 0.5,
-      "interpolation": "linear"
-    },
     "grid_1": {
       "anchorX": 1920,
       "anchorY": 1080,
@@ -349,21 +331,6 @@
       "path4X": 1764,
       "path4Y": 540
     },
-    "keynote_0": {
-      "anchorX": 960,
-      "anchorY": 544,
-      "sourceWidth": 1920,
-      "sourceHeight": 1088,
-      "startFrame": 0,
-      "endFrame": 0,
-      "startX": 960,
-      "startY": 540,
-      "endX": 960,
-      "endY": 540,
-      "startScale": 1,
-      "endScale": 1,
-      "interpolation": "linear"
-    },
     "keynote_1": {
       "anchorX": 960,
       "anchorY": 544,
@@ -400,14 +367,12 @@
       "dark": {
         "wipe": "fast",
         "wipeFrom": 0,
-        "wipeTo": 8,
-        "darkFill": true
+        "wipeTo": 8
       },
       "video": {
         "wipe": "smooth",
         "wipeFrom": 0,
-        "wipeTo": 17,
-        "darkFill": false
+        "wipeTo": 17
       }
     },
     "split": {
@@ -423,107 +388,118 @@
       "dark": {
         "wipe": "fast",
         "wipeFrom": -3,
-        "wipeTo": 3,
-        "darkFill": true
+        "wipeTo": 3
       },
       "middle": {
         "wipe": "fast",
         "wipeFrom": -4,
-        "wipeTo": 8,
-        "darkFill": false
+        "wipeTo": 8
       },
       "close": {
         "wipe": "fast",
         "wipeFrom": -4,
-        "wipeTo": 8,
-        "darkFill": false
+        "wipeTo": 8
       }
     }
   },
   "overlays": {
     "caption-show": {
       "text": "Your show looks like a",
-      "xPx": 961.608,
-      "yPx": 519.78,
+      "position": {
+        "x": 961.608,
+        "y": 519.78
+      },
       "textOpacity": 1,
       "animStartFrame": 0,
       "animEndFrame": 70.929,
       "fontSize": 68,
       "fontWeight": 800,
       "color": "#ffffff",
-      "background": "transparent"
+      "cardBackground": "transparent"
     },
     "caption-monday": {
       "text": "Monday morning meeting.",
-      "xPx": 959.328,
-      "yPx": 598.19,
+      "position": {
+        "x": 959.328,
+        "y": 598.19
+      },
       "textOpacity": 1,
       "animStartFrame": 0,
       "animEndFrame": 88.911,
       "fontSize": 68,
       "fontWeight": 800,
       "color": "#ffffff",
-      "background": "transparent"
+      "cardBackground": "transparent"
     },
     "caption-bgremoval": {
       "text": "live background removal",
-      "xPx": 960.933,
-      "yPx": 558.048,
+      "position": {
+        "x": 960.933,
+        "y": 558.048
+      },
       "textOpacity": 0.9,
       "animStartFrame": 0,
       "animEndFrame": 70.929,
       "fontSize": 68,
       "fontWeight": 800,
       "color": "#ffffff",
-      "background": "transparent"
+      "cardBackground": "transparent"
     },
     "caption-dropin": {
       "text": "drop in video and audio",
-      "xPx": 960.933,
-      "yPx": 558.048,
+      "position": {
+        "x": 960.933,
+        "y": 558.048
+      },
       "textOpacity": 0.9,
       "animStartFrame": 0,
       "animEndFrame": 47.952,
       "fontSize": 68,
       "fontWeight": 800,
       "color": "#ffffff",
-      "background": "transparent"
+      "cardBackground": "transparent"
     },
     "caption-switch": {
       "text": "switch cameras",
-      "xPx": 960.933,
-      "yPx": 549.048,
+      "position": {
+        "x": 960.933,
+        "y": 549.048
+      },
       "textOpacity": 0.9,
       "animStartFrame": -14.981,
       "animEndFrame": 60.943,
       "fontSize": 68,
       "fontWeight": 800,
       "color": "#ffffff",
-      "background": "transparent"
+      "cardBackground": "transparent"
     },
     "card-allyou": {
       "text": "All you need is a camera",
-      "xPx": 960.933,
-      "yPx": 558.048,
+      "position": {
+        "x": 960.933,
+        "y": 558.048
+      },
       "textOpacity": 0.9,
       "animStartFrame": -8.638,
       "animEndFrame": 48.305,
       "fontSize": 68,
       "fontWeight": 500,
       "color": "#eef3fa",
-      "background": "radial-gradient(1200px 800px at 50.2% 50%,#0b244d 0%,#061b39 55%,#031122 100%)"
+      "cardBackground": "radial-gradient(1200px 800px at 50.2% 50%,#0b244d 0%,#061b39 55%,#031122 100%)"
     },
     "card-closing": {
       "text": "Your studio. Anywhere.",
-      "xPx": 960.933,
-      "yPx": 558.048,
+      "position": {
+        "x": 960.933,
+        "y": 558.048
+      },
       "textOpacity": 0.9,
       "animStartFrame": -13.955,
       "animEndFrame": 68.962,
       "fontSize": 66,
       "fontWeight": 500,
       "color": "#eef3fa",
-      "background": "radial-gradient(1200px 800px at 50.2% 50%,#0b244d 0%,#061b39 55%,#031122 100%)"
+      "cardBackground": "radial-gradient(1200px 800px at 50.2% 50%,#0b244d 0%,#061b39 55%,#031122 100%)"
     }
   },
   "bumper": {

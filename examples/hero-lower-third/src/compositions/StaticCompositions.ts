@@ -13,7 +13,7 @@ import lowerThirdDocument from "./LowerThird.comp.json";
 import endCardDocument from "./EndCard.comp.json";
 import heroScriptDocument from "./HeroScript.comp.json";
 import heroRebuiltDocument from "./HeroRebuilt.comp.json";
-import { setupHeroGrade } from "../effects/heroLooks";
+import { heroGradeVideoSetup } from "../effects/heroLooks";
 import { FPS } from "../data/constants";
 
 export const lowerThirdComp = defineComposition(lowerThirdSource, {
@@ -57,7 +57,7 @@ export const heroRebuiltComp = defineComposition(
   {
     document: heroRebuiltDocument,
     timeline: defineTimelineDocument(heroRebuiltTimeline),
-    setup: setupHeroGrade,
+    setup: heroGradeVideoSetup,
     meta: {
       file: "src/compositions/StaticCompositions.ts",
       sourceFormat: "generated",

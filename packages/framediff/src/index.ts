@@ -130,6 +130,7 @@ export {
   type VideoLook,
 } from "./effects/videoLook";
 export {
+  clipMotion2DFromDocument,
   createAudioFadeOutSetup,
   createCharacterRiseSetup,
   createClipMotionSetup,
@@ -138,8 +139,10 @@ export {
   evaluateClipMotion2D,
   evaluateSplitScreenRevealEdge,
   type AudioFadeOutSetupOptions,
+  type AudioFadeOutSettings,
   type CharacterRiseSetupOptions,
   type ClipMotion2D,
+  type ClipMotion2DDocument,
   type ClipMotionPathPoint,
   type ClipMotionSetupOptions,
   type SplitScreenRevealMapping,

@@ -14,6 +14,7 @@ function filesBelow(directory: string): string[] {
 
 const htmlFiles = filesBelow(examplesRoot).filter((file) => file.endsWith(".html"));
 const sourceFiles = filesBelow(examplesRoot).filter((file) => /\.(?:ts|html)$/.test(file));
+const timelineFiles = filesBelow(examplesRoot).filter((file) => file.endsWith(".timeline.json"));
 const attribute = (tag: string, name: string): string | undefined =>
   tag.match(new RegExp(`\\b${name}="([^"]*)"`, "i"))?.[1];
 const rootTag = (source: string): string =>
@@ -51,7 +52,7 @@ describe("example composition authoring contracts", () => {
       expect(existsSync(timelineFile), timelineSource).toBe(true);
       const timeline = JSON.parse(readFileSync(timelineFile, "utf8")) as {
         version: number;
-        items: Array<{ id: string }>;
+        items: Array<{ id: string; content?: unknown }>;
       };
       expect(timeline.version, relative(repositoryRoot, timelineFile)).toBe(1);
       const placementIds = new Set(timeline.items.map((item) => item.id));
@@ -64,6 +65,49 @@ describe("example composition authoring contracts", () => {
         const id = attribute(match[0], "data-fd-id");
         expect(id, `${relative(repositoryRoot, file)} has a clip without a stable id`).toBeTruthy();
         expect(placementIds.has(id!), `${relative(repositoryRoot, timelineFile)} is missing ${id}`).toBe(true);
+      }
+      const hasInlineCreativeData = /\bdata-fd-text="|\bdata-fd-grade-(?:exposure|contrast|saturation|temperature|tint|highlights|shadows|vignette|bloom|bloom-threshold|lut|lut-intensity)="/.test(source);
+      if (hasInlineCreativeData) {
+        expect(attribute(root, "data-fd-document"), `${relative(repositoryRoot, file)} has inline creative data without JSON authority`).toBeTruthy();
+      }
+    }
+  });
+
+  it("keeps every timeline placement typed, stable, and finite", () => {
+    const contentTypes = new Set(["nested", "video", "audio", "layers", "camera", "grade-layer"]);
+    expect(timelineFiles.length).toBeGreaterThan(0);
+
+    for (const file of timelineFiles) {
+      const timeline = JSON.parse(readFileSync(file, "utf8")) as {
+        version: number;
+        items: Array<{
+          id: string;
+          from: number;
+          durationInFrames: number;
+          content?: { type?: string; src?: string; composition?: string; camera?: string };
+        }>;
+      };
+      expect(timeline.version, relative(repositoryRoot, file)).toBe(1);
+      expect(Array.isArray(timeline.items), relative(repositoryRoot, file)).toBe(true);
+      const ids = new Set<string>();
+      for (const item of timeline.items) {
+        expect(item.id, `${relative(repositoryRoot, file)} has an unstable placement`).toBeTruthy();
+        expect(ids.has(item.id), `${relative(repositoryRoot, file)} duplicates ${item.id}`).toBe(false);
+        ids.add(item.id);
+        expect(Number.isFinite(item.from), `${relative(repositoryRoot, file)}:${item.id} start`).toBe(true);
+        expect(Number.isFinite(item.durationInFrames), `${relative(repositoryRoot, file)}:${item.id} duration`).toBe(true);
+        expect(item.durationInFrames, `${relative(repositoryRoot, file)}:${item.id} duration`).toBeGreaterThan(0);
+        expect(item.content, `${relative(repositoryRoot, file)}:${item.id} uses legacy HTML-backed content`).toBeTruthy();
+        expect(contentTypes.has(item.content?.type ?? ""), `${relative(repositoryRoot, file)}:${item.id} content type`).toBe(true);
+        if (item.content?.type === "video" || item.content?.type === "audio") {
+          expect(item.content.src, `${relative(repositoryRoot, file)}:${item.id} source`).toBeTruthy();
+        }
+        if (item.content?.type === "nested") {
+          expect(item.content.composition, `${relative(repositoryRoot, file)}:${item.id} nested composition`).toBeTruthy();
+        }
+        if (item.content?.type === "camera") {
+          expect(item.content.camera, `${relative(repositoryRoot, file)}:${item.id} camera`).toBeTruthy();
+        }
       }
     }
   });
