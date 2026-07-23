@@ -1516,14 +1516,100 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const timelinePlacement = composition.meta?.timelineFile
       ? composition.timeline?.items.find((placement) => placement.id === itemId)
       : undefined;
-    const timelineMediaContent = item?.content.type === "video" || item?.content.type === "audio" ? item.content : undefined;
-    const timelineOwnsMediaAudio = !!timelinePlacement && !!timelineMediaContent;
-    if (timelineOwnsMediaAudio) {
-      const volume = Math.max(0, Math.min(1, timelinePlacement.volume ?? timelineMediaContent.volume ?? 1));
-      const muted = timelinePlacement.muted ?? timelineMediaContent.muted ?? false;
+    const timelineAudioContent = item?.content.type === "nested" || item?.content.type === "video" || item?.content.type === "audio"
+      ? item.content
+      : undefined;
+    const timelineOwnsPlacementAudio = !!timelinePlacement && !!timelineAudioContent;
+    if (timelinePlacement && timelineAudioContent) {
+      const fields: InspectorFieldSnapshot[] = timelineAudioContent.type === "nested"
+        ? [
+            {
+              id: "timeline:composition",
+              label: "composition",
+              text: timelinePlacement.content?.type === "nested"
+                ? timelinePlacement.content.composition
+                : timelineAudioContent.compId,
+              valueType: "text",
+              editable: true,
+              source: composition.meta?.timelineFile,
+              control: {
+                type: "text",
+                value: timelinePlacement.content?.type === "nested"
+                  ? timelinePlacement.content.composition
+                  : timelineAudioContent.compId,
+              },
+            },
+            {
+              id: "timeline:nested-scale",
+              label: "nested scale",
+              value: timelinePlacement.content?.type === "nested"
+                ? timelinePlacement.content.nestedScale ?? timelineAudioContent.nestedScale ?? 1
+                : timelineAudioContent.nestedScale ?? 1,
+              valueType: "number",
+              editable: true,
+              step: 0.01,
+              source: composition.meta?.timelineFile,
+              control: {
+                type: "number",
+                value: timelinePlacement.content?.type === "nested"
+                  ? timelinePlacement.content.nestedScale ?? timelineAudioContent.nestedScale ?? 1
+                  : timelineAudioContent.nestedScale ?? 1,
+                min: 0.01,
+                step: 0.01,
+              },
+            },
+          ]
+        : [{
+            id: "timeline:src",
+            label: "source",
+            text: timelinePlacement.content?.type === "video" || timelinePlacement.content?.type === "audio"
+              ? timelinePlacement.content.src
+              : timelineAudioContent.src,
+            valueType: "text",
+            editable: true,
+            source: composition.meta?.timelineFile,
+            control: {
+              type: "text",
+              value: timelinePlacement.content?.type === "video" || timelinePlacement.content?.type === "audio"
+                ? timelinePlacement.content.src
+                : timelineAudioContent.src,
+            },
+          }];
+      fields.push(
+        {
+          id: "timeline:trim-start",
+          label: "trim start",
+          value: timelinePlacement.trimStart ?? timelineAudioContent.trimStart ?? 0,
+          valueType: "number",
+          editable: true,
+          step: 0.01,
+          source: composition.meta?.timelineFile,
+          control: { type: "number", value: timelinePlacement.trimStart ?? timelineAudioContent.trimStart ?? 0, step: 0.01, unit: "s" },
+        },
+        {
+          id: "timeline:playback-rate",
+          label: "playback rate",
+          value: timelinePlacement.playbackRate ?? timelineAudioContent.playbackRate ?? 1,
+          valueType: "number",
+          editable: true,
+          step: 0.01,
+          source: composition.meta?.timelineFile,
+          control: { type: "number", value: timelinePlacement.playbackRate ?? timelineAudioContent.playbackRate ?? 1, min: 0.01, step: 0.01 },
+        },
+      );
+      sections.push({
+        id: "timeline-content",
+        title: timelineAudioContent.type === "nested" ? "NESTED COMPOSITION" : "MEDIA",
+        kind: "data",
+        fields,
+      });
+    }
+    if (timelineOwnsPlacementAudio) {
+      const volume = Math.max(0, Math.min(1, timelinePlacement.volume ?? timelineAudioContent.volume ?? 1));
+      const muted = timelinePlacement.muted ?? timelineAudioContent.muted ?? false;
       sections.push({
         id: "timeline-media-audio",
-        title: item?.content.type === "video" ? "VIDEO AUDIO" : "AUDIO",
+        title: item?.content.type === "nested" ? "COMPOSITION AUDIO" : item?.content.type === "video" ? "VIDEO AUDIO" : "AUDIO",
         kind: "data",
         fields: [
           {
@@ -1552,8 +1638,27 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     // Generated HTML often contains template expressions rather than rewriteable authored
     // attribute literals. Its explicit editableData declarations remain available below.
     if (file && files[file] && composition.meta?.sourceFormat !== "generated") {
-      const fields = inspectorFieldsFromHtml(files[file], itemId).filter((field) =>
-        !timelineOwnsMediaAudio || (field.attribute !== "data-fd-volume" && field.attribute !== "data-fd-muted"));
+      const timelineOwnedAttributes = new Set([
+        "data-fd-from",
+        "data-fd-duration",
+        "data-fd-layer",
+        "data-fd-trim-start",
+        "data-fd-playback-rate",
+        "data-fd-volume",
+        "data-fd-muted",
+      ]);
+      const fields = inspectorFieldsFromHtml(files[file], itemId).filter((field) => {
+        const placement = composition.timeline?.items.find((candidate) => candidate.id === field.targetId);
+        if (!placement) return true;
+        if (timelineOwnedAttributes.has(field.attribute)) return false;
+        if (placement.content?.type === "nested") {
+          return field.attribute !== "data-fd-comp" && field.attribute !== "data-fd-nested-scale";
+        }
+        if (placement.content?.type === "video" || placement.content?.type === "audio") {
+          return field.attribute !== "data-fd-src";
+        }
+        return true;
+      });
       const grade = fields.filter((field) => htmlGradeAttributes.includes(field.attribute) || ["data-fd-lut", "data-fd-lut-name", "data-fd-lut-intensity"].includes(field.attribute));
       const properties = fields.filter((field) => !grade.includes(field));
       if (properties.length) sections.push({
@@ -1634,9 +1739,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   }
 
   public async editInspectorField(request: InspectorFieldEditRequest): Promise<PlacementEditResult> {
-    if (request.fieldId === "timeline:volume" || request.fieldId === "timeline:muted") {
-      return this.editTimelineMediaAudio(request);
-    }
+    if (request.fieldId.startsWith("timeline:")) return this.editTimelinePlacementProperty(request);
     if (request.fieldId.startsWith("json:")) return this.editJsonDocumentField(request);
     if (request.fieldId.startsWith("html:") || request.fieldId.startsWith("html-target:")) {
       const composition = this.registry[request.compositionKey];
@@ -1671,10 +1774,10 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     });
   }
 
-  private async editTimelineMediaAudio(request: InspectorFieldEditRequest): Promise<PlacementEditResult> {
+  private async editTimelinePlacementProperty(request: InspectorFieldEditRequest): Promise<PlacementEditResult> {
     const composition = this.registry[request.compositionKey];
     const file = composition?.meta?.timelineFile;
-    if (!composition || !file || !composition.timeline) return { ok: false, message: "This media item has no external timeline document." };
+    if (!composition || !file || !composition.timeline) return { ok: false, message: "This item has no external timeline document." };
     const revision = await readSourceRevision(file);
     if (!revision || revision.text == null) return { ok: false, file, message: `Could not read ${file}.` };
     let document: CompositionTimelineDocument;
@@ -1688,16 +1791,52 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const placement = document.items.find((item) => item.id === request.itemId);
     const type = placement?.content?.type
       ?? this.probed.get(request.compositionKey)?.find((item) => item.id === request.itemId)?.content.type;
-    if (!placement || (type !== "video" && type !== "audio")) return { ok: false, file, message: `"${request.itemId}" is not a timeline media item.` };
+    if (!placement || (type !== "nested" && type !== "video" && type !== "audio")) {
+      return { ok: false, file, message: `"${request.itemId}" does not have editable timeline content.` };
+    }
+    let label: string;
     if (request.fieldId === "timeline:volume") {
       if (typeof request.value !== "number" || !Number.isFinite(request.value)) return { ok: false, file, message: "Volume must be a number." };
       placement.volume = Math.max(0, Math.min(1, request.value));
-    } else {
+      label = "Adjust placement volume";
+    } else if (request.fieldId === "timeline:muted") {
       if (typeof request.value !== "boolean") return { ok: false, file, message: "Muted must be true or false." };
       placement.muted = request.value;
+      label = request.value ? "Mute placement" : "Unmute placement";
+    } else if (request.fieldId === "timeline:trim-start") {
+      if (typeof request.value !== "number" || !Number.isFinite(request.value)) return { ok: false, file, message: "Trim start must be a number." };
+      placement.trimStart = request.value;
+      label = "Adjust placement trim";
+    } else if (request.fieldId === "timeline:playback-rate") {
+      if (typeof request.value !== "number" || !Number.isFinite(request.value) || request.value <= 0) {
+        return { ok: false, file, message: "Playback rate must be greater than zero." };
+      }
+      placement.playbackRate = request.value;
+      label = "Adjust placement playback rate";
+    } else if (request.fieldId === "timeline:composition") {
+      if (placement.content?.type !== "nested" || typeof request.value !== "string" || !request.value.trim()) {
+        return { ok: false, file, message: "Composition must be a non-empty registry key." };
+      }
+      placement.content = { ...placement.content, composition: request.value.trim() };
+      label = "Change nested composition";
+    } else if (request.fieldId === "timeline:nested-scale") {
+      if (placement.content?.type !== "nested" || typeof request.value !== "number" || !Number.isFinite(request.value) || request.value <= 0) {
+        return { ok: false, file, message: "Nested scale must be greater than zero." };
+      }
+      placement.content = { ...placement.content, nestedScale: request.value };
+      label = "Adjust nested composition scale";
+    } else if (request.fieldId === "timeline:src") {
+      if ((placement.content?.type !== "video" && placement.content?.type !== "audio")
+        || typeof request.value !== "string" || !request.value.trim()) {
+        return { ok: false, file, message: "Media source must be a non-empty asset or URL." };
+      }
+      placement.content = { ...placement.content, src: request.value.trim() };
+      label = "Change media source";
+    } else {
+      return { ok: false, file, message: `Unknown timeline property: ${request.fieldId}` };
     }
     const committed = await this.commitSourceText(
-      request.fieldId === "timeline:volume" ? "Adjust media volume" : request.value ? "Mute media" : "Unmute media",
+      label,
       revision,
       `${JSON.stringify(document, null, 2)}\n`,
     );

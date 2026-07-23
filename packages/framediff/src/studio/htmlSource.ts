@@ -218,8 +218,11 @@ function contentOf(element: HtmlSourceElement): TimelineItemSnapshot["content"] 
     return {
       type: "nested",
       compId: value(element, "data-fd-comp") ?? value(content, "data-fd-comp") ?? "",
+      nestedScale: has(element, "data-fd-nested-scale") ? number(element, "data-fd-nested-scale", 1) : number(content, "data-fd-nested-scale", 1),
       trimStart: has(element, "data-fd-trim-start") ? number(element, "data-fd-trim-start", 0) : number(content, "data-fd-trim-start", 0),
       playbackRate: has(element, "data-fd-playback-rate") ? number(element, "data-fd-playback-rate", 1) : number(content, "data-fd-playback-rate", 1),
+      volume: has(element, "data-fd-volume") ? number(element, "data-fd-volume", 1) : number(content, "data-fd-volume", 1),
+      muted: has(element, "data-fd-muted") ? boolean(element, "data-fd-muted", false) : boolean(content, "data-fd-muted", false),
       effects,
     };
   }
@@ -278,7 +281,15 @@ function timelineDocumentContent(placement: CompositionTimelinePlacement): Timel
   const content = placement.content;
   if (!content) return undefined;
   if (content.type === "nested") {
-    return { type: "nested", compId: content.composition, trimStart: placement.trimStart ?? 0, playbackRate: placement.playbackRate ?? 1 };
+    return {
+      type: "nested",
+      compId: content.composition,
+      nestedScale: content.nestedScale,
+      trimStart: placement.trimStart ?? 0,
+      playbackRate: placement.playbackRate ?? 1,
+      volume: placement.volume ?? 1,
+      muted: placement.muted ?? false,
+    };
   }
   if (content.type === "video") return {
     type: "video",
@@ -311,7 +322,7 @@ export function timelineFromComposition(composition: CompositionConfig): Timelin
     const authoredContent = timelineDocumentContent(placement);
     const fallbackContent: TimelineItemSnapshot["content"] = { type: "layers", label: placement.name ?? placement.id };
     const content = authoredContent && html
-      && (authoredContent.type === "video" || authoredContent.type === "audio")
+      && (authoredContent.type === "nested" || authoredContent.type === "video" || authoredContent.type === "audio")
       && authoredContent.type === html.content.type
       ? {
           ...authoredContent,

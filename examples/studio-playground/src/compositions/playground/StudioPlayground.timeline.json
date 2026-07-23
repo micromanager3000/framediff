@@ -55,6 +55,7 @@
       "id": "playground-audio",
       "from": 0,
       "durationInFrames": 2070,
+      "volume": 0.035,
       "name": "Persistent low-volume audio bed",
       "content": {
         "type": "audio",

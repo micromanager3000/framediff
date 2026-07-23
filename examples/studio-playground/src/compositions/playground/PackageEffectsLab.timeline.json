@@ -15,6 +15,7 @@
       "id": "effects-audio",
       "from": 0,
       "durationInFrames": 240,
+      "volume": 0.12,
       "name": "Effects accent",
       "content": {
         "type": "audio",

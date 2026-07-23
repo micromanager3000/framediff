@@ -126,7 +126,7 @@ export interface ColorGradeEffectSnapshot {
 }
 
 export type TimelineContentSnapshot =
-  | { type: "nested"; compId: string; trimStart: number; playbackRate?: number; effects?: ColorGradeEffectSnapshot[] }
+  | { type: "nested"; compId: string; nestedScale?: number; trimStart: number; playbackRate?: number; volume?: number; muted?: boolean; effects?: ColorGradeEffectSnapshot[] }
   | { type: "video"; src: string; trimStart?: number; playbackRate?: number; volume?: number; muted?: boolean; effects?: ColorGradeEffectSnapshot[] }
   | { type: "audio"; src: string; trimStart?: number; playbackRate?: number; volume?: number; muted?: boolean }
   | { type: "layers"; label: string; effects?: ColorGradeEffectSnapshot[] }

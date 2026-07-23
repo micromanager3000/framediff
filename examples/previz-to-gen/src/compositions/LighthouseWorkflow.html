@@ -15,12 +15,12 @@
     <div class="stage" data-stage="150" data-end="270"><span class="n">03</span><div><b>Seed Audio 1.0</b><small>approve the complete 14-second performance</small></div><span class="cost">~$0.04</span></div>
     <div class="stage" data-stage="270" data-end="420"><span class="n">04</span><div><b>Seedance 2.0</b><small>sync picture and micro-acting to @Audio1</small></div><span class="cost">~$3.39</span></div>
   </section>
-  <div class="audio-note" data-fd-clip data-fd-id="workflow-audio" data-fd-name="Locked dialogue performance" data-fd-type="nested" data-fd-comp="lighthouse-dialogue-audio" data-fd-nested-scale="0.458333" data-fd-volume="0"><div class="audio-copy"><b>@Audio1 · approval gate:</b> pin the complete performance before spending video credits.</div></div>
-  <div class="phone"><div class="screen" data-fd-clip data-fd-id="workflow-final" data-fd-name="audio-locked final" data-fd-type="nested" data-fd-comp="lighthouse-dialogue" data-fd-nested-scale="0.503125"></div></div>
+  <div class="audio-note" data-fd-clip data-fd-id="workflow-audio" data-fd-name="Locked dialogue performance" data-fd-type="nested"><div class="audio-copy"><b>@Audio1 · approval gate:</b> pin the complete performance before spending video credits.</div></div>
+  <div class="phone"><div class="screen" data-fd-clip data-fd-id="workflow-final" data-fd-name="audio-locked final" data-fd-type="nested"></div></div>
   <aside class="refs"><h2>Locked references</h2><div class="ref-grid">
-    <div class="ref" data-fd-clip data-fd-id="workflow-mara" data-fd-name="Mara portrait" data-fd-type="nested" data-fd-comp="lighthouse-visitor" data-fd-nested-scale="0.280556"><label>@Image1 · MARA</label></div>
-    <div class="ref" data-fd-clip data-fd-id="workflow-elias" data-fd-name="Elias portrait" data-fd-type="nested" data-fd-comp="lighthouse-keeper" data-fd-nested-scale="0.280556"><label>@Image2 · ELIAS</label></div>
-  </div><div class="concept" data-fd-clip data-fd-id="workflow-concept" data-fd-name="Lighthouse reference board" data-fd-type="nested" data-fd-comp="lighthouse-concept" data-fd-nested-scale="0.323438"><label>REFERENCE BOARD</label><div class="master"><b>DIRECT ASSETS</b> · recipes use asset references, while the board remains a flexible visual workspace</div></div></aside>
+    <div class="ref" data-fd-clip data-fd-id="workflow-mara" data-fd-name="Mara portrait" data-fd-type="nested"><label>@Image1 · MARA</label></div>
+    <div class="ref" data-fd-clip data-fd-id="workflow-elias" data-fd-name="Elias portrait" data-fd-type="nested"><label>@Image2 · ELIAS</label></div>
+  </div><div class="concept" data-fd-clip data-fd-id="workflow-concept" data-fd-name="Lighthouse reference board" data-fd-type="nested"><label>REFERENCE BOARD</label><div class="master"><b>DIRECT ASSETS</b> · recipes use asset references, while the board remains a flexible visual workspace</div></div></aside>
   <div class="playhead"></div>
   <script>const stages=queryAll(".stage");onFrame(({frame})=>{for(const s of stages)s.classList.toggle("active",frame>=+s.dataset.stage&&frame<+s.dataset.end);query(".playhead").style.width=`${Math.max(0,Math.min(1,frame/419))*100}%`})</script>
 </main>

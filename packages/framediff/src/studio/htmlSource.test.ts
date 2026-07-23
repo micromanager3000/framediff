@@ -62,6 +62,8 @@ describe("HTML composition source", () => {
           name: "Title",
           from: 8,
           durationInFrames: 42,
+          volume: 0.25,
+          muted: true,
           content: { type: "nested", composition: "title-card" },
         }],
       },
@@ -71,7 +73,7 @@ describe("HTML composition source", () => {
       name: "Title",
       from: 8,
       durationInFrames: 42,
-      content: { type: "nested", compId: "title-card" },
+      content: { type: "nested", compId: "title-card", volume: 0.25, muted: true },
     });
   });
 

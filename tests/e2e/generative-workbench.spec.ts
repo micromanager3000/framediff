@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { readFile, writeFile } from "node:fs/promises";
 import { openComposition } from "./helpers";
 
 test("a draft take is an obvious, repeatable path back to editing", async ({ page }) => {
@@ -26,4 +27,68 @@ test("a draft take is an obvious, repeatable path back to editing", async ({ pag
 
   await draft.click();
   await expect(prompt).toBeFocused();
+});
+
+test("a JSON-authored nested volume controls preview and export gain", async ({ page }) => {
+  const timelineFile = "examples/previz-to-gen/src/compositions/LighthouseWorkflow.timeline.json";
+  const htmlFile = "examples/previz-to-gen/src/compositions/LighthouseWorkflow.html";
+  const originalTimeline = await readFile(timelineFile, "utf8");
+  const originalHtml = await readFile(htmlFile, "utf8");
+  try {
+    await openComposition(page, "lighthouse-workflow", "http://127.0.0.1:4175/");
+
+    const timeline = JSON.parse(originalTimeline) as { items: Array<{ id: string; volume?: number }> };
+    expect(timeline.items.find((item) => item.id === "workflow-audio")?.volume).toBe(0);
+    expect(originalHtml).not.toContain("data-fd-volume");
+
+    await page.locator('.clip[data-item-id="workflow-audio"]').evaluate((element) =>
+      (element as HTMLButtonElement).click());
+    await expect(page.getByRole("heading", { name: "COMPOSITION AUDIO" })).toBeVisible();
+    const volume = page.getByRole("spinbutton", { name: "volume number" });
+    await expect(volume).toHaveValue("0");
+
+    const approvalAudio = page.locator('.preview-runtime-host [data-fd-id="workflow-audio"] audio[data-framediff-audio]');
+    await expect(approvalAudio).toHaveCount(1);
+    await expect.poll(() => approvalAudio.evaluate((audio: HTMLAudioElement) => ({
+      clipVolume: audio.closest<HTMLElement>("[data-fd-comp]")?.dataset.fdVolume,
+      previewVolume: audio.volume,
+      exportVolume: audio.dataset.framediffVolume,
+    }))).toEqual({
+      clipVolume: "0",
+      previewVolume: 0,
+      exportVolume: "0",
+    });
+
+    await volume.fill("0.25");
+    await volume.press("Tab");
+    await expect.poll(async () => {
+      const document = JSON.parse(await readFile(timelineFile, "utf8")) as { items: Array<{ id: string; volume?: number }> };
+      return document.items.find((item) => item.id === "workflow-audio")?.volume;
+    }).toBe(0.25);
+    await expect.poll(() => approvalAudio.evaluate((audio: HTMLAudioElement) => ({
+      previewVolume: audio.volume,
+      exportVolume: audio.dataset.framediffVolume,
+    }))).toEqual({ previewVolume: 0.25, exportVolume: "0.25" });
+    expect(await readFile(htmlFile, "utf8")).toBe(originalHtml);
+
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect.poll(async () => readFile(timelineFile, "utf8")).toBe(originalTimeline);
+    await expect.poll(() => approvalAudio.evaluate((audio: HTMLAudioElement) =>
+      audio.dataset.framediffVolume)).toBe("0");
+
+    // The final generated video is a separate audible layer. Silencing the approval reference
+    // must not accidentally mute that sibling.
+    const finalVideo = page.locator('.preview-runtime-host [data-fd-id="workflow-final"] video[data-framediff-video]');
+    await expect(finalVideo).toHaveCount(1);
+    await expect.poll(() => finalVideo.evaluate((video: HTMLVideoElement) => ({
+      previewVolume: video.volume,
+      exportVolume: video.dataset.framediffVolume,
+    }))).toEqual({
+      previewVolume: 1,
+      exportVolume: "1",
+    });
+  } finally {
+    if (await readFile(timelineFile, "utf8") !== originalTimeline) await writeFile(timelineFile, originalTimeline);
+    if (await readFile(htmlFile, "utf8") !== originalHtml) await writeFile(htmlFile, originalHtml);
+  }
 });
