@@ -28,6 +28,7 @@ aws_fd ecr get-login-password | docker login --username AWS --password-stdin "$R
 
 docker buildx build \
   --platform linux/amd64 \
+  --provenance=false \
   --file "$BUILD_DIR/cloud/aws-render/Dockerfile" \
   --build-arg "FRAMEDIFF_REVISION=$REVISION" \
   --tag "$REPOSITORY_URI:$IMAGE_TAG" \

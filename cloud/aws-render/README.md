@@ -67,9 +67,14 @@ video decode, deterministic captures, audio muxing, and MP4 export.
 ## Cost and scaling behavior
 
 AWS Batch itself has no additional charge. The worker uses on-demand EC2 and the account is
-billed only while the instance is running, with EC2's 60-second minimum. `g6.2xlarge` was
-`$0.9776/hour` in `us-east-1` when this pilot was created; verify the selected region before
-production. S3, ECR, EBS, CloudWatch, and transfer are additional.
+billed only while the instance is running, with EC2's 60-second minimum. The AWS Price List API
+returned `$0.9776/hour` for Linux `g6.2xlarge` in `us-west-2` when this pilot was created.
+S3, ECR, EBS, public IPv4, CloudWatch, and transfer are additional.
+
+At that rate, useful warm compute ranges from roughly `$0.002–$0.005` for a simple 10-second
+render to `$0.98–$2.44` for a heavy 10-minute render, before startup and scale-down overhead.
+See `docs/super-fast-cloud-render-plan.html` for the length/complexity matrix and cold-lifecycle
+planning cases.
 
 Cold startup includes AWS Batch scheduling, EC2 boot, ECS registration, and the first image pull.
 Measure `createdAt → startedAt` in the Batch job record. Subsequent jobs can reuse the instance

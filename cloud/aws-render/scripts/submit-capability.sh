@@ -15,6 +15,9 @@ SPEC_KEY="specs/$NAME.json"
 SPEC_FILE="$(mktemp)"
 cleanup() { rm -f "$SPEC_FILE"; }
 trap cleanup EXIT
+TAGS="$(jq -cn \
+  --arg prefix "$PREFIX" \
+  '{Project:"FrameDiff",JobKind:"capability-suite",OutputPrefix:$prefix}')"
 
 jq -n \
   --arg prefix "$PREFIX" \
@@ -28,7 +31,7 @@ JOB_ID="$(aws_fd batch submit-job \
   --job-queue "$QUEUE" \
   --job-definition "$DEFINITION" \
   --container-overrides "environment=[{name=FD_JOB_SPEC_S3_KEY,value=$SPEC_KEY}]" \
-  --tags Project=FrameDiff JobKind=capability-suite OutputPrefix="$PREFIX" \
+  --tags "$TAGS" \
   --query jobId --output text)"
 
 echo "$JOB_ID"

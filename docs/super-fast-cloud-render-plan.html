@@ -1179,7 +1179,7 @@ html&gt;body{padding:0}&lt;/style&gt;
     &lt;div class=&quot;plan-decision&quot;&gt;
       &lt;div class=&quot;plan-decision-mark&quot; aria-hidden=&quot;true&quot;&gt;&lt;/div&gt;
       &lt;div class=&quot;plan-subsection&quot;&gt;
-        &lt;h1 id=&quot;plan-recommendation&quot;&gt;Keep Render as the control plane. Add Cloud Run as the render plane.&lt;/h1&gt;
+        &lt;h1 id=&quot;plan-recommendation&quot;&gt;Keep Render as the control plane. Add scale-to-zero AWS Batch GPU workers.&lt;/h1&gt;
         &lt;p class=&quot;plan-lede&quot;&gt;
           The fastest path is a content-addressed, warm-capable pool of pinned Chrome workers that
           render independent frame ranges in parallel, upload video-only segments, then stream-copy
@@ -1215,7 +1215,7 @@ html&gt;body{padding:0}&lt;/style&gt;
       &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;1&lt;/span&gt;
       &lt;h2 id=&quot;architecture-heading&quot;&gt;Target architecture&lt;/h2&gt;
     &lt;/div&gt;
-    &lt;div class=&quot;plan-pipeline&quot; role=&quot;img&quot; aria-label=&quot;Studio submits a render to the existing Rust API. The API checks the content-addressed cache, creates immutable work, and dispatches shards through Cloud Tasks to Cloud Run L4 workers. Workers upload segments to object storage. A stitcher creates the final output and the Studio receives progress events.&quot;&gt;
+    &lt;div class=&quot;plan-pipeline&quot; role=&quot;img&quot; aria-label=&quot;Studio submits a render to the existing Rust API. The API checks the content-addressed cache, writes an immutable job specification to S3, and submits work to an AWS Batch L4 worker. The worker uploads results to S3. A stitcher creates the final output and the Studio receives progress events.&quot;&gt;
       &lt;div class=&quot;plan-node&quot; data-kind=&quot;existing&quot;&gt;
         &lt;strong&gt;Hosted Studio&lt;/strong&gt;
         &lt;span class=&quot;text-small text-muted&quot;&gt;Composition + output profile&lt;/span&gt;
@@ -1227,13 +1227,13 @@ html&gt;body{padding:0}&lt;/style&gt;
       &lt;/div&gt;
       &lt;div class=&quot;plan-arrow&quot; aria-hidden=&quot;true&quot;&gt;→&lt;/div&gt;
       &lt;div class=&quot;plan-node&quot; data-kind=&quot;storage&quot;&gt;
-        &lt;strong&gt;Supabase&lt;/strong&gt;
-        &lt;span class=&quot;text-small text-muted&quot;&gt;Postgres + source/media/render CAS&lt;/span&gt;
+        &lt;strong&gt;Supabase + S3&lt;/strong&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;Job state + private source/media/render objects&lt;/span&gt;
       &lt;/div&gt;
       &lt;div class=&quot;plan-arrow&quot; aria-hidden=&quot;true&quot;&gt;→&lt;/div&gt;
       &lt;div class=&quot;plan-node&quot; data-kind=&quot;compute&quot;&gt;
-        &lt;strong&gt;Cloud Tasks → Cloud Run L4&lt;/strong&gt;
-        &lt;span class=&quot;text-small text-muted&quot;&gt;8 vCPU · 32 GiB · one isolated shard per request&lt;/span&gt;
+        &lt;strong&gt;AWS Batch → EC2 G6 L4&lt;/strong&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;g6.2xlarge · 8 vCPU · 32 GiB · min capacity zero&lt;/span&gt;
         &lt;div class=&quot;plan-pool&quot; aria-hidden=&quot;true&quot;&gt;
           &lt;span class=&quot;plan-shard&quot;&gt;0–74&lt;/span&gt;
           &lt;span class=&quot;plan-shard&quot;&gt;75–149&lt;/span&gt;
@@ -1253,12 +1253,11 @@ html&gt;body{padding:0}&lt;/style&gt;
       &lt;span class=&quot;plan-legend-item&quot;&gt;&lt;span class=&quot;plan-swatch&quot; data-kind=&quot;result&quot;&gt;&lt;/span&gt;final artifact&lt;/span&gt;
     &lt;/div&gt;
     &lt;div class=&quot;plan-note text-small&quot;&gt;
-      Cloud Run is the recommended pilot because it supplies managed L4 drivers, can scale to zero,
-      starts GPU instances in roughly five seconds, and lets the API fan out private HTTP tasks.
-      GPU services require instance-based billing, though, so the pilot must compare the latency
-      benefit of services against the more predictable lifecycle cost of Cloud Run jobs.
-      Keep the worker protocol provider-neutral so Modal or a later ECS fleet can replace it without
-      changing the product API.
+      AWS Batch is the implemented pilot because it reuses the existing AWS account, manages the
+      NVIDIA ECS image and EC2 lifecycle, and supports a compute environment with
+      &lt;code&gt;minvCpus: 0&lt;/code&gt; and &lt;code&gt;desiredvCpus: 0&lt;/code&gt;. Start with one
+      on-demand &lt;code&gt;g6.2xlarge&lt;/code&gt; for a few users; add sharding and more capacity only
+      after the vertical slice is reliable. Keep the S3 job-spec/result protocol provider-neutral.
     &lt;/div&gt;
   &lt;/section&gt;
 
@@ -1337,34 +1336,35 @@ html&gt;body{padding:0}&lt;/style&gt;
     &lt;/div&gt;
     &lt;p class=&quot;plan-note text-small&quot;&gt;
       Planning estimate only—not a quote. The renderer has not yet produced Linux L4 benchmark data,
-      so the throughput multipliers below are deliberately broad. Prices are USD list price in
-      us-central1, checked July 23, 2026, before free tiers or committed-use discounts.
+      so the throughput multipliers below are deliberately broad. The compute input is the AWS
+      on-demand Linux price for &lt;code&gt;g6.2xlarge&lt;/code&gt; in us-west-2, checked through the
+      AWS Price List API on July 23, 2026, before discounts.
     &lt;/p&gt;
     &lt;div class=&quot;plan-cost-metrics&quot; aria-label=&quot;Cloud render unit economics&quot;&gt;
       &lt;div class=&quot;plan-cost-metric&quot;&gt;
         &lt;span class=&quot;text-small text-muted&quot;&gt;L4 worker list rate&lt;/span&gt;
-        &lt;strong class=&quot;plan-cost-number&quot;&gt;$0.0003947 / sec&lt;/strong&gt;
-        &lt;span class=&quot;text-small text-muted&quot;&gt;8 vCPU + 32 GiB + one non-redundant L4&lt;/span&gt;
+        &lt;strong class=&quot;plan-cost-number&quot;&gt;$0.0002716 / sec&lt;/strong&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;AWS g6.2xlarge: 8 vCPU + 32 GiB + one 24 GiB L4&lt;/span&gt;
       &lt;/div&gt;
       &lt;div class=&quot;plan-cost-metric&quot;&gt;
         &lt;span class=&quot;text-small text-muted&quot;&gt;Fully utilized&lt;/span&gt;
-        &lt;strong class=&quot;plan-cost-number&quot;&gt;$1.42 / worker-hour&lt;/strong&gt;
+        &lt;strong class=&quot;plan-cost-number&quot;&gt;$0.9776 / worker-hour&lt;/strong&gt;
         &lt;span class=&quot;text-small text-muted&quot;&gt;Parallelism reduces latency, not total work&lt;/span&gt;
       &lt;/div&gt;
       &lt;div class=&quot;plan-cost-metric&quot;&gt;
         &lt;span class=&quot;text-small text-muted&quot;&gt;One new worker minimum&lt;/span&gt;
-        &lt;strong class=&quot;plan-cost-number&quot;&gt;$0.0237&lt;/strong&gt;
-        &lt;span class=&quot;text-small text-muted&quot;&gt;One-minute minimum instance lifecycle&lt;/span&gt;
+        &lt;strong class=&quot;plan-cost-number&quot;&gt;$0.0163&lt;/strong&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;EC2 one-minute billing minimum; startup/idle time adds more&lt;/span&gt;
       &lt;/div&gt;
       &lt;div class=&quot;plan-cost-metric plan-cost-warning&quot;&gt;
         &lt;span class=&quot;text-small text-muted&quot;&gt;One always-warm worker&lt;/span&gt;
-        &lt;strong class=&quot;plan-cost-number&quot;&gt;≈ $1,037 / month&lt;/strong&gt;
+        &lt;strong class=&quot;plan-cost-number&quot;&gt;≈ $714 / month&lt;/strong&gt;
         &lt;span class=&quot;text-small text-muted&quot;&gt;730 hours; keep min instances at zero for beta&lt;/span&gt;
       &lt;/div&gt;
     &lt;/div&gt;
     &lt;div class=&quot;plan-cost-formula text-small&quot;&gt;
       &lt;strong&gt;Model&lt;/strong&gt;
-      &lt;code&gt;warm compute cost = output seconds × assumed L4-seconds per output second × $0.0003947&lt;/code&gt;
+      &lt;code&gt;useful compute = output seconds × assumed L4-seconds per output second × $0.0002716&lt;/code&gt;
       &lt;span class=&quot;text-muted&quot;&gt;
         Assumes 30 fps H.264, assets in-region, one isolated shard per worker, no retries, and no
         cache hit. At 60 fps, use roughly 2× the render-work estimate until measurements say otherwise.
@@ -1384,45 +1384,45 @@ html&gt;body{padding:0}&lt;/style&gt;
         &lt;tbody&gt;
           &lt;tr&gt;
             &lt;td&gt;10 seconds&lt;/td&gt;
-            &lt;td&gt;$0.003–$0.008&lt;/td&gt;
-            &lt;td&gt;$0.006–$0.015&lt;/td&gt;
-            &lt;td&gt;$0.012–$0.030&lt;/td&gt;
-            &lt;td&gt;$0.024–$0.059&lt;/td&gt;
+            &lt;td&gt;$0.002–$0.005&lt;/td&gt;
+            &lt;td&gt;$0.004–$0.010&lt;/td&gt;
+            &lt;td&gt;$0.008–$0.020&lt;/td&gt;
+            &lt;td&gt;$0.016–$0.041&lt;/td&gt;
           &lt;/tr&gt;
           &lt;tr&gt;
             &lt;td&gt;30 seconds&lt;/td&gt;
-            &lt;td&gt;$0.009–$0.024&lt;/td&gt;
-            &lt;td&gt;$0.018–$0.044&lt;/td&gt;
-            &lt;td&gt;$0.036–$0.089&lt;/td&gt;
-            &lt;td&gt;$0.071–$0.178&lt;/td&gt;
+            &lt;td&gt;$0.007–$0.016&lt;/td&gt;
+            &lt;td&gt;$0.012–$0.030&lt;/td&gt;
+            &lt;td&gt;$0.024–$0.061&lt;/td&gt;
+            &lt;td&gt;$0.049–$0.122&lt;/td&gt;
           &lt;/tr&gt;
           &lt;tr&gt;
             &lt;td&gt;1 minute&lt;/td&gt;
-            &lt;td&gt;$0.019–$0.047&lt;/td&gt;
-            &lt;td&gt;$0.036–$0.088&lt;/td&gt;
-            &lt;td&gt;$0.071–$0.178&lt;/td&gt;
-            &lt;td&gt;$0.142–$0.355&lt;/td&gt;
+            &lt;td&gt;$0.013–$0.033&lt;/td&gt;
+            &lt;td&gt;$0.024–$0.060&lt;/td&gt;
+            &lt;td&gt;$0.049–$0.122&lt;/td&gt;
+            &lt;td&gt;$0.098–$0.244&lt;/td&gt;
           &lt;/tr&gt;
           &lt;tr&gt;
             &lt;td&gt;2 minutes&lt;/td&gt;
-            &lt;td&gt;$0.038–$0.095&lt;/td&gt;
-            &lt;td&gt;$0.071–$0.175&lt;/td&gt;
-            &lt;td&gt;$0.142–$0.355&lt;/td&gt;
-            &lt;td&gt;$0.284–$0.710&lt;/td&gt;
+            &lt;td&gt;$0.026–$0.065&lt;/td&gt;
+            &lt;td&gt;$0.049–$0.121&lt;/td&gt;
+            &lt;td&gt;$0.098–$0.244&lt;/td&gt;
+            &lt;td&gt;$0.196–$0.489&lt;/td&gt;
           &lt;/tr&gt;
           &lt;tr&gt;
             &lt;td&gt;5 minutes&lt;/td&gt;
-            &lt;td&gt;$0.095–$0.237&lt;/td&gt;
-            &lt;td&gt;$0.178–$0.438&lt;/td&gt;
-            &lt;td&gt;$0.355–$0.888&lt;/td&gt;
-            &lt;td&gt;$0.710–$1.776&lt;/td&gt;
+            &lt;td&gt;$0.065–$0.163&lt;/td&gt;
+            &lt;td&gt;$0.122–$0.301&lt;/td&gt;
+            &lt;td&gt;$0.244–$0.611&lt;/td&gt;
+            &lt;td&gt;$0.489–$1.222&lt;/td&gt;
           &lt;/tr&gt;
           &lt;tr&gt;
             &lt;td&gt;10 minutes&lt;/td&gt;
-            &lt;td&gt;$0.189–$0.474&lt;/td&gt;
-            &lt;td&gt;$0.355–$0.876&lt;/td&gt;
-            &lt;td&gt;$0.710–$1.776&lt;/td&gt;
-            &lt;td&gt;$1.421–$3.552&lt;/td&gt;
+            &lt;td&gt;$0.130–$0.326&lt;/td&gt;
+            &lt;td&gt;$0.244–$0.603&lt;/td&gt;
+            &lt;td&gt;$0.489–$1.222&lt;/td&gt;
+            &lt;td&gt;$0.978–$2.444&lt;/td&gt;
           &lt;/tr&gt;
         &lt;/tbody&gt;
       &lt;/table&gt;
@@ -1437,46 +1437,46 @@ html&gt;body{padding:0}&lt;/style&gt;
     &lt;div class=&quot;plan-subsection&quot;&gt;
       &lt;h3&gt;Cold-burst cost can dominate short renders&lt;/h3&gt;
       &lt;p class=&quot;text-small text-muted&quot;&gt;
-        Cloud Run GPU services require instance-based billing. Each new instance has a one-minute
-        minimum, and Cloud Run may keep an idle GPU instance for up to ten minutes after a request.
-        Jobs have the same one-minute minimum per task but terminate predictably. The upper bound
-        below is the documented ten-minute idle-retention exposure, not a promise that every instance
-        will live that long.
+        AWS bills the underlying EC2 instance from launch through termination, including Batch
+        scheduling/boot, the first image pull, and the scale-down tail. EC2 Linux per-second billing
+        has a 60-second minimum, but a cold Batch lifecycle will be longer. Until cloud measurements
+        replace it, plan short isolated renders using the lifecycle scenarios below rather than the
+        tiny useful-work number.
       &lt;/p&gt;
       &lt;div class=&quot;table-responsive&quot;&gt;
         &lt;table class=&quot;table table-sm plan-wide-table&quot;&gt;
           &lt;thead&gt;
             &lt;tr&gt;
-              &lt;th&gt;New GPU workers&lt;/th&gt;
-              &lt;th&gt;One-minute lifecycle floor&lt;/th&gt;
-              &lt;th&gt;Service idle-tail exposure at 10 min&lt;/th&gt;
+              &lt;th&gt;Total EC2 lifecycle&lt;/th&gt;
+              &lt;th&gt;One g6.2xlarge&lt;/th&gt;
+              &lt;th&gt;Four concurrent workers&lt;/th&gt;
               &lt;th&gt;Planning implication&lt;/th&gt;
             &lt;/tr&gt;
           &lt;/thead&gt;
           &lt;tbody&gt;
             &lt;tr&gt;
-              &lt;td&gt;1&lt;/td&gt;
-              &lt;td&gt;$0.024&lt;/td&gt;
-              &lt;td&gt;up to $0.237&lt;/td&gt;
-              &lt;td&gt;Best default for a cold 10-second preview&lt;/td&gt;
+              &lt;td&gt;1 minute&lt;/td&gt;
+              &lt;td&gt;$0.016&lt;/td&gt;
+              &lt;td&gt;$0.065&lt;/td&gt;
+              &lt;td&gt;Billing floor, not a realistic cold-start promise&lt;/td&gt;
             &lt;/tr&gt;
             &lt;tr&gt;
-              &lt;td&gt;4&lt;/td&gt;
-              &lt;td&gt;$0.095&lt;/td&gt;
-              &lt;td&gt;up to $0.947&lt;/td&gt;
-              &lt;td&gt;Good pilot cap for short interactive renders&lt;/td&gt;
+              &lt;td&gt;5 minutes&lt;/td&gt;
+              &lt;td&gt;$0.081&lt;/td&gt;
+              &lt;td&gt;$0.326&lt;/td&gt;
+              &lt;td&gt;Reasonable first planning case for a cold pilot job&lt;/td&gt;
             &lt;/tr&gt;
             &lt;tr&gt;
-              &lt;td&gt;8&lt;/td&gt;
-              &lt;td&gt;$0.189&lt;/td&gt;
-              &lt;td&gt;up to $1.895&lt;/td&gt;
-              &lt;td&gt;Use when saved latency is worth the cold floor&lt;/td&gt;
+              &lt;td&gt;10 minutes&lt;/td&gt;
+              &lt;td&gt;$0.163&lt;/td&gt;
+              &lt;td&gt;$0.652&lt;/td&gt;
+              &lt;td&gt;Conservative short-job estimate until scale-down is measured&lt;/td&gt;
             &lt;/tr&gt;
             &lt;tr&gt;
-              &lt;td&gt;12&lt;/td&gt;
-              &lt;td&gt;$0.284&lt;/td&gt;
-              &lt;td&gt;up to $2.842&lt;/td&gt;
-              &lt;td&gt;Reserve for warm demand or long/heavy exports&lt;/td&gt;
+              &lt;td&gt;20 minutes&lt;/td&gt;
+              &lt;td&gt;$0.326&lt;/td&gt;
+              &lt;td&gt;$1.303&lt;/td&gt;
+              &lt;td&gt;Investigate if a tiny render keeps capacity this long&lt;/td&gt;
             &lt;/tr&gt;
           &lt;/tbody&gt;
         &lt;/table&gt;
@@ -1502,21 +1502,21 @@ html&gt;body{padding:0}&lt;/style&gt;
           &lt;tbody&gt;
             &lt;tr&gt;
               &lt;td&gt;100 output-min&lt;/td&gt;
-              &lt;td&gt;≈ $7.70&lt;/td&gt;
-              &lt;td&gt;≈ $15.54&lt;/td&gt;
-              &lt;td&gt;≈ $31.08&lt;/td&gt;
+              &lt;td&gt;≈ $5.30&lt;/td&gt;
+              &lt;td&gt;≈ $10.69&lt;/td&gt;
+              &lt;td&gt;≈ $21.39&lt;/td&gt;
             &lt;/tr&gt;
             &lt;tr&gt;
               &lt;td&gt;1,000 output-min&lt;/td&gt;
-              &lt;td&gt;≈ $76.97&lt;/td&gt;
-              &lt;td&gt;≈ $155.41&lt;/td&gt;
-              &lt;td&gt;≈ $310.83&lt;/td&gt;
+              &lt;td&gt;≈ $52.96&lt;/td&gt;
+              &lt;td&gt;≈ $106.93&lt;/td&gt;
+              &lt;td&gt;≈ $213.85&lt;/td&gt;
             &lt;/tr&gt;
             &lt;tr&gt;
               &lt;td&gt;10,000 output-min&lt;/td&gt;
-              &lt;td&gt;≈ $769.67&lt;/td&gt;
-              &lt;td&gt;≈ $1,554.13&lt;/td&gt;
-              &lt;td&gt;≈ $3,108.26&lt;/td&gt;
+              &lt;td&gt;≈ $529.53&lt;/td&gt;
+              &lt;td&gt;≈ $1,069.25&lt;/td&gt;
+              &lt;td&gt;≈ $2,138.50&lt;/td&gt;
             &lt;/tr&gt;
           &lt;/tbody&gt;
         &lt;/table&gt;
@@ -1538,23 +1538,23 @@ html&gt;body{padding:0}&lt;/style&gt;
             &lt;tr&gt;
               &lt;td&gt;1 min 1080p H.264 at 8 Mbps&lt;/td&gt;
               &lt;td&gt;≈ 0.059 GiB&lt;/td&gt;
-              &lt;td&gt;≈ $0.0012&lt;/td&gt;
-              &lt;td&gt;≈ $0.0070&lt;/td&gt;
+              &lt;td&gt;≈ $0.0014&lt;/td&gt;
+              &lt;td&gt;≈ $0.0053&lt;/td&gt;
             &lt;/tr&gt;
             &lt;tr&gt;
               &lt;td&gt;1 min 4K H.264 at 25 Mbps&lt;/td&gt;
               &lt;td&gt;≈ 0.183 GiB&lt;/td&gt;
-              &lt;td&gt;≈ $0.0037&lt;/td&gt;
-              &lt;td&gt;≈ $0.0220&lt;/td&gt;
+              &lt;td&gt;≈ $0.0042&lt;/td&gt;
+              &lt;td&gt;≈ $0.0165&lt;/td&gt;
             &lt;/tr&gt;
           &lt;/tbody&gt;
         &lt;/table&gt;
       &lt;/div&gt;
       &lt;p class=&quot;text-small text-muted&quot;&gt;
-        Uses us-central1 Standard storage at about $0.02/GiB-month and first-tier general internet
-        transfer at $0.12/GiB, before eligible free usage. Same-region worker-to-bucket transfer is
-        free. Cloud Tasks is negligible at this scale: the first million operations per month are
-        free, then $0.40 per million.
+        Uses S3 Standard planning inputs of about $0.023/GiB-month and $0.09/GiB internet transfer,
+        before eligible free usage. Same-region EC2-to-S3 transfer is free. AWS Batch has no separate
+        service fee; ECR image storage, EBS while an instance exists, CloudWatch Logs, S3 requests,
+        and public IPv4 are additional but small at pilot volume.
       &lt;/p&gt;
     &lt;/div&gt;
     &lt;div class=&quot;viz-grid&quot;&gt;
@@ -1567,8 +1567,8 @@ html&gt;body{padding:0}&lt;/style&gt;
         &lt;p class=&quot;text-small text-muted&quot;&gt;A cached replay should be priced like storage plus egress, not compute; expose that as a customer-facing speed and cost win.&lt;/p&gt;
       &lt;/div&gt;
       &lt;div class=&quot;card&quot;&gt;
-        &lt;strong&gt;Benchmark services against jobs&lt;/strong&gt;
-        &lt;p class=&quot;text-small text-muted&quot;&gt;Use services for interactive latency only if real lifecycle utilization beats the predictable job floor; keep the same worker manifest for both lanes.&lt;/p&gt;
+        &lt;strong&gt;Measure the full EC2 lifecycle&lt;/strong&gt;
+        &lt;p class=&quot;text-small text-muted&quot;&gt;Record Batch created, started, and stopped timestamps plus the final return to desired capacity zero; this is the real cost of an isolated render.&lt;/p&gt;
       &lt;/div&gt;
     &lt;/div&gt;
   &lt;/section&gt;
@@ -1711,16 +1711,17 @@ html&gt;body{padding:0}&lt;/style&gt;
             &lt;td&gt;Rust orchestration&lt;/td&gt;
             &lt;td&gt;
               Authorize requests, build fingerprints, short-circuit cache hits, issue narrow signed
-              grants, enqueue Cloud Tasks, aggregate frame-weighted progress, and finalize exactly once.
+              grants, write a private S3 job spec, submit AWS Batch work, aggregate frame-weighted
+              progress, and finalize exactly once.
             &lt;/td&gt;
             &lt;td&gt;Duplicate requests and callbacks cannot create duplicate work or overwrite another workspace&lt;/td&gt;
           &lt;/tr&gt;
           &lt;tr&gt;
             &lt;td&gt;Worker + infrastructure&lt;/td&gt;
             &lt;td&gt;
-              Pinned Chrome/Playwright/ffmpeg image on Cloud Run L4; concurrency one; min instances
-              zero for beta; bounded max instances; private Cloud Tasks ingress; benchmark the same
-              manifest on Cloud Run jobs before choosing the default execution lane.
+              Pinned Chrome/Playwright/ffmpeg image on AWS Batch with an NVIDIA ECS AMI and one
+              &lt;code&gt;g6.2xlarge&lt;/code&gt;; minimum and desired vCPUs zero; private S3 specs and
+              artifacts; bounded max vCPUs; prove real L4 WebGPU rather than SwiftShader.
             &lt;/td&gt;
             &lt;td&gt;DOM, video, WebGPU, cancellation, timeout, cold-start, and billable-lifecycle test matrix&lt;/td&gt;
           &lt;/tr&gt;
@@ -1878,11 +1879,11 @@ html&gt;body{padding:0}&lt;/style&gt;
       &lt;li&gt;Add exporter timings for prepare, font embed, audio scan/mix, video decode, WebGPU capture, grade pass, DOM clone, SVG/image decode, bitmap transfer, encode, mux, and sink write.&lt;/li&gt;
       &lt;li&gt;Create a reproducible benchmark pack: DOM title, video + overlay, and WebGPU/3D, each at 10 and 30 seconds, 1080p and 4K.&lt;/li&gt;
       &lt;li&gt;Build the pinned Linux Chrome worker image and prove real hardware WebGPU via &lt;code&gt;chrome://gpu&lt;/code&gt; diagnostics—not SwiftShader.&lt;/li&gt;
-      &lt;li&gt;Run the benchmark pack as both a min-zero GPU service and Cloud Run jobs; record useful L4-seconds, total billed lifecycle, cold idle tail, and wall time before selecting the default lane.&lt;/li&gt;
+      &lt;li&gt;Run the benchmark pack through the min-zero AWS Batch environment; record useful L4-seconds, total EC2 lifecycle, cold startup, scale-down tail, and wall time.&lt;/li&gt;
       &lt;li&gt;Add &lt;code&gt;includeAudio: false&lt;/code&gt; ranged export and a separate full-range audio export.&lt;/li&gt;
       &lt;li&gt;Define and golden-test &lt;code&gt;RenderManifestV1&lt;/code&gt;, &lt;code&gt;RenderShardV1&lt;/code&gt;, and &lt;code&gt;SegmentReceiptV1&lt;/code&gt;.&lt;/li&gt;
       &lt;li&gt;Add hosted render RPCs and database migrations with idempotent fingerprint creation.&lt;/li&gt;
-      &lt;li&gt;Deploy one private Cloud Run worker and Cloud Tasks queue; complete the single-shard vertical slice.&lt;/li&gt;
+      &lt;li&gt;Deploy the private AWS Batch worker, queue, ECR repository, and S3 artifact bucket; complete the single-job vertical slice.&lt;/li&gt;
       &lt;li&gt;Add 4–12-way fan-out, frame-weighted progress, segment validation, stream-copy stitch, and audio mux.&lt;/li&gt;
       &lt;li&gt;Wire RenderManager and RenderControl to watch, cancel, retry, and download cloud jobs.&lt;/li&gt;
       &lt;li&gt;Add exact-result caching, adaptive shard sizing, dashboards, quotas, security tests, and staged rollout flags.&lt;/li&gt;
@@ -1917,14 +1918,14 @@ html&gt;body{padding:0}&lt;/style&gt;
       &lt;h2 id=&quot;sources-heading&quot;&gt;Current platform facts used in the recommendation&lt;/h2&gt;
     &lt;/div&gt;
     &lt;ol class=&quot;plan-sources text-small&quot;&gt;
-      &lt;li&gt;&lt;a href=&quot;https://docs.cloud.google.com/run/docs/configuring/services/gpu&quot;&gt;Cloud Run GPU services&lt;/a&gt; — managed L4/RTX GPUs, scale-to-zero, roughly five-second instance startup, one GPU per instance.&lt;/li&gt;
-      &lt;li&gt;&lt;a href=&quot;https://docs.cloud.google.com/run/docs/triggering/using-tasks&quot;&gt;Cloud Tasks with Cloud Run&lt;/a&gt; — authenticated, durable asynchronous HTTP task delivery.&lt;/li&gt;
-      &lt;li&gt;&lt;a href=&quot;https://cloud.google.com/run/docs/create-jobs&quot;&gt;Cloud Run jobs&lt;/a&gt; — parallel task model and limits; the same one-minute minimum applies, but task termination can make cold-burst cost more predictable than a GPU service idle tail.&lt;/li&gt;
-      &lt;li&gt;&lt;a href=&quot;https://docs.cloud.google.com/run/docs/about-instance-autoscaling#idle-instances&quot;&gt;Cloud Run idle instances&lt;/a&gt; — services may retain idle GPU instances for up to ten minutes to reduce cold starts.&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://docs.aws.amazon.com/batch/latest/userguide/managed_compute_environments.html&quot;&gt;AWS Batch managed compute environments&lt;/a&gt; — Batch manages EC2 capacity against minimum, desired, and maximum vCPU settings.&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://docs.aws.amazon.com/batch/latest/userguide/gpu-jobs.html&quot;&gt;AWS Batch GPU jobs&lt;/a&gt; — GPU resource requirements are scheduled onto compatible accelerated instances.&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://aws.amazon.com/ec2/instance-types/g6/&quot;&gt;Amazon EC2 G6 instances&lt;/a&gt; — NVIDIA L4 GPUs with 24 GiB GPU memory; the pilot uses one &lt;code&gt;g6.2xlarge&lt;/code&gt;.&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-optimized_AMI.html&quot;&gt;ECS-optimized AMIs&lt;/a&gt; — the Batch environment selects the managed AL2023 NVIDIA image family.&lt;/li&gt;
       &lt;li&gt;&lt;a href=&quot;https://developer.chrome.com/blog/supercharge-web-ai-testing&quot;&gt;Hardware WebGPU in headless Chrome&lt;/a&gt; — verify drivers and renderer identity; do not accept an accidental SwiftShader fallback.&lt;/li&gt;
-      &lt;li&gt;&lt;a href=&quot;https://cloud.google.com/run/pricing&quot;&gt;Cloud Run pricing&lt;/a&gt; — July 23, 2026 us-central1 inputs: instance-based CPU at $0.000018 per vCPU-second, memory at $0.000002 per GiB-second, non-redundant L4 at $0.0001867 per second, and a one-minute minimum lifecycle.&lt;/li&gt;
-      &lt;li&gt;&lt;a href=&quot;https://cloud.google.com/storage/pricing&quot;&gt;Cloud Storage pricing&lt;/a&gt; — roughly $0.02/GiB-month for regional Standard storage and $0.12/GiB for first-tier general internet transfer; same-location Google Cloud transfer is free.&lt;/li&gt;
-      &lt;li&gt;&lt;a href=&quot;https://cloud.google.com/tasks/pricing&quot;&gt;Cloud Tasks pricing&lt;/a&gt; — first one million monthly operations free, then $0.40 per million.&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://aws.amazon.com/ec2/pricing/on-demand/&quot;&gt;Amazon EC2 On-Demand pricing&lt;/a&gt; — the AWS Price List API returned $0.9776/hour for Linux &lt;code&gt;g6.2xlarge&lt;/code&gt; in us-west-2 on July 23, 2026; Linux billing is per second with a 60-second minimum.&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://aws.amazon.com/batch/pricing/&quot;&gt;AWS Batch pricing&lt;/a&gt; — no additional Batch charge; pay for the underlying AWS resources.&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://aws.amazon.com/s3/pricing/&quot;&gt;Amazon S3 pricing&lt;/a&gt; — storage, request, and transfer charges are separate from GPU compute.&lt;/li&gt;
     &lt;/ol&gt;
   &lt;/section&gt;
 &lt;/main&gt;
