@@ -26,6 +26,7 @@ import type {
   PreviewHandle,
   PreviewNodeSnapshot,
   PreviewOptions,
+  ProviderCredentialsSnapshot,
   RenderProgressSnapshot,
   RenderResult,
   TimelineItemSnapshot,
@@ -53,6 +54,7 @@ import {
 } from "../studio/sourceMap";
 import {
   applySourceEdit,
+  deleteSecret,
   deleteSource,
   getAssets,
   genJobs,
@@ -2639,7 +2641,48 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const saved = await putSecret(provider, key);
     if (!saved.ok) return { ok: false, message: saved.error ?? `Could not save the ${provider} key.` };
     const verified = await verifyProvider(provider);
-    return verified.ok ? { ok: true, message: `${provider} is configured.` } : { ok: false, message: verified.error ?? `${provider} verification failed.` };
+    return verified.ok
+      ? { ok: true, message: `${provider} credentials saved.` }
+      : { ok: false, message: verified.error ?? `${provider} verification failed.` };
+  }
+
+  public async getProviderCredentials(): Promise<ProviderCredentialsSnapshot> {
+    const secrets = await getSecrets();
+    if (!secrets) throw new Error("Could not read local service credentials.");
+    const providers: ProviderCredentialsSnapshot["providers"] = [
+      {
+        provider: "fal",
+        name: "fal.ai",
+        envVar: "FAL_KEY",
+        description: "Runs the generative models currently available in FrameDiff.",
+        integration: "active",
+        ...(secrets.providers.fal ?? { set: false }),
+      },
+      {
+        provider: "midjourney",
+        name: "Midjourney",
+        envVar: "MIDJOURNEY_API_KEY",
+        description: "Store credentials now for a future Midjourney generation adapter.",
+        integration: "credentials-only",
+        ...(secrets.providers.midjourney ?? { set: false }),
+      },
+      {
+        provider: "luma",
+        name: "Luma AI",
+        envVar: "LUMAAI_API_KEY",
+        description: "Store credentials now for a future Luma generation adapter.",
+        integration: "credentials-only",
+        ...(secrets.providers.luma ?? { set: false }),
+      },
+    ];
+    return { providers, file: secrets.file ?? ".framediff/secrets.json" };
+  }
+
+  public async clearProvider(provider: string): Promise<ProjectOperationResult> {
+    const cleared = await deleteSecret(provider);
+    return cleared.ok
+      ? { ok: true, message: `${provider} credentials removed from the local file.` }
+      : { ok: false, message: cleared.error ?? `Could not remove the ${provider} credentials.` };
   }
 
   public mountPreview(host: HTMLElement, compositionKey: string, options: PreviewOptions): PreviewHandle {

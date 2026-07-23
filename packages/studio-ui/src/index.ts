@@ -9,5 +9,6 @@ export { CodeViewModel } from "./viewmodels/Code.ViewModel";
 export { GitViewModel } from "./viewmodels/Git.ViewModel";
 export { RenderViewModel } from "./viewmodels/Render.ViewModel";
 export { GenerativeViewModel, type GenerativeViewSnapshot } from "./viewmodels/Generative.ViewModel";
+export { ServicesViewModel } from "./viewmodels/Services.ViewModel";
 export { OperationsViewModel } from "./viewmodels/Operations.ViewModel";
 export { browserAnimationClock } from "./viewmodels/browserClock";

@@ -12,6 +12,7 @@
   import GenerativeWorkbench from "./views/GenerativeWorkbench.svelte";
   import NewCompositionSheet from "./views/NewCompositionSheet.svelte";
   import CacheDrawer from "./views/CacheDrawer.svelte";
+  import ServicesDrawer from "./views/ServicesDrawer.svelte";
   import StudioGuide from "./views/StudioGuide.svelte";
   import DedicatedRenderWindow from "./views/DedicatedRenderWindow.svelte";
   import CompositionFrameBar from "./views/CompositionFrameBar.svelte";
@@ -26,6 +27,7 @@
   import { RenderViewModel } from "./viewmodels/Render.ViewModel";
   import { GenerativeViewModel } from "./viewmodels/Generative.ViewModel";
   import { OperationsViewModel } from "./viewmodels/Operations.ViewModel";
+  import { ServicesViewModel } from "./viewmodels/Services.ViewModel";
   import { restoreStudioSelection, serializeStudioSelection } from "./viewmodels/selectionPersistence";
   import { buildRenderWindowUrl, postRenderWindowError, postRenderWindowState, renderWindowRequest } from "./renderWindow";
   import { observableStore } from "./viewmodels/store";
@@ -48,6 +50,7 @@
   const render = new RenderViewModel(application.render);
   const generative = new GenerativeViewModel(application.generative, application.assets);
   const operations = new OperationsViewModel(application.operations);
+  const services = new ServicesViewModel(application.credentials);
   const store = shell.store;
   const timelineStore = timeline.store;
   const chromeStore = chrome.store;
@@ -351,6 +354,7 @@
     <div class="top-group" role="group" aria-label="Project actions">
       <button class="top-action" onclick={() => void application.history.undo()} disabled={!$historyStore.undo.length || $historyStore.applying} title={$historyStore.undo.length ? `Undo ${$historyStore.undo[$historyStore.undo.length - 1].label} (⌘/Ctrl+Z)` : "Nothing to undo"}>Undo</button>
       <button class="top-action" onclick={() => void application.history.redo()} disabled={!$historyStore.redo.length || $historyStore.applying} title={$historyStore.redo.length ? `Redo ${$historyStore.redo[$historyStore.redo.length - 1].label} (⌘/Ctrl+Shift+Z)` : "Nothing to redo"}>Redo</button>
+      <button class="top-action" onclick={() => chrome.setServicesOpen(true)} title="Configure generative service credentials">Services</button>
       <button class="top-action" onclick={() => chrome.setCacheOpen(true)} title="Cached renders and bakes">Cache</button>
       <button class="refresh" onclick={() => void shell.refresh()} title="Reload compositions from source" aria-label="Reload compositions">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13.5 8a5.5 5.5 0 1 1-2-4.24"/><path d="M13.7 2.3v3.2h-3.2"/></svg>
@@ -367,6 +371,7 @@
         <button class="mobile-menu-action" class:warning={agentErrorCount > 0} onclick={() => { mobileActionsOpen = false; void runAgentCheck(); }}>Agent API <small>v1</small></button>
         <button class="mobile-menu-action" onclick={() => void application.history.undo()} disabled={!$historyStore.undo.length || $historyStore.applying}>Undo</button>
         <button class="mobile-menu-action" onclick={() => void application.history.redo()} disabled={!$historyStore.redo.length || $historyStore.applying}>Redo</button>
+        <button class="mobile-menu-action" onclick={() => { mobileActionsOpen = false; chrome.setServicesOpen(true); }}>Services</button>
         <button class="mobile-menu-action" onclick={() => { mobileActionsOpen = false; chrome.setCacheOpen(true); }}>Cache</button>
         <button class="mobile-menu-action" onclick={() => { mobileActionsOpen = false; void shell.refresh(); }}>Reload source</button>
       </div>
@@ -463,7 +468,7 @@
       {/if}
       <CompositionFrameBar composition={$store.current} operations={$operationsStore} onbake={() => void operations.bakeCurrent()} />
       {#if $store.current?.kind === "generate"}
-        <GenerativeWorkbench viewModel={generative} {runtime} {session} />
+        <GenerativeWorkbench viewModel={generative} {runtime} {session} onservices={() => chrome.setServicesOpen(true)} />
       {:else}
       <div class="preview-panel">
         <PreviewHost
@@ -560,5 +565,12 @@
     />
   {/if}
   {#if $chromeStore.cacheOpen}<CacheDrawer viewModel={operations} onclose={() => chrome.setCacheOpen(false)} />{/if}
+  {#if $chromeStore.servicesOpen}
+    <ServicesDrawer
+      viewModel={services}
+      onclose={() => chrome.setServicesOpen(false)}
+      onchange={() => void application.generative.refresh()}
+    />
+  {/if}
 </div>
 {/if}

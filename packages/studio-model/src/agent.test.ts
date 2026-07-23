@@ -141,7 +141,9 @@ class AgentRuntime implements StudioRuntimePort {
   async submitGeneration() { return { ok: false, message: "not used" }; }
   async pinGenerationTake() { return { ok: false, message: "not used" }; }
   async startGenerationFromTake() { return { ok: false, message: "not used" }; }
+  async getProviderCredentials() { return { providers: [], file: ".framediff/secrets.json" }; }
   async configureProvider() { return { ok: false, message: "not used" }; }
+  async clearProvider() { return { ok: false, message: "not used" }; }
 }
 
 const clock: AnimationClock = { now: () => 0, request: () => 1, cancel: () => {} };

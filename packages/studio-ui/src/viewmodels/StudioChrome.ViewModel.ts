@@ -7,10 +7,11 @@ export interface StudioChromeSnapshot {
   rightOpen: boolean;
   newCompositionOpen: boolean;
   cacheOpen: boolean;
+  servicesOpen: boolean;
 }
 
 export class StudioChromeViewModel {
-  public readonly store: Writable<StudioChromeSnapshot> = writable({ left: "compositions", leftOpen: false, right: "inspector", rightOpen: false, newCompositionOpen: false, cacheOpen: false });
+  public readonly store: Writable<StudioChromeSnapshot> = writable({ left: "compositions", leftOpen: false, right: "inspector", rightOpen: false, newCompositionOpen: false, cacheOpen: false, servicesOpen: false });
 
   public showLeft(left: StudioChromeSnapshot["left"]): void {
     this.store.update((state) => ({ ...state, left, leftOpen: true, rightOpen: false }));
@@ -31,5 +32,11 @@ export class StudioChromeViewModel {
   public closeRight(): void { this.store.update((state) => ({ ...state, rightOpen: false })); }
   public closePanels(): void { this.store.update((state) => ({ ...state, leftOpen: false, rightOpen: false })); }
   public setNewCompositionOpen(newCompositionOpen: boolean): void { this.store.update((state) => ({ ...state, newCompositionOpen })); }
-  public setCacheOpen(cacheOpen: boolean): void { this.store.update((state) => ({ ...state, cacheOpen })); }
+  public setCacheOpen(cacheOpen: boolean): void {
+    this.store.update((state) => ({ ...state, cacheOpen, servicesOpen: cacheOpen ? false : state.servicesOpen }));
+  }
+
+  public setServicesOpen(servicesOpen: boolean): void {
+    this.store.update((state) => ({ ...state, servicesOpen, cacheOpen: servicesOpen ? false : state.cacheOpen }));
+  }
 }
