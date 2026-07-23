@@ -54,13 +54,23 @@
     {
       "id": "playground-audio",
       "from": 0,
-      "durationInFrames": 2070
+      "durationInFrames": 2070,
+      "name": "Persistent low-volume audio bed",
+      "content": {
+        "type": "audio",
+        "src": "asset://playground-bed"
+      }
     },
     {
       "id": "playground-hud",
       "from": 0,
       "durationInFrames": 2070,
-      "layer": 50
+      "layer": 50,
+      "name": "Persistent project navigation",
+      "content": {
+        "type": "layers",
+        "label": "Project navigation HUD"
+      }
     }
   ]
 }

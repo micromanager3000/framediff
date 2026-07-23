@@ -4,12 +4,22 @@
     {
       "id": "hero-reference-video",
       "from": 0,
-      "durationInFrames": 971
+      "durationInFrames": 971,
+      "name": "Hero reference",
+      "content": {
+        "type": "video",
+        "src": "asset://hero-reference-video"
+      }
     },
     {
       "id": "hero-reference-audio",
       "from": 0,
-      "durationInFrames": 971
+      "durationInFrames": 971,
+      "name": "Hero reference audio",
+      "content": {
+        "type": "audio",
+        "src": "asset://hero-reference-audio"
+      }
     }
   ]
 }

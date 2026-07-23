@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "caption-background-text": {
+      "$ref": "#/$defs/text"
+    },
+    "caption-camera-text": {
+      "$ref": "#/$defs/text"
+    },
+    "caption-cameras-text": {
+      "$ref": "#/$defs/text"
+    },
+    "caption-media-text": {
+      "$ref": "#/$defs/text"
+    },
+    "caption-meeting-line-1": {
+      "$ref": "#/$defs/text"
+    },
+    "caption-meeting-line-2": {
+      "$ref": "#/$defs/text"
+    },
+    "closing-text": {
+      "$ref": "#/$defs/text"
+    },
+    "end-card-line": {
+      "$ref": "#/$defs/text"
+    },
+    "end-card-url": {
+      "$ref": "#/$defs/text"
+    },
+    "end-shine": {
+      "$ref": "#/$defs/audio"
+    },
+    "logo-reveal": {
+      "$ref": "#/$defs/audio"
+    },
+    "logo-text": {
+      "$ref": "#/$defs/text"
+    },
+    "lower-third-brand": {
+      "$ref": "#/$defs/text"
+    },
+    "lower-third-copy": {
+      "$ref": "#/$defs/text"
+    },
+    "music-bed": {
+      "$ref": "#/$defs/audio"
+    },
+    "shine": {
+      "$ref": "#/$defs/audio"
+    },
+    "shot-01-look": {
+      "$ref": "#/$defs/grade"
+    },
+    "shot-02-look": {
+      "$ref": "#/$defs/grade"
+    },
+    "shot-03-look": {
+      "$ref": "#/$defs/grade"
+    },
+    "shot-04a-look": {
+      "$ref": "#/$defs/grade"
+    },
+    "shot-04b-look": {
+      "$ref": "#/$defs/grade"
+    },
+    "shot-04c-look": {
+      "$ref": "#/$defs/grade"
+    },
+    "shot-05-look": {
+      "$ref": "#/$defs/grade"
+    },
+    "shot-06-look": {
+      "$ref": "#/$defs/grade"
+    },
+    "shot-07-look": {
+      "$ref": "#/$defs/grade"
+    },
+    "shot-08-look": {
+      "$ref": "#/$defs/grade"
+    },
+    "shot-09-look": {
+      "$ref": "#/$defs/grade"
+    },
+    "shot-10-look": {
+      "$ref": "#/$defs/grade"
+    },
+    "shot-11-look": {
+      "$ref": "#/$defs/grade"
+    },
+    "shot-12-look": {
+      "$ref": "#/$defs/grade"
+    },
+    "shot-13-look": {
+      "$ref": "#/$defs/grade"
+    },
+    "shot-14-look": {
+      "$ref": "#/$defs/grade"
+    }
+  },
+  "$defs": {
+    "text": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "format": "multiline"
+        },
+        "color": {
+          "type": "string",
+          "format": "color"
+        }
+      }
+    },
+    "audio": {
+      "type": "object",
+      "properties": {
+        "volume": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "multipleOf": 0.01
+        },
+        "muted": {
+          "type": "boolean"
+        }
+      }
+    },
+    "grade": {
+      "type": "object",
+      "properties": {
+        "lut": {
+          "type": "string"
+        },
+        "lutIntensity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "multipleOf": 0.01
+        },
+        "gradeExposure": {
+          "type": "number",
+          "minimum": -2,
+          "maximum": 2,
+          "multipleOf": 0.01
+        },
+        "gradeContrast": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1,
+          "multipleOf": 0.01
+        },
+        "gradeSaturation": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "multipleOf": 0.01
+        },
+        "gradeTemperature": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1,
+          "multipleOf": 0.01
+        },
+        "gradeTint": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1,
+          "multipleOf": 0.01
+        },
+        "gradeHighlights": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1,
+          "multipleOf": 0.01
+        },
+        "gradeShadows": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1,
+          "multipleOf": 0.01
+        },
+        "gradeVignette": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "multipleOf": 0.01
+        },
+        "gradeBloom": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "multipleOf": 0.01
+        },
+        "gradeBloomThreshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "multipleOf": 0.01
+        }
+      }
+    }
+  }
+}

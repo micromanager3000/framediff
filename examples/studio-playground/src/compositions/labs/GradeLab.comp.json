@@ -1,0 +1,27 @@
+{
+  "desk": {
+    "gradeTemperature": 0.25,
+    "gradeContrast": 0.12,
+    "gradeSaturation": 1.1,
+    "gradeVignette": 0.3
+  },
+  "tripod": {
+    "gradeTemperature": 0,
+    "gradeContrast": 0,
+    "gradeSaturation": 1,
+    "gradeVignette": 0
+  },
+  "keynote": {
+    "gradeExposure": -0.15,
+    "gradeSaturation": 0.8,
+    "gradeVignette": 0.4
+  },
+  "tealWash": {
+    "gradeTemperature": 0.18,
+    "gradeTint": 0.05,
+    "gradeExposure": -0.12,
+    "gradeContrast": 0.14,
+    "gradeSaturation": 1.08,
+    "gradeVignette": 0.24
+  }
+}

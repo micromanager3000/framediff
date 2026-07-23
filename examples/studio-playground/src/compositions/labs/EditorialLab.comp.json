@@ -1,0 +1,24 @@
+{
+  "wash": {
+    "background": "linear-gradient(110deg, rgb(4 6 12 / .84), rgb(22 12 35 / .18) 55%, rgb(255 85 144 / .22))",
+    "blendMode": "multiply"
+  },
+  "glass": {
+    "background": "linear-gradient(110deg, rgb(11 14 25 / .88), rgb(35 24 53 / .72))",
+    "borderRadius": 34
+  },
+  "kicker": { "text": "FRAME-NATIVE EDITORIAL", "color": "#e591bc" },
+  "title": { "text": "Layers that mean something.", "color": "#ffffff" },
+  "caption": { "text": "Drag clips vertically · front trim keeps the surviving source frame.", "color": "#b9becd" },
+  "rank1": { "text": "V1" },
+  "rank2": { "text": "V2" },
+  "rank4": { "text": "V4" },
+  "badge": { "text": "LOCAL MEDIA · SOURCE SECONDS · EXACT UNDO", "color": "#d6d8e2" },
+  "grade": {
+    "gradeExposure": 0,
+    "gradeContrast": 0.08,
+    "gradeSaturation": 0.92,
+    "gradeTemperature": 0.06,
+    "gradeVignette": 0.18
+  }
+}

@@ -5,7 +5,12 @@
       "id": "production-intro",
       "from": 0,
       "durationInFrames": 180,
-      "layer": 0
+      "layer": 0,
+      "name": "Start here · production graph",
+      "content": {
+        "type": "layers",
+        "label": "Production graph introduction"
+      }
     },
     {
       "id": "chapter-direct",
@@ -107,13 +112,23 @@
       "id": "production-bed",
       "from": 0,
       "durationInFrames": 1788,
-      "trimStart": 0
+      "trimStart": 0,
+      "name": "Production Lab audio bed",
+      "content": {
+        "type": "audio",
+        "src": "asset://8c9e9aac-c985-4a39-9001-8d2b51ce2295"
+      }
     },
     {
       "id": "production-hud",
       "from": 0,
       "durationInFrames": 1788,
-      "layer": 10
+      "layer": 10,
+      "name": "Frame-driven chapter HUD",
+      "content": {
+        "type": "layers",
+        "label": "Production chapter HUD"
+      }
     },
     {
       "id": "nested-blah",
