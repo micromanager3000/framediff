@@ -1282,9 +1282,90 @@ html&gt;body{padding:0}&lt;/style&gt;
     &lt;/div&gt;
   &lt;/section&gt;
 
-  &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;sharding-heading&quot;&gt;
+
+  &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;cost-heading&quot;&gt;
     &lt;div class=&quot;plan-section-heading&quot;&gt;
       &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;3&lt;/span&gt;
+      &lt;h2 id=&quot;cost-heading&quot;&gt;Rough cloud render cost envelope&lt;/h2&gt;
+    &lt;/div&gt;
+    &lt;p class=&quot;plan-note text-small&quot;&gt;
+      Use this only as a planning envelope until the benchmark pack records real billable seconds.
+      In July 2026, a us-central1 Cloud Run L4 service with 8 vCPU and 32 GiB memory is roughly
+      &lt;strong&gt;$0.000395 per active instance-second&lt;/strong&gt; before free tiers, committed-use
+      discounts, storage, egress, Cloud Tasks, and observability. That is about &lt;strong&gt;$1.42 per
+      fully busy worker-hour&lt;/strong&gt;. The table prices total shard instance-seconds, not user-visible
+      wall time, so a render that finishes in 8 seconds with 12 busy workers can still bill about
+      96 instance-seconds.
+    &lt;/p&gt;
+    &lt;div class=&quot;table-responsive&quot;&gt;
+      &lt;table class=&quot;table table-sm plan-wide-table&quot;&gt;
+        &lt;thead&gt;
+          &lt;tr&gt;
+            &lt;th&gt;Output profile&lt;/th&gt;
+            &lt;th&gt;Typical fan-out&lt;/th&gt;
+            &lt;th&gt;Estimated billable compute&lt;/th&gt;
+            &lt;th&gt;Approx. compute cost&lt;/th&gt;
+            &lt;th&gt;Notes&lt;/th&gt;
+          &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody&gt;
+          &lt;tr&gt;
+            &lt;td&gt;10 s 1080p · simple text/image motion&lt;/td&gt;
+            &lt;td&gt;2–4 shards&lt;/td&gt;
+            &lt;td&gt;8–20 L4 instance-sec&lt;/td&gt;
+            &lt;td&gt;$0.003–$0.008&lt;/td&gt;
+            &lt;td&gt;Queue and startup dominate unless a warm worker is already active.&lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td&gt;30 s 1080p · normal marketing/video comp&lt;/td&gt;
+            &lt;td&gt;4–12 shards&lt;/td&gt;
+            &lt;td&gt;45–110 L4 instance-sec&lt;/td&gt;
+            &lt;td&gt;$0.018–$0.043&lt;/td&gt;
+            &lt;td&gt;This is the first beta target; cache hits should avoid almost all compute.&lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td&gt;60 s 1080p · normal marketing/video comp&lt;/td&gt;
+            &lt;td&gt;8–12 shards&lt;/td&gt;
+            &lt;td&gt;90–220 L4 instance-sec&lt;/td&gt;
+            &lt;td&gt;$0.036–$0.087&lt;/td&gt;
+            &lt;td&gt;Longer videos amortize dispatch overhead better, but retries cost more.&lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td&gt;2 min 4K or DOM-heavy comp&lt;/td&gt;
+            &lt;td&gt;8–12 shards&lt;/td&gt;
+            &lt;td&gt;360–900 L4 instance-sec&lt;/td&gt;
+            &lt;td&gt;$0.14–$0.36&lt;/td&gt;
+            &lt;td&gt;Treat as a paid-plan feature until traces prove predictable margins.&lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td&gt;5 min 4K or effects-heavy comp&lt;/td&gt;
+            &lt;td&gt;12 shards plus adaptive ranges&lt;/td&gt;
+            &lt;td&gt;900–2,250 L4 instance-sec&lt;/td&gt;
+            &lt;td&gt;$0.36–$0.89&lt;/td&gt;
+            &lt;td&gt;Set per-workspace monthly caps and show an estimate before dispatch.&lt;/td&gt;
+          &lt;/tr&gt;
+        &lt;/tbody&gt;
+      &lt;/table&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;viz-grid&quot;&gt;
+      &lt;div class=&quot;card&quot;&gt;
+        &lt;strong&gt;Add a product margin buffer&lt;/strong&gt;
+        &lt;p class=&quot;text-small text-muted&quot;&gt;Budget an extra 15–40% for cold starts, failed shard retries, logs/traces, stitcher CPU, object storage operations, and customer downloads.&lt;/p&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;card&quot;&gt;
+        &lt;strong&gt;Prefer exact-result caching&lt;/strong&gt;
+        &lt;p class=&quot;text-small text-muted&quot;&gt;A cached replay should be priced like storage plus egress, not compute; expose that as a customer-facing speed and cost win.&lt;/p&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;card&quot;&gt;
+        &lt;strong&gt;Turn costs into launch gates&lt;/strong&gt;
+        &lt;p class=&quot;text-small text-muted&quot;&gt;Log billable instance-seconds per output minute by complexity tier, then enforce quotas before enabling 4K or long-form exports broadly.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;sharding-heading&quot;&gt;
+    &lt;div class=&quot;plan-section-heading&quot;&gt;
+      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;4&lt;/span&gt;
       &lt;h2 id=&quot;sharding-heading&quot;&gt;Shard for short, balanced work—not tiny frame jobs&lt;/h2&gt;
     &lt;/div&gt;
     &lt;div class=&quot;plan-shard-visual&quot; role=&quot;img&quot; aria-label=&quot;A 900 frame, 30 second render is divided into twelve balanced ranges of 75 frames. Each shard should take about one to three seconds when warm.&quot;&gt;
@@ -1326,7 +1407,7 @@ html&gt;body{padding:0}&lt;/style&gt;
 
   &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;contract-heading&quot;&gt;
     &lt;div class=&quot;plan-section-heading&quot;&gt;
-      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;4&lt;/span&gt;
+      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;5&lt;/span&gt;
       &lt;h2 id=&quot;contract-heading&quot;&gt;Make every render immutable and cacheable&lt;/h2&gt;
     &lt;/div&gt;
     &lt;div class=&quot;plan-code&quot; aria-label=&quot;Render fingerprint formula&quot;&gt;
@@ -1377,7 +1458,7 @@ html&gt;body{padding:0}&lt;/style&gt;
 
   &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;repo-heading&quot;&gt;
     &lt;div class=&quot;plan-section-heading&quot;&gt;
-      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;5&lt;/span&gt;
+      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;6&lt;/span&gt;
       &lt;h2 id=&quot;repo-heading&quot;&gt;Implementation split by repository&lt;/h2&gt;
     &lt;/div&gt;
     &lt;div class=&quot;table-responsive&quot;&gt;
@@ -1457,7 +1538,7 @@ html&gt;body{padding:0}&lt;/style&gt;
 
   &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;timeline-heading&quot;&gt;
     &lt;div class=&quot;plan-section-heading&quot;&gt;
-      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;6&lt;/span&gt;
+      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;7&lt;/span&gt;
       &lt;h2 id=&quot;timeline-heading&quot;&gt;Four focused weeks to a guarded beta&lt;/h2&gt;
     &lt;/div&gt;
     &lt;ol class=&quot;plan-timeline&quot;&gt;
@@ -1496,7 +1577,7 @@ html&gt;body{padding:0}&lt;/style&gt;
 
   &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;gates-heading&quot;&gt;
     &lt;div class=&quot;plan-section-heading&quot;&gt;
-      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;7&lt;/span&gt;
+      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;8&lt;/span&gt;
       &lt;h2 id=&quot;gates-heading&quot;&gt;Launch gates&lt;/h2&gt;
     &lt;/div&gt;
     &lt;div class=&quot;viz-grid&quot;&gt;
@@ -1547,7 +1628,7 @@ html&gt;body{padding:0}&lt;/style&gt;
 
   &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;security-heading&quot;&gt;
     &lt;div class=&quot;plan-section-heading&quot;&gt;
-      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;8&lt;/span&gt;
+      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;9&lt;/span&gt;
       &lt;h2 id=&quot;security-heading&quot;&gt;Security and failure containment&lt;/h2&gt;
     &lt;/div&gt;
     &lt;div class=&quot;plan-risks&quot;&gt;
@@ -1580,7 +1661,7 @@ html&gt;body{padding:0}&lt;/style&gt;
 
   &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;first-work-heading&quot;&gt;
     &lt;div class=&quot;plan-section-heading&quot;&gt;
-      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;9&lt;/span&gt;
+      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;10&lt;/span&gt;
       &lt;h2 id=&quot;first-work-heading&quot;&gt;The first ten implementation tickets&lt;/h2&gt;
     &lt;/div&gt;
     &lt;ol class=&quot;plan-checklist&quot;&gt;
@@ -1599,7 +1680,7 @@ html&gt;body{padding:0}&lt;/style&gt;
 
   &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;avoid-heading&quot;&gt;
     &lt;div class=&quot;plan-section-heading&quot;&gt;
-      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;10&lt;/span&gt;
+      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;11&lt;/span&gt;
       &lt;h2 id=&quot;avoid-heading&quot;&gt;Do not put these on the first critical path&lt;/h2&gt;
     &lt;/div&gt;
     &lt;div class=&quot;plan-inline-list&quot;&gt;
@@ -1621,7 +1702,7 @@ html&gt;body{padding:0}&lt;/style&gt;
 
   &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;sources-heading&quot;&gt;
     &lt;div class=&quot;plan-section-heading&quot;&gt;
-      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;11&lt;/span&gt;
+      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;12&lt;/span&gt;
       &lt;h2 id=&quot;sources-heading&quot;&gt;Current platform facts used in the recommendation&lt;/h2&gt;
     &lt;/div&gt;
     &lt;ol class=&quot;plan-sources text-small&quot;&gt;
@@ -1629,7 +1710,8 @@ html&gt;body{padding:0}&lt;/style&gt;
       &lt;li&gt;&lt;a href=&quot;https://docs.cloud.google.com/run/docs/triggering/using-tasks&quot;&gt;Cloud Tasks with Cloud Run&lt;/a&gt; — authenticated, durable asynchronous HTTP task delivery.&lt;/li&gt;
       &lt;li&gt;&lt;a href=&quot;https://cloud.google.com/run/docs/create-jobs&quot;&gt;Cloud Run jobs&lt;/a&gt; — parallel task model and limits; useful as a fallback, but the one-minute billing minimum makes services a better latency/cost fit for short shards.&lt;/li&gt;
       &lt;li&gt;&lt;a href=&quot;https://developer.chrome.com/blog/supercharge-web-ai-testing&quot;&gt;Hardware WebGPU in headless Chrome&lt;/a&gt; — verify drivers and renderer identity; do not accept an accidental SwiftShader fallback.&lt;/li&gt;
-      &lt;li&gt;&lt;a href=&quot;https://cloud.google.com/run/pricing&quot;&gt;Cloud Run pricing&lt;/a&gt; — benchmark cost with actual CPU, memory, L4 seconds, and minimum billing behavior before setting product quotas.&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://cloud.google.com/run/pricing&quot;&gt;Cloud Run pricing&lt;/a&gt; — July 2026 us-central1 inputs for the estimate: instance-based services bill CPU at $0.000018 per vCPU-second, memory at $0.000002 per GiB-second, and L4 GPU at $0.0001867 per second before discounts and free tiers.&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://cloud.google.com/storage/pricing&quot;&gt;Cloud Storage pricing&lt;/a&gt; — add object storage, operation, retrieval, and download/egress costs outside the compute-only estimates.&lt;/li&gt;
     &lt;/ol&gt;
   &lt;/section&gt;
 &lt;/main&gt;
