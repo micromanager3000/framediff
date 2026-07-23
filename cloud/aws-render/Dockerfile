@@ -10,6 +10,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     NODE_ENV=production
 
 RUN apt-get update \
+    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends ca-certificates curl ffmpeg gnupg jq \
     && mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
