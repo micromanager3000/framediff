@@ -58,6 +58,42 @@ const gitLfsAvailable = (() => {
 })();
 
 describe("framediffDev local cache folder", () => {
+  it("migrates ignored generation jobs into a repo-tracked numbered ledger", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "framediff-vite-generations-"));
+    const legacyDir = path.join(root, ".framediff");
+    fs.mkdirSync(legacyDir);
+    fs.writeFileSync(path.join(legacyDir, "gen-jobs.json"), JSON.stringify({
+      version: 1,
+      jobs: [{
+        id: "provider-request-1",
+        gen: "dialogue",
+        endpoint: "provider/model",
+        recipeHash: "sha256:recipe",
+        statusUrl: "https://queue.example/requests/provider-request-1/status",
+        responseUrl: "https://queue.example/requests/provider-request-1",
+        status: "failed",
+        error: "Provider rejected the references.",
+        at: "2026-07-23T00:00:00.000Z",
+        doneAt: "2026-07-23T00:01:00.000Z",
+        recipe: { provider: "fal", model: "seedance-2.0", prompt: "Dialogue" },
+        inputs: [{ kind: "image", src: "asset://portrait", contentHash: "sha256:portrait" }],
+      }],
+    }));
+    const request = devBridge(root);
+
+    const response = JSON.parse((await request("/__framediff/gen/jobs?gen=dialogue")).body);
+    const ledger = JSON.parse(fs.readFileSync(path.join(root, "framediff.generations.json"), "utf8"));
+
+    expect(response.jobs[0]).toMatchObject({
+      id: "provider-request-1",
+      providerJobId: "provider-request-1",
+      take: 1,
+      status: "failed",
+      error: "Provider rejected the references.",
+    });
+    expect(ledger.jobs).toEqual(response.jobs);
+  });
+
   it("prebundles the module worker dependency before the first bake", () => {
     const config = framediffDev().config();
 

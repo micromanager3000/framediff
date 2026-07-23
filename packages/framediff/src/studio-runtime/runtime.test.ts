@@ -307,6 +307,57 @@ describe("HtmlStudioRuntime generative recipe documents", () => {
       refs: [{ kind: "video", src: "comp://new-input" }],
     });
   });
+
+  it("starts a new draft from the saved recipe and inputs of a failed take", async () => {
+    const data = { provider: "fal" as const, model: "seedance-2.0", prompt: "Current", refs: [], take: 0 };
+    const generated = generative({ id: "Generated", file: "src/Generated.gen.ts", dataFile: "src/Generated.gen.json", ...data });
+    let transaction: { files: Array<{ file: string; text: string }> } | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/__framediff/gen/jobs?gen=Generated") {
+        return Response.json({
+          jobs: [{
+            id: "failed-job",
+            gen: "Generated",
+            endpoint: "provider/model",
+            recipeHash: "sha256:failed",
+            status: "failed",
+            take: 1,
+            at: "2026-07-23T00:00:00.000Z",
+            recipe: {
+              provider: "fal",
+              model: "seedance-2.0",
+              prompt: "Failed recipe",
+              refs: [{ kind: "image", src: "comp://portrait" }],
+            },
+            inputs: [{ kind: "image", src: "comp://portrait", contentHash: "sha256:portrait" }],
+          }],
+          takes: [],
+        });
+      }
+      if (url.startsWith("/__framediff/src?")) {
+        const file = new URL(url, "http://local").searchParams.get("file")!;
+        if (file === "src/Generated.gen.json") return Response.json({ file, text: JSON.stringify(data), hash: "gen-data:1" });
+        return new Response("missing", { status: 404 });
+      }
+      if (url === "/__framediff/edit" && init?.method === "POST") {
+        transaction = JSON.parse(String(init.body));
+        return Response.json({ ok: true, receipt: { id: "failed-draft", label: "Start draft from failed take 1", before: [], after: [] } });
+      }
+      return new Response("not found", { status: 404 });
+    }));
+    const runtime = createStudioRuntime({ generated } as CompRegistry);
+
+    const result = await runtime.startGenerationFromJob("generated", "failed-job");
+
+    expect(result.ok).toBe(true);
+    expect(transaction?.files).toHaveLength(1);
+    expect(JSON.parse(transaction?.files[0].text ?? "{}")).toMatchObject({
+      prompt: "Failed recipe",
+      refs: [{ kind: "image", src: "/__framediff-cache/sha256%3Aportrait" }],
+      take: 0,
+    });
+  });
 });
 
 describe("HtmlStudioRuntime composition documents", () => {

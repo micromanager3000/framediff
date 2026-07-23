@@ -385,8 +385,9 @@ function writeSourceTransaction(
 // resolved at the nearest git root so every example shares one file), GET returns only
 // {set, last4, source}. Generation calls run server-side against queue.fal.run; finished
 // takes are downloaded into the CAS and recorded in framediff.assets.json with a `generator`
-// provenance block. Jobs persist in <root>/.framediff/gen-jobs.json so a reload can't lose
-// an in-flight (paid) request.
+// provenance block. Every attempt — including failures — persists in the repo-tracked
+// <root>/framediff.generations.json ledger. The former gitignored .framediff/gen-jobs.json
+// is read once as a migration source so existing paid request history is not lost.
 
 const KNOWN_PROVIDERS = ["fal", "midjourney", "luma", "byteplus", "replicate", "elevenlabs"] as const;
 const PROVIDER_ENV: Record<string, string> = {
@@ -430,12 +431,13 @@ function providerKey(root: string, provider: string): { key: string; source: "fi
 }
 
 interface GenJobRecord {
-  id: string; // provider request id
+  id: string; // stable local attempt id; legacy records used the provider request id
+  providerJobId?: string;
   gen: string;
   endpoint: string;
   recipeHash: string;
-  statusUrl: string;
-  responseUrl: string;
+  statusUrl?: string;
+  responseUrl?: string;
   status: "queued" | "running" | "done" | "failed";
   error?: string;
   take?: number;
@@ -448,19 +450,55 @@ interface GenJobRecord {
   inputs: GenInputProvenance[];
 }
 function jobsFile(root: string): string {
+  return path.join(root, "framediff.generations.json");
+}
+function legacyJobsFile(root: string): string {
   return path.join(root, ".framediff", "gen-jobs.json");
 }
-function readJobs(root: string): GenJobRecord[] {
+function readJobsFrom(file: string): GenJobRecord[] | null {
   try {
-    const j = JSON.parse(fs.readFileSync(jobsFile(root), "utf8")) as { jobs: GenJobRecord[] };
-    return Array.isArray(j.jobs) ? j.jobs : [];
+    const document = JSON.parse(fs.readFileSync(file, "utf8")) as { jobs?: GenJobRecord[] };
+    return Array.isArray(document.jobs) ? document.jobs : null;
   } catch {
-    return [];
+    return null;
   }
 }
+function readJobs(root: string): GenJobRecord[] {
+  return readJobsFrom(jobsFile(root)) ?? readJobsFrom(legacyJobsFile(root)) ?? [];
+}
+function normalizeJobTakes(jobs: GenJobRecord[]): boolean {
+  const highest = new Map<string, number>();
+  for (const job of jobs) {
+    if (job.take != null) highest.set(job.gen, Math.max(highest.get(job.gen) ?? 0, job.take));
+  }
+  let changed = false;
+  for (const job of jobs) {
+    if (job.take == null) {
+      const take = (highest.get(job.gen) ?? 0) + 1;
+      highest.set(job.gen, take);
+      job.take = take;
+      changed = true;
+    }
+    if (!job.providerJobId && job.statusUrl) {
+      job.providerJobId = job.id;
+      changed = true;
+    }
+  }
+  return changed;
+}
+function nextJobTake(jobs: readonly GenJobRecord[], gen: string): number {
+  return Math.max(0, ...jobs.filter((job) => job.gen === gen).map((job) => job.take ?? 0)) + 1;
+}
 function writeJobs(root: string, jobs: GenJobRecord[]) {
-  fs.mkdirSync(path.dirname(jobsFile(root)), { recursive: true });
   fs.writeFileSync(jobsFile(root), JSON.stringify({ version: 1, jobs }, null, 2) + "\n");
+}
+function saveJob(root: string, job: GenJobRecord): void {
+  const jobs = readJobs(root);
+  const index = jobs.findIndex((candidate) => candidate.id === job.id);
+  if (index < 0) jobs.push(job);
+  else jobs[index] = job;
+  normalizeJobTakes(jobs);
+  writeJobs(root, jobs);
 }
 
 /** Upload bytes to fal storage; returns a URL the model can read. */
@@ -906,6 +944,7 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
         }
 
         if (url.pathname === "/__framediff/gen/submit" && req.method === "POST") {
+          let attempt: GenJobRecord | null = null;
           try {
             const body = JSON.parse((await readBody(req)).toString("utf8")) as {
               gen?: string;
@@ -961,6 +1000,20 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
               }
               return { kind: ref.kind, src: ref.authoredSrc, ...(contentHash ? { contentHash } : {}) };
             });
+            const jobs = readJobs(root);
+            normalizeJobTakes(jobs);
+            attempt = {
+              id: crypto.randomUUID(),
+              gen,
+              endpoint,
+              recipeHash,
+              status: "queued",
+              take: nextJobTake(jobs, gen),
+              at: new Date().toISOString(),
+              recipe: body.recipe,
+              inputs,
+            };
+            writeJobs(root, [...jobs, attempt]);
             if (refs.some((r) => r.field)) {
               // explicit mapping (the model registry names the provider field per ref —
               // required for endpoints whose mode isn't a path suffix, e.g. veo3.1 t2v)
@@ -1004,25 +1057,27 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
             if (!r.ok) {
               let detail = text.slice(0, 400);
               try { detail = (JSON.parse(text) as { detail?: string }).detail ?? detail; } catch { /* raw */ }
-              return json(res, r.status, { error: detail });
+              attempt.status = "failed";
+              attempt.error = detail;
+              attempt.doneAt = new Date().toISOString();
+              saveJob(root, attempt);
+              return json(res, r.status, { error: detail, job: attempt });
             }
             const q = JSON.parse(text) as { request_id: string; status_url?: string; response_url?: string };
-            const job: GenJobRecord = {
-              id: q.request_id,
-              gen,
-              endpoint,
-              recipeHash,
-              statusUrl: q.status_url ?? `https://queue.fal.run/${endpoint}/requests/${q.request_id}/status`,
-              responseUrl: q.response_url ?? `https://queue.fal.run/${endpoint}/requests/${q.request_id}`,
-              status: "queued",
-              at: new Date().toISOString(),
-              recipe: body.recipe,
-              inputs,
-            };
-            writeJobs(root, [...readJobs(root), job]);
-            return json(res, 200, { job });
+            attempt.providerJobId = q.request_id;
+            attempt.statusUrl = q.status_url ?? `https://queue.fal.run/${endpoint}/requests/${q.request_id}/status`;
+            attempt.responseUrl = q.response_url ?? `https://queue.fal.run/${endpoint}/requests/${q.request_id}`;
+            saveJob(root, attempt);
+            return json(res, 200, { job: attempt });
           } catch (e) {
-            return json(res, 500, { error: String((e as Error).message) });
+            const error = String((e as Error).message);
+            if (attempt) {
+              attempt.status = "failed";
+              attempt.error = error;
+              attempt.doneAt = new Date().toISOString();
+              saveJob(root, attempt);
+            }
+            return json(res, 500, { error, ...(attempt ? { job: attempt } : {}) });
           }
         }
 
@@ -1030,11 +1085,12 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
           const gen = url.searchParams.get("gen");
           const k = providerKey(root, "fal");
           const jobs = readJobs(root);
-          let changed = false;
+          let changed = normalizeJobTakes(jobs) || !fs.existsSync(jobsFile(root));
           for (const job of jobs) {
             if (job.status !== "queued" && job.status !== "running") continue;
             if (finalizing.has(job.id)) continue;
             if (!k) break;
+            if (!job.statusUrl || !job.responseUrl) continue;
             finalizing.add(job.id);
             try {
               const s = await fetch(job.statusUrl, { headers: { authorization: `Key ${k.key}` } });
@@ -1077,19 +1133,15 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
                   const extension = /^[a-z0-9]{2,5}$/.test(namedExt)
                     ? namedExt
                     : mimeExt || (outputKind === "video" ? "mp4" : outputKind === "audio" ? "mp3" : "jpg");
-                  // take number: next after the highest already recorded for this gen
+                  // The attempt reserves its take number when it is submitted, so failures
+                  // and successes share one durable, chronological take history.
                   const m = readManifest();
-                  let takeNo = 1;
-                  for (const e of Object.values(m.assets) as { generator?: { gen?: string; take?: number } }[]) {
-                    if (e.generator?.gen === job.gen && (e.generator.take ?? 0) >= takeNo) takeNo = (e.generator.take ?? 0) + 1;
-                  }
+                  const takeNo = job.take ?? nextJobTake(jobs, job.gen);
                   const { id, entry } = ingestBytes(buf, `${job.gen}.take${takeNo}.${extension}`);
                   const withGen = readManifest();
                   const target = withGen.assets[id] as { generator?: unknown };
                   const existingGen = (entry as { generator?: { take?: number } }).generator;
-                  if (existingGen?.take) {
-                    takeNo = existingGen.take; // identical bytes regenerated — reuse the take
-                  } else if (target) {
+                  if (!existingGen?.take && target) {
                     target.generator = {
                       gen: job.gen,
                       take: takeNo,
@@ -1105,7 +1157,7 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
                     fs.writeFileSync(manifestPath, JSON.stringify(withGen, null, 2) + "\n");
                   }
                   job.status = "done";
-                  job.take = takeNo;
+                  job.take ??= takeNo;
                   job.assetId = id;
                   job.seed = out.seed;
                   job.outputKind = outputKind;

@@ -257,6 +257,7 @@ export async function verifyProvider(provider: string): Promise<VerifyResult> {
 
 export interface GenJob {
   id: string;
+  providerJobId?: string;
   gen: string;
   endpoint: string;
   recipeHash: string;
@@ -267,10 +268,13 @@ export interface GenJob {
   seed?: number;
   at: string;
   doneAt?: string;
+  recipe?: GenRecipeSnapshot;
+  inputs?: GenInputProvenance[];
 }
 
-/** Jobs are append-only in gen-jobs.json. A failure remains useful history, but it is
- *  only the current error when no newer attempt has superseded it. */
+/** Jobs are append-only in the repo-tracked framediff.generations.json ledger. A failure
+ *  remains useful history, but it is only the current error when no newer attempt has
+ *  superseded it. */
 export function latestFailedGenJob(jobs: readonly GenJob[]): GenJob | null {
   const latest = jobs[jobs.length - 1];
   return latest?.status === "failed" ? latest : null;

@@ -158,7 +158,8 @@ export interface OutputItem {
 //   POST /__framediff/gen/submit            { gen, endpoint, recipeHash, input, refs, meta } → { job }
 //                                          resolves asset:// refs (fal storage, data-URI fallback)
 //   GET  /__framediff/gen/jobs?gen=ID        → { jobs, takes }  polls fal; finished takes land in the
-//                                          CAS + framediff.assets.json with a `generator` block
+//                                          CAS + framediff.assets.json with a `generator` block;
+//                                          every attempt persists in framediff.generations.json
 
 export interface CacheEntry {
   /** Logical cache key (the content hash for content-addressed entries). */

@@ -128,4 +128,5 @@ takes keep their media kind for correct preview and download behavior.
 | `src/gen/harborShot.gen.ts` | the Seedance recipe — this file IS the generator (`kind: "generate"`) |
 | `src/compositions/Main.html` | synchronized A/B, cut map, pipeline explainer, and music (`kind: "edit"`) |
 | `framediff.assets.json` | asset manifest — the previz bake's id + generated takes land here |
+| `framediff.generations.json` | tracked attempt ledger — numbered successes and failures with recipes, input hashes, provider IDs, and errors |
 | `framediff.config.json` | selects the project-local, Git LFS-backed `assets/` store |

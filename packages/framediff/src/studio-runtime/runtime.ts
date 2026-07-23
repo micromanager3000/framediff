@@ -2521,7 +2521,16 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
           settings,
         };
       }),
-      jobs: data.jobs.map((job) => ({ id: job.id, status: job.status, error: job.error, take: job.take })),
+      jobs: data.jobs.map((job) => ({
+        id: job.id,
+        providerJobId: job.providerJobId,
+        status: job.status,
+        error: job.error,
+        take: job.take,
+        recipeHash: job.recipeHash,
+        at: job.at,
+        doneAt: job.doneAt,
+      })),
       pinnedTake: recipe.take ?? 0,
       liveHash,
       status,
@@ -2578,6 +2587,36 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const committed = await this.commitSourceText(`Start draft from take ${take}`, revision, rewritten.text);
     if (!committed.ok) return { ok: false, message: committed.message ?? `Could not start a new take from take ${take} in ${file}.` };
     return { ok: true, message: `Started a new take draft from take ${take}. Tweak it, then generate.`, receipt: committed.receipt };
+  }
+
+  public async startGenerationFromJob(compositionKey: string, jobId: string): Promise<ProjectOperationResult> {
+    const composition = this.registry[compositionKey];
+    if (!composition || !("recipe" in composition)) return { ok: false, message: "This is not a generative composition." };
+    const recipe = (composition as GenerativeComposition).recipe;
+    const historical = (await genJobs(recipe.id))?.jobs.find((candidate) => candidate.id === jobId);
+    if (!historical || historical.status !== "failed" || !historical.recipe) {
+      return { ok: false, message: "That failed generation attempt is unavailable." };
+    }
+    const file = recipe.dataFile ?? recipe.file;
+    if (!file) return { ok: false, message: "The recipe does not declare its source file." };
+    const revision = await readSourceRevision(file);
+    const source = revision?.text;
+    if (!revision || source == null) return { ok: false, message: `Could not read ${file}.` };
+    const draft = forkGenRecipe(recipe, historical.recipe, historical.inputs);
+    const rewritten = recipe.dataFile
+      ? { text: `${JSON.stringify(genRecipeDataOf(draft), null, 2)}\n` }
+      : rewriteRecipeSource(source, draft);
+    if (!rewritten) {
+      return { ok: false, message: `Could not start a new take from failed take ${historical.take ?? "?"} in ${file}.` };
+    }
+    const label = `Start draft from failed take ${historical.take ?? "?"}`;
+    const committed = await this.commitSourceText(label, revision, rewritten.text);
+    if (!committed.ok) return { ok: false, message: committed.message ?? `Could not write ${file}.` };
+    return {
+      ok: true,
+      message: `Started a new take draft from failed take ${historical.take ?? "?"}. Tweak it, then generate.`,
+      receipt: committed.receipt,
+    };
   }
 
   public async submitGeneration(compositionKey: string): Promise<ProjectOperationResult> {
@@ -2643,7 +2682,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       })),
       recipe: genRecipeSnapshotOf(recipe),
     });
-    return result.job
+    return result.job && !result.error
       ? { ok: true, message: `Submitted generation ${result.job.id.slice(0, 8)}…` }
       : { ok: false, message: result.error ?? "The generation request was refused." };
   }

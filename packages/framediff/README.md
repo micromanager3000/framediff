@@ -91,6 +91,11 @@ and baked assets are written there under readable content-addressed names. The S
 commit action stages the config, manifest, attributes, and asset files; Git stores the asset files
 as LFS pointers. Git LFS must be installed before opening a project in this mode.
 
+Every submitted generation attempt is also appended to the repo-tracked
+`framediff.generations.json` ledger. It records the numbered take, recipe, resolved input hashes,
+provider request ID, timestamps, final status, result asset ID, and any failure reason; failed
+attempts therefore remain useful project history even though they have no media asset.
+
 `framediffDev({ cacheDir })` and `FRAMEDIFF_CACHE_DIR` remain local overrides and take precedence
 over the project config. Projects without the JSON config continue to use `framediff-cache/`.
 
@@ -161,7 +166,8 @@ codec output on the same machine matters.
 
 The development bridge stores imported media, baked compositions, and generated takes in
 `framediff-cache/`. `asset://` references resolve through `framediff.assets.json`, so authored HTML
-does not contain machine-specific paths.
+does not contain machine-specific paths. Generation attempt history, including failures, is stored
+separately in the tracked `framediff.generations.json` ledger.
 
 ## Requirements and current limits
 

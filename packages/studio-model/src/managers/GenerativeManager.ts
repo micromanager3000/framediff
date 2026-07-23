@@ -94,13 +94,17 @@ export class GenerativeManager {
     if (this.draftLocked()) return this.refuseDraftOperation();
     this.state.update((state) => ({ ...state, submitting: true }));
     try {
-      return await this.run(() => this.workspacePort.submitGeneration(this.session.state.get().currentKey));
+      return await this.run(
+        () => this.workspacePort.submitGeneration(this.session.state.get().currentKey),
+        true,
+      );
     } finally {
       this.state.update((state) => ({ ...state, submitting: false }));
     }
   }
   public pin(take: number): Promise<boolean> { return this.run(() => this.workspacePort.pinGenerationTake(this.session.state.get().currentKey, take)); }
   public startFrom(take: number): Promise<boolean> { return this.runDraftOperation(() => this.workspacePort.startGenerationFromTake(this.session.state.get().currentKey, take)); }
+  public startFromJob(jobId: string): Promise<boolean> { return this.runDraftOperation(() => this.workspacePort.startGenerationFromJob(this.session.state.get().currentKey, jobId)); }
   public configure(provider: string, key: string): Promise<boolean> { return this.run(() => this.workspacePort.configureProvider(provider, key)); }
 
   private runDraftOperation(operation: () => Promise<{ ok: boolean; message: string }>): Promise<boolean> {
@@ -123,7 +127,10 @@ export class GenerativeManager {
     return Promise.resolve(false);
   }
 
-  private async run(operation: () => Promise<{ ok: boolean; message: string }>): Promise<boolean> {
+  private async run(
+    operation: () => Promise<{ ok: boolean; message: string }>,
+    refreshOnFailure = false,
+  ): Promise<boolean> {
     if (this.state.get().busy) return false;
     this.state.update((state) => ({ ...state, busy: true, error: null, message: null }));
     try {
@@ -136,7 +143,12 @@ export class GenerativeManager {
         }
       }
       this.state.update((state) => ({ ...state, busy: false, error: result.ok ? null : result.message, message: result.ok ? result.message : null }));
-      if (result.ok) await this.refresh();
+      if (result.ok || refreshOnFailure) {
+        await this.refresh();
+        if (!result.ok) {
+          this.state.update((state) => ({ ...state, error: result.message, message: null }));
+        }
+      }
       return result.ok;
     } catch (error) {
       // a throw must never strand busy=true — that silently deadens every button
