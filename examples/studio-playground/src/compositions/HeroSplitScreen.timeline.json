@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "items": [
+    { "id": "split-left", "name": "Presenter pane", "from": 0, "durationInFrames": 43, "trimStart": 1.3333, "playbackRate": 1, "content": { "type": "video", "src": "asset://proxy-split-l" } },
+    { "id": "split-right", "name": "Camera pane", "from": 0, "durationInFrames": 43, "trimStart": 0.825, "playbackRate": 1, "content": { "type": "video", "src": "asset://proxy-split-r" } }
+  ]
+}

@@ -9,21 +9,213 @@
           "items": {
             "type": "object",
             "properties": {
-              "name": { "type": "string", "title": "Name" },
-              "durationInFrames": { "type": "integer", "title": "Duration", "minimum": 1 },
-              "startFrame": { "type": "number" }, "endFrame": { "type": "number" },
-              "startCameraX": { "type": "number" }, "startCameraY": { "type": "number" }, "startCameraZ": { "type": "number" },
-              "endCameraX": { "type": "number" }, "endCameraY": { "type": "number" }, "endCameraZ": { "type": "number" },
-              "startTargetX": { "type": "number" }, "startTargetY": { "type": "number" }, "startTargetZ": { "type": "number" },
-              "endTargetX": { "type": "number" }, "endTargetY": { "type": "number" }, "endTargetZ": { "type": "number" },
-              "startFocalLength": { "type": "number", "minimum": 8, "maximum": 200 }, "endFocalLength": { "type": "number", "minimum": 8, "maximum": 200 },
-              "startFocusX": { "type": "number" }, "startFocusY": { "type": "number" }, "startFocusZ": { "type": "number" },
-              "endFocusX": { "type": "number" }, "endFocusY": { "type": "number" }, "endFocusZ": { "type": "number" },
-              "startFocusDistance": { "type": "number" }, "endFocusDistance": { "type": "number" },
-              "startDepthOfField": { "type": "number" }, "endDepthOfField": { "type": "number" },
-              "planeW": { "type": "number" }, "planeH": { "type": "number" }, "planeX": { "type": "number" }, "planeY": { "type": "number" }, "planeZ": { "type": "number" }, "planeScale": { "type": "number" },
-              "planeRotXDeg": { "type": "number" }, "planeRotYDeg": { "type": "number" }, "planeRotZDeg": { "type": "number" },
-              "maxBlur": { "type": "number", "minimum": 0, "maximum": 0.2 }, "shutterAngle": { "type": "number", "minimum": 0, "maximum": 360 }, "motionBlurSamples": { "type": "integer", "minimum": 1, "maximum": 32 }
+              "name": {
+                "type": "string",
+                "title": "Name"
+              },
+              "durationInFrames": {
+                "type": "integer",
+                "title": "Duration",
+                "minimum": 1
+              },
+              "startFrame": {
+                "type": "number"
+              },
+              "endFrame": {
+                "type": "number"
+              },
+              "startCameraX": {
+                "type": "number"
+              },
+              "startCameraY": {
+                "type": "number"
+              },
+              "startCameraZ": {
+                "type": "number"
+              },
+              "endCameraX": {
+                "type": "number"
+              },
+              "endCameraY": {
+                "type": "number"
+              },
+              "endCameraZ": {
+                "type": "number"
+              },
+              "startTargetX": {
+                "type": "number"
+              },
+              "startTargetY": {
+                "type": "number"
+              },
+              "startTargetZ": {
+                "type": "number"
+              },
+              "endTargetX": {
+                "type": "number"
+              },
+              "endTargetY": {
+                "type": "number"
+              },
+              "endTargetZ": {
+                "type": "number"
+              },
+              "startFocalLength": {
+                "type": "number",
+                "minimum": 8,
+                "maximum": 200
+              },
+              "endFocalLength": {
+                "type": "number",
+                "minimum": 8,
+                "maximum": 200
+              },
+              "startFocusX": {
+                "type": "number"
+              },
+              "startFocusY": {
+                "type": "number"
+              },
+              "startFocusZ": {
+                "type": "number"
+              },
+              "endFocusX": {
+                "type": "number"
+              },
+              "endFocusY": {
+                "type": "number"
+              },
+              "endFocusZ": {
+                "type": "number"
+              },
+              "startFocusDistance": {
+                "type": "number"
+              },
+              "endFocusDistance": {
+                "type": "number"
+              },
+              "startDepthOfField": {
+                "type": "number"
+              },
+              "endDepthOfField": {
+                "type": "number"
+              },
+              "planeW": {
+                "type": "number"
+              },
+              "planeH": {
+                "type": "number"
+              },
+              "planeX": {
+                "type": "number"
+              },
+              "planeY": {
+                "type": "number"
+              },
+              "planeZ": {
+                "type": "number"
+              },
+              "planeScale": {
+                "type": "number"
+              },
+              "planeRotXDeg": {
+                "type": "number"
+              },
+              "planeRotYDeg": {
+                "type": "number"
+              },
+              "planeRotZDeg": {
+                "type": "number"
+              },
+              "maxBlur": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 0.2
+              },
+              "shutterAngle": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 360
+              },
+              "motionBlurSamples": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 32
+              },
+              "lutKey": {
+                "type": "string",
+                "title": "Fitted LUT key"
+              },
+              "lutName": {
+                "type": "string",
+                "title": "Look name"
+              },
+              "lutIntensity": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "multipleOf": 0.01
+              },
+              "gradeExposure": {
+                "type": "number",
+                "minimum": -2,
+                "maximum": 2,
+                "multipleOf": 0.01
+              },
+              "gradeContrast": {
+                "type": "number",
+                "minimum": -1,
+                "maximum": 1,
+                "multipleOf": 0.01
+              },
+              "gradeSaturation": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 2,
+                "multipleOf": 0.01
+              },
+              "gradeTemperature": {
+                "type": "number",
+                "minimum": -1,
+                "maximum": 1,
+                "multipleOf": 0.01
+              },
+              "gradeTint": {
+                "type": "number",
+                "minimum": -1,
+                "maximum": 1,
+                "multipleOf": 0.01
+              },
+              "gradeHighlights": {
+                "type": "number",
+                "minimum": -1,
+                "maximum": 1,
+                "multipleOf": 0.01
+              },
+              "gradeShadows": {
+                "type": "number",
+                "minimum": -1,
+                "maximum": 1,
+                "multipleOf": 0.01
+              },
+              "gradeVignette": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "multipleOf": 0.01
+              },
+              "gradeBloom": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 2,
+                "multipleOf": 0.01
+              },
+              "gradeBloomThreshold": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "multipleOf": 0.01
+              }
             }
           }
         }

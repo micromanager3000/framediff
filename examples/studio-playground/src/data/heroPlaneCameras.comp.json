@@ -40,7 +40,20 @@
       "planeRotZDeg": 0,
       "maxBlur": 0.05,
       "shutterAngle": 90,
-      "motionBlurSamples": 9
+      "motionBlurSamples": 9,
+      "lutKey": "uizoom",
+      "lutName": "fitted · uizoom",
+      "lutIntensity": 1,
+      "gradeExposure": 0.03,
+      "gradeContrast": 0.06,
+      "gradeSaturation": 1.05,
+      "gradeTemperature": 0.14,
+      "gradeTint": 0.05,
+      "gradeHighlights": -0.06,
+      "gradeShadows": 0,
+      "gradeVignette": 0.34,
+      "gradeBloom": 0.35,
+      "gradeBloomThreshold": 0.55
     },
     {
       "name": "june3d",
@@ -82,7 +95,20 @@
       "planeRotZDeg": 0,
       "maxBlur": 0.035,
       "shutterAngle": 90,
-      "motionBlurSamples": 9
+      "motionBlurSamples": 9,
+      "lutKey": "june3d",
+      "lutName": "fitted · june3d",
+      "lutIntensity": 1,
+      "gradeExposure": 0.03,
+      "gradeContrast": 0.06,
+      "gradeSaturation": 1.05,
+      "gradeTemperature": 0.14,
+      "gradeTint": 0.05,
+      "gradeHighlights": -0.06,
+      "gradeShadows": 0,
+      "gradeVignette": 0.34,
+      "gradeBloom": 0.35,
+      "gradeBloomThreshold": 0.55
     },
     {
       "name": "cam4",
@@ -124,7 +150,20 @@
       "planeRotZDeg": 0,
       "maxBlur": 0.035,
       "shutterAngle": 90,
-      "motionBlurSamples": 9
+      "motionBlurSamples": 9,
+      "lutKey": "cam4",
+      "lutName": "fitted · cam4",
+      "lutIntensity": 1,
+      "gradeExposure": 0.03,
+      "gradeContrast": 0.06,
+      "gradeSaturation": 1.05,
+      "gradeTemperature": 0.14,
+      "gradeTint": 0.05,
+      "gradeHighlights": -0.06,
+      "gradeShadows": 0,
+      "gradeVignette": 0.34,
+      "gradeBloom": 0.35,
+      "gradeBloomThreshold": 0.55
     },
     {
       "name": "cam6",
@@ -166,7 +205,20 @@
       "planeRotZDeg": 0,
       "maxBlur": 0.035,
       "shutterAngle": 90,
-      "motionBlurSamples": 9
+      "motionBlurSamples": 9,
+      "lutKey": "cam6",
+      "lutName": "fitted · cam6",
+      "lutIntensity": 1,
+      "gradeExposure": 0.03,
+      "gradeContrast": 0.06,
+      "gradeSaturation": 1.05,
+      "gradeTemperature": 0.14,
+      "gradeTint": 0.05,
+      "gradeHighlights": -0.06,
+      "gradeShadows": 0,
+      "gradeVignette": 0.34,
+      "gradeBloom": 0.35,
+      "gradeBloomThreshold": 0.55
     }
   ]
 }

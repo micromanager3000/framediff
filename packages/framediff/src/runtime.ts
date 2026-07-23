@@ -294,6 +294,20 @@ const DOCUMENT_PROPERTY_ATTRIBUTES: Record<string, string> = {
   src: "data-fd-src",
   volume: "data-fd-volume",
   muted: "data-fd-muted",
+  gradeExposure: "data-fd-grade-exposure",
+  gradeContrast: "data-fd-grade-contrast",
+  gradeSaturation: "data-fd-grade-saturation",
+  gradeTemperature: "data-fd-grade-temperature",
+  gradeTint: "data-fd-grade-tint",
+  gradeHighlights: "data-fd-grade-highlights",
+  gradeShadows: "data-fd-grade-shadows",
+  gradeVignette: "data-fd-grade-vignette",
+  gradeBloom: "data-fd-grade-bloom",
+  gradeBloomThreshold: "data-fd-grade-bloom-threshold",
+  lut: "data-fd-lut",
+  lutKey: "data-fd-lut-key",
+  lutName: "data-fd-lut-name",
+  lutIntensity: "data-fd-lut-intensity",
 };
 
 /**

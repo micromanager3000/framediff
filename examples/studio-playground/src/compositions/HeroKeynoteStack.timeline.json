@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "items": [
+    { "id": "keynote-dark", "name": "Keynote silhouette", "from": 0, "durationInFrames": 56, "content": { "type": "layers", "label": "Dark fill" } },
+    { "id": "keynote-middle", "name": "Keynote middle pane", "from": 0, "durationInFrames": 31, "trimStart": 0.876093, "playbackRate": 1, "content": { "type": "video", "src": "asset://proxy-keynote-a" } },
+    { "id": "keynote-close", "name": "Keynote close pane", "from": 26, "durationInFrames": 23, "trimStart": 5.732273, "playbackRate": 1, "content": { "type": "video", "src": "asset://proxy-keynote-a" } }
+  ]
+}
