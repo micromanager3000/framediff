@@ -131,6 +131,10 @@ const number = (element: HtmlSourceElement, name: string, fallback: number): num
   const parsed = raw == null || raw === "" ? NaN : Number(raw);
   return Number.isFinite(parsed) ? parsed : fallback;
 };
+const boolean = (element: HtmlSourceElement, name: string, fallback: boolean): boolean => {
+  const raw = value(element, name);
+  return raw == null ? fallback : raw !== "false" && raw !== "0";
+};
 
 function decodeHtmlText(source: string): string {
   const named: Record<string, string> = { amp: "&", apos: "'", gt: ">", lt: "<", nbsp: "\u00a0", quot: "\"" };
@@ -225,6 +229,8 @@ function contentOf(element: HtmlSourceElement): TimelineItemSnapshot["content"] 
       src: value(element, "data-fd-src") ?? value(content, "data-fd-src") ?? value(content, "src") ?? "",
       trimStart: has(element, "data-fd-trim-start") ? number(element, "data-fd-trim-start", 0) : number(content, "data-fd-trim-start", 0),
       playbackRate: has(element, "data-fd-playback-rate") ? number(element, "data-fd-playback-rate", 1) : number(content, "data-fd-playback-rate", 1),
+      volume: has(element, "data-fd-volume") ? number(element, "data-fd-volume", 1) : number(content, "data-fd-volume", 1),
+      muted: has(element, "data-fd-muted") ? boolean(element, "data-fd-muted", false) : boolean(content, "data-fd-muted", false),
     };
   }
   if (type === "video" || content.tagName === "video" || has(content, "data-fd-grade-video") || has(content, "data-fd-video-plane-3d")) {
@@ -233,6 +239,8 @@ function contentOf(element: HtmlSourceElement): TimelineItemSnapshot["content"] 
       src: value(element, "data-fd-src") ?? value(content, "data-fd-src") ?? value(content, "src") ?? "",
       trimStart: has(element, "data-fd-trim-start") ? number(element, "data-fd-trim-start", 0) : number(content, "data-fd-trim-start", 0),
       playbackRate: has(element, "data-fd-playback-rate") ? number(element, "data-fd-playback-rate", 1) : number(content, "data-fd-playback-rate", 1),
+      volume: has(element, "data-fd-volume") ? number(element, "data-fd-volume", 1) : number(content, "data-fd-volume", 1),
+      muted: has(element, "data-fd-muted") ? boolean(element, "data-fd-muted", false) : boolean(content, "data-fd-muted", false),
       effects,
     };
   }
@@ -260,6 +268,7 @@ export function timelineFromHtml(composition: CompositionConfig): TimelineItemSn
         duration: !!explicitId,
         layer: !!explicitId,
         trimStart: !!explicitId && ["nested", "video", "audio"].includes(content.type),
+        delete: !!explicitId,
       },
     };
   });
@@ -271,8 +280,22 @@ function timelineDocumentContent(placement: CompositionTimelinePlacement): Timel
   if (content.type === "nested") {
     return { type: "nested", compId: content.composition, trimStart: placement.trimStart ?? 0, playbackRate: placement.playbackRate ?? 1 };
   }
-  if (content.type === "video") return { type: "video", src: content.src, trimStart: placement.trimStart ?? 0, playbackRate: placement.playbackRate ?? 1 };
-  if (content.type === "audio") return { type: "audio", src: content.src, trimStart: placement.trimStart ?? 0, playbackRate: placement.playbackRate ?? 1 };
+  if (content.type === "video") return {
+    type: "video",
+    src: content.src,
+    trimStart: placement.trimStart ?? 0,
+    playbackRate: placement.playbackRate ?? 1,
+    volume: placement.volume ?? 1,
+    muted: placement.muted ?? false,
+  };
+  if (content.type === "audio") return {
+    type: "audio",
+    src: content.src,
+    trimStart: placement.trimStart ?? 0,
+    playbackRate: placement.playbackRate ?? 1,
+    volume: placement.volume ?? 1,
+    muted: placement.muted ?? false,
+  };
   if (content.type === "camera") return { type: "camera", camera: content.camera };
   if (content.type === "grade-layer") return { type: "grade-layer" };
   return { type: "layers", label: content.label ?? placement.name ?? placement.id };
@@ -287,11 +310,21 @@ export function timelineFromComposition(composition: CompositionConfig): Timelin
     const html = htmlById.get(placement.id);
     const authoredContent = timelineDocumentContent(placement);
     const fallbackContent: TimelineItemSnapshot["content"] = { type: "layers", label: placement.name ?? placement.id };
-    const content = authoredContent ?? (html && ("trimStart" in html.content || "playbackRate" in html.content)
+    const content = authoredContent && html
+      && (authoredContent.type === "video" || authoredContent.type === "audio")
+      && authoredContent.type === html.content.type
+      ? {
+          ...authoredContent,
+          volume: placement.volume ?? html.content.volume ?? 1,
+          muted: placement.muted ?? html.content.muted ?? false,
+        }
+      : authoredContent ?? (html && ("trimStart" in html.content || "playbackRate" in html.content)
       ? {
           ...html.content,
           ...(placement.trimStart == null ? {} : { trimStart: placement.trimStart }),
           ...(placement.playbackRate == null ? {} : { playbackRate: placement.playbackRate }),
+          ...(placement.volume == null ? {} : { volume: placement.volume }),
+          ...(placement.muted == null ? {} : { muted: placement.muted }),
         } as TimelineItemSnapshot["content"]
       : html?.content ?? fallbackContent);
     htmlById.delete(placement.id);
@@ -304,7 +337,7 @@ export function timelineFromComposition(composition: CompositionConfig): Timelin
       content,
       order,
       origin: "sequence" as const,
-      editable: { from: true, duration: true, layer: true, trimStart: ["nested", "video", "audio"].includes(content.type) },
+      editable: { from: true, duration: true, layer: true, trimStart: ["nested", "video", "audio"].includes(content.type), delete: true },
     } satisfies TimelineItemSnapshot;
   });
   return [...projected, ...htmlItems.filter((item) => htmlById.has(item.id)).map((item, index) => ({ ...item, order: projected.length + index }))];
@@ -359,6 +392,21 @@ export function removeHtmlAttribute(source: string, elementId: string, name: str
   if (location.quote) start -= 1;
   while (start > element.start && source[start - 1] !== "<" && source[start - 1] !== " " && source[start - 1] !== "\n" && source[start - 1] !== "\t") start -= 1;
   let end = location.valueEnd + (location.quote ? 1 : 0);
+  return `${source.slice(0, start)}${source.slice(end)}`;
+}
+
+/** Remove one stable authored element while preserving all unrelated source text. */
+export function removeHtmlElement(source: string, elementId: string): string | null {
+  const element = findHtmlElementById(source, elementId);
+  if (!element) return null;
+  let start = element.start;
+  let end = element.end;
+  const lineStart = source.lastIndexOf("\n", start - 1) + 1;
+  const lineEnd = source.indexOf("\n", end);
+  if (/^[ \t]*$/.test(source.slice(lineStart, start)) && (lineEnd < 0 || /^[ \t]*$/.test(source.slice(end, lineEnd)))) {
+    start = lineStart;
+    end = lineEnd < 0 ? source.length : lineEnd + 1;
+  }
   return `${source.slice(0, start)}${source.slice(end)}`;
 }
 
@@ -432,7 +480,7 @@ const STANDARD_FIELDS: FieldDefinition[] = [
   { attribute: "data-fd-trim-start", label: "trim start (seconds)", kind: "number", step: 0.01 },
   { attribute: "data-fd-playback-rate", label: "playback rate", kind: "number", step: 0.01 },
   { attribute: "data-fd-nested-scale", label: "nested scale", kind: "number", step: 0.01 },
-  { attribute: "data-fd-volume", label: "volume", kind: "number", step: 0.01 },
+  { attribute: "data-fd-volume", label: "volume", kind: "number", step: 0.01, min: 0, max: 1, slider: true },
   { attribute: "data-fd-muted", label: "muted", kind: "boolean" },
   { attribute: "data-fd-text", label: "text", kind: "text", multiline: true },
   { attribute: "data-fd-color", label: "color", kind: "color" },
@@ -530,6 +578,28 @@ export function inspectorFieldsFromHtml(source: string, itemId: string): HtmlIns
       if (definition.kind === "number") field.value = Number(location.value);
       else if (definition.kind === "boolean") field.boolean = location.value !== "false" && location.value !== "0";
       else field.text = location.value;
+      fields.push(field);
+    }
+  }
+  const media = candidates.find((candidate) => candidate.tagName === "video" || candidate.tagName === "audio"
+    || value(candidate, "data-fd-type") === "video" || value(candidate, "data-fd-type") === "audio");
+  if (media) {
+    for (const [attribute, fallback] of [["data-fd-volume", "1"], ["data-fd-muted", "false"]] as const) {
+      if (fields.some((field) => field.attribute === attribute)) continue;
+      const definition = STANDARD_FIELDS.find((candidate) => candidate.attribute === attribute)!;
+      const field: HtmlInspectorField = {
+        id: targetFieldId(itemId, itemId, attribute),
+        attribute,
+        targetId: itemId,
+        label: definition.label,
+        editable: true,
+        step: definition.step,
+        source: `${attribute} · materializes on edit`,
+        valueType: definition.kind === "number" ? "number" : "boolean",
+        control: controlOf(definition, fallback),
+      };
+      if (definition.kind === "number") field.value = Number(fallback);
+      else field.boolean = fallback !== "false";
       fields.push(field);
     }
   }

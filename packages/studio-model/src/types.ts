@@ -127,8 +127,8 @@ export interface ColorGradeEffectSnapshot {
 
 export type TimelineContentSnapshot =
   | { type: "nested"; compId: string; trimStart: number; playbackRate?: number; effects?: ColorGradeEffectSnapshot[] }
-  | { type: "video"; src: string; trimStart?: number; playbackRate?: number; effects?: ColorGradeEffectSnapshot[] }
-  | { type: "audio"; src: string; trimStart?: number; playbackRate?: number }
+  | { type: "video"; src: string; trimStart?: number; playbackRate?: number; volume?: number; muted?: boolean; effects?: ColorGradeEffectSnapshot[] }
+  | { type: "audio"; src: string; trimStart?: number; playbackRate?: number; volume?: number; muted?: boolean }
   | { type: "layers"; label: string; effects?: ColorGradeEffectSnapshot[] }
   | { type: "camera"; camera: string; effects?: ColorGradeEffectSnapshot[] }
   | { type: "grade-layer"; effects?: ColorGradeEffectSnapshot[] };
@@ -148,6 +148,7 @@ export interface TimelineItemSnapshot {
     duration: boolean;
     layer?: boolean;
     trimStart?: boolean;
+    delete?: boolean;
   };
   production?: {
     assetId?: string;
@@ -468,6 +469,16 @@ export interface PlacementEditResult {
   conflicts?: ProjectEditConflict[];
 }
 
+export interface TimelineDeleteRequest {
+  compositionKey: string;
+  itemIds: string[];
+  /** Removing an entire lane also closes the vacated rank for later lanes of the same kind. */
+  compactLayer?: {
+    kind: TimelineLaneSnapshot["kind"];
+    layer: number;
+  };
+}
+
 export interface InspectorOptionSnapshot {
   value: string;
   label: string;
@@ -553,6 +564,8 @@ export interface CompositionRuntimePort {
   captureFrame?(compositionKey: string, frame: number): Promise<AgentFrameSnapshot>;
   editPlacement(request: PlacementEditRequest): Promise<PlacementEditResult>;
   editPlacements(requests: PlacementEditRequest[]): Promise<PlacementEditResult>;
+  /** Remove source-backed timeline objects as one reversible source transaction. */
+  deleteTimelineItems?(request: TimelineDeleteRequest): Promise<PlacementEditResult>;
   /** Persist the render window (output t0 = from, output end = to); the full range clears it. */
   setRenderWindow(compositionKey: string, from: number, to: number): Promise<ProjectOperationResult>;
   inspectItem(compositionKey: string, itemId: string): Promise<InspectorDetailsSnapshot>;

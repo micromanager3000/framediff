@@ -17,6 +17,7 @@
   let userPpf = 0; // 0 = fit-to-width
   let restoredZoomFor = "";
   let compositionDropFrame: number | null = null;
+  let confirmLaneId: string | null = null;
   const COMP_DRAG_MIME = "application/x-framediff-comp";
 
   $: duration = Math.max(1, $store.durationInFrames);
@@ -62,6 +63,17 @@
   }
 
   const time = (frame: number) => `${(frame / Math.max(1, $store.fps)).toFixed(1)}s`;
+
+  function requestLaneDelete(event: MouseEvent, lane: TimelineLaneSnapshot): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (confirmLaneId !== lane.id) {
+      confirmLaneId = lane.id;
+      return;
+    }
+    confirmLaneId = null;
+    void viewModel.deleteLane(lane);
+  }
 
   function isCompositionDrag(event: DragEvent): boolean {
     return acceptCompositionDrop && (event.dataTransfer?.types.includes(COMP_DRAG_MIME) ?? false);
@@ -549,7 +561,18 @@
           data-lane-kind={lane.kind}
           data-layer={lane.layer ?? 0}
         >
-          <div class="lane-label" title={lane.authority === "explicit" ? `Source-backed layer ${lane.layer}` : "Legacy overlap packing — vertical drag materializes source layers"}>{lane.label}{lane.authority === "legacy" ? "·" : ""}</div>
+          <div class="lane-label" title={lane.authority === "explicit" ? `Source-backed layer ${lane.layer}` : "Legacy overlap packing — vertical drag materializes source layers"}>
+            <span>{lane.label}{lane.authority === "legacy" ? "·" : ""}</span>
+            {#if lane.items.length && lane.items.every((item) => item.editable?.delete)}
+              <button
+                class="delete-lane"
+                class:armed={confirmLaneId === lane.id}
+                aria-label={confirmLaneId === lane.id ? `Confirm delete ${lane.label}` : `Delete ${lane.label}`}
+                title={confirmLaneId === lane.id ? `Click again to delete ${lane.label} and its ${lane.items.length} item${lane.items.length === 1 ? "" : "s"}` : `Delete ${lane.label}`}
+                onclick={(event) => requestLaneDelete(event, lane)}
+              >{confirmLaneId === lane.id ? "!" : "×"}</button>
+            {/if}
+          </div>
           <div
             class="lane-track"
             style:width={`${axisLen * ppf}px`}

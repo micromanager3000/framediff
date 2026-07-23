@@ -222,6 +222,81 @@ describe("HtmlStudioRuntime external timeline documents", () => {
     expect(runtime.getCompositions()[0].sources).toContain("src/Camera.timeline.json");
   });
 
+  it("edits video audio and deletes clips or whole lanes as undoable source transactions", async () => {
+    let timelineText = JSON.stringify({
+      version: 1,
+      items: [
+        { id: "shot", from: 0, durationInFrames: 48, layer: 0, content: { type: "video", src: "asset://shot" } },
+        { id: "caption", from: 0, durationInFrames: 48, layer: 0, content: { type: "layers", label: "Caption" } },
+        { id: "overlay", from: 0, durationInFrames: 48, layer: 2, content: { type: "layers", label: "Overlay" } },
+      ],
+    });
+    let htmlText = `<!doctype html><main data-fd-composition data-fd-id="Edit" data-fd-width="1920" data-fd-height="1080" data-fd-fps="24" data-fd-duration="48" data-fd-kind="edit">
+  <section data-fd-clip data-fd-id="shot"><video></video></section>
+  <section data-fd-clip data-fd-id="caption">Caption</section>
+  <section data-fd-clip data-fd-id="overlay">Overlay</section>
+</main>`;
+    const comp = {
+      ...composition,
+      id: "Edit",
+      html: htmlText,
+      timeline: JSON.parse(timelineText),
+      meta: { kind: "edit" as const, file: "src/Edit.html", sourceFormat: "html" as const, timelineFile: "src/Edit.timeline.json" },
+    } satisfies StudioComposition;
+    let transaction: { label: string; files: Array<{ file: string; text: string }> } | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/__framediff/assets") return new Response("missing", { status: 404 });
+      if (url.startsWith("/__framediff/src?")) {
+        const file = new URL(url, "http://local").searchParams.get("file")!;
+        if (file === "src/Edit.timeline.json") return Response.json({ file, text: timelineText, hash: `timeline:${timelineText.length}` });
+        if (file === "src/Edit.html") return Response.json({ file, text: htmlText, hash: `html:${htmlText.length}` });
+        return new Response("missing", { status: 404 });
+      }
+      if (url === "/__framediff/edit" && init?.method === "POST") {
+        transaction = JSON.parse(String(init.body));
+        for (const change of transaction!.files) {
+          if (change.file === "src/Edit.timeline.json") timelineText = change.text;
+          if (change.file === "src/Edit.html") htmlText = change.text;
+        }
+        return Response.json({ ok: true, receipt: { id: `edit-${transaction!.label}`, label: transaction!.label, before: [], after: [] } });
+      }
+      return new Response("not found", { status: 404 });
+    }));
+    const runtime = createStudioRuntime({ main: comp } as CompRegistry);
+    await runtime.probe("main");
+
+    const details = await runtime.inspectItem("main", "shot");
+    expect(details.sections.find((section) => section.id === "timeline-media-audio")?.fields).toEqual([
+      expect.objectContaining({ id: "timeline:volume", value: 1, control: expect.objectContaining({ min: 0, max: 1, slider: true }) }),
+      expect.objectContaining({ id: "timeline:muted", boolean: false }),
+    ]);
+
+    expect((await runtime.editInspectorField({
+      compositionKey: "main",
+      itemId: "shot",
+      fieldId: "timeline:volume",
+      value: 0.35,
+    })).ok).toBe(true);
+    expect(JSON.parse(timelineText).items[0]).toMatchObject({ id: "shot", volume: 0.35 });
+
+    const deleted = await runtime.deleteTimelineItems({
+      compositionKey: "main",
+      itemIds: ["shot", "caption"],
+      compactLayer: { kind: "video", layer: 0 },
+    });
+    expect(deleted.ok).toBe(true);
+    expect(transaction?.label).toBe("Delete video layer 1");
+    expect(transaction?.files.map((file) => file.file)).toEqual(["src/Edit.timeline.json", "src/Edit.html"]);
+    expect(JSON.parse(timelineText).items).toEqual([
+      expect.objectContaining({ id: "overlay", layer: 1 }),
+    ]);
+    expect(htmlText).not.toContain('data-fd-id="shot"');
+    expect(htmlText).not.toContain('data-fd-id="caption"');
+    expect(htmlText).toContain('data-fd-id="overlay"');
+    expect((await runtime.probe("main")).map((item) => item.id)).toEqual(["overlay"]);
+  });
+
   it("nests a dropped composition by editing only the JSON timeline document", async () => {
     const targetHtml = '<!doctype html><main data-fd-composition data-fd-id="Main" data-fd-width="1920" data-fd-height="1080" data-fd-fps="24" data-fd-duration="120" data-fd-kind="edit" data-fd-source="src/Main.html"></main>';
     const timeline = { version: 1 as const, items: [] };

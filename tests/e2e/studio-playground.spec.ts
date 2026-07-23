@@ -145,6 +145,69 @@ test("a composition can be dragged directly onto an edit timeline and undone", a
   await expect(nestedClip).toHaveCount(0);
 });
 
+test("edit clips expose video audio controls and reversible item and layer deletion", async ({ page }) => {
+  const timelineFile = "examples/studio-playground/src/compositions/labs/EditorialLab.timeline.json";
+  const htmlFile = "examples/studio-playground/src/compositions/labs/EditorialLab.html";
+  const originalTimeline = await readFile(timelineFile, "utf8");
+  const originalHtml = await readFile(htmlFile, "utf8");
+
+  try {
+    await openComposition(page, "editorial-lab");
+    const mediaClip = page.locator('.clip[data-item-id="editorial-media"]');
+    await mediaClip.evaluate((element) => (element as HTMLButtonElement).click());
+    await expect(page.getByRole("heading", { name: "VIDEO AUDIO" })).toBeVisible();
+
+    const volume = page.getByRole("spinbutton", { name: "volume number" });
+    await expect(volume).toHaveValue("1");
+    await volume.fill("0.35");
+    await volume.press("Tab");
+    await expect.poll(async () => JSON.parse(await readFile(timelineFile, "utf8")).items[0].volume).toBe(0.35);
+    const previewVideo = page.locator('[data-fd-id="editorial-media"] video');
+    await expect.poll(() => previewVideo.evaluate((video: HTMLVideoElement) => ({
+      volume: video.volume,
+      exportVolume: video.dataset.framediffVolume,
+    }))).toEqual({ volume: 0.35, exportVolume: "0" });
+
+    const muted = page.getByRole("checkbox", { name: "muted" });
+    await expect(muted).toBeChecked();
+    await muted.uncheck();
+    await expect.poll(async () => JSON.parse(await readFile(timelineFile, "utf8")).items[0].muted).toBe(false);
+    await expect.poll(() => previewVideo.evaluate((video: HTMLVideoElement) => ({
+      muted: video.muted,
+      exportVolume: video.dataset.framediffVolume,
+    }))).toEqual({ muted: false, exportVolume: "0.35" });
+
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect.poll(async () => readFile(timelineFile, "utf8")).toBe(originalTimeline);
+
+    await mediaClip.evaluate((element) => (element as HTMLButtonElement).click());
+    await page.getByRole("button", { name: "DELETE FROM TIMELINE" }).click();
+    await page.getByRole("button", { name: "CONFIRM DELETE" }).click();
+    await expect.poll(async () => JSON.parse(await readFile(timelineFile, "utf8")).items.some((item: { id: string }) => item.id === "editorial-media")).toBe(false);
+    await expect.poll(async () => readFile(htmlFile, "utf8")).not.toContain('data-fd-id="editorial-media"');
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect.poll(async () => readFile(timelineFile, "utf8")).toBe(originalTimeline);
+    await expect.poll(async () => readFile(htmlFile, "utf8")).toBe(originalHtml);
+
+    const deleteLayer = page.locator('.lane[data-lane-id="v:0"] .delete-lane');
+    await expect(deleteLayer).toHaveAttribute("aria-label", "Delete V1");
+    await deleteLayer.click();
+    await expect(deleteLayer).toHaveAttribute("aria-label", "Confirm delete V1");
+    await deleteLayer.click();
+    await expect.poll(async () => {
+      const items = JSON.parse(await readFile(timelineFile, "utf8")).items as Array<{ id: string }>;
+      return items.some((item) => item.id === "editorial-media" || item.id === "editorial-wash");
+    }).toBe(false);
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect.poll(async () => readFile(timelineFile, "utf8")).toBe(originalTimeline);
+    await expect.poll(async () => readFile(htmlFile, "utf8")).toBe(originalHtml);
+  } finally {
+    if (await readFile(timelineFile, "utf8") !== originalTimeline) await writeFile(timelineFile, originalTimeline);
+    if (await readFile(htmlFile, "utf8") !== originalHtml) await writeFile(htmlFile, originalHtml);
+  }
+});
+
 test("a composition can be dragged into a generative recipe and undone", async ({ page }) => {
   await openPlayground(page);
   const primaryCompositions = page.locator('.composition-list[role="list"]').first();

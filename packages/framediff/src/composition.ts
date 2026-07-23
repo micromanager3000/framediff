@@ -33,6 +33,10 @@ export interface CompositionTimelinePlacement {
   layer?: number;
   trimStart?: number;
   playbackRate?: number;
+  /** Linear media gain. Applies to both audio clips and the audio track of video clips. */
+  volume?: number;
+  /** Silence this media clip without discarding its authored volume. */
+  muted?: boolean;
   /** When present, this is a complete JSON-authored layer. Omitted for legacy HTML-backed layers. */
   content?: CompositionTimelineContent;
 }
@@ -62,6 +66,10 @@ export function defineTimelineDocument(document: unknown): CompositionTimelineDo
       if (content.type === "nested" && typeof content.composition !== "string") throw new Error(`Nested timeline item ${value.id} needs a composition reference.`);
       if ((content.type === "video" || content.type === "audio") && typeof content.src !== "string") throw new Error(`${content.type} timeline item ${value.id} needs a src.`);
     }
+    if (value.volume != null && (typeof value.volume !== "number" || !Number.isFinite(value.volume) || value.volume < 0 || value.volume > 1)) {
+      throw new Error(`Timeline item ${value.id} volume must be between 0 and 1.`);
+    }
+    if (value.muted != null && typeof value.muted !== "boolean") throw new Error(`Timeline item ${value.id} muted must be a boolean.`);
   }
   return document as CompositionTimelineDocument;
 }

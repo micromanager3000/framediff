@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { defineComposition } from "../composition";
-import { findHtmlElementById, inspectorFieldsFromHtml, rewriteHtmlAttribute, rewriteHtmlAttributes, timelineFromComposition, timelineFromHtml } from "./htmlSource";
+import { findHtmlElementById, inspectorFieldsFromHtml, removeHtmlElement, rewriteHtmlAttribute, rewriteHtmlAttributes, timelineFromComposition, timelineFromHtml } from "./htmlSource";
 
 const HTML = `<!doctype html>
 <html><head><style>.title { color: white }</style></head><body>
@@ -39,7 +39,7 @@ describe("HTML composition source", () => {
       timeline: {
         version: 1,
         items: [
-          { id: "hero", from: 12, durationInFrames: 72, layer: 2, trimStart: -0.5 },
+          { id: "hero", from: 12, durationInFrames: 72, layer: 2, trimStart: -0.5, volume: 0.35, muted: true },
           { id: "title", from: 48, durationInFrames: 20, layer: 3 },
         ],
       },
@@ -47,7 +47,7 @@ describe("HTML composition source", () => {
     });
 
     expect(timelineFromComposition(comp)).toMatchObject([
-      { id: "hero", from: 12, durationInFrames: 72, layer: 2, content: { trimStart: -0.5 } },
+      { id: "hero", from: 12, durationInFrames: 72, layer: 2, content: { trimStart: -0.5, volume: 0.35, muted: true }, editable: { delete: true } },
       { id: "title", from: 48, durationInFrames: 20, layer: 3 },
     ]);
     expect(comp.meta?.timelineFile).toBe("src/Demo.timeline.json");
@@ -79,6 +79,18 @@ describe("HTML composition source", () => {
     expect(rewriteHtmlAttribute(HTML, "hero", "data-fd-from", 12)).toContain('data-fd-from="12"');
     const withoutDuration = HTML.replace(' data-fd-duration="30" data-fd-text', " data-fd-text");
     expect(rewriteHtmlAttribute(withoutDuration, "title", "data-fd-duration", 60)).toContain('data-fd-duration="60"');
+  });
+
+  it("materializes default video audio controls and removes only the selected layer", () => {
+    const fields = inspectorFieldsFromHtml(HTML, "hero");
+    expect(fields).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "html:data-fd-volume", value: 1, control: expect.objectContaining({ min: 0, max: 1, slider: true }) }),
+      expect.objectContaining({ id: "html:data-fd-muted", boolean: false }),
+    ]));
+    const removed = removeHtmlElement(HTML, "hero");
+    expect(removed).not.toContain('data-fd-id="hero"');
+    expect(removed).toContain("data-fd-id='title'");
+    expect(removed).toContain("data-fd-composition");
   });
 
   it("materializes move and resize properties together", () => {

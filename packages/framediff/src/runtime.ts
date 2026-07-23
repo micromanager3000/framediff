@@ -144,6 +144,10 @@ function applyTimelineDocument(root: HTMLElement, composition: CompositionConfig
     else element.setAttribute("data-fd-trim-start", String(placement.trimStart));
     if (placement.playbackRate == null) element.removeAttribute("data-fd-playback-rate");
     else element.setAttribute("data-fd-playback-rate", String(placement.playbackRate));
+    if (placement.volume == null) element.removeAttribute("data-fd-volume");
+    else element.setAttribute("data-fd-volume", String(Math.max(0, Math.min(1, placement.volume))));
+    if (placement.muted == null) element.removeAttribute("data-fd-muted");
+    else element.setAttribute("data-fd-muted", String(placement.muted));
   }
 }
 
@@ -589,7 +593,12 @@ export function mountComposition(
         element.setAttribute("data-framediff-video", "");
         element.dataset.framediffTime = String(target);
         element.playbackRate = rate;
-        element.muted = inheritedTruthy(element, "data-fd-muted", element.muted);
+        const muted = inheritedTruthy(element, "data-fd-muted", element.muted);
+        const volume = Math.max(0, Math.min(1, inheritedNumeric(element, "data-fd-volume", 1)));
+        element.dataset.framediffVolume = String(muted ? 0 : volume);
+        element.dataset.framediffMuted = String(muted);
+        element.muted = muted;
+        element.volume = volume;
         const fit = inheritedValue(element, "data-fd-fit");
         if (fit) element.style.objectFit = fit;
         if (local.active && inDomain && state.playing) {
@@ -605,10 +614,13 @@ export function mountComposition(
         const trimStart = inheritedNumeric(element, "data-fd-trim-start", 0);
         const rate = inheritedNumeric(element, "data-fd-playback-rate", 1);
         const target = trimStart + localTime * rate;
+        const muted = inheritedTruthy(element, "data-fd-muted", element.muted);
         const volume = Math.max(0, Math.min(1, inheritedNumeric(element, "data-fd-volume", 1)));
         element.setAttribute("data-framediff-audio", "");
         element.dataset.framediffTime = String(target);
-        element.dataset.framediffVolume = String(volume);
+        element.dataset.framediffVolume = String(muted ? 0 : volume);
+        element.dataset.framediffMuted = String(muted);
+        element.muted = muted;
         element.volume = volume;
         element.playbackRate = rate;
         const sourceActive = target >= 0 && (!Number.isFinite(element.duration) || target < element.duration);

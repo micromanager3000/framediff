@@ -17,12 +17,14 @@
   let arcCurvature = 0.28;
   let arcDirection: "clockwise" | "counterclockwise" = "clockwise";
   let editorSectionId: string | null = null;
+  let confirmDeleteItemId: string | null = null;
 
   $: editorSection = editorSectionId ? $store.sections.find((section) => section.id === editorSectionId) : undefined;
   $: documentBacked = $store.sections.some((section) => section.id.startsWith("document:"));
 
   $: if ($store.item?.id !== previousItemId) {
     previousItemId = $store.item?.id;
+    confirmDeleteItemId = null;
     draftFrom = $store.item?.from ?? 0;
     draftDuration = $store.item?.durationInFrames ?? 1;
   }
@@ -40,6 +42,17 @@
   function clearSelection(): void {
     if ($mediaStore.selected) mediaViewModel.clearSelection();
     else viewModel.clearSelection();
+  }
+
+  function requestItemDelete(): void {
+    const itemId = $store.item?.id;
+    if (!itemId) return;
+    if (confirmDeleteItemId !== itemId) {
+      confirmDeleteItemId = itemId;
+      return;
+    }
+    confirmDeleteItemId = null;
+    void viewModel.deleteItem();
   }
 
   const size = (bytes: number) => bytes >= 1_000_000 ? `${(bytes / 1_000_000).toFixed(1)} MB` : `${Math.round(bytes / 1_000)} KB`;
@@ -343,6 +356,15 @@
           {/if}
         </dl>
         {#if $store.item.content.type === "nested"}<button class="open-nested" onclick={() => viewModel.enterNested()}>OPEN NESTED COMPOSITION <span>→</span></button>{/if}
+        {#if !$store.elementId && $store.item.editable?.delete}
+          <button
+            class="delete-timeline-item"
+            class:armed={confirmDeleteItemId === $store.item.id}
+            disabled={$store.editing}
+            onclick={requestItemDelete}
+          >{confirmDeleteItemId === $store.item.id ? "CONFIRM DELETE" : "DELETE FROM TIMELINE"} <span>{confirmDeleteItemId === $store.item.id ? "!" : "⌫"}</span></button>
+          <p class="delete-hint">Removes this source-backed item. Undo restores it.</p>
+        {/if}
       </section>
 
       {#if $store.item.production}

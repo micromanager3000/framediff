@@ -371,7 +371,11 @@ html, body, #svelte { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .tl-scroll.composition-drop-target { box-shadow: inset 0 0 0 1px rgb(224 172 87 / 55%); }
 .composition-drop-guide { position: absolute; top: 0; bottom: 0; z-index: 9; width: 1px; pointer-events: none; background: var(--accent); box-shadow: 0 0 14px rgb(224 172 87 / 65%); }
 .composition-drop-guide span { position: absolute; top: 5px; left: 6px; padding: 3px 5px; white-space: nowrap; color: #17130d; background: var(--accent); font: 800 8px/1 var(--mono); letter-spacing: .08em; }
-.lane-label { position: sticky; left: 0; z-index: 3; display: flex; align-items: center; justify-content: center; border-right: 1px solid var(--line); background: #0c0b09; color: var(--faint); font-family: var(--mono); font-size: 9px; }
+.lane-label { position: sticky; left: 0; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 2px; padding-left: 6px; border-right: 1px solid var(--line); background: #0c0b09; color: var(--faint); font-family: var(--mono); font-size: 9px; }
+.lane-label > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.delete-lane { width: 18px; height: 22px; flex: none; padding: 0; border: 0; border-left: 1px solid transparent; background: transparent; color: var(--faint); cursor: pointer; font: 11px/1 var(--mono); }
+.delete-lane:hover { color: var(--red); background: rgb(224 101 95 / 8%); }
+.delete-lane.armed { border-left-color: rgb(224 101 95 / 35%); background: rgb(224 101 95 / 15%); color: var(--red); }
 .lane-track { position: relative; min-width: 0; cursor: col-resize; }
 .animation-lane .lane-label { color: #b9adff; font-size: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .animation-lane .lane-track { background: color-mix(in srgb, #7568ff 3%, transparent); }
@@ -454,6 +458,11 @@ html, body, #svelte { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .authority span { padding: 3px 6px; border-radius: 4px; background: rgb(255 255 255 / 5%); color: var(--faint); font-family: var(--mono); font-size: 8px; }
 .authority span.literal { background: rgb(127 199 155 / 14%); color: var(--green); }
 .open-nested { width: 100%; display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding: 7px 8px; border: 1px solid rgb(143 180 209 / 35%); border-radius: 6px; background: rgb(143 180 209 / 8%); color: var(--blue); cursor: pointer; font: 800 7px/1 var(--mono); letter-spacing: .07em; }.open-nested:hover { border-color: var(--blue); color: var(--text); }.open-nested span { font-size: 12px; }
+.delete-timeline-item { width: 100%; display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding: 7px 8px; border: 1px solid rgb(224 101 95 / 26%); border-radius: 6px; background: rgb(224 101 95 / 6%); color: #d9908b; cursor: pointer; font: 800 7px/1 var(--mono); letter-spacing: .07em; }
+.delete-timeline-item:hover, .delete-timeline-item.armed { border-color: var(--red); background: rgb(224 101 95 / 14%); color: #f1aaa4; }
+.delete-timeline-item:disabled { cursor: default; opacity: .45; }
+.delete-timeline-item span { font-size: 12px; }
+.delete-hint { margin: 5px 0 0; color: var(--faint); font: 8px/1.45 var(--mono); }
 .production-details { background: linear-gradient(180deg,rgb(143 180 209 / 5%),transparent); }.production-details h3 { color: var(--blue); }.production-details dd { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.production-details > p { margin: 10px 0 0; color: var(--faint); font: 8px/1.5 var(--mono); }.state-pill { padding: 2px 5px; border-radius: 4px; background: rgb(255 255 255 / 5%); color: var(--faint); font: 800 7px/1 var(--mono); text-transform: uppercase; }.state-pill.local,.state-pill.current { background: rgb(127 199 155 / 12%); color: var(--green); }.state-pill.proxy,.state-pill.stale { background: rgb(230 200 135 / 12%); color: var(--yellow); }.state-pill.remote { background: rgb(143 180 209 / 12%); color: var(--blue); }.state-pill.missing { background: rgb(224 101 95 / 12%); color: var(--red); }
 .motion-editor { background: linear-gradient(180deg, rgba(112, 91, 240, .09), transparent); }
 .motion-editor h3, .motion-property h3 { color: #b8abff; }
