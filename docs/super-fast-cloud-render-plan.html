@@ -1,0 +1,1880 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src 'unsafe-inline' blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>FrameDiff Super-Fast Cloud Render Plan</title>
+<style>:root{color-scheme:light dark;background:light-dark(rgb(255 255 255), rgb(24 24 24))}html,body{margin:0}body{box-sizing:border-box;padding:1rem;background:inherit}iframe{display:block;width:100%;max-width:736px;height:calc(100vh - 2rem);margin:0 auto;border:0}</style>
+</head>
+<body>
+<iframe sandbox="allow-scripts" referrerpolicy="no-referrer" title="FrameDiff Super-Fast Cloud Render Plan" srcdoc="&lt;!doctype html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;meta name=&quot;referrer&quot; content=&quot;no-referrer&quot;&gt;
+&lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;default-src &#x27;none&#x27;; script-src &#x27;unsafe-inline&#x27; &#x27;unsafe-eval&#x27; &#x27;wasm-unsafe-eval&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; style-src &#x27;unsafe-inline&#x27; blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; img-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; font-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; media-src blob: data: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://esm.sh https://fonts.bunny.net https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com; worker-src blob:; connect-src blob: data:; frame-src &#x27;none&#x27;; object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;&quot;&gt;
+&lt;title&gt;FrameDiff Super-Fast Cloud Render Plan&lt;/title&gt;
+&lt;style&gt;:root {
+  color-scheme: light dark;
+  background-color: var(--background) !important;
+
+  /* Agent-facing contract; keep in sync with SKILL.md. */
+  --background: light-dark(rgb(255 255 255), rgb(24 24 24));
+  --foreground: light-dark(rgb(26 28 31), rgb(255 255 255));
+  --card: color-mix(in oklab, var(--foreground) 5%, transparent);
+  --card-foreground: var(--foreground);
+  --popover: light-dark(rgb(255 255 255), rgb(45 45 45));
+  --popover-foreground: var(--foreground);
+  --primary: light-dark(rgb(51 156 255), rgb(131 195 255));
+  --primary-foreground: light-dark(rgb(255 255 255), rgb(13 13 13));
+  --secondary: light-dark(rgb(255 255 255 / 96%), rgb(54 54 54 / 96%));
+  --secondary-foreground: var(--foreground);
+  --muted: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --muted-foreground: light-dark(
+    rgb(26 28 31 / 49.4%),
+    rgb(255 255 255 / 49.8%)
+  );
+  --accent: light-dark(rgb(229 242 255), rgb(13 39 63));
+  --accent-foreground: var(--primary);
+  --destructive: light-dark(rgb(226 85 7), rgb(255 133 73));
+  --border: light-dark(rgb(26 28 31 / 8%), rgb(255 255 255 / 8.2%));
+  --input: light-dark(
+    rgb(26 28 31 / 11.8%),
+    color-mix(in oklab, rgb(0 0 0) 10%, transparent)
+  );
+  --ring: light-dark(rgb(51 156 255), rgb(131 195 255 / 76%));
+  --font-size-base: 14px;
+  --viz-series-1: var(--primary);
+  --viz-series-2: light-dark(rgb(243 136 59), rgb(245 154 86));
+  --viz-series-3: light-dark(rgb(93 201 119), rgb(116 213 139));
+  --viz-series-4: light-dark(rgb(235 119 177), rgb(240 143 192));
+  --viz-series-5: light-dark(rgb(155 121 236), rgb(170 145 239));
+  --viz-series-6: light-dark(rgb(58 185 177), rgb(90 203 194));
+
+  /* Internal implementation variables; not part of the agent contract. */
+  --font-sans: -apple-system, system-ui, &quot;Segoe UI&quot;, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, &quot;SF Mono&quot;, Menlo, Consolas, &quot;Liberation Mono&quot;,
+    monospace;
+  --font-size-normal: max(11px, var(--font-size-base));
+  --font-size-tooltip: calc(var(--font-size-base) - 1px);
+  --font-size-small: max(11px, calc(var(--font-size-base) - 2px));
+  --font-size-h1: calc(var(--font-size-normal) * 1.7142857143);
+  --font-size-h2: calc(var(--font-size-normal) * 1.4285714286);
+  --font-size-h3: calc(var(--font-size-normal) * 1.2857142857);
+  --font-weight-normal: 430;
+  --font-weight-medium: 500;
+  --line-height-normal: calc(var(--font-size-normal) * 1.5);
+  --line-height-tooltip: calc(var(--font-size-tooltip) * 1.4285714286);
+  --line-height-small: calc(var(--font-size-small) + 4px);
+  --radius: 12.5px;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-full: 9999px;
+  --shadow-sm: 0 1px 2px -1px rgb(0 0 0 / 8%);
+  --checkmark-image: url(&quot;data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; viewBox=&#x27;0 0 17 17&#x27;%3E%3Cpath d=&#x27;M12.8961 3.64101C13.1297 3.41418 13.4984 3.37523 13.7779 3.56581C14.0571 3.75635 14.1554 4.11331 14.0299 4.41347L13.9615 4.53847L7.71151 13.7045C7.59411 13.8767 7.4063 13.9877 7.19881 14.0072C6.99136 14.0267 6.78564 13.9533 6.63826 13.806L2.88826 10.056L2.79842 9.9457C2.6192 9.67407 2.64927 9.30496 2.88826 9.06581C3.12738 8.82669 3.49647 8.79676 3.76815 8.97597L3.8785 9.06581L7.03084 12.2182L12.8053 3.74941L12.8961 3.64101Z&#x27;/%3E%3C/svg%3E&quot;);
+
+  /* Legacy aliases; not part of the current agent contract. */
+  --viz-bg: transparent;
+  --viz-panel: var(--card);
+  --viz-border: var(--border);
+  --viz-text: var(--foreground);
+  --viz-muted: var(--muted-foreground);
+  --viz-accent: var(--primary);
+  --viz-accent-text: var(--primary-foreground);
+  --viz-accent-bg: var(--accent);
+  --viz-font-size: var(--font-size-base);
+  --viz-warning: var(--destructive);
+  --color-background-primary: var(--background);
+  --color-text-primary: var(--foreground);
+  --color-border-secondary: var(--border);
+}
+
+:root[data-theme=&quot;light&quot;] {
+  color-scheme: light;
+}
+
+:root[data-theme=&quot;dark&quot;] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html &gt; body {
+  margin: 0;
+  padding: 5px;
+  color: var(--foreground);
+  background: transparent !important;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-normal);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+}
+
+a {
+  color: color-mix(in srgb, var(--viz-accent) 80%, var(--viz-text) 20%);
+  cursor: pointer;
+  font-weight: var(--viz-font-weight-medium);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+
+a:is(:hover, :focus-visible) {
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-thickness: 0.5px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin-block: 0;
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}
+
+b,
+strong,
+th {
+  font-weight: var(--font-weight-medium);
+}
+
+code:not(pre code) {
+  display: inline;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  corner-shape: superellipse(1.5);
+  background: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  word-break: break-word;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--foreground);
+  font: inherit;
+  text-align: start;
+}
+
+.table :is(th, td) {
+  padding-block: 10px;
+  padding-inline: 0 24px;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.table-responsive &gt; .table :is(th, td) {
+  overflow-wrap: break-word;
+}
+
+.table :is(th, td):last-child {
+  padding-inline-end: 0;
+}
+
+.table :is(caption, thead th) {
+  font-weight: 600;
+}
+
+.table thead th {
+  padding-block: 8px;
+  border-bottom-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+
+.table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.table.table-sm :is(th, td) {
+  padding-block: 6px;
+}
+
+.table.table-sm :is(th, td):not(:last-child) {
+  padding-inline-end: 16px;
+}
+
+.table :is(.text-end, [align=&quot;right&quot;]) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.table :is(.text-center, [align=&quot;center&quot;]) {
+  text-align: center;
+}
+
+.table .text-nowrap {
+  white-space: nowrap;
+}
+
+#widget {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: transparent !important;
+}
+
+.card {
+  min-width: 0;
+  padding: 12px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  border-radius: var(--radius-2xl);
+  corner-shape: superellipse(1.5);
+  color: var(--card-foreground);
+  background: var(--card);
+}
+
+#widget &gt; :not(.card) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(
+    20rem,
+    var(--tooltip-available-width, calc(100vw - 10px)),
+    calc(100vw - 10px)
+  );
+  max-height: min(
+    var(--tooltip-available-height, calc(100vh - 10px)),
+    calc(100vh - 10px)
+  );
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  corner-shape: superellipse(1.5);
+  color: var(--popover-foreground);
+  background: var(--popover);
+  box-shadow: none;
+  font-size: var(--font-size-tooltip);
+  line-height: var(--line-height-tooltip);
+  overflow-wrap: break-word;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(max(180px, 24%), 1fr));
+  gap: 10px;
+}
+
+.viz-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.viz-stat-value {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+}
+
+.viz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.viz-badge {
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  color: var(--accent-foreground);
+  background: var(--accent);
+  font-weight: var(--font-weight-medium);
+}
+
+small,
+.text-small,
+.viz-badge {
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viz-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.viz-controls &gt; .form-label {
+  display: grid;
+  min-width: min(100%, 260px);
+  flex: 1 1 280px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin-bottom: 0;
+}
+
+.viz-controls &gt; .form-label &gt; :is(.form-control, .form-range, .form-select) {
+  grid-column: 1 / -1;
+}
+
+.btn,
+.form-check-input,
+.form-control,
+.form-range,
+.form-select {
+  font: inherit;
+}
+
+.btn {
+  appearance: button;
+  display: inline-flex;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0 8px;
+  -webkit-app-region: no-drag;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: superellipse(1.5);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: var(--cursor-interaction, pointer);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn:is(.btn-block, .viz-tile) {
+  inline-size: 100%;
+}
+
+.btn.viz-tile {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.btn {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn-primary {
+  border-color: transparent;
+  color: var(--primary-foreground);
+  background: var(--foreground);
+  background-clip: padding-box;
+}
+
+.btn-primary .text-muted {
+  color: color-mix(in srgb, var(--primary-foreground) 50%, transparent);
+}
+
+.btn-primary:not(:disabled):hover {
+  background: color-mix(in srgb, var(--foreground) 80%, transparent);
+  background-clip: padding-box;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--muted-foreground);
+  background: transparent;
+}
+
+.btn-ghost:not(:disabled):hover {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+[data-lucide] {
+  stroke-width: 1.6;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--foreground);
+}
+
+.form-control {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: superellipse(1.5);
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+}
+
+.form-control[type=&quot;file&quot;] {
+  padding: 0;
+  overflow: hidden;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control[type=&quot;file&quot;]::file-selector-button {
+  min-height: 26px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--input);
+  color: var(--secondary-foreground);
+  background: var(--secondary);
+  cursor: inherit;
+  font: inherit;
+}
+
+.form-control[type=&quot;file&quot;]:not(:disabled):hover::file-selector-button {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-control-color[type=&quot;color&quot;] {
+  width: 40px;
+  height: 28px;
+  padding: 3px;
+  cursor: var(--cursor-interaction, pointer);
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.form-control-color[type=&quot;color&quot;]::-webkit-color-swatch {
+  border: 0;
+  border-radius: calc(var(--radius-lg) - 4px);
+  corner-shape: superellipse(1.5);
+}
+
+textarea.form-control {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.form-control:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.form-select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  padding: 0 32px 0 8px;
+  outline: none;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  corner-shape: superellipse(1.5);
+  color: var(--foreground);
+  background-color: var(--secondary);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted-foreground) 50%),
+    linear-gradient(135deg, var(--muted-foreground) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-repeat: no-repeat;
+  background-size: 4px 4px;
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-select:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--foreground) 6%, var(--secondary));
+}
+
+.form-select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-check {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-check-input {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--input);
+  color: var(--primary-foreground);
+  background-color: transparent;
+  cursor: var(--cursor-interaction, default);
+  transition:
+    background-color 150ms,
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;] {
+  border-color: var(--input);
+  border-radius: var(--radius-sm);
+  corner-shape: superellipse(1.5);
+  background-color: var(--secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input:not(:disabled):not(:checked):hover {
+  background-color: var(--card);
+}
+
+.form-check:not(.form-switch) .form-check-input[type=&quot;checkbox&quot;]:checked {
+  border-color: var(--primary);
+  background-color: var(--primary);
+}
+
+.form-check:not(.form-switch)
+  .form-check-input[type=&quot;checkbox&quot;]:checked::before {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--primary-foreground);
+  content: &quot;&quot;;
+  mask: var(--checkmark-image) center / 12px 12px no-repeat;
+}
+
+.form-check-input[type=&quot;radio&quot;] {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+}
+
+.form-check-input[type=&quot;radio&quot;]:checked {
+  border: 2px solid var(--primary);
+  background:
+    radial-gradient(circle, var(--primary-foreground) 0 2.5px, transparent 3px),
+    var(--primary);
+}
+
+.form-check:not(.form-switch) .form-check-input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.form-check:not(.form-switch) .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+}
+
+.form-switch .form-check-input:disabled,
+.form-switch .form-check-input:disabled + .form-check-label {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.form-check-label {
+  color: var(--foreground);
+  cursor: var(--cursor-interaction, default);
+}
+
+.form-switch .form-check-input {
+  position: relative;
+  width: 32px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  box-shadow: none;
+  transition: background-color 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input::before {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  border: 1px solid light-dark(var(--primary-foreground), var(--foreground));
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+  box-shadow: var(--shadow-sm);
+  content: &quot;&quot;;
+  transform: translate(2px, -50%);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.form-switch .form-check-input:checked {
+  background: var(--primary);
+}
+
+.form-switch .form-check-input:checked::before {
+  transform: translate(14px, -50%);
+}
+
+.form-switch .form-check-input:focus-visible {
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.form-range {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 28px;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  border: 0;
+  accent-color: var(--primary);
+  background: linear-gradient(
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      color-mix(in srgb, var(--foreground) 7%, transparent)
+    )
+    center / 100% 2px no-repeat;
+}
+
+.form-range::-webkit-slider-runnable-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-webkit-slider-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range::-moz-range-track {
+  height: 28px;
+  background: transparent;
+}
+
+.form-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: light-dark(var(--primary-foreground), var(--foreground));
+}
+
+.form-range:focus-visible::-moz-range-thumb {
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+
+.form-range:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.btn:not(.btn-primary, .viz-tile):is(
+    [aria-pressed=&quot;true&quot;],
+    [aria-selected=&quot;true&quot;],
+    .is-selected
+  ) {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.btn.viz-tile:is([aria-pressed=&quot;true&quot;], [aria-selected=&quot;true&quot;], .is-selected) {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+#widget &gt; svg {
+  width: 100%;
+}
+
+.text-warning,
+.text-destructive {
+  color: var(--destructive);
+}
+
+html&gt;body{padding:0}&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;style&gt;
+  #fd-cloud-render-plan {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    width: 100%;
+    color: var(--foreground);
+  }
+
+  #fd-cloud-render-plan .plan-hero,
+  #fd-cloud-render-plan .plan-section,
+  #fd-cloud-render-plan .plan-subsection {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  #fd-cloud-render-plan .plan-kicker {
+    color: var(--muted-foreground);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  #fd-cloud-render-plan .plan-lede {
+    max-width: 68ch;
+  }
+
+  #fd-cloud-render-plan .plan-decision {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+    align-items: start;
+  }
+
+  #fd-cloud-render-plan .plan-decision-mark {
+    width: 4px;
+    height: 100%;
+    min-height: 56px;
+    border-radius: 999px;
+    background: var(--viz-series-1);
+  }
+
+  #fd-cloud-render-plan .plan-section-heading {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  #fd-cloud-render-plan .plan-section-number {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    color: var(--primary-foreground);
+    background: var(--primary);
+  }
+
+  #fd-cloud-render-plan .plan-pipeline {
+    display: grid;
+    grid-template-columns:
+      minmax(84px, 1fr) auto minmax(96px, 1.1fr) auto minmax(88px, 1fr)
+      auto minmax(118px, 1.35fr) auto minmax(88px, 1fr);
+    gap: 6px;
+    align-items: stretch;
+  }
+
+  #fd-cloud-render-plan .plan-node {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    min-height: 78px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--foreground);
+    background: var(--muted);
+  }
+
+  #fd-cloud-render-plan .plan-node[data-kind=&quot;existing&quot;] {
+    background: color-mix(in srgb, var(--viz-series-6) 11%, transparent);
+  }
+
+  #fd-cloud-render-plan .plan-node[data-kind=&quot;compute&quot;] {
+    background: color-mix(in srgb, var(--viz-series-1) 13%, transparent);
+  }
+
+  #fd-cloud-render-plan .plan-node[data-kind=&quot;storage&quot;] {
+    background: color-mix(in srgb, var(--viz-series-2) 12%, transparent);
+  }
+
+  #fd-cloud-render-plan .plan-node[data-kind=&quot;result&quot;] {
+    background: color-mix(in srgb, var(--viz-series-3) 12%, transparent);
+  }
+
+  #fd-cloud-render-plan .plan-arrow {
+    display: grid;
+    place-items: center;
+    color: var(--muted-foreground);
+  }
+
+  #fd-cloud-render-plan .plan-pool {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+    margin-top: 5px;
+  }
+
+  #fd-cloud-render-plan .plan-shard {
+    display: grid;
+    place-items: center;
+    min-height: 28px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--viz-series-1) 24%, transparent);
+  }
+
+  #fd-cloud-render-plan .plan-legend,
+  #fd-cloud-render-plan .plan-inline-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px 14px;
+    align-items: center;
+  }
+
+  #fd-cloud-render-plan .plan-legend-item {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    color: var(--muted-foreground);
+  }
+
+  #fd-cloud-render-plan .plan-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    background: var(--muted);
+  }
+
+  #fd-cloud-render-plan .plan-swatch[data-kind=&quot;existing&quot;] {
+    background: color-mix(in srgb, var(--viz-series-6) 42%, transparent);
+  }
+
+  #fd-cloud-render-plan .plan-swatch[data-kind=&quot;compute&quot;] {
+    background: color-mix(in srgb, var(--viz-series-1) 46%, transparent);
+  }
+
+  #fd-cloud-render-plan .plan-swatch[data-kind=&quot;storage&quot;] {
+    background: color-mix(in srgb, var(--viz-series-2) 44%, transparent);
+  }
+
+  #fd-cloud-render-plan .plan-swatch[data-kind=&quot;result&quot;] {
+    background: color-mix(in srgb, var(--viz-series-3) 44%, transparent);
+  }
+
+  #fd-cloud-render-plan .plan-budget {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  #fd-cloud-render-plan .plan-budget-step {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 92px;
+    padding: 10px;
+    border-radius: 8px;
+    background: var(--muted);
+  }
+
+  #fd-cloud-render-plan .plan-budget-step[data-emphasis=&quot;true&quot;] {
+    background: color-mix(in srgb, var(--viz-series-1) 16%, transparent);
+  }
+
+  #fd-cloud-render-plan .plan-budget-time {
+    font-variant-numeric: tabular-nums;
+  }
+
+  #fd-cloud-render-plan .plan-shard-visual {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 3px;
+  }
+
+  #fd-cloud-render-plan .plan-shard-bar {
+    display: flex;
+    flex-direction: column;
+    justify-content: end;
+    gap: 4px;
+    min-height: 72px;
+  }
+
+  #fd-cloud-render-plan .plan-shard-fill {
+    height: 34px;
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--viz-series-1) 38%, transparent);
+  }
+
+  #fd-cloud-render-plan .plan-shard-bar:nth-child(3n + 2) .plan-shard-fill {
+    background: color-mix(in srgb, var(--viz-series-1) 28%, transparent);
+  }
+
+  #fd-cloud-render-plan .plan-shard-bar:nth-child(3n) .plan-shard-fill {
+    background: color-mix(in srgb, var(--viz-series-1) 20%, transparent);
+  }
+
+  #fd-cloud-render-plan .plan-code {
+    display: grid;
+    gap: 6px;
+    padding: 12px;
+    border-left: 3px solid var(--viz-series-1);
+    background: var(--muted);
+    overflow-wrap: anywhere;
+  }
+
+  #fd-cloud-render-plan .plan-timeline {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+    padding: 0;
+    list-style: none;
+  }
+
+  #fd-cloud-render-plan .plan-phase {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding-top: 10px;
+    border-top: 4px solid var(--border);
+  }
+
+  #fd-cloud-render-plan .plan-phase[data-state=&quot;critical&quot;] {
+    border-top-color: var(--viz-series-1);
+  }
+
+  #fd-cloud-render-plan .plan-phase[data-state=&quot;ship&quot;] {
+    border-top-color: var(--viz-series-3);
+  }
+
+  #fd-cloud-render-plan .plan-checklist,
+  #fd-cloud-render-plan .plan-risks,
+  #fd-cloud-render-plan .plan-sources {
+    display: grid;
+    gap: 9px;
+    margin: 0;
+    padding-left: 22px;
+  }
+
+  #fd-cloud-render-plan .plan-risk {
+    display: grid;
+    grid-template-columns: minmax(105px, 0.75fr) minmax(0, 1.8fr);
+    gap: 10px;
+    align-items: start;
+  }
+
+  #fd-cloud-render-plan .plan-gate {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px;
+    align-items: start;
+  }
+
+  #fd-cloud-render-plan .plan-gate-mark {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    color: var(--primary-foreground);
+    background: var(--primary);
+  }
+
+  #fd-cloud-render-plan .plan-note {
+    padding-left: 10px;
+    border-left: 2px solid var(--border);
+    color: var(--muted-foreground);
+  }
+
+  #fd-cloud-render-plan .plan-wide-table {
+    min-width: 640px;
+  }
+
+  @media (max-width: 680px) {
+    #fd-cloud-render-plan .plan-pipeline {
+      grid-template-columns: 1fr;
+    }
+
+    #fd-cloud-render-plan .plan-arrow {
+      min-height: 18px;
+      transform: rotate(90deg);
+    }
+
+    #fd-cloud-render-plan .plan-budget,
+    #fd-cloud-render-plan .plan-timeline {
+      grid-template-columns: 1fr;
+    }
+
+    #fd-cloud-render-plan .plan-budget-step {
+      min-height: 0;
+    }
+
+    #fd-cloud-render-plan .plan-shard-visual {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    #fd-cloud-render-plan .plan-risk {
+      grid-template-columns: 1fr;
+      gap: 3px;
+    }
+  }
+&lt;/style&gt;
+
+&lt;main id=&quot;fd-cloud-render-plan&quot; aria-label=&quot;FrameDiff cloud render implementation plan&quot;&gt;
+  &lt;section class=&quot;plan-hero&quot; aria-labelledby=&quot;plan-recommendation&quot;&gt;
+    &lt;div class=&quot;plan-kicker text-small&quot;&gt;Recommended execution strategy · July 2026&lt;/div&gt;
+    &lt;div class=&quot;plan-decision&quot;&gt;
+      &lt;div class=&quot;plan-decision-mark&quot; aria-hidden=&quot;true&quot;&gt;&lt;/div&gt;
+      &lt;div class=&quot;plan-subsection&quot;&gt;
+        &lt;h1 id=&quot;plan-recommendation&quot;&gt;Keep Render as the control plane. Add Cloud Run as the render plane.&lt;/h1&gt;
+        &lt;p class=&quot;plan-lede&quot;&gt;
+          The fastest path is a content-addressed, warm-capable pool of pinned Chrome workers that
+          render independent frame ranges in parallel, upload video-only segments, then stream-copy
+          stitch once and mux audio once.
+        &lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;viz-grid&quot; aria-label=&quot;Success gates&quot;&gt;
+      &lt;div class=&quot;card viz-stat&quot;&gt;
+        &lt;span class=&quot;text-muted&quot;&gt;Warm 1080p target&lt;/span&gt;
+        &lt;span class=&quot;viz-stat-value&quot;&gt;≤ 0.25× runtime&lt;/span&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;30 seconds of video in about 8 seconds&lt;/span&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;card viz-stat&quot;&gt;
+        &lt;span class=&quot;text-muted&quot;&gt;Cold dispatch target&lt;/span&gt;
+        &lt;span class=&quot;viz-stat-value&quot;&gt;≤ 8 seconds&lt;/span&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;Provisioning plus first useful shard&lt;/span&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;card viz-stat&quot;&gt;
+        &lt;span class=&quot;text-muted&quot;&gt;Exact-cache target&lt;/span&gt;
+        &lt;span class=&quot;viz-stat-value&quot;&gt;≤ 500 ms&lt;/span&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;Existing render becomes immediately downloadable&lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;plan-note text-small&quot;&gt;
+      These are launch gates to benchmark against, not assumed throughput. The first milestone exists
+      to measure FrameDiff’s real DOM, video, WebGPU, encode, and transfer costs.
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;architecture-heading&quot;&gt;
+    &lt;div class=&quot;plan-section-heading&quot;&gt;
+      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;1&lt;/span&gt;
+      &lt;h2 id=&quot;architecture-heading&quot;&gt;Target architecture&lt;/h2&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;plan-pipeline&quot; role=&quot;img&quot; aria-label=&quot;Studio submits a render to the existing Rust API. The API checks the content-addressed cache, creates immutable work, and dispatches shards through Cloud Tasks to Cloud Run L4 workers. Workers upload segments to object storage. A stitcher creates the final output and the Studio receives progress events.&quot;&gt;
+      &lt;div class=&quot;plan-node&quot; data-kind=&quot;existing&quot;&gt;
+        &lt;strong&gt;Hosted Studio&lt;/strong&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;Composition + output profile&lt;/span&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;plan-arrow&quot; aria-hidden=&quot;true&quot;&gt;→&lt;/div&gt;
+      &lt;div class=&quot;plan-node&quot; data-kind=&quot;existing&quot;&gt;
+        &lt;strong&gt;Rust API on Render&lt;/strong&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;Auth · fingerprint · job state · events&lt;/span&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;plan-arrow&quot; aria-hidden=&quot;true&quot;&gt;→&lt;/div&gt;
+      &lt;div class=&quot;plan-node&quot; data-kind=&quot;storage&quot;&gt;
+        &lt;strong&gt;Supabase&lt;/strong&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;Postgres + source/media/render CAS&lt;/span&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;plan-arrow&quot; aria-hidden=&quot;true&quot;&gt;→&lt;/div&gt;
+      &lt;div class=&quot;plan-node&quot; data-kind=&quot;compute&quot;&gt;
+        &lt;strong&gt;Cloud Tasks → Cloud Run L4&lt;/strong&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;8 vCPU · 32 GiB · one isolated shard per request&lt;/span&gt;
+        &lt;div class=&quot;plan-pool&quot; aria-hidden=&quot;true&quot;&gt;
+          &lt;span class=&quot;plan-shard&quot;&gt;0–74&lt;/span&gt;
+          &lt;span class=&quot;plan-shard&quot;&gt;75–149&lt;/span&gt;
+          &lt;span class=&quot;plan-shard&quot;&gt;…&lt;/span&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;plan-arrow&quot; aria-hidden=&quot;true&quot;&gt;→&lt;/div&gt;
+      &lt;div class=&quot;plan-node&quot; data-kind=&quot;result&quot;&gt;
+        &lt;strong&gt;Stitch + deliver&lt;/strong&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;Stream copy · audio mux · signed result URL&lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;plan-legend text-small&quot; aria-label=&quot;Architecture legend&quot;&gt;
+      &lt;span class=&quot;plan-legend-item&quot;&gt;&lt;span class=&quot;plan-swatch&quot; data-kind=&quot;existing&quot;&gt;&lt;/span&gt;existing hosted surface&lt;/span&gt;
+      &lt;span class=&quot;plan-legend-item&quot;&gt;&lt;span class=&quot;plan-swatch&quot; data-kind=&quot;storage&quot;&gt;&lt;/span&gt;durable state and bytes&lt;/span&gt;
+      &lt;span class=&quot;plan-legend-item&quot;&gt;&lt;span class=&quot;plan-swatch&quot; data-kind=&quot;compute&quot;&gt;&lt;/span&gt;new burst compute&lt;/span&gt;
+      &lt;span class=&quot;plan-legend-item&quot;&gt;&lt;span class=&quot;plan-swatch&quot; data-kind=&quot;result&quot;&gt;&lt;/span&gt;final artifact&lt;/span&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;plan-note text-small&quot;&gt;
+      Cloud Run is the recommended pilot because it supplies managed L4 drivers, can scale to zero,
+      starts GPU instances in roughly five seconds, and lets the API fan out private HTTP tasks.
+      Keep the worker protocol provider-neutral so Modal or a later ECS fleet can replace it without
+      changing the product API.
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;latency-heading&quot;&gt;
+    &lt;div class=&quot;plan-section-heading&quot;&gt;
+      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;2&lt;/span&gt;
+      &lt;h2 id=&quot;latency-heading&quot;&gt;Latency budget and the actual bottleneck&lt;/h2&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;plan-budget&quot; role=&quot;img&quot; aria-label=&quot;Warm latency budget: authenticate and fingerprint under 150 milliseconds, dispatch under 500 milliseconds, fetch hot inputs under one second, parallel raster and encode under five seconds, stitch and publish under two seconds.&quot;&gt;
+      &lt;div class=&quot;plan-budget-step&quot;&gt;
+        &lt;span&gt;Auth + fingerprint&lt;/span&gt;
+        &lt;strong class=&quot;plan-budget-time&quot;&gt;≤ 150 ms&lt;/strong&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;plan-budget-step&quot;&gt;
+        &lt;span&gt;Shard dispatch&lt;/span&gt;
+        &lt;strong class=&quot;plan-budget-time&quot;&gt;≤ 500 ms&lt;/strong&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;plan-budget-step&quot;&gt;
+        &lt;span&gt;Hot input fetch&lt;/span&gt;
+        &lt;strong class=&quot;plan-budget-time&quot;&gt;≤ 1 s&lt;/strong&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;plan-budget-step&quot; data-emphasis=&quot;true&quot;&gt;
+        &lt;span&gt;Parallel raster + encode&lt;/span&gt;
+        &lt;strong class=&quot;plan-budget-time&quot;&gt;≤ 5 s&lt;/strong&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;plan-budget-step&quot;&gt;
+        &lt;span&gt;Stitch + publish&lt;/span&gt;
+        &lt;strong class=&quot;plan-budget-time&quot;&gt;≤ 2 s&lt;/strong&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;table-responsive&quot;&gt;
+      &lt;table class=&quot;table table-sm plan-wide-table&quot;&gt;
+        &lt;thead&gt;
+          &lt;tr&gt;
+            &lt;th&gt;Current exporter behavior&lt;/th&gt;
+            &lt;th&gt;Why it is slow in cloud&lt;/th&gt;
+            &lt;th&gt;Planned change&lt;/th&gt;
+          &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody&gt;
+          &lt;tr&gt;
+            &lt;td&gt;Clones and rasterizes the full DOM through SVG for every frame&lt;/td&gt;
+            &lt;td&gt;Dominant CPU cost; a faster GPU does not remove it&lt;/td&gt;
+            &lt;td&gt;Parallelize independent frame ranges first; optimize rasterization only after traces prove the hot calls&lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td&gt;One browser page renders frames sequentially&lt;/td&gt;
+            &lt;td&gt;No frame-range parallelism&lt;/td&gt;
+            &lt;td&gt;Run 4–12 idempotent shards, each starting with a keyframe&lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td&gt;Every range performs its own audio scan and encode&lt;/td&gt;
+            &lt;td&gt;Duplicate work and AAC boundary risk&lt;/td&gt;
+            &lt;td&gt;Video-only shards; one deterministic full-range audio job; mux once&lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td&gt;Encoder queue permits only a small amount of overlap&lt;/td&gt;
+            &lt;td&gt;Raster and encode overlap, but only inside one process&lt;/td&gt;
+            &lt;td&gt;Keep local overlap and add horizontal worker overlap&lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td&gt;Outputs are not keyed as hosted render results&lt;/td&gt;
+            &lt;td&gt;Identical renders pay full cost repeatedly&lt;/td&gt;
+            &lt;td&gt;Exact render fingerprint → immutable output hash before dispatch&lt;/td&gt;
+          &lt;/tr&gt;
+        &lt;/tbody&gt;
+      &lt;/table&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;sharding-heading&quot;&gt;
+    &lt;div class=&quot;plan-section-heading&quot;&gt;
+      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;3&lt;/span&gt;
+      &lt;h2 id=&quot;sharding-heading&quot;&gt;Shard for short, balanced work—not tiny frame jobs&lt;/h2&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;plan-shard-visual&quot; role=&quot;img&quot; aria-label=&quot;A 900 frame, 30 second render is divided into twelve balanced ranges of 75 frames. Each shard should take about one to three seconds when warm.&quot;&gt;
+      &lt;div class=&quot;plan-shard-bar&quot;&gt;&lt;div class=&quot;plan-shard-fill&quot;&gt;&lt;/div&gt;&lt;span class=&quot;text-small text-muted&quot;&gt;0&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;plan-shard-bar&quot;&gt;&lt;div class=&quot;plan-shard-fill&quot;&gt;&lt;/div&gt;&lt;span class=&quot;text-small text-muted&quot;&gt;75&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;plan-shard-bar&quot;&gt;&lt;div class=&quot;plan-shard-fill&quot;&gt;&lt;/div&gt;&lt;span class=&quot;text-small text-muted&quot;&gt;150&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;plan-shard-bar&quot;&gt;&lt;div class=&quot;plan-shard-fill&quot;&gt;&lt;/div&gt;&lt;span class=&quot;text-small text-muted&quot;&gt;225&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;plan-shard-bar&quot;&gt;&lt;div class=&quot;plan-shard-fill&quot;&gt;&lt;/div&gt;&lt;span class=&quot;text-small text-muted&quot;&gt;300&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;plan-shard-bar&quot;&gt;&lt;div class=&quot;plan-shard-fill&quot;&gt;&lt;/div&gt;&lt;span class=&quot;text-small text-muted&quot;&gt;375&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;plan-shard-bar&quot;&gt;&lt;div class=&quot;plan-shard-fill&quot;&gt;&lt;/div&gt;&lt;span class=&quot;text-small text-muted&quot;&gt;450&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;plan-shard-bar&quot;&gt;&lt;div class=&quot;plan-shard-fill&quot;&gt;&lt;/div&gt;&lt;span class=&quot;text-small text-muted&quot;&gt;525&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;plan-shard-bar&quot;&gt;&lt;div class=&quot;plan-shard-fill&quot;&gt;&lt;/div&gt;&lt;span class=&quot;text-small text-muted&quot;&gt;600&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;plan-shard-bar&quot;&gt;&lt;div class=&quot;plan-shard-fill&quot;&gt;&lt;/div&gt;&lt;span class=&quot;text-small text-muted&quot;&gt;675&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;plan-shard-bar&quot;&gt;&lt;div class=&quot;plan-shard-fill&quot;&gt;&lt;/div&gt;&lt;span class=&quot;text-small text-muted&quot;&gt;750&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;plan-shard-bar&quot;&gt;&lt;div class=&quot;plan-shard-fill&quot;&gt;&lt;/div&gt;&lt;span class=&quot;text-small text-muted&quot;&gt;825&lt;/span&gt;&lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;viz-grid&quot;&gt;
+      &lt;div class=&quot;card&quot;&gt;
+        &lt;strong&gt;First-render policy&lt;/strong&gt;
+        &lt;p class=&quot;text-small text-muted&quot;&gt;Use equal ranges and cap parallelism at 12, the customer plan limit, and available GPU quota.&lt;/p&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;card&quot;&gt;
+        &lt;strong&gt;Adaptive policy&lt;/strong&gt;
+        &lt;p class=&quot;text-small text-muted&quot;&gt;Persist milliseconds per frame by composition class; size future shards for 1–3 seconds of compute.&lt;/p&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;card&quot;&gt;
+        &lt;strong&gt;Retry policy&lt;/strong&gt;
+        &lt;p class=&quot;text-small text-muted&quot;&gt;Retry only the failed range with the same idempotency key; never restart a healthy render.&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;plan-inline-list text-small&quot;&gt;
+      &lt;span class=&quot;viz-badge&quot;&gt;Frame ranges are half-open&lt;/span&gt;
+      &lt;span class=&quot;viz-badge&quot;&gt;Local timestamps restart at zero&lt;/span&gt;
+      &lt;span class=&quot;viz-badge&quot;&gt;First frame is an IDR&lt;/span&gt;
+      &lt;span class=&quot;viz-badge&quot;&gt;Codec config hash must match&lt;/span&gt;
+      &lt;span class=&quot;viz-badge&quot;&gt;No PNG frame fan-out&lt;/span&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;contract-heading&quot;&gt;
+    &lt;div class=&quot;plan-section-heading&quot;&gt;
+      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;4&lt;/span&gt;
+      &lt;h2 id=&quot;contract-heading&quot;&gt;Make every render immutable and cacheable&lt;/h2&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;plan-code&quot; aria-label=&quot;Render fingerprint formula&quot;&gt;
+      &lt;code&gt;render_fingerprint = BLAKE3(canonical_json({&lt;/code&gt;
+      &lt;code&gt;&amp;nbsp;source_bundle_hash, composition_id, engine_revision, chromium_build,&lt;/code&gt;
+      &lt;code&gt;&amp;nbsp;font_pack_hash, ordered_asset_hashes, output_profile, content_domain&lt;/code&gt;
+      &lt;code&gt;}))&lt;/code&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;table-responsive&quot;&gt;
+      &lt;table class=&quot;table table-sm plan-wide-table&quot;&gt;
+        &lt;thead&gt;
+          &lt;tr&gt;
+            &lt;th&gt;Contract&lt;/th&gt;
+            &lt;th&gt;Required fields&lt;/th&gt;
+            &lt;th&gt;Reason&lt;/th&gt;
+          &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody&gt;
+          &lt;tr&gt;
+            &lt;td class=&quot;text-nowrap&quot;&gt;&lt;code&gt;RenderManifestV1&lt;/code&gt;&lt;/td&gt;
+            &lt;td&gt;Fingerprint, bundle hash, composition, rational fps, dimensions, frame/content ranges, codec, bitrate, color profile&lt;/td&gt;
+            &lt;td&gt;The worker receives a complete, replayable recipe&lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td class=&quot;text-nowrap&quot;&gt;&lt;code&gt;RenderShardV1&lt;/code&gt;&lt;/td&gt;
+            &lt;td&gt;Job ID, shard index, start/end frame, attempt, deadline, upload grant&lt;/td&gt;
+            &lt;td&gt;Tasks are idempotent and individually retryable&lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td class=&quot;text-nowrap&quot;&gt;&lt;code&gt;SegmentReceiptV1&lt;/code&gt;&lt;/td&gt;
+            &lt;td&gt;Segment hash, bytes, exact frame count, duration, codec-config hash, first/last sample hashes&lt;/td&gt;
+            &lt;td&gt;The stitcher rejects gaps, overlaps, and incompatible segments&lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td class=&quot;text-nowrap&quot;&gt;&lt;code&gt;RuntimeIdentityV1&lt;/code&gt;&lt;/td&gt;
+            &lt;td&gt;Worker image digest, engine revision, Chrome version, GPU/encoder identity&lt;/td&gt;
+            &lt;td&gt;Hardware-compressed bytes need a runtime-aware cache key and provenance&lt;/td&gt;
+          &lt;/tr&gt;
+        &lt;/tbody&gt;
+      &lt;/table&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;plan-note text-small&quot;&gt;
+      A hosted render may start from a Git commit or an ephemeral Studio source bundle. Both paths
+      resolve to the same immutable &lt;code&gt;source_bundle_hash&lt;/code&gt;; cloud rendering must never read a
+      moving branch head.
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;repo-heading&quot;&gt;
+    &lt;div class=&quot;plan-section-heading&quot;&gt;
+      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;5&lt;/span&gt;
+      &lt;h2 id=&quot;repo-heading&quot;&gt;Implementation split by repository&lt;/h2&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;table-responsive&quot;&gt;
+      &lt;table class=&quot;table plan-wide-table&quot;&gt;
+        &lt;thead&gt;
+          &lt;tr&gt;
+            &lt;th&gt;Surface&lt;/th&gt;
+            &lt;th&gt;Scoped work&lt;/th&gt;
+            &lt;th&gt;Proof before merge&lt;/th&gt;
+          &lt;/tr&gt;
+        &lt;/thead&gt;
+        &lt;tbody&gt;
+          &lt;tr&gt;
+            &lt;td&gt;&lt;code&gt;framediff&lt;/code&gt; engine&lt;/td&gt;
+            &lt;td&gt;
+              Add per-phase timings; add video-only ranged export; force a keyframe at local frame
+              zero; emit segment metadata; separate one full-range audio render; expose a headless
+              cloud-runner entry point.
+            &lt;/td&gt;
+            &lt;td&gt;Range concatenation equals a one-pass render at sampled pre-encode pixels and exact frame count&lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td&gt;&lt;code&gt;framediff-hosted&lt;/code&gt; protocol&lt;/td&gt;
+            &lt;td&gt;
+              Add &lt;code&gt;RenderService&lt;/code&gt; create/get/watch/cancel RPCs and versioned render,
+              shard, event, and artifact messages.
+            &lt;/td&gt;
+            &lt;td&gt;Generated Rust and browser clients pass compatibility tests&lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td&gt;Hosted database&lt;/td&gt;
+            &lt;td&gt;
+              Add &lt;code&gt;render_jobs&lt;/code&gt;, &lt;code&gt;render_shards&lt;/code&gt;, and
+              &lt;code&gt;render_events&lt;/code&gt;; store output through the existing
+              &lt;code&gt;OBJECT_KIND_RENDER&lt;/code&gt; CAS path.
+            &lt;/td&gt;
+            &lt;td&gt;Workspace isolation, idempotent create, retry, cancellation, and cleanup integration tests&lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td&gt;Rust orchestration&lt;/td&gt;
+            &lt;td&gt;
+              Authorize requests, build fingerprints, short-circuit cache hits, issue narrow signed
+              grants, enqueue Cloud Tasks, aggregate frame-weighted progress, and finalize exactly once.
+            &lt;/td&gt;
+            &lt;td&gt;Duplicate requests and callbacks cannot create duplicate work or overwrite another workspace&lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td&gt;Worker + infrastructure&lt;/td&gt;
+            &lt;td&gt;
+              Pinned Chrome/Playwright/ffmpeg image on Cloud Run L4; concurrency one; min instances
+              zero for beta; bounded max instances; private Cloud Tasks ingress; optional warm
+              instance after demand justifies it.
+            &lt;/td&gt;
+            &lt;td&gt;DOM, video, WebGPU, cancellation, timeout, and cold-start test matrix&lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td&gt;Hosted Studio&lt;/td&gt;
+            &lt;td&gt;
+              Cloud render action, profile selection, queued/rendering/stitching states, ETA,
+              cancel, retry, download, and cache-hit disclosure.
+            &lt;/td&gt;
+            &lt;td&gt;Playwright path from project to downloadable MP4, including retry and cancellation&lt;/td&gt;
+          &lt;/tr&gt;
+          &lt;tr&gt;
+            &lt;td&gt;Vendor update&lt;/td&gt;
+            &lt;td&gt;
+              Land engine work in the public repo first, then advance
+              &lt;code&gt;vendor/framediff/REVISION&lt;/code&gt; in hosted. Never patch the hosted snapshot as the
+              source of truth.
+            &lt;/td&gt;
+            &lt;td&gt;Hosted build pins the exact tested public revision&lt;/td&gt;
+          &lt;/tr&gt;
+        &lt;/tbody&gt;
+      &lt;/table&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;timeline-heading&quot;&gt;
+    &lt;div class=&quot;plan-section-heading&quot;&gt;
+      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;6&lt;/span&gt;
+      &lt;h2 id=&quot;timeline-heading&quot;&gt;Four focused weeks to a guarded beta&lt;/h2&gt;
+    &lt;/div&gt;
+    &lt;ol class=&quot;plan-timeline&quot;&gt;
+      &lt;li class=&quot;plan-phase&quot; data-state=&quot;critical&quot;&gt;
+        &lt;strong&gt;Days 1–3&lt;/strong&gt;
+        &lt;span&gt;Instrument and baseline&lt;/span&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;DOM-only, video-overlay, and WebGPU comps at 1080p and 4K; warm and cold.&lt;/span&gt;
+        &lt;span class=&quot;viz-badge&quot;&gt;Gate: choose CPU vs L4 lane&lt;/span&gt;
+      &lt;/li&gt;
+      &lt;li class=&quot;plan-phase&quot; data-state=&quot;critical&quot;&gt;
+        &lt;strong&gt;Week 1&lt;/strong&gt;
+        &lt;span&gt;Single-worker vertical slice&lt;/span&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;Create job → immutable manifest → Cloud Task → one shard → stored MP4 → Studio download.&lt;/span&gt;
+        &lt;span class=&quot;viz-badge&quot;&gt;Gate: pixel and security parity&lt;/span&gt;
+      &lt;/li&gt;
+      &lt;li class=&quot;plan-phase&quot; data-state=&quot;critical&quot;&gt;
+        &lt;strong&gt;Week 2&lt;/strong&gt;
+        &lt;span&gt;Parallel range render&lt;/span&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;Video-only segments, audio once, 4–12-way fan-out, stream-copy stitch, shard retry.&lt;/span&gt;
+        &lt;span class=&quot;viz-badge&quot;&gt;Gate: ≤ 0.25× warm 1080p&lt;/span&gt;
+      &lt;/li&gt;
+      &lt;li class=&quot;plan-phase&quot;&gt;
+        &lt;strong&gt;Week 3&lt;/strong&gt;
+        &lt;span&gt;Cache and product UX&lt;/span&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;Exact-result cache, adaptive shard sizing, ETA, cancel, retry, signed delivery, quotas.&lt;/span&gt;
+        &lt;span class=&quot;viz-badge&quot;&gt;Gate: cache hit ≤ 500 ms&lt;/span&gt;
+      &lt;/li&gt;
+      &lt;li class=&quot;plan-phase&quot; data-state=&quot;ship&quot;&gt;
+        &lt;strong&gt;Week 4&lt;/strong&gt;
+        &lt;span&gt;Hardening and beta&lt;/span&gt;
+        &lt;span class=&quot;text-small text-muted&quot;&gt;Abuse limits, failure drills, cost caps, provenance, sample-hash parity, dashboards, staged rollout.&lt;/span&gt;
+        &lt;span class=&quot;viz-badge&quot;&gt;Ship: 5% → 25% → 100%&lt;/span&gt;
+      &lt;/li&gt;
+    &lt;/ol&gt;
+  &lt;/section&gt;
+
+  &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;gates-heading&quot;&gt;
+    &lt;div class=&quot;plan-section-heading&quot;&gt;
+      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;7&lt;/span&gt;
+      &lt;h2 id=&quot;gates-heading&quot;&gt;Launch gates&lt;/h2&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;viz-grid&quot;&gt;
+      &lt;div class=&quot;card plan-gate&quot;&gt;
+        &lt;span class=&quot;plan-gate-mark&quot; aria-hidden=&quot;true&quot;&gt;✓&lt;/span&gt;
+        &lt;div&gt;
+          &lt;strong&gt;Speed&lt;/strong&gt;
+          &lt;p class=&quot;text-small text-muted&quot;&gt;Warm p50 ≤ 0.25× runtime at 1080p; cold dispatch p95 ≤ 8 s; 4K target established from evidence.&lt;/p&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;card plan-gate&quot;&gt;
+        &lt;span class=&quot;plan-gate-mark&quot; aria-hidden=&quot;true&quot;&gt;✓&lt;/span&gt;
+        &lt;div&gt;
+          &lt;strong&gt;Correctness&lt;/strong&gt;
+          &lt;p class=&quot;text-small text-muted&quot;&gt;No missing/duplicate frames; exact duration; local/cloud sampled pixel hashes match before encode.&lt;/p&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;card plan-gate&quot;&gt;
+        &lt;span class=&quot;plan-gate-mark&quot; aria-hidden=&quot;true&quot;&gt;✓&lt;/span&gt;
+        &lt;div&gt;
+          &lt;strong&gt;Reliability&lt;/strong&gt;
+          &lt;p class=&quot;text-small text-muted&quot;&gt;≥ 99% job success excluding invalid projects; retry only failed shards; cancel stops new work in seconds.&lt;/p&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;card plan-gate&quot;&gt;
+        &lt;span class=&quot;plan-gate-mark&quot; aria-hidden=&quot;true&quot;&gt;✓&lt;/span&gt;
+        &lt;div&gt;
+          &lt;strong&gt;Security&lt;/strong&gt;
+          &lt;p class=&quot;text-small text-muted&quot;&gt;Untrusted composition code receives no provider credentials, no shared browser profile, and no unrestricted network.&lt;/p&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;card plan-gate&quot;&gt;
+        &lt;span class=&quot;plan-gate-mark&quot; aria-hidden=&quot;true&quot;&gt;✓&lt;/span&gt;
+        &lt;div&gt;
+          &lt;strong&gt;Economics&lt;/strong&gt;
+          &lt;p class=&quot;text-small text-muted&quot;&gt;Measured total compute and transfer cost stays below the product’s per-output-minute budget; hard quota prevents surprises.&lt;/p&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;card plan-gate&quot;&gt;
+        &lt;span class=&quot;plan-gate-mark&quot; aria-hidden=&quot;true&quot;&gt;✓&lt;/span&gt;
+        &lt;div&gt;
+          &lt;strong&gt;Operations&lt;/strong&gt;
+          &lt;p class=&quot;text-small text-muted&quot;&gt;Trace every job across queue, asset fetch, raster, encode, upload, stitch, and cache with job/shard IDs.&lt;/p&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;security-heading&quot;&gt;
+    &lt;div class=&quot;plan-section-heading&quot;&gt;
+      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;8&lt;/span&gt;
+      &lt;h2 id=&quot;security-heading&quot;&gt;Security and failure containment&lt;/h2&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;plan-risks&quot;&gt;
+      &lt;div class=&quot;plan-risk&quot;&gt;
+        &lt;strong&gt;Customer code escape&lt;/strong&gt;
+        &lt;span&gt;Run Chrome as an unprivileged user with its sandbox enabled; fresh context per task; block all page egress except the loopback asset proxy; keep cloud credentials outside the browser process.&lt;/span&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;plan-risk&quot;&gt;
+        &lt;strong&gt;Signed URL theft&lt;/strong&gt;
+        &lt;span&gt;Give each shard read grants for exact input hashes and one write grant for its expected object key; expire quickly; never expose database, GitHub, or storage-admin credentials.&lt;/span&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;plan-risk&quot;&gt;
+        &lt;strong&gt;Worker crash&lt;/strong&gt;
+        &lt;span&gt;Make callbacks idempotent, use leases and deadlines, retry a shard at most twice, and fail the job with a useful render log when the same deterministic error repeats.&lt;/span&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;plan-risk&quot;&gt;
+        &lt;strong&gt;Codec mismatch&lt;/strong&gt;
+        &lt;span&gt;Pin the full worker image and encoder settings; require one codec-config hash across receipts; reject stream-copy stitch if any segment differs.&lt;/span&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;plan-risk&quot;&gt;
+        &lt;strong&gt;Asset bottleneck&lt;/strong&gt;
+        &lt;span&gt;Prefetch declared hashes before Chrome starts; use byte-range reads; mirror the hot CAS into the render region only if transfer traces exceed 10% of wall time.&lt;/span&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;plan-risk&quot;&gt;
+        &lt;strong&gt;GPU quota or capacity&lt;/strong&gt;
+        &lt;span&gt;Request at least 12 L4 quota before beta; cap customer fan-out; retain a provider-neutral worker contract and a CPU fallback for DOM-only projects.&lt;/span&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;first-work-heading&quot;&gt;
+    &lt;div class=&quot;plan-section-heading&quot;&gt;
+      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;9&lt;/span&gt;
+      &lt;h2 id=&quot;first-work-heading&quot;&gt;The first ten implementation tickets&lt;/h2&gt;
+    &lt;/div&gt;
+    &lt;ol class=&quot;plan-checklist&quot;&gt;
+      &lt;li&gt;Add exporter timings for prepare, font embed, audio scan/mix, video decode, WebGPU capture, grade pass, DOM clone, SVG/image decode, bitmap transfer, encode, mux, and sink write.&lt;/li&gt;
+      &lt;li&gt;Create a reproducible benchmark pack: DOM title, video + overlay, and WebGPU/3D, each at 10 and 30 seconds, 1080p and 4K.&lt;/li&gt;
+      &lt;li&gt;Build the pinned Linux Chrome worker image and prove real hardware WebGPU via &lt;code&gt;chrome://gpu&lt;/code&gt; diagnostics—not SwiftShader.&lt;/li&gt;
+      &lt;li&gt;Add &lt;code&gt;includeAudio: false&lt;/code&gt; ranged export and a separate full-range audio export.&lt;/li&gt;
+      &lt;li&gt;Define and golden-test &lt;code&gt;RenderManifestV1&lt;/code&gt;, &lt;code&gt;RenderShardV1&lt;/code&gt;, and &lt;code&gt;SegmentReceiptV1&lt;/code&gt;.&lt;/li&gt;
+      &lt;li&gt;Add hosted render RPCs and database migrations with idempotent fingerprint creation.&lt;/li&gt;
+      &lt;li&gt;Deploy one private Cloud Run worker and Cloud Tasks queue; complete the single-shard vertical slice.&lt;/li&gt;
+      &lt;li&gt;Add 4–12-way fan-out, frame-weighted progress, segment validation, stream-copy stitch, and audio mux.&lt;/li&gt;
+      &lt;li&gt;Wire RenderManager and RenderControl to watch, cancel, retry, and download cloud jobs.&lt;/li&gt;
+      &lt;li&gt;Add exact-result caching, adaptive shard sizing, dashboards, quotas, security tests, and staged rollout flags.&lt;/li&gt;
+    &lt;/ol&gt;
+  &lt;/section&gt;
+
+  &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;avoid-heading&quot;&gt;
+    &lt;div class=&quot;plan-section-heading&quot;&gt;
+      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;10&lt;/span&gt;
+      &lt;h2 id=&quot;avoid-heading&quot;&gt;Do not put these on the first critical path&lt;/h2&gt;
+    &lt;/div&gt;
+    &lt;div class=&quot;plan-inline-list&quot;&gt;
+      &lt;span class=&quot;viz-badge&quot;&gt;Kubernetes&lt;/span&gt;
+      &lt;span class=&quot;viz-badge&quot;&gt;Cross-region rendering&lt;/span&gt;
+      &lt;span class=&quot;viz-badge&quot;&gt;Per-frame PNG storage&lt;/span&gt;
+      &lt;span class=&quot;viz-badge&quot;&gt;ProRes/DNxHR&lt;/span&gt;
+      &lt;span class=&quot;viz-badge&quot;&gt;Frame-level cache reuse&lt;/span&gt;
+      &lt;span class=&quot;viz-badge&quot;&gt;Spot-only capacity&lt;/span&gt;
+      &lt;span class=&quot;viz-badge&quot;&gt;Custom scheduler&lt;/span&gt;
+      &lt;span class=&quot;viz-badge&quot;&gt;WebSocket-only progress&lt;/span&gt;
+    &lt;/div&gt;
+    &lt;p class=&quot;plan-note text-small&quot;&gt;
+      Exact whole-render caching and 4–12 balanced shards deliver most of the speed with far less
+      operational surface. Add segment/subtree reuse, pro codecs, and multi-region placement only
+      after production traces identify their value.
+    &lt;/p&gt;
+  &lt;/section&gt;
+
+  &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;sources-heading&quot;&gt;
+    &lt;div class=&quot;plan-section-heading&quot;&gt;
+      &lt;span class=&quot;plan-section-number&quot; aria-hidden=&quot;true&quot;&gt;11&lt;/span&gt;
+      &lt;h2 id=&quot;sources-heading&quot;&gt;Current platform facts used in the recommendation&lt;/h2&gt;
+    &lt;/div&gt;
+    &lt;ol class=&quot;plan-sources text-small&quot;&gt;
+      &lt;li&gt;&lt;a href=&quot;https://docs.cloud.google.com/run/docs/configuring/services/gpu&quot;&gt;Cloud Run GPU services&lt;/a&gt; — managed L4/RTX GPUs, scale-to-zero, roughly five-second instance startup, one GPU per instance.&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://docs.cloud.google.com/run/docs/triggering/using-tasks&quot;&gt;Cloud Tasks with Cloud Run&lt;/a&gt; — authenticated, durable asynchronous HTTP task delivery.&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://cloud.google.com/run/docs/create-jobs&quot;&gt;Cloud Run jobs&lt;/a&gt; — parallel task model and limits; useful as a fallback, but the one-minute billing minimum makes services a better latency/cost fit for short shards.&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://developer.chrome.com/blog/supercharge-web-ai-testing&quot;&gt;Hardware WebGPU in headless Chrome&lt;/a&gt; — verify drivers and renderer identity; do not accept an accidental SwiftShader fallback.&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://cloud.google.com/run/pricing&quot;&gt;Cloud Run pricing&lt;/a&gt; — benchmark cost with actual CPU, memory, L4 seconds, and minimum billing behavior before setting product quotas.&lt;/li&gt;
+    &lt;/ol&gt;
+  &lt;/section&gt;
+&lt;/main&gt;
+
+&lt;script src=&quot;https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.umd.min.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  if (window.FloatingUIDOM == null) {
+    return;
+  }
+  const { autoUpdate, computePosition, flip, offset, shift, size } =
+    window.FloatingUIDOM;
+  const tooltipPlacements = new Set([&quot;top&quot;, &quot;right&quot;, &quot;bottom&quot;, &quot;left&quot;]);
+  const tooltipId = `codex-visualization-tooltip-${
+    window.crypto?.randomUUID?.() ?? Date.now().toString(36)
+  }`;
+  const tooltipGap = 5;
+  const hoverDelay = 700;
+  const skipDelay = 300;
+  let activeTrigger = null;
+  let pendingTrigger = null;
+  let tooltip = null;
+  let openTimeout = null;
+  let autoUpdateCleanup = null;
+  let positionRequest = 0;
+  let skipDelayUntil = 0;
+
+  const getTrigger = (target) =&gt;
+    target?.nodeType === Node.ELEMENT_NODE
+      ? target.closest(&quot;[data-tooltip]&quot;)
+      : null;
+  const containsTarget = (trigger, target) =&gt;
+    target?.nodeType != null &amp;&amp; trigger.contains(target);
+  const getContent = (trigger) =&gt;
+    trigger.getAttribute(&quot;data-tooltip&quot;)?.trim() ?? &quot;&quot;;
+  const getPlacement = (trigger) =&gt; {
+    const placement = trigger.getAttribute(&quot;data-tooltip-placement&quot;);
+    return tooltipPlacements.has(placement) ? placement : &quot;top&quot;;
+  };
+  const getTooltip = () =&gt; {
+    if (tooltip == null) {
+      tooltip = document.createElement(&quot;div&quot;);
+      tooltip.id = tooltipId;
+      tooltip.className = &quot;tooltip&quot;;
+      tooltip.setAttribute(&quot;role&quot;, &quot;tooltip&quot;);
+    }
+    return tooltip;
+  };
+  const setDescribedBy = (trigger, described) =&gt; {
+    const ids = new Set(
+      (trigger.getAttribute(&quot;aria-describedby&quot;) ?? &quot;&quot;)
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+    if (described) {
+      ids.add(tooltipId);
+    } else {
+      ids.delete(tooltipId);
+    }
+    if (ids.size === 0) {
+      trigger.removeAttribute(&quot;aria-describedby&quot;);
+    } else {
+      trigger.setAttribute(&quot;aria-describedby&quot;, [...ids].join(&quot; &quot;));
+    }
+  };
+  const clearOpenTimeout = () =&gt; {
+    if (openTimeout != null) {
+      window.clearTimeout(openTimeout);
+      openTimeout = null;
+    }
+    pendingTrigger = null;
+  };
+  const closeTooltip = (activateSkipDelay = true) =&gt; {
+    clearOpenTimeout();
+    positionRequest += 1;
+    autoUpdateCleanup?.();
+    autoUpdateCleanup = null;
+    if (activeTrigger == null) {
+      return;
+    }
+    setDescribedBy(activeTrigger, false);
+    activeTrigger = null;
+    tooltip?.remove();
+    if (activateSkipDelay) {
+      skipDelayUntil = Date.now() + skipDelay;
+    }
+  };
+  const updatePosition = (trigger, floating) =&gt; {
+    const request = ++positionRequest;
+    void computePosition(trigger, floating, {
+      middleware: [
+        offset(tooltipGap),
+        flip({ padding: tooltipGap }),
+        shift({ padding: tooltipGap }),
+        size({
+          padding: tooltipGap,
+          apply({ availableHeight, availableWidth, elements }) {
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-width&quot;,
+              `${Math.max(0, availableWidth)}px`,
+            );
+            elements.floating.style.setProperty(
+              &quot;--tooltip-available-height&quot;,
+              `${Math.max(0, availableHeight)}px`,
+            );
+          },
+        }),
+      ],
+      placement: getPlacement(trigger),
+      strategy: &quot;fixed&quot;,
+    })
+      .then(({ x, y }) =&gt; {
+        if (activeTrigger !== trigger || request !== positionRequest) {
+          return;
+        }
+        const scale = window.devicePixelRatio || 1;
+        floating.style.transform = `translate(${Math.round(x * scale) / scale}px, ${Math.round(y * scale) / scale}px)`;
+        floating.style.visibility = &quot;visible&quot;;
+      })
+      .catch(() =&gt; {
+        if (activeTrigger === trigger &amp;&amp; request === positionRequest) {
+          closeTooltip(false);
+        }
+      });
+  };
+  const openTooltip = (trigger) =&gt; {
+    const content = getContent(trigger);
+    if (!trigger.isConnected || content.length === 0) {
+      return;
+    }
+    clearOpenTimeout();
+    if (activeTrigger === trigger) {
+      return;
+    }
+    closeTooltip();
+    const floating = getTooltip();
+    floating.textContent = content;
+    floating.style.visibility = &quot;hidden&quot;;
+    floating.style.transform = &quot;translate(0, 0)&quot;;
+    document.body.appendChild(floating);
+    activeTrigger = trigger;
+    setDescribedBy(trigger, true);
+    autoUpdateCleanup = autoUpdate(trigger, floating, () =&gt; {
+      updatePosition(trigger, floating);
+    });
+  };
+  const requestOpen = (trigger, immediate = false) =&gt; {
+    if (
+      getContent(trigger).length === 0 ||
+      activeTrigger === trigger ||
+      pendingTrigger === trigger
+    ) {
+      return;
+    }
+    clearOpenTimeout();
+    pendingTrigger = trigger;
+    const delay =
+      immediate || activeTrigger != null || Date.now() &lt; skipDelayUntil
+        ? 0
+        : hoverDelay;
+    if (delay === 0) {
+      openTooltip(trigger);
+      return;
+    }
+    openTimeout = window.setTimeout(() =&gt; {
+      openTimeout = null;
+      pendingTrigger = null;
+      openTooltip(trigger);
+    }, delay);
+  };
+  const handlePointerOpen = (event) =&gt; {
+    if (event.pointerType === &quot;touch&quot;) {
+      return;
+    }
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    requestOpen(trigger);
+  };
+  const handleLeave = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (trigger == null || containsTarget(trigger, event.relatedTarget)) {
+      return;
+    }
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const handleFocusIn = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (trigger?.matches(&quot;:focus-visible&quot;)) {
+      requestOpen(trigger, true);
+    }
+  };
+  const handleKeyDown = (event) =&gt; {
+    if (event.key === &quot;Escape&quot;) {
+      closeTooltip();
+    }
+  };
+  const handleContextMenu = (event) =&gt; {
+    const trigger = getTrigger(event.target);
+    if (activeTrigger === trigger || pendingTrigger === trigger) {
+      closeTooltip();
+    }
+  };
+  const destroy = () =&gt; {
+    closeTooltip(false);
+    document.removeEventListener(&quot;pointerover&quot;, handlePointerOpen);
+    document.removeEventListener(&quot;pointerout&quot;, handleLeave);
+    document.removeEventListener(&quot;focusin&quot;, handleFocusIn);
+    document.removeEventListener(&quot;focusout&quot;, handleLeave);
+    document.removeEventListener(&quot;keydown&quot;, handleKeyDown);
+    document.removeEventListener(&quot;contextmenu&quot;, handleContextMenu);
+    tooltip = null;
+  };
+
+  document.addEventListener(&quot;pointerover&quot;, handlePointerOpen);
+  document.addEventListener(&quot;pointerout&quot;, handleLeave);
+  document.addEventListener(&quot;focusin&quot;, handleFocusIn);
+  document.addEventListener(&quot;focusout&quot;, handleLeave);
+  document.addEventListener(&quot;keydown&quot;, handleKeyDown);
+  document.addEventListener(&quot;contextmenu&quot;, handleContextMenu);
+  window.addEventListener(&quot;pagehide&quot;, destroy, { once: true });
+})();
+&lt;/script&gt;
+&lt;script id=&quot;codex-visualization-lucide&quot; async src=&quot;https://unpkg.com/lucide@1.17.0/dist/umd/lucide.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+(() =&gt; {
+  const initialize = () =&gt; {
+    globalThis.lucide?.createIcons({ attrs: { width: 16, height: 16 } });
+  };
+  if (globalThis.lucide != null) {
+    initialize();
+    return;
+  }
+  document
+    .getElementById(&quot;codex-visualization-lucide&quot;)
+    ?.addEventListener(&quot;load&quot;, initialize, { once: true });
+})();
+&lt;/script&gt;
+
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe>
+</body>
+</html>
