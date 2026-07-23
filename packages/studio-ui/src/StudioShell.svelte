@@ -47,7 +47,7 @@
   const media = new MediaViewModel(application.assets);
   const code = new CodeViewModel(application.source);
   const git = new GitViewModel(application.git);
-  const render = new RenderViewModel(application.render);
+  const render = new RenderViewModel(application.render, session);
   const generative = new GenerativeViewModel(application.generative, application.assets);
   const operations = new OperationsViewModel(application.operations);
   const services = new ServicesViewModel(application.credentials);
