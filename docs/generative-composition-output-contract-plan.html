@@ -718,8 +718,10 @@
       background: var(--bg);
     }
     .studio[data-screen="workbench"] .workbench,
+    .studio[data-screen="outputfit"] .workbench,
     .studio[data-screen="input"] .workbench { display: grid; }
     .studio[data-screen="workbench"] .empty-stage,
+    .studio[data-screen="outputfit"] .empty-stage,
     .studio[data-screen="input"] .empty-stage { display: none; }
 
     .gen-head {
@@ -893,6 +895,21 @@
     }
     .preview .preview-type strong { display: block; margin: 5px 0; color: var(--text); font-size: 14px; letter-spacing: normal; }
     .preview .preview-meta { position: absolute; left: 8px; bottom: 7px; color: var(--faint); font-family: var(--mono); font-size: 6px; }
+    .output-fit-button {
+      position: absolute;
+      right: 8px;
+      bottom: 7px;
+      padding: 5px 7px;
+      border: 1px solid rgba(224, 172, 87, .38);
+      border-radius: 6px;
+      background: rgba(14, 13, 11, .78);
+      color: var(--accent-2);
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: 6px;
+    }
+    .output-fit-button:hover { border-color: var(--accent); background: var(--panel-raised); }
+    .output-fit-button:disabled { opacity: .42; cursor: default; }
     .takes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 10px; }
     .take {
       padding: 8px;
@@ -906,11 +923,14 @@
     .take.draft { border-style: dashed; border-color: rgba(195, 165, 223, .4); color: var(--pink); }
     .take b { display: block; margin-bottom: 8px; color: var(--muted); font-size: 7px; }
 
-    .default-inspector, .input-inspector { height: 100%; overflow: auto; }
-    .input-inspector { display: none; }
+    .default-inspector, .input-inspector, .output-inspector { height: 100%; overflow: auto; }
+    .input-inspector, .output-inspector { display: none; }
     .studio[data-screen="input"] .default-inspector { display: none; }
     .studio[data-screen="input"] .input-inspector { display: block; }
+    .studio[data-screen="outputfit"] .default-inspector { display: none; }
+    .studio[data-screen="outputfit"] .output-inspector { display: block; }
     .input-inspector .panel-heading { color: var(--pink); }
+    .output-inspector .panel-heading { color: var(--accent); }
     .edge-scope {
       margin: 11px;
       padding: 9px;
@@ -990,6 +1010,86 @@
     }
     .apply-fit { width: 100%; margin-top: 10px; padding: 7px; border: 0; border-radius: 7px; background: var(--pink); color: #211824; cursor: pointer; font-size: 8px; font-weight: 800; }
 
+    .output-scope {
+      margin: 11px;
+      padding: 9px;
+      border: 1px solid rgba(224, 172, 87, .24);
+      border-radius: 8px;
+      background: rgba(224, 172, 87, .06);
+      color: var(--muted);
+      font-size: 8px;
+    }
+    .output-scope b { display: block; margin-bottom: 2px; color: var(--accent); font-family: var(--mono); font-size: 7px; }
+    .output-fit-preview {
+      position: relative;
+      height: 138px;
+      margin: 11px;
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: #050505;
+    }
+    .raw-generated {
+      position: absolute;
+      left: 24%;
+      top: -12%;
+      width: 52%;
+      height: 124%;
+      background:
+        radial-gradient(circle at 48% 45%, rgba(224, 172, 87, .35), transparent 13%),
+        linear-gradient(164deg, #243341, #0c1822 57%, #020405);
+      transition: all .2s ease;
+    }
+    .raw-generated::after {
+      position: absolute;
+      left: 42%;
+      bottom: 17%;
+      width: 17%;
+      height: 48%;
+      border-radius: 50% 50% 8% 8%;
+      background: #d9d2c0;
+      box-shadow: 0 0 22px rgba(224, 172, 87, .32);
+      content: "";
+      opacity: .75;
+    }
+    .output-fit-preview[data-output-fit="cover"] .raw-generated { left: 0; top: -56%; width: 100%; height: 212%; }
+    .output-fit-preview[data-output-fit="contain"] .raw-generated { left: 31%; top: 0; width: 38%; height: 100%; }
+    .output-fit-preview[data-output-fit="stretch"] .raw-generated { left: 0; top: 0; width: 100%; height: 100%; }
+    .output-fit-preview[data-output-fit="custom"] .raw-generated { left: -8%; top: -72%; width: 116%; height: 232%; }
+    .crop-region {
+      position: absolute;
+      left: 9%;
+      right: 9%;
+      top: 12%;
+      bottom: 12%;
+      border: 1px solid rgba(245, 239, 221, .78);
+      box-shadow: 0 0 0 999px rgba(0, 0, 0, .16);
+      pointer-events: none;
+    }
+    .crop-region::before, .crop-region::after {
+      position: absolute;
+      background: rgba(245, 239, 221, .34);
+      content: "";
+    }
+    .crop-region::before { left: 33.333%; top: 0; bottom: 0; width: 1px; box-shadow: calc((100% - 1px) / 2) 0 rgba(245, 239, 221, .34); }
+    .crop-region::after { left: 0; right: 0; top: 33.333%; height: 1px; box-shadow: 0 calc((100% - 1px) / 2) rgba(245, 239, 221, .34); }
+    .output-fit-preview[data-output-fit="contain"] .crop-region,
+    .output-fit-preview[data-output-fit="stretch"] .crop-region { opacity: .32; }
+    .output-fit-preview::after {
+      position: absolute;
+      right: 6px;
+      bottom: 5px;
+      padding: 2px 4px;
+      border-radius: 3px;
+      background: rgba(0, 0, 0, .66);
+      color: rgba(255,255,255,.75);
+      content: "COMP OUTPUT";
+      font-family: var(--mono);
+      font-size: 5px;
+    }
+    .output-fit-option.active { border-color: var(--accent); background: rgba(224, 172, 87, .08); color: var(--text); }
+    .apply-output-fit { width: 100%; margin-top: 10px; padding: 7px; border: 0; border-radius: 7px; background: var(--accent); color: #1b160f; cursor: pointer; font-size: 8px; font-weight: 800; }
+
     .annotation {
       position: absolute;
       z-index: 40;
@@ -1009,11 +1109,13 @@
     .studio[data-screen="output"] .annotation.output-note,
     .studio[data-screen="details"] .annotation.details-note,
     .studio[data-screen="workbench"] .annotation.workbench-note,
+    .studio[data-screen="outputfit"] .annotation.outputfit-note,
     .studio[data-screen="input"] .annotation.input-note { display: block; }
     .kind-note { left: calc(50% + 265px); top: 116px; }
     .output-note { left: calc(50% + 262px); top: 146px; }
     .details-note { left: calc(50% + 220px); top: 132px; }
     .workbench-note { right: 301px; top: 58px; }
+    .outputfit-note { right: 298px; top: 235px; }
     .input-note { right: 298px; top: 264px; }
 
     .prototype-caption {
@@ -1258,6 +1360,10 @@
       .studio-main { grid-template-columns: 1fr; }
       .rail { display: none; }
       .mobile-add { display: block; }
+      .studio[data-screen="outputfit"] .workspace,
+      .studio[data-screen="input"] .workspace { display: none; }
+      .studio[data-screen="outputfit"] .inspector,
+      .studio[data-screen="input"] .inspector { display: block; border-left: 0; }
       .card-grid, .output-grid { grid-template-columns: 1fr; }
       .choice-card { min-height: 110px; }
       .output-card { min-height: 170px; }
@@ -1300,7 +1406,7 @@
       <aside class="decision-card">
         <small>CORE PRODUCT DECISION</small>
         <strong>Immutable output.<br />Flexible recipe.</strong>
-        <p>Users may change the model, prompt, provider, parameters, takes, and inputs. The model picker only offers models that produce the comp’s declared output.</p>
+        <p>Users may change the model, prompt, provider, dimensions, parameters, takes, and inputs. The model picker is limited only by the comp’s declared media type—never by size, aspect, duration, or other output settings.</p>
       </aside>
     </section>
 
@@ -1323,7 +1429,8 @@
             <button class="screen-tab" data-go="output">2 · Output</button>
             <button class="screen-tab" data-go="details">3 · Details</button>
             <button class="screen-tab" data-go="workbench">4 · Workbench</button>
-            <button class="screen-tab" data-go="input">5 · Input handling</button>
+            <button class="screen-tab" data-go="outputfit">5 · Output fit</button>
+            <button class="screen-tab" data-go="input">6 · Input handling</button>
           </div>
         </div>
 
@@ -1374,7 +1481,7 @@
                     <span>MODEL</span>
                     <select id="model-select" aria-label="Generation model"></select>
                   </label>
-                  <span class="same-type">✓ same output</span>
+                  <span class="same-type">✓ type filter only</span>
                 </header>
                 <div class="gen-body">
                   <div class="recipe-pane">
@@ -1406,12 +1513,13 @@
                       <div class="preview-type">
                         GENERATIVE <span id="preview-kind">VIDEO</span>
                         <strong id="preview-title">Harbor Reshoot</strong>
-                        no take pinned — Generate runs the recipe
+                        take 5 pinned · comp output current
                       </div>
-                      <span class="preview-meta" id="preview-meta">1280×720 · 5s · 24fps</span>
+                      <span class="preview-meta" id="preview-meta">COMP 1920×1080 · MODEL 1280×720</span>
+                      <button class="output-fit-button" id="output-fit-button"><span id="output-fit-prefix">OUTPUT FIT</span> · <span id="output-fit-state">COVER</span> →</button>
                     </div>
                     <div class="takes">
-                      <div class="take draft"><b>TAKE 1 · DRAFT</b>editing now</div>
+                      <div class="take draft"><b>TAKE 6 · DRAFT</b>starts from pinned take 5</div>
                       <div class="take"><b>TAKES ARE TYPED</b>only <span id="typed-take-word">video</span> takes can pin here</div>
                       <div class="take"><b>PROVENANCE</b>output + input fit are hashed</div>
                     </div>
@@ -1453,6 +1561,33 @@
                   <div class="mini-field"><label>POSITION</label><select><option>Center</option><option>Top</option><option>Face / focal point</option></select></div>
                   <div class="mini-field"><label>MATTE</label><input type="text" value="#000000" /></div>
                   <button class="apply-fit" id="apply-fit">Apply to this input</button>
+                </div>
+              </div>
+
+              <div class="output-inspector">
+                <div class="panel-heading">OUTPUT FRAMING <span style="margin-left:auto">LOCAL</span></div>
+                <div class="output-scope">
+                  <b>NO RE-GENERATION</b>
+                  The raw take remains immutable. Framing and scale produce the comp’s derived output.
+                </div>
+                <div class="output-fit-preview" id="output-fit-preview" data-output-fit="cover">
+                  <div class="raw-generated"></div>
+                  <div class="crop-region"></div>
+                </div>
+                <div class="fit-section">
+                  <div class="fit-label"><span>MODEL TAKE</span><b id="raw-output-dims">1280×720 · raw</b></div>
+                  <div class="fit-label"><span>COMP OUTPUT</span><b id="comp-output-dims">1920×1080 · desired</b></div>
+                  <div class="fit-label" style="margin-top:10px"><span>FRAMING</span><b id="output-fit-label">Crop to fill</b></div>
+                  <div class="fit-options">
+                    <button class="fit-option output-fit-option active" data-output-fit="cover"><b>Crop to fill</b><small>Drag crop region</small></button>
+                    <button class="fit-option output-fit-option" data-output-fit="contain"><b>Fit inside</b><small>Letterbox / pillarbox</small></button>
+                    <button class="fit-option output-fit-option" data-output-fit="stretch"><b>Stretch</b><small>Exact target size</small></button>
+                    <button class="fit-option output-fit-option" data-output-fit="custom"><b>Custom crop</b><small>Position + region</small></button>
+                  </div>
+                  <div class="mini-field"><label>SCALE</label><select id="scale-method"><option>High-quality resize · local</option><option>AI upscale · separate job</option><option>Pixel exact / no upscale</option></select></div>
+                  <div class="mini-field"><label>POSITION</label><select><option>Center</option><option>Top</option><option>Custom crop region</option></select></div>
+                  <div class="mini-field"><label>MATTE</label><input type="text" value="#000000" /></div>
+                  <button class="apply-output-fit" id="apply-output-fit">Apply to comp output</button>
                 </div>
               </div>
             </aside>
@@ -1525,9 +1660,9 @@
                 <div class="details-layout">
                   <div>
                     <label class="field"><span>NAME</span><input id="comp-name" value="Harbor Reshoot" /></label>
-                    <label class="field"><span>STARTING MODEL · FILTERED TO <span id="model-filter-word">VIDEO</span></span><select id="details-model"></select></label>
+                    <label class="field"><span>STARTING MODEL · <span id="model-filter-word">VIDEO</span> OUTPUT ONLY</span><select id="details-model"></select></label>
                     <div class="field-row" id="type-specific-fields"></div>
-                    <div class="no-default" style="margin-top:3px"><b>MODEL MAY CHANGE</b> The workbench will continue to show every compatible <span id="inline-output-word">video</span> model.</div>
+                    <div class="no-default" style="margin-top:3px"><b>TYPE FILTER ONLY</b> Every <span id="inline-output-word">video</span>-output model stays visible, regardless of the current dimensions, aspect, or duration.</div>
                   </div>
                   <aside class="locked-contract">
                     <div class="lock-top"><span class="lock-icon">▣</span><small>OUTPUT CONTRACT</small></div>
@@ -1553,7 +1688,8 @@
           <aside class="annotation kind-note">“Generate” remains one composition family; choosing it reveals the media contract instead of overloading the existing Kind dropdown.</aside>
           <aside class="annotation output-note">No default selection. This is the one intentional pause that prevents downstream type ambiguity.</aside>
           <aside class="annotation details-note">The locked summary is visible before Create. A future type change is expressed as “Duplicate as another output,” never mutation.</aside>
-          <aside class="annotation workbench-note">The model picker is filtered by the locked output. Server-side validation enforces the same rule.</aside>
+          <aside class="annotation workbench-note">The picker is filtered only by locked media type. Dimensions, aspect, and duration never hide a same-output model.</aside>
+          <aside class="annotation outputfit-note">This happens after generation: raw take → crop/scale → desired comp dimensions. Local resize is free; AI upscale is an explicit separate job, never a creative re-generation.</aside>
           <aside class="annotation input-note">Sizing lives on the use-site edge, not on LighthouseVisitor itself. Select the input card to edit it.</aside>
         </div>
 
@@ -1578,7 +1714,7 @@
         <div class="flow-step"><span class="num">02</span><strong>Choose Generate</strong><p>Keep Generate alongside Edit, Moodboard, 3D, and other composition families.</p></div>
         <div class="flow-step"><span class="num">03</span><strong>Pick output</strong><p>Require an explicit Image, Video, or Audio selection. Do not preselect.</p></div>
         <div class="flow-step"><span class="num">04</span><strong>Set starting values</strong><p>Name, same-type model, and type-specific defaults. Show the lock before Create.</p></div>
-        <div class="flow-step"><span class="num">05</span><strong>Work freely</strong><p>Change model, inputs, prompt, provider, settings, and takes—within the output contract.</p></div>
+        <div class="flow-step"><span class="num">05</span><strong>Work freely</strong><p>Change model, desired dimensions, output framing, inputs, settings, and takes—within the locked media type.</p></div>
       </div>
     </section>
 
@@ -1594,6 +1730,7 @@
           <p>Add a required <code>output</code> field to generative recipe data. Build the composition descriptor and media element from that value, never from the selected model.</p>
           <ul>
             <li><code>output</code> is written at creation and excluded from normal recipe patch operations.</li>
+            <li>Desired width and height belong to the comp but remain editable; they are not part of the immutable media-type lock.</li>
             <li>Changing output means “Duplicate as Image / Video / Audio,” creating a new identity.</li>
             <li>Image comps expose one frame; edit placement owns how long the still is held.</li>
           </ul>
@@ -1601,16 +1738,49 @@
 
         <article class="plan-card">
           <h3><span class="pill">RULE 2</span> Model must match</h3>
-          <p>Filter the picker to <code>model.output === recipe.output</code>, then repeat that assertion in runtime update and generation submission paths.</p>
+          <p>Filter the picker only by <code>model.output === recipe.output</code>, then repeat that type assertion in runtime update and generation submission paths. Geometry and timing never participate in model visibility.</p>
           <ul>
             <li>A hand-authored mismatch produces a typed “model does not produce video” diagnostic.</li>
+            <li>Every same-output model remains visible regardless of current width, height, aspect, resolution, or duration.</li>
+            <li>When a selected model does not support a current value, keep the model selected and show an inline value warning with supported choices; do not hide the model or silently rewrite the recipe.</li>
             <li>Changing model never deletes inputs; incompatible roles are marked and block Generate.</li>
             <li>Historical takes with a different kind remain viewable/downloadable but cannot be pinned.</li>
           </ul>
         </article>
 
         <article class="plan-card wide">
-          <h3><span class="pill">RULE 3</span> Adaptation belongs to the edge</h3>
+          <h3><span class="pill">RULE 3</span> Normalize model output inside the comp</h3>
+          <p>The comp owns editable desired dimensions independently of the model’s native take dimensions. A local output transform turns the immutable raw take into the published comp output.</p>
+          <div class="contract-diagram">
+            <div class="diagram-node">
+              <small>RAW MODEL TAKE</small>
+              <strong>Seedance take 5</strong>
+              <code>720 × 1280<br />immutable portrait artifact</code>
+            </div>
+            <span class="diagram-arrow">→</span>
+            <div class="diagram-node edge" style="border-color:rgba(224,172,87,.28);background:rgba(224,172,87,.05)">
+              <small>OUTPUT TRANSFORM</small>
+              <strong>Crop + scale</strong>
+              <code>cover · crop [x,y,w,h]<br />high-quality upscale</code>
+            </div>
+            <span class="diagram-arrow">→</span>
+            <div class="diagram-node">
+              <small>COMP OUTPUT</small>
+              <strong>Harbor Reshoot</strong>
+              <code>1920 × 1080<br />timeline consumes this</code>
+            </div>
+          </div>
+          <ul>
+            <li>Changing desired dimensions, crop, position, matte, or local resize rebuilds only a derived artifact; it never resubmits the creative generation.</li>
+            <li>AI upscale, when chosen, is an explicit separate derivative job with its own cost and provenance—not a hidden generation side effect.</li>
+            <li>Keep raw take download/preview available alongside the normalized comp output.</li>
+            <li>Store crop regions in normalized coordinates so they survive raw resolution changes; the first version uses one spatial crop for the full video.</li>
+            <li>Use separate hashes: the provider-generation hash covers model request settings, while the presentation hash covers raw take + desired dimensions + output transform.</li>
+          </ul>
+        </article>
+
+        <article class="plan-card wide">
+          <h3><span class="pill">RULE 4</span> Input adaptation belongs to the edge</h3>
           <p>The source comp remains untouched. Each consumer stores how it wants to use that source, so the same portrait image can be cropped in one recipe, letterboxed in another, and passed through natively in a third.</p>
           <div class="contract-diagram">
             <div class="diagram-node">
@@ -1628,7 +1798,7 @@
             <div class="diagram-node">
               <small>CONSUMER / MODEL</small>
               <strong>Harbor Reshoot</strong>
-              <code>output: "video"<br />1280 × 720</code>
+              <code>model request<br />720 × 1280</code>
             </div>
           </div>
         </article>
@@ -1644,7 +1814,7 @@
         </article>
 
         <article class="plan-card">
-          <h3><span class="pill">FIT UX</span> Four visual policies</h3>
+          <h3><span class="pill">INPUT FIT</span> Four visual policies</h3>
           <p>Show policies only for image/video inputs when source and target geometry differ:</p>
           <ul>
             <li><strong>Source as-is</strong> — no preprocessing; default when the provider accepts arbitrary geometry.</li>
@@ -1656,10 +1826,17 @@
 
         <article class="plan-card wide">
           <h3><span class="pill">SOURCE SHAPE</span> Proposed authored representation</h3>
-          <p>The media kind is intentionally absent from the ref: it is resolved from the source. The role and adaptation are properties of this use.</p>
+          <p>Only media type is immutable. Desired dimensions and output fitting stay editable, and input refs keep their own pre-generation adaptation.</p>
           <div class="code-sample">{
   <span class="key">"output"</span>: <span class="str">"video"</span>,                      <span class="comment">// required, immutable</span>
+  <span class="key">"width"</span>: 1920, <span class="key">"height"</span>: 1080,            <span class="comment">// desired comp output; editable</span>
   <span class="key">"model"</span>: <span class="str">"seedance-2.0"</span>,              <span class="comment">// may change; must output video</span>
+  <span class="key">"resolution"</span>: <span class="str">"720p"</span>,                     <span class="comment">// raw model request; affects generation hash</span>
+  <span class="key">"outputFit"</span>: {                            <span class="comment">// post-generation; local presentation hash</span>
+    <span class="key">"mode"</span>: <span class="str">"cover"</span>,
+    <span class="key">"crop"</span>: [0.08, 0.12, 0.84, 0.76],
+    <span class="key">"scale"</span>: { <span class="key">"method"</span>: <span class="str">"lanczos3"</span>, <span class="key">"upscale"</span>: true }
+  },
   <span class="key">"refs"</span>: [{
     <span class="key">"src"</span>: <span class="str">"comp://lighthouse-visitor"</span>, <span class="comment">// resolves to image</span>
     <span class="key">"role"</span>: <span class="str">"start-frame"</span>,               <span class="comment">// consumer meaning</span>
@@ -1685,6 +1862,8 @@
           <tbody>
             <tr><td>Edit timeline</td><td>Still clip; timeline item owns hold duration</td><td>Timed clip with trim/rate behavior</td><td>Audio track item only</td><td><span class="status-pill">CHECK ON DROP</span></td></tr>
             <tr><td>Generative recipe</td><td>Image roles offered by selected model</td><td>Video/motion roles offered by model</td><td>Audio-guide roles offered by model</td><td><span class="status-pill">TYPE + ROLE</span></td></tr>
+            <tr><td>Raw model take</td><td colspan="3">Preserved exactly as returned by the provider; never overwritten by crop, scale, matte, or upscale choices</td><td><span class="status-pill">IMMUTABLE</span></td></tr>
+            <tr><td>Published comp output</td><td colspan="3">A locally derived artifact at the comp’s desired dimensions; this is what timelines and downstream comps consume</td><td><span class="status-pill">PRESENTATION HASH</span></td></tr>
             <tr><td>Nested comp / graph</td><td>Visual input with per-edge fit</td><td>Visual input with per-edge fit + time mapping</td><td>Audio-only edge; no visual canvas</td><td><span class="status-pill">EDGE CONTRACT</span></td></tr>
             <tr><td>Pin historical take</td><td colspan="3">Take output must exactly match the composition’s declared output</td><td><span class="status-pill">CHECK ON PIN</span></td></tr>
             <tr><td>Manual source edit</td><td colspan="3">Runtime renders an actionable invalid-recipe slate and refuses submission</td><td><span class="status-pill">SERVER ENFORCED</span></td></tr>
@@ -1696,23 +1875,28 @@
     <section class="section" id="delivery">
       <div class="section-head">
         <div><div class="eyebrow">Implementation plan</div><h2>Ship the invariant before the polish</h2></div>
-        <p>Each phase leaves the project coherent. The first two establish type safety; edge adaptation follows without changing the source-comp contract.</p>
+        <p>Each phase leaves the project coherent. Type safety comes first, followed by local output normalization and then downstream/input-edge behavior.</p>
       </div>
       <div class="roadmap">
         <article class="phase">
           <span class="phase-num"></span>
           <div><h3>Define the output contract</h3><div class="files">generative.ts<br />genModels.ts<br />studio-model/types.ts</div></div>
-          <p>Add <code>GenOutputKind</code> and required recipe <code>output</code>; derive composition metadata from it; add helpers to list compatible models and validate model/output pairs. Make new-composition requests a discriminated union so Generate must carry an output.</p>
+          <p>Add <code>GenOutputKind</code> and required recipe <code>output</code>; derive composition metadata from it; add helpers to list models by output type and validate model/output pairs. Do not accept geometry or timing criteria in that listing helper. Make new-composition requests a discriminated union so Generate must carry an output.</p>
         </article>
         <article class="phase">
           <span class="phase-num"></span>
           <div><h3>Create + edit guardrails</h3><div class="files">NewCompositionSheet.svelte<br />GenerativeWorkbench.svelte<br />studio-runtime/runtime.ts</div></div>
-          <p>Build the two-stage Generate branch shown above, write type-specific defaults, surface the locked badge, filter models, reject cross-type patches, and prevent mismatched generation submission or pinning.</p>
+          <p>Build the two-stage Generate branch shown above, write type-specific defaults, surface the locked badge, filter models by media type only, reject cross-type patches, and prevent mismatched generation submission or pinning. Model-specific dimension constraints appear inside the parameter controls after selection.</p>
+        </article>
+        <article class="phase">
+          <span class="phase-num"></span>
+          <div><h3>Local output normalization</h3><div class="files">GenerativeWorkbench.svelte<br />Inspector.svelte<br />artifact graph + render paths</div></div>
+          <p>Separate raw model dimensions from desired comp dimensions. Add raw/comp preview modes, crop-region editing, cover/contain/stretch/custom framing, matte, and local resize method. Cache the derived artifact by raw hash + target geometry + transform, without touching the provider-generation hash. Treat AI upscale as an optional explicit derivative job with separate cost/provenance.</p>
         </article>
         <article class="phase">
           <span class="phase-num"></span>
           <div><h3>Typed downstream use</h3><div class="files">CompositionRail.svelte<br />Timeline.svelte<br />nesting + authoring helpers</div></div>
-          <p>Add compact output badges, validate drops before edges are authored, route audio to audio tracks, hold images as stills, and keep video timing semantics. Add “Duplicate as another output…” as the escape hatch.</p>
+          <p>Add compact output badges, validate drops before edges are authored, route audio to audio tracks, hold images as stills, and keep video timing semantics. Downstream consumers receive the normalized comp output, while “Download raw take” remains available in the workbench.</p>
         </article>
         <article class="phase">
           <span class="phase-num"></span>
@@ -1735,19 +1919,23 @@
       <div class="confirm-grid">
         <div class="confirm"><span class="check">✓</span><div><strong>Explicit creation</strong><p>Create remains disabled until Image, Video, or Audio is deliberately selected.</p></div></div>
         <div class="confirm"><span class="check">✓</span><div><strong>Stable descriptor</strong><p>Changing model within the allowed set never changes <code>CompositionDescriptor.outputKind</code>.</p></div></div>
+        <div class="confirm"><span class="check">✓</span><div><strong>Geometry-neutral picker</strong><p>Changing size, aspect, resolution, or duration never removes a same-output model from either model picker.</p></div></div>
+        <div class="confirm"><span class="check">✓</span><div><strong>Desired output dimensions</strong><p>The normalized comp artifact exactly matches its editable target width and height, regardless of raw take dimensions.</p></div></div>
+        <div class="confirm"><span class="check">✓</span><div><strong>No paid rerun</strong><p>Changing crop, fit, matte, or local resize invalidates only the presentation artifact. AI upscale is a separate explicit job and never resubmits generation.</p></div></div>
+        <div class="confirm"><span class="check">✓</span><div><strong>Raw take preservation</strong><p>Raw provider bytes stay previewable and downloadable after any output-framing changes.</p></div></div>
         <div class="confirm"><span class="check">✓</span><div><strong>Defense in depth</strong><p>A cross-type patch, submit, or pin is rejected even when invoked without the Studio UI.</p></div></div>
         <div class="confirm"><span class="check">✓</span><div><strong>Typed drag/drop</strong><p>Invalid timeline and generation-input drops refuse before changing source.</p></div></div>
         <div class="confirm"><span class="check">✓</span><div><strong>Edge-local fit</strong><p>Two consumers can use the same source with different policies and different artifact hashes.</p></div></div>
         <div class="confirm"><span class="check">✓</span><div><strong>Legacy safety</strong><p>Existing recipes gain a deterministic lock; incompatible historical takes remain accessible.</p></div></div>
         <div class="confirm"><span class="check">✓</span><div><strong>Undoable edits</strong><p>Model, input role, and adaptation changes use existing source transactions and undo/redo.</p></div></div>
-        <div class="confirm"><span class="check">✓</span><div><strong>Provenance</strong><p>Generation records identify declared output and exact normalized input handling.</p></div></div>
+        <div class="confirm"><span class="check">✓</span><div><strong>Provenance</strong><p>Generation records preserve raw provider settings; presentation records capture desired dimensions, output transform, and normalized inputs.</p></div></div>
       </div>
     </section>
 
     <section class="section" id="confirm">
       <div class="section-head">
         <div><div class="eyebrow">Product calls to confirm</div><h2>Recommended defaults</h2></div>
-        <p>These are the four choices embodied in the prototype. None block the core type invariant, but confirming them keeps implementation focused.</p>
+        <p>These are the choices embodied in the prototype. None weaken the core type invariant, but confirming them keeps implementation focused.</p>
       </div>
       <div class="table-wrap">
         <table>
@@ -1755,14 +1943,17 @@
           <tbody>
             <tr><td>Where output selection lives</td><td>Second screen inside the Generate branch</td><td>Keeps the top-level composition taxonomy stable while making the media decision unmistakable.</td></tr>
             <tr><td>Default output selection</td><td>No preselection</td><td>The user’s explicit choice is the purpose of this flow; remembering or guessing a type reintroduces ambiguity.</td></tr>
+            <tr><td>Model filtering</td><td>Output media type only</td><td>Dimensions, aspect, resolution, and duration remain editable recipe settings and never remove a same-output model from the picker.</td></tr>
+            <tr><td>Desired output dimensions</td><td>Editable on the comp, independent of model-native dimensions</td><td>Any same-output model can be selected; its raw take is normalized to the comp’s target width and height afterward.</td></tr>
+            <tr><td>Output normalization</td><td>Local derived artifact by default</td><td>Crop, scale, letterbox, and matte never overwrite raw takes or spend generation credits; AI upscale is a separate explicit derivative job.</td></tr>
             <tr><td>Changing output later</td><td>Duplicate as another output</td><td>Preserves every existing timeline/input edge and makes identity change visible and undoable.</td></tr>
-            <tr><td>Default mismatch handling</td><td>Source as-is when supported; Fit inside when normalization is required</td><td>Avoids silently cropping reference information. Users can choose Crop to fill with a visible preview.</td></tr>
+            <tr><td>Default input mismatch handling</td><td>Source as-is when supported; Fit inside when normalization is required</td><td>Avoids silently cropping reference information. Users can choose Crop to fill with a visible preview.</td></tr>
           </tbody>
         </table>
       </div>
       <div class="recommendation">
         <strong>Recommended approval:</strong>
-        <p>Confirm the five-state flow and immutable contract now. Treat per-edge visual adaptation as the next slice of the same design: the schema should reserve it immediately, while the deterministic preprocessor and inspector can ship after the creation/model guardrails.</p>
+        <p>Confirm the immutable media type plus editable desired dimensions. Implement post-generation output framing as a derived artifact before downstream edge fitting, with separate generation and presentation hashes so crop/local scale never trigger a paid rerun and AI upscale remains an explicit separate job.</p>
       </div>
     </section>
 
@@ -1773,13 +1964,14 @@
     (() => {
       const studio = document.getElementById("studio");
       const tabs = [...document.querySelectorAll(".screen-tab")];
-      const screens = ["start", "kind", "output", "details", "workbench", "input"];
+      const screens = ["start", "kind", "output", "details", "workbench", "outputfit", "input"];
       const captions = {
         start: ["Studio", "Click the ＋ in Compositions to begin."],
         kind: ["Add composition", "Choose Generate from the existing composition families."],
         output: ["Output contract", "Pick Image, Video, or Audio. Nothing is selected for you."],
-        details: ["Starting setup", "The lock is visible before creation; the model is already filtered."],
-        workbench: ["Typed workbench", "Models, prompts, parameters, and inputs can change. Output cannot."],
+        details: ["Starting setup", "The lock is visible before creation; models are filtered by media type only."],
+        workbench: ["Typed workbench", "Dimensions remain editable and never filter the same-output model list."],
+        outputfit: ["Output framing", "Fit the raw model take to the comp’s desired dimensions without regenerating."],
         input: ["Per-edge handling", "Click an input to set source-size behavior for this use only."]
       };
       const outputs = {
@@ -1793,12 +1985,14 @@
             ["SIZE", "2048 × 2048"],
             ["ASPECT", "1:1"]
           ],
-          params: [["SIZE", "2048²"], ["ASPECT", "1:1"], ["QUALITY", "high"]],
+          params: [["MODEL RES", "1024p"], ["MODEL ASPECT", "3:4"], ["QUALITY", "high"]],
           desc: "Behaves as a single still frame everywhere in the project.",
           preview: "2048×2048 · 1 frame",
+          raw: "1024×1536",
+          desired: "2048×2048",
           cost: "$0.08",
           role: "STYLE REF",
-          target: "2048×2048 · 1:1"
+          target: "1024×1536 · 3:4"
         },
         video: {
           color: "var(--video)",
@@ -1812,14 +2006,16 @@
           ],
           fields: [
             ["DURATION", "5 seconds"],
-            ["FORMAT", "720p · 16:9"]
+            ["OUTPUT SIZE", "1920 × 1080"]
           ],
-          params: [["RES", "720p"], ["DURATION", "5s"], ["ASPECT", "16:9"]],
+          params: [["MODEL RES", "720p"], ["DURATION", "5s"], ["MODEL ASPECT", "9:16"]],
           desc: "Behaves as a time-based visual source everywhere in the project.",
-          preview: "1280×720 · 5s · 24fps",
+          preview: "1920×1080 · 5s · 24fps",
+          raw: "720×1280",
+          desired: "1920×1080",
           cost: "$1.21",
           role: "START FRAME",
-          target: "1280×720 · 16:9"
+          target: "720×1280 · 9:16"
         },
         audio: {
           color: "var(--audio)",
@@ -1834,6 +2030,8 @@
           params: [["DURATION", "14s"], ["SPEED", "1.0"], ["PITCH", "0"]],
           desc: "Behaves as time-based audio with no visual output dependency.",
           preview: "14s · stereo · 48 kHz",
+          raw: "stereo · 44.1 kHz",
+          desired: "stereo · 48 kHz",
           cost: "$0.12",
           role: "VOICE REF",
           target: "No visual target"
@@ -1841,7 +2039,9 @@
       };
       let output = "video";
       let chosenFit = "native";
+      let chosenOutputFit = "cover";
       const fitNames = { native: "Use source as-is", cover: "Crop to fill", contain: "Fit inside", stretch: "Stretch" };
+      const outputFitNames = { cover: "Crop to fill", contain: "Fit inside", stretch: "Stretch", custom: "Custom crop" };
 
       function selectOptions(element, items) {
         element.innerHTML = items.map(([value, label]) => `<option value="${value}">${label}</option>`).join("");
@@ -1862,11 +2062,17 @@
         document.getElementById("locked-output-label").textContent = `${output.toUpperCase()} OUTPUT · LOCKED`;
         document.getElementById("preview-kind").textContent = output.toUpperCase();
         document.getElementById("preview-title").textContent = cfg.name;
-        document.getElementById("preview-meta").textContent = cfg.preview;
+        document.getElementById("preview-meta").textContent = `COMP ${cfg.desired} · MODEL ${cfg.raw}`;
         document.getElementById("generate-cost").textContent = cfg.cost;
         document.getElementById("input-role").textContent = cfg.role;
         document.getElementById("target-dims").textContent = cfg.target;
         document.getElementById("typed-take-word").textContent = output;
+        document.getElementById("raw-output-dims").textContent = `${cfg.raw} · raw`;
+        document.getElementById("comp-output-dims").textContent = `${cfg.desired} · desired`;
+        const outputFitButton = document.getElementById("output-fit-button");
+        outputFitButton.disabled = output === "audio";
+        document.getElementById("output-fit-prefix").textContent = output === "audio" ? "NO SPATIAL FIT" : "OUTPUT FIT";
+        document.querySelector('[data-go="outputfit"]').disabled = output === "audio";
         document.getElementById("created-row-name").textContent = cfg.name;
         const createdOutput = document.getElementById("created-row-output");
         createdOutput.textContent = output.toUpperCase();
@@ -1893,7 +2099,7 @@
         const nextButton = document.getElementById("next-screen");
         nextButton.disabled = screen === "output";
         nextButton.textContent = index === screens.length - 1 ? "Restart ↺" : screen === "output" ? "Pick a type" : "Next →";
-        const created = screen === "workbench" || screen === "input";
+        const created = screen === "workbench" || screen === "outputfit" || screen === "input";
         document.getElementById("crumb-name").textContent = created ? outputs[output].name : "Main";
         document.getElementById("main-row").classList.toggle("active", !created);
         document.getElementById("created-row").classList.toggle("active", created);
@@ -1905,7 +2111,7 @@
         document.getElementById("inspector-measure-label").textContent = output === "audio" && created ? "FORMAT" : "SIZE";
         document.getElementById("inspector-measure").textContent = created ? outputs[output].preview.split(" · ")[0] : "1920 × 1080";
         document.getElementById("inspector-duration").textContent = created ? outputs[output].preview : "240f · 30fps";
-        if (screen === "details" || screen === "workbench" || screen === "input") renderOutput();
+        if (screen === "details" || screen === "workbench" || screen === "outputfit" || screen === "input") renderOutput();
       }
 
       document.querySelectorAll("[data-go]").forEach((button) => button.addEventListener("click", () => go(button.dataset.go)));
@@ -1923,14 +2129,27 @@
         go("workbench");
       });
       document.getElementById("input-card").addEventListener("click", () => go("input"));
-      document.querySelectorAll(".fit-option").forEach((button) => button.addEventListener("click", () => {
+      document.getElementById("output-fit-button").addEventListener("click", () => {
+        if (output !== "audio") go("outputfit");
+      });
+      document.querySelectorAll(".input-inspector .fit-option").forEach((button) => button.addEventListener("click", () => {
         chosenFit = button.dataset.fit;
-        document.querySelectorAll(".fit-option").forEach((item) => item.classList.toggle("active", item === button));
+        document.querySelectorAll(".input-inspector .fit-option").forEach((item) => item.classList.toggle("active", item === button));
         document.getElementById("fit-preview").dataset.fit = chosenFit;
         document.getElementById("fit-label").textContent = fitNames[chosenFit];
       }));
+      document.querySelectorAll(".output-fit-option").forEach((button) => button.addEventListener("click", () => {
+        chosenOutputFit = button.dataset.outputFit;
+        document.querySelectorAll(".output-fit-option").forEach((item) => item.classList.toggle("active", item === button));
+        document.getElementById("output-fit-preview").dataset.outputFit = chosenOutputFit;
+        document.getElementById("output-fit-label").textContent = outputFitNames[chosenOutputFit];
+      }));
       document.getElementById("apply-fit").addEventListener("click", () => {
         document.getElementById("fit-badge").textContent = `FIT · ${chosenFit === "native" ? "SOURCE" : chosenFit.toUpperCase()}`;
+        go("workbench");
+      });
+      document.getElementById("apply-output-fit").addEventListener("click", () => {
+        document.getElementById("output-fit-state").textContent = chosenOutputFit.toUpperCase();
         go("workbench");
       });
       document.getElementById("prev-screen").addEventListener("click", () => {
@@ -1939,7 +2158,8 @@
       });
       document.getElementById("next-screen").addEventListener("click", () => {
         const index = screens.indexOf(studio.dataset.screen);
-        go(index === screens.length - 1 ? "start" : screens[index + 1]);
+        if (studio.dataset.screen === "workbench" && output === "audio") go("input");
+        else go(index === screens.length - 1 ? "start" : screens[index + 1]);
       });
       renderOutput();
       go("start");
