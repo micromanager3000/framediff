@@ -10,6 +10,10 @@ async function openProductionLab(page: Page): Promise<void> {
 test("a new user can discover compositions, media, and cached artifacts", async ({ page }) => {
   await openProductionLab(page);
 
+  const compositionControls = page.getByRole("group", { name: "ProductionLab composition controls" });
+  await expect(compositionControls.getByRole("button", { name: "Bake", exact: true })).toBeVisible();
+  await expect(page.locator(".topbar").getByRole("button", { name: /^Bake/ })).toHaveCount(0);
+
   const compositionSearch = page.getByRole("searchbox", { name: "Find a composition" });
   await compositionSearch.fill("motion");
   expect(await page.locator(".composition-row").filter({ hasText: "GsapMotionLab" }).count()).toBeGreaterThan(0);
@@ -69,6 +73,98 @@ test("compact desktop windows keep every major panel reachable without horizonta
   await page.getByRole("button", { name: "Close side panel" }).click();
   await expect(page.locator(".right-panel")).toBeHidden();
   await expect(page.getByRole("button", { name: "Render MP4" })).toBeInViewport();
+});
+
+test("the studio stays inside a desktop, tablet, phone, and short-landscape viewport matrix", async ({ page }) => {
+  await openProductionLab(page);
+  const viewports = [
+    { width: 1920, height: 1080 },
+    { width: 1366, height: 768 },
+    { width: 1180, height: 720 },
+    { width: 1024, height: 768 },
+    { width: 900, height: 700 },
+    { width: 768, height: 1024 },
+    { width: 430, height: 932 },
+    { width: 375, height: 667 },
+    { width: 932, height: 430 },
+  ];
+
+  for (const viewport of viewports) {
+    await page.setViewportSize(viewport);
+    const layout = await page.evaluate(() => {
+      const metric = (selector: string) => {
+        const element = document.querySelector<HTMLElement>(selector);
+        if (!element) return null;
+        const rect = element.getBoundingClientRect();
+        return {
+          bottom: Math.round(rect.bottom),
+          clientHeight: element.clientHeight,
+          clientWidth: element.clientWidth,
+          right: Math.round(rect.right),
+          scrollHeight: element.scrollHeight,
+          scrollWidth: element.scrollWidth,
+        };
+      };
+      return {
+        documentHeight: document.documentElement.scrollHeight,
+        documentWidth: document.documentElement.scrollWidth,
+        main: metric(".framediff-studio > main"),
+        root: metric(".framediff-studio"),
+        topbar: metric(".topbar"),
+        workspace: metric(".workspace"),
+      };
+    });
+
+    expect(layout.documentWidth, `${viewport.width}x${viewport.height} document width`).toBeLessThanOrEqual(viewport.width);
+    expect(layout.documentHeight, `${viewport.width}x${viewport.height} document height`).toBeLessThanOrEqual(viewport.height);
+    for (const [name, metric] of Object.entries({ root: layout.root, topbar: layout.topbar, main: layout.main, workspace: layout.workspace })) {
+      expect(metric, `${name} exists at ${viewport.width}x${viewport.height}`).not.toBeNull();
+      expect(metric!.right, `${name} right edge at ${viewport.width}x${viewport.height}`).toBeLessThanOrEqual(viewport.width);
+      expect(metric!.bottom, `${name} bottom edge at ${viewport.width}x${viewport.height}`).toBeLessThanOrEqual(viewport.height);
+      expect(metric!.scrollWidth, `${name} horizontal overflow at ${viewport.width}x${viewport.height}`).toBeLessThanOrEqual(metric!.clientWidth);
+      expect(metric!.scrollHeight, `${name} vertical overflow at ${viewport.width}x${viewport.height}`).toBeLessThanOrEqual(metric!.clientHeight);
+    }
+  }
+});
+
+test("mobile uses a canvas-first shell with reachable drawers and project actions", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openProductionLab(page);
+
+  await expect(page.locator(".left-panel")).toBeHidden();
+  await expect(page.locator(".right-panel")).toBeHidden();
+
+  await page.getByRole("button", { name: "Open compositions and media" }).click();
+  await expect(page.locator(".left-panel")).toBeVisible();
+  await expect(page.getByRole("button", { name: "COMPS", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "MEDIA", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Close compositions panel" }).click();
+  await expect(page.locator(".left-panel")).toBeHidden();
+
+  await page.getByRole("button", { name: "Open side panel" }).click();
+  await expect(page.locator(".right-panel")).toBeVisible();
+  await expect(page.getByRole("button", { name: "PROPS", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "CODE", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Close side panel" }).click();
+
+  await page.getByRole("button", { name: "Open project actions" }).click();
+  const actions = page.getByRole("complementary", { name: "Project actions menu" });
+  await expect(actions).toBeVisible();
+  await expect(actions.getByRole("button", { name: "Agent API v1" })).toBeVisible();
+  await expect(actions.getByRole("button", { name: "Cache" })).toBeVisible();
+  await expect(actions.getByRole("button", { name: "Render MP4" })).toBeInViewport();
+  await actions.getByRole("button", { name: "Cache" }).click();
+  await expect(page.locator(".cache-drawer")).toBeVisible();
+  await page.getByRole("button", { name: "Close cache" }).click();
+
+  const layout = await page.evaluate(() => ({
+    documentWidth: document.documentElement.scrollWidth,
+    topbarWidth: document.querySelector<HTMLElement>(".topbar")?.scrollWidth ?? 0,
+    workspaceWidth: document.querySelector<HTMLElement>(".workspace")?.scrollWidth ?? 0,
+  }));
+  expect(layout.documentWidth).toBeLessThanOrEqual(390);
+  expect(layout.topbarWidth).toBeLessThanOrEqual(390);
+  expect(layout.workspaceWidth).toBeLessThanOrEqual(390);
 });
 
 test("the new-composition dialog is keyboard-dismissable and restores focus", async ({ page }) => {

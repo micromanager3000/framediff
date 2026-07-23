@@ -310,7 +310,7 @@ async function exportVideoInternal(
         const err = new Error(
           detail
             ? `encode worker error: ${detail}`
-            : "encode worker failed to load — ensure the framediff package source is within the dev server's fs.allow list",
+            : "encode worker failed to start — reload the page; if it persists, ensure framediffDev() is enabled in Vite",
         );
         fatalError = fatalError ?? err;
         wakeLoop();

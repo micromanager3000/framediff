@@ -8,6 +8,7 @@
   export let oncopytolibrary: (compositionKey: string) => void;
   export let onnest: (targetKey: string, sourceKey: string) => void;
   export let ondelete: (compositionKey: string) => void;
+  export let onopen: () => void = () => {};
   const store = viewModel.store;
 
   const glyph: Record<CompositionKind, string> = {
@@ -137,7 +138,7 @@
           ondragend={endCompositionDrag}
           class:active={composition.key === $store.currentKey}
           class="composition-row kind-{composition.kind}"
-          onclick={() => viewModel.open(composition.key)}
+          onclick={() => { viewModel.open(composition.key); onopen(); }}
           title={composition.file ?? composition.id}
           style:padding-left={`${7 + row.depth * 15}px`}
         >
@@ -190,7 +191,7 @@
               ondragend={endCompositionDrag}
               class:active={composition.key === $store.currentKey}
               class="composition-row kind-{composition.kind}"
-              onclick={() => viewModel.open(composition.key)}
+              onclick={() => { viewModel.open(composition.key); onopen(); }}
               title={composition.file ?? composition.id}
             >
               <span class="glyph">{glyph[composition.kind]}</span>

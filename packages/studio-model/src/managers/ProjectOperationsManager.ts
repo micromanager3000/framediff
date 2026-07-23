@@ -20,6 +20,8 @@ export interface CurrentCompositionBakeSnapshot {
   compositionId: string;
   status: CompositionBakeStatus;
   artifactCount: number;
+  /** Newest artifact whose recorded inputs exactly match the current composition. */
+  artifact?: CacheEntryDescriptor;
 }
 
 type ObservableProjectWorkspace = ProjectWorkspacePort & Pick<Partial<CompositionRuntimePort>, "subscribeProjectEdits">;
@@ -36,9 +38,13 @@ export async function compositionBakeSnapshot(
   const snapshot = await loadInputs(composition.key);
   const hashes = new Map<string, string | null>(Object.entries(snapshot.inputs));
   for (const input of snapshot.missing) hashes.set(input, null);
+  const currentArtifacts = artifacts
+    .filter((entry) => artifactStatusFromInputs(entry.inputs, hashes) === "current")
+    .sort((a, b) => b.mtimeMs - a.mtimeMs);
   return {
     ...base,
-    status: artifacts.some((entry) => artifactStatusFromInputs(entry.inputs, hashes) === "current") ? "current" : "stale",
+    status: currentArtifacts.length ? "current" : "stale",
+    ...(currentArtifacts[0] ? { artifact: currentArtifacts[0] } : {}),
   };
 }
 

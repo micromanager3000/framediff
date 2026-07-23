@@ -7,7 +7,6 @@ export interface StudioShellSnapshot {
   path: CompositionDescriptor[];
   frame: number;
   playing: boolean;
-  gradeBypass: boolean;
   loading: boolean;
   editing: boolean;
   error: string | null;
@@ -24,7 +23,6 @@ export class StudioShellViewModel {
       path: state.path.flatMap((key) => state.compositions.find((entry) => entry.key === key) ?? []),
       frame: state.frame,
       playing: state.playing,
-      gradeBypass: state.gradeBypass,
       loading: state.loading,
       editing: state.editing,
       error: state.error,
@@ -40,10 +38,6 @@ export class StudioShellViewModel {
   public setFrame(frame: number): void {
     this.session.pause();
     this.session.setFrame(frame);
-  }
-
-  public setGradeBypass(value: boolean): void {
-    this.session.setGradeBypass(value);
   }
 
   public refresh(): Promise<void> {

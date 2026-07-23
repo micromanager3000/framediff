@@ -6,6 +6,7 @@
     parseMotionPathSvg,
     type CubicMotionSegment,
     resizeRect,
+    type CacheEntryDescriptor,
     type CompositionRuntimePort,
     type PreviewElementPatch,
     type PreviewHandle,
@@ -17,6 +18,7 @@
 
   export let runtime: CompositionRuntimePort;
   export let session: StudioSession;
+  export let cachedArtifact: CacheEntryDescriptor | undefined = undefined;
   export let interactive = true;
   export let directManipulation = true;
   export let onselect: () => void = () => {};
@@ -33,9 +35,11 @@
   };
 
   let host: HTMLDivElement;
+  let cachedVideo: HTMLVideoElement | undefined;
   let overlay: HTMLDivElement;
   let handle: PreviewHandle | undefined;
   let unsubscribeNodes: (() => void) | undefined;
+  let mounted = false;
   let nodes: PreviewNodeSnapshot[] = [];
   let selected: PreviewNodeSnapshot | undefined;
   let drag: DragState | null = null;
@@ -51,14 +55,49 @@
 
   const groupId = (): string => globalThis.crypto?.randomUUID?.() ?? `gesture-${Date.now()}-${Math.random()}`;
 
-  function updatePreview(currentKey: string, frame: number, playing: boolean, gradeBypass: boolean): void {
-    if (!handle || !currentKey) return;
-    handle.update(currentKey, { frame, playing, gradeBypass });
-  }
-
   function attachNodeSubscription(): void {
     unsubscribeNodes?.();
     unsubscribeNodes = handle?.subscribeNodes?.((next) => { nodes = next; });
+  }
+
+  function destroyLivePreview(): void {
+    unsubscribeNodes?.();
+    unsubscribeNodes = undefined;
+    handle?.destroy();
+    handle = undefined;
+    nodes = [];
+  }
+
+  function syncPreviewMode(
+    cachedUrl: string | undefined,
+    currentKey: string,
+    frame: number,
+    playing: boolean,
+    gradeBypass: boolean,
+  ): void {
+    if (!mounted || !currentKey) return;
+    if (cachedUrl) {
+      if (handle) destroyLivePreview();
+      return;
+    }
+    if (!handle) {
+      handle = runtime.mountPreview(host, currentKey, { frame, playing, gradeBypass });
+      attachNodeSubscription();
+      return;
+    }
+    handle.update(currentKey, { frame, playing, gradeBypass });
+  }
+
+  function syncCachedVideo(frame: number, playing: boolean, fps: number): void {
+    if (!cachedVideo) return;
+    const target = Math.max(0, frame / Math.max(1, fps));
+    if (cachedVideo.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      const last = Number.isFinite(cachedVideo.duration) ? Math.max(0, cachedVideo.duration - 0.001) : target;
+      const time = Math.min(target, last);
+      if (Math.abs(cachedVideo.currentTime - time) > Math.max(0.04, 1 / Math.max(1, fps))) cachedVideo.currentTime = time;
+    }
+    if (playing) void cachedVideo.play().catch(() => undefined);
+    else cachedVideo.pause();
   }
 
   function beginDrag(event: PointerEvent, node: PreviewNodeSnapshot, mode: DragState["mode"], resizeHandle?: ResizeHandle): void {
@@ -318,21 +357,22 @@
   }
 
   onMount(() => {
-    if (!$store.currentKey) return;
-    handle = runtime.mountPreview(host, $store.currentKey, {
-      frame: $store.frame,
-      playing: $store.playing,
-      gradeBypass: $store.gradeBypass,
-    });
-    attachNodeSubscription();
+    mounted = true;
+    syncPreviewMode(cachedUrl, $store.currentKey, $store.frame, $store.playing, $store.gradeBypass);
   });
 
   onDestroy(() => {
-    unsubscribeNodes?.();
-    handle?.destroy();
+    mounted = false;
+    destroyLivePreview();
   });
 
-  $: updatePreview($store.currentKey, $store.frame, $store.playing, $store.gradeBypass);
+  // A momentary grade bypass needs the source layers; normal playback stays entirely on the bake.
+  $: cachedUrl = cachedArtifact && !$store.gradeBypass
+    ? `/__framediff-cache/${encodeURIComponent(cachedArtifact.contentHash ?? cachedArtifact.name)}`
+    : undefined;
+  $: currentComposition = $store.compositions.find((composition) => composition.key === $store.currentKey);
+  $: syncPreviewMode(cachedUrl, $store.currentKey, $store.frame, $store.playing, $store.gradeBypass);
+  $: syncCachedVideo($store.frame, $store.playing, currentComposition?.fps ?? 24);
   $: selected = $store.selection?.kind === "element"
     ? nodes.find((node) => node.ref.compositionKey === $store.selection?.compositionKey && node.ref.objectId === $store.selection?.objectId)
     : undefined;
@@ -348,8 +388,27 @@
 <svelte:window onkeydown={onKeyDown} />
 
 <div class="preview-surface">
-  <div class="preview-host" bind:this={host} aria-label="Composition preview"></div>
-  {#if interactive}
+  <div class="preview-host" aria-label="Composition preview">
+    <div class="preview-runtime-host" class:cached={!!cachedUrl} bind:this={host}></div>
+    {#if cachedUrl}
+      <div class="cached-composition-frame">
+        {#if currentComposition?.outputKind === "image"}
+          <img class="cached-composition-preview" src={cachedUrl} alt="" />
+        {:else}
+          <video
+            class="cached-composition-preview"
+            bind:this={cachedVideo}
+            src={cachedUrl}
+            muted
+            playsinline
+            preload="auto"
+            onloadedmetadata={() => syncCachedVideo($store.frame, $store.playing, currentComposition?.fps ?? 24)}
+          ></video>
+        {/if}
+      </div>
+    {/if}
+  </div>
+  {#if interactive && !cachedUrl}
     <div
       class="canvas-overlay"
       class:dragging={!!drag}

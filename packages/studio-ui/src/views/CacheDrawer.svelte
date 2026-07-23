@@ -17,7 +17,6 @@
     </div>
   {/if}
   <div class="cache-actions">
-    <button onclick={() => void viewModel.bakeCurrent()} disabled={$store.busy || $store.currentBake?.status === "checking"}>{$store.progress ? "Baking…" : $store.currentBake?.status === "stale" ? "Bake stale composition" : "Bake current composition"}</button>
     <button onclick={() => void viewModel.refreshCache()}>Refresh</button>
   </div>
   <label class="cache-filter"><span>⌕</span><input bind:value={search} type="search" placeholder="Find an artifact…" aria-label="Find cached artifact" />{#if search}<button onclick={() => search = ""} aria-label="Clear cache search">×</button>{/if}<output>{filteredCache.length}/{$store.cache.length}</output></label>

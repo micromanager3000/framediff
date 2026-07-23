@@ -81,6 +81,7 @@ describe("composition authoring surfaces", () => {
     expect(shouldShowTimeline(scene, [item("layers", 10, 80)], [], [])).toBe(true);
     expect(shouldShowTimeline(scene, [item("nested")], [], [])).toBe(false);
     expect(shouldShowTimeline(scene, [item("nested", 0, 120, { from: true, duration: true })], [], [])).toBe(true);
+    expect(shouldShowTimeline(scene, [item("video", 0, 120, { from: false, duration: true })], [], [])).toBe(false);
     expect(shouldShowTimeline(scene, [item("nested"), { ...item("video"), id: "video-2", order: 1 }], [], [])).toBe(true);
 
     const videoPlane = composition("3d");
