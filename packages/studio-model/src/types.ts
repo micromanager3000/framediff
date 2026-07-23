@@ -701,7 +701,7 @@ export interface GenerativeWorkspaceSnapshot {
   jobs: GenerativeJobSnapshot[];
   pinnedTake: number;
   liveHash: string;
-  status: "never" | "running" | "current" | "stale" | "unpinned";
+  status: "never" | "running" | "failed" | "current" | "stale" | "unpinned";
   providerReady: boolean;
   /** Upstream generative inputs that must have an available pinned take before submit. */
   blockedReason?: string;
