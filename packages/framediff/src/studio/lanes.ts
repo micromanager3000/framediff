@@ -67,8 +67,9 @@ function overlaps(a: TimelineItem, b: TimelineItem): boolean {
 
 export type ItemGraph = Record<string, TimelineItem[]>; // compKey → probed items
 
-/** compKey of the registry entry whose comp id matches a `content.nested.compId`. */
+/** Resolve timeline nested references written as stable registry keys or legacy comp ids. */
 export function keyOfCompId(registry: CompRegistry, compId: string): string | undefined {
+  if (registry[compId]) return compId;
   return Object.keys(registry).find((k) => registry[k].id === compId);
 }
 
@@ -100,7 +101,7 @@ export function refsTo(childKey: string, registry: CompRegistry, graph: ItemGrap
     const parent = registry[parentKey];
     if (!parent || parentKey === childKey) continue;
     for (const it of graph[parentKey]) {
-      if (it.content.type !== "nested" || it.content.compId !== child.id) continue;
+      if (it.content.type !== "nested" || keyOfCompId(registry, it.content.compId) !== childKey) continue;
       const dur = Math.min(it.durationInFrames, parent.durationInFrames - it.from);
       const childFrom = it.content.trimStart * child.fps;
       const childDuration = Math.min((dur / parent.fps) * child.fps, child.durationInFrames - childFrom);

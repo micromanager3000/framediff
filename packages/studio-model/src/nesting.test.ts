@@ -26,8 +26,8 @@ const state = {
   ],
   // main nests title; title nests shot
   timelineByComposition: {
-    main: [nested("Title")],
-    title: [nested("Shot")],
+    main: [nested("title")],
+    title: [nested("shot")],
   },
 };
 

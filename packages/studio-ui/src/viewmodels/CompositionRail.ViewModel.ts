@@ -1,5 +1,5 @@
 import { derived, type Readable } from "svelte/store";
-import { canNestComposition, type CompositionDescriptor, type StudioSession } from "@framediff/studio-model";
+import { canNestComposition, compositionByReference, type CompositionDescriptor, type StudioSession } from "@framediff/studio-model";
 import { sessionStore } from "./store";
 
 export interface CompositionRailSnapshot {
@@ -33,7 +33,7 @@ export class CompositionRailViewModel {
         for (const item of state.timelineByComposition[key] ?? []) {
           const content = item.content;
           if (content.type !== "nested") continue;
-          const child = state.compositions.find((entry) => entry.id === content.compId);
+          const child = compositionByReference(state.compositions, content.compId);
           if (child) walk(child.key, depth + 1);
         }
       };

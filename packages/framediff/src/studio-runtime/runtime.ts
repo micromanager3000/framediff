@@ -1003,7 +1003,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       const assetId = source?.startsWith("asset://") ? source.slice("asset://".length) : undefined;
       const asset = assetId ? this.manifest?.assets[assetId] : undefined;
       const nestedCompositionKey = content.type === "nested"
-        ? Object.entries(this.registry).find(([, candidate]) => candidate.id === content.compId)?.[0]
+        ? resolveCompositionKey(this.registry, content.compId)
         : undefined;
       const originalLocal = asset ? await local(asset.contentHash) : false;
       const proxyLocal = asset?.proxy ? await local(asset.proxy) : false;
