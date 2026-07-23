@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "desk": { "$ref": "#/$defs/grade" },
+    "tripod": { "$ref": "#/$defs/grade" },
+    "keynote": { "$ref": "#/$defs/grade" },
+    "tealWash": { "$ref": "#/$defs/grade" }
+  },
+  "$defs": {
+    "grade": {
+      "type": "object",
+      "properties": {
+        "gradeExposure": { "type": "number", "minimum": -2, "maximum": 2, "multipleOf": 0.01 },
+        "gradeContrast": { "type": "number", "minimum": -1, "maximum": 1, "multipleOf": 0.01 },
+        "gradeSaturation": { "type": "number", "minimum": 0, "maximum": 2, "multipleOf": 0.01 },
+        "gradeTemperature": { "type": "number", "minimum": -1, "maximum": 1, "multipleOf": 0.01 },
+        "gradeTint": { "type": "number", "minimum": -1, "maximum": 1, "multipleOf": 0.01 },
+        "gradeVignette": { "type": "number", "minimum": 0, "maximum": 1, "multipleOf": 0.01 }
+      }
+    }
+  }
+}

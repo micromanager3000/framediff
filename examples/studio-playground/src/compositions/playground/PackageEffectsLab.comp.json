@@ -1,0 +1,46 @@
+{
+  "kicker": { "text": "PUBLIC EFFECT MODULES · ABSOLUTE FRAME CLOCK", "color": "#8ed8c7" },
+  "headline": {
+    "text": "Wipe. Rise. Move.",
+    "color": "#f4f1ff",
+    "animStartFrame": 2,
+    "animEndFrame": 54,
+    "distance": 72,
+    "stagger": 0.3,
+    "window": 0.1
+  },
+  "wipe": {
+    "wipe": "smooth",
+    "wipeFrom": 28,
+    "wipeTo": 74,
+    "label": "WIPE REVEAL",
+    "title": "Attributes stay editable.",
+    "copy": "Change timing in JSON, then jump backward and forward."
+  },
+  "motion": {
+    "anchorX": 215,
+    "anchorY": 125,
+    "sourceWidth": 430,
+    "sourceHeight": 250,
+    "startFrame": 58,
+    "endFrame": 188,
+    "startX": 1180,
+    "startY": 760,
+    "endX": 1480,
+    "endY": 670,
+    "startScale": 0.72,
+    "endScale": 1.08,
+    "interpolation": "smooth",
+    "path": "58:1130:760|118:1330:545|188:1540:690"
+  },
+  "spring": {
+    "delay": 18,
+    "from": 0.55,
+    "to": 1,
+    "damping": 9,
+    "stiffness": 86,
+    "rotationFrom": -35,
+    "rotationTo": 95
+  },
+  "audio": { "volume": 0.12, "fadeFrom": 170, "fadeTo": 239 }
+}

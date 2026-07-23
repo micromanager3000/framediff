@@ -4,12 +4,22 @@
     {
       "id": "effects-scene",
       "from": 0,
-      "durationInFrames": 240
+      "durationInFrames": 240,
+      "name": "Packaged DOM effects",
+      "content": {
+        "type": "layers",
+        "label": "Effects demonstration"
+      }
     },
     {
       "id": "effects-audio",
       "from": 0,
-      "durationInFrames": 240
+      "durationInFrames": 240,
+      "name": "Effects accent",
+      "content": {
+        "type": "audio",
+        "src": "asset://playground-shine"
+      }
     }
   ]
 }

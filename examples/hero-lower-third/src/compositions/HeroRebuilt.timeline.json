@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "items": [
+    { "id": "clip2", "name": "Legacy clip 2", "from": 0, "durationInFrames": 144, "content": { "type": "video", "src": "asset://legacy-clip2" } },
+    { "id": "clip3", "name": "Legacy clip 3", "from": 144, "durationInFrames": 144, "content": { "type": "video", "src": "asset://legacy-clip3" } },
+    { "id": "clip5", "name": "Legacy clip 5", "from": 288, "durationInFrames": 144, "content": { "type": "video", "src": "asset://legacy-clip5" } },
+    { "id": "clip4", "name": "Legacy clip 4", "from": 432, "durationInFrames": 144, "content": { "type": "video", "src": "asset://legacy-clip4" } },
+    { "id": "clip6", "name": "Legacy clip 6", "from": 576, "durationInFrames": 144, "content": { "type": "video", "src": "asset://legacy-clip6" } }
+  ]
+}

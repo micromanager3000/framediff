@@ -46,7 +46,12 @@
       "id": "editorial-hud",
       "from": 0,
       "durationInFrames": 480,
-      "layer": 20
+      "layer": 20,
+      "name": "Editorial chapter navigation",
+      "content": {
+        "type": "layers",
+        "label": "Chapter navigation HUD"
+      }
     }
   ]
 }

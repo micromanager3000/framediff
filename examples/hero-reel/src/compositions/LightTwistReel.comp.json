@@ -1,0 +1,180 @@
+{
+  "caption-meeting-line-1": {
+    "text": "Your show looks like a"
+  },
+  "caption-meeting-line-2": {
+    "text": "Monday morning meeting."
+  },
+  "caption-background-text": {
+    "text": "live background removal"
+  },
+  "caption-media-text": {
+    "text": "drop in video and audio"
+  },
+  "caption-cameras-text": {
+    "text": "switch cameras"
+  },
+  "caption-camera-text": {
+    "text": "All you need is a camera"
+  },
+  "lower-third-copy": {
+    "text": "Rendered in realtime at 1080p at 30 FPS in"
+  },
+  "lower-third-brand": {
+    "text": "LightTwist"
+  },
+  "logo-text": {
+    "text": "LightTwist"
+  },
+  "closing-text": {
+    "text": "Your studio. Anywhere."
+  },
+  "end-card-line": {
+    "text": "Get your studio up and running today at"
+  },
+  "end-card-url": {
+    "text": "lighttwist.com"
+  },
+  "music-bed": {
+    "volume": 0.55,
+    "muted": false
+  },
+  "shine": {
+    "volume": 0.6,
+    "muted": false
+  },
+  "logo-reveal": {
+    "volume": 0.7,
+    "muted": false
+  },
+  "end-shine": {
+    "volume": 0.8,
+    "muted": false
+  },
+  "shot-01-look": {
+    "lut": "gold",
+    "lutIntensity": 0.9,
+    "gradeTemperature": 0.15,
+    "gradeTint": 0.05,
+    "gradeExposure": 0.13,
+    "gradeContrast": 0.06,
+    "gradeHighlights": -0.06,
+    "gradeShadows": 0.06,
+    "gradeSaturation": 1.02,
+    "gradeVignette": 0.2,
+    "gradeBloom": 0.52,
+    "gradeBloomThreshold": 0.4
+  },
+  "shot-02-look": {
+    "lut": "gold",
+    "lutIntensity": 0.9,
+    "gradeTemperature": 0.14,
+    "gradeExposure": 0.03,
+    "gradeContrast": 0.06,
+    "gradeSaturation": 1.05,
+    "gradeVignette": 0.34,
+    "gradeBloom": 0.35
+  },
+  "shot-03-look": {
+    "lut": "gold",
+    "lutIntensity": 0.9,
+    "gradeTemperature": 0.14,
+    "gradeExposure": 0.03,
+    "gradeContrast": 0.06,
+    "gradeSaturation": 1.05,
+    "gradeVignette": 0.34
+  },
+  "shot-04a-look": {
+    "lut": "gold",
+    "lutIntensity": 0.9,
+    "gradeTemperature": 0.14,
+    "gradeExposure": 0.03,
+    "gradeContrast": 0.06,
+    "gradeSaturation": 1.05,
+    "gradeVignette": 0.34
+  },
+  "shot-04b-look": {
+    "lut": "gold",
+    "lutIntensity": 0.9,
+    "gradeTemperature": 0.14,
+    "gradeExposure": 0.03,
+    "gradeSaturation": 1.05
+  },
+  "shot-04c-look": {
+    "lut": "gold",
+    "lutIntensity": 0.9,
+    "gradeTemperature": 0.14,
+    "gradeExposure": 0.03,
+    "gradeSaturation": 1.05
+  },
+  "shot-05-look": {
+    "lut": "gold",
+    "lutIntensity": 0.9,
+    "gradeTemperature": 0.14,
+    "gradeExposure": 0.03,
+    "gradeSaturation": 1.05
+  },
+  "shot-06-look": {
+    "lut": "gold",
+    "lutIntensity": 0.9,
+    "gradeTemperature": 0.14,
+    "gradeExposure": 0.03,
+    "gradeSaturation": 1.05
+  },
+  "shot-07-look": {
+    "lut": "gold",
+    "lutIntensity": 0.9,
+    "gradeTemperature": 0.14,
+    "gradeExposure": 0.03,
+    "gradeSaturation": 1.05
+  },
+  "shot-08-look": {
+    "lut": "gold",
+    "lutIntensity": 0.9,
+    "gradeTemperature": 0.14,
+    "gradeExposure": 0.03,
+    "gradeSaturation": 1.05
+  },
+  "shot-09-look": {
+    "lut": "gold",
+    "lutIntensity": 0.9,
+    "gradeTemperature": 0.14,
+    "gradeExposure": 0.03,
+    "gradeSaturation": 1.05
+  },
+  "shot-10-look": {
+    "lut": "gold",
+    "lutIntensity": 0.9,
+    "gradeTemperature": 0.14,
+    "gradeExposure": 0.03,
+    "gradeSaturation": 1.05
+  },
+  "shot-11-look": {
+    "lut": "gold",
+    "lutIntensity": 0.9,
+    "gradeTemperature": 0.14,
+    "gradeExposure": 0.03,
+    "gradeSaturation": 1.05
+  },
+  "shot-12-look": {
+    "lut": "gold",
+    "lutIntensity": 0.9,
+    "gradeTemperature": 0.14,
+    "gradeExposure": 0.03,
+    "gradeSaturation": 1.05
+  },
+  "shot-13-look": {
+    "lut": "gold",
+    "lutIntensity": 0.9,
+    "gradeTemperature": 0.14,
+    "gradeExposure": 0.03,
+    "gradeSaturation": 1.05
+  },
+  "shot-14-look": {
+    "lut": "gold",
+    "lutIntensity": 0.9,
+    "gradeTemperature": 0.14,
+    "gradeExposure": 0.03,
+    "gradeSaturation": 1.05
+  }
+}

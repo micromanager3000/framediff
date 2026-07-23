@@ -4,147 +4,276 @@
     {
       "id": "shot-01",
       "from": 0,
-      "durationInFrames": 44
+      "durationInFrames": 44,
+      "content": {
+        "type": "video",
+        "src": "asset://reel-s01"
+      }
     },
     {
       "id": "shot-02",
       "from": 44,
-      "durationInFrames": 47
+      "durationInFrames": 47,
+      "content": {
+        "type": "video",
+        "src": "asset://reel-s02"
+      }
     },
     {
       "id": "shot-03",
       "from": 91,
-      "durationInFrames": 54
+      "durationInFrames": 54,
+      "content": {
+        "type": "video",
+        "src": "asset://reel-s03"
+      }
     },
     {
       "id": "shot-04a",
       "from": 145,
-      "durationInFrames": 84
+      "durationInFrames": 84,
+      "content": {
+        "type": "video",
+        "src": "asset://reel-s04a"
+      }
     },
     {
       "id": "shot-04b",
       "from": 229,
-      "durationInFrames": 24
+      "durationInFrames": 24,
+      "content": {
+        "type": "video",
+        "src": "asset://reel-s04b"
+      }
     },
     {
       "id": "shot-04c",
       "from": 253,
-      "durationInFrames": 42
+      "durationInFrames": 42,
+      "content": {
+        "type": "video",
+        "src": "asset://reel-s04c"
+      }
     },
     {
       "id": "shot-05",
       "from": 295,
-      "durationInFrames": 50
+      "durationInFrames": 50,
+      "content": {
+        "type": "video",
+        "src": "asset://reel-s05"
+      }
     },
     {
       "id": "shot-06",
       "from": 345,
-      "durationInFrames": 48
+      "durationInFrames": 48,
+      "content": {
+        "type": "video",
+        "src": "asset://reel-s06"
+      }
     },
     {
       "id": "shot-07",
       "from": 393,
-      "durationInFrames": 50
+      "durationInFrames": 50,
+      "content": {
+        "type": "video",
+        "src": "asset://reel-s07"
+      }
     },
     {
       "id": "shot-08",
       "from": 443,
-      "durationInFrames": 56
+      "durationInFrames": 56,
+      "content": {
+        "type": "video",
+        "src": "asset://reel-s08"
+      }
     },
     {
       "id": "shot-09",
       "from": 499,
-      "durationInFrames": 70
+      "durationInFrames": 70,
+      "content": {
+        "type": "video",
+        "src": "asset://reel-s09"
+      }
     },
     {
       "id": "shot-10",
       "from": 569,
-      "durationInFrames": 38
+      "durationInFrames": 38,
+      "content": {
+        "type": "video",
+        "src": "asset://reel-s10"
+      }
     },
     {
       "id": "shot-11",
       "from": 607,
-      "durationInFrames": 58
+      "durationInFrames": 58,
+      "content": {
+        "type": "video",
+        "src": "asset://reel-s11"
+      }
     },
     {
       "id": "shot-12",
       "from": 665,
-      "durationInFrames": 66
+      "durationInFrames": 66,
+      "content": {
+        "type": "video",
+        "src": "asset://reel-s12"
+      }
     },
     {
       "id": "shot-13",
       "from": 731,
-      "durationInFrames": 58
+      "durationInFrames": 58,
+      "content": {
+        "type": "video",
+        "src": "asset://reel-s13"
+      }
     },
     {
       "id": "shot-14",
       "from": 789,
-      "durationInFrames": 40
+      "durationInFrames": 40,
+      "content": {
+        "type": "video",
+        "src": "asset://reel-s14"
+      }
     },
     {
       "id": "caption-meeting",
       "from": 70,
-      "durationInFrames": 80
+      "durationInFrames": 80,
+      "name": "Monday meeting caption",
+      "content": {
+        "type": "layers",
+        "label": "Monday meeting caption"
+      }
     },
     {
       "id": "caption-background",
       "from": 350,
-      "durationInFrames": 45
+      "durationInFrames": 45,
+      "name": "Background removal caption",
+      "content": {
+        "type": "layers",
+        "label": "Background removal caption"
+      }
     },
     {
       "id": "caption-media",
       "from": 450,
-      "durationInFrames": 48
+      "durationInFrames": 48,
+      "name": "Drop media caption",
+      "content": {
+        "type": "layers",
+        "label": "Drop media caption"
+      }
     },
     {
       "id": "caption-cameras",
       "from": 500,
-      "durationInFrames": 40
+      "durationInFrames": 40,
+      "name": "Switch cameras caption",
+      "content": {
+        "type": "layers",
+        "label": "Switch cameras caption"
+      }
     },
     {
       "id": "caption-camera",
       "from": 543,
-      "durationInFrames": 45
+      "durationInFrames": 45,
+      "name": "Camera caption",
+      "content": {
+        "type": "layers",
+        "label": "Camera caption"
+      }
     },
     {
       "id": "lower-third",
       "from": 180,
-      "durationInFrames": 168
+      "durationInFrames": 168,
+      "name": "LightTwist lower third",
+      "content": {
+        "type": "layers",
+        "label": "LightTwist lower third"
+      }
     },
     {
       "id": "logo-bumper",
       "from": 829,
-      "durationInFrames": 54
+      "durationInFrames": 54,
+      "name": "Logo bumper",
+      "content": {
+        "type": "layers",
+        "label": "Logo bumper"
+      }
     },
     {
       "id": "closing",
       "from": 883,
-      "durationInFrames": 72
+      "durationInFrames": 72,
+      "name": "Closing line",
+      "content": {
+        "type": "layers",
+        "label": "Closing line"
+      }
     },
     {
       "id": "end-card",
       "from": 955,
-      "durationInFrames": 137
+      "durationInFrames": 137,
+      "name": "End card",
+      "content": {
+        "type": "layers",
+        "label": "End card"
+      }
     },
     {
       "id": "music-bed",
       "from": 0,
-      "durationInFrames": 1092
+      "durationInFrames": 1092,
+      "name": "Music bed",
+      "content": {
+        "type": "audio",
+        "src": "asset://reel-music"
+      }
     },
     {
       "id": "shine",
       "from": 145,
-      "durationInFrames": 947
+      "durationInFrames": 947,
+      "name": "Shine sting",
+      "content": {
+        "type": "audio",
+        "src": "asset://reel-shine"
+      }
     },
     {
       "id": "logo-reveal",
       "from": 829,
-      "durationInFrames": 263
+      "durationInFrames": 263,
+      "name": "Logo reveal sting",
+      "content": {
+        "type": "audio",
+        "src": "asset://reel-logo-reveal"
+      }
     },
     {
       "id": "end-shine",
       "from": 955,
-      "durationInFrames": 137
+      "durationInFrames": 137,
+      "name": "End shine",
+      "content": {
+        "type": "audio",
+        "src": "asset://reel-shine"
+      }
     }
   ]
 }

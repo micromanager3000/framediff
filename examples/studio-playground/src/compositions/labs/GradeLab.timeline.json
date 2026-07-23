@@ -4,22 +4,41 @@
     {
       "id": "desk",
       "from": 0,
-      "durationInFrames": 96
+      "durationInFrames": 96,
+      "name": "Desk",
+      "content": {
+        "type": "video",
+        "src": "asset://proxy-desk"
+      }
     },
     {
       "id": "tripod",
       "from": 96,
-      "durationInFrames": 96
+      "durationInFrames": 96,
+      "name": "Tripod",
+      "content": {
+        "type": "video",
+        "src": "asset://proxy-tripod"
+      }
     },
     {
       "id": "keynote",
       "from": 192,
-      "durationInFrames": 96
+      "durationInFrames": 96,
+      "name": "Keynote",
+      "content": {
+        "type": "video",
+        "src": "asset://proxy-keynote-a"
+      }
     },
     {
       "id": "teal-wash",
       "from": 25,
-      "durationInFrames": 51
+      "durationInFrames": 51,
+      "name": "Teal wash",
+      "content": {
+        "type": "grade-layer"
+      }
     }
   ]
 }

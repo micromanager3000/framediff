@@ -1,7 +1,27 @@
 {
   "version": 1,
   "items": [
-    { "id": "audio-visual", "from": 0, "durationInFrames": 240, "layer": 0 },
-    { "id": "audio-bed", "from": 0, "durationInFrames": 240, "layer": 0 }
+    {
+      "id": "audio-visual",
+      "from": 0,
+      "durationInFrames": 240,
+      "layer": 0,
+      "name": "Audio composition visualizer",
+      "content": {
+        "type": "layers",
+        "label": "Audio visualizer"
+      }
+    },
+    {
+      "id": "audio-bed",
+      "from": 0,
+      "durationInFrames": 240,
+      "layer": 0,
+      "name": "Playground audio bed",
+      "content": {
+        "type": "audio",
+        "src": "asset://playground-bed"
+      }
+    }
   ]
 }

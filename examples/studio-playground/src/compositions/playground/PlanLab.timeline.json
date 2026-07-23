@@ -1,8 +1,38 @@
 {
   "version": 1,
   "items": [
-    { "id": "plan-open", "from": 0, "durationInFrames": 75, "layer": 0 },
-    { "id": "plan-demo", "from": 75, "durationInFrames": 105, "layer": 0 },
-    { "id": "plan-close", "from": 180, "durationInFrames": 60, "layer": 0 }
+    {
+      "id": "plan-open",
+      "from": 0,
+      "durationInFrames": 75,
+      "layer": 0,
+      "name": "Opening",
+      "content": {
+        "type": "layers",
+        "label": "Opening beat"
+      }
+    },
+    {
+      "id": "plan-demo",
+      "from": 75,
+      "durationInFrames": 105,
+      "layer": 0,
+      "name": "Demonstration",
+      "content": {
+        "type": "layers",
+        "label": "Demonstration beat"
+      }
+    },
+    {
+      "id": "plan-close",
+      "from": 180,
+      "durationInFrames": 60,
+      "layer": 0,
+      "name": "Resolution",
+      "content": {
+        "type": "layers",
+        "label": "Resolution beat"
+      }
+    }
   ]
 }

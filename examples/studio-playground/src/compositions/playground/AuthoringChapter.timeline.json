@@ -45,7 +45,12 @@
       "id": "authoring-hud",
       "from": 0,
       "durationInFrames": 480,
-      "layer": 20
+      "layer": 20,
+      "name": "Authoring chapter navigation",
+      "content": {
+        "type": "layers",
+        "label": "Chapter navigation HUD"
+      }
     }
   ]
 }

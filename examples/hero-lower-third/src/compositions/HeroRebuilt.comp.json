@@ -1,0 +1,7 @@
+{
+  "clip2": { "gradeTemperature": 0.14, "gradeContrast": -0.2, "gradeSaturation": 1.04, "gradeVignette": 0.32 },
+  "clip3": { "gradeTemperature": 0.14, "gradeContrast": -0.2, "gradeSaturation": 1.04, "gradeVignette": 0.32 },
+  "clip5": { "gradeTemperature": 0.14, "gradeContrast": -0.2, "gradeSaturation": 1.04, "gradeVignette": 0.32 },
+  "clip4": { "gradeTemperature": 0.14, "gradeContrast": -0.2, "gradeSaturation": 1.04, "gradeVignette": 0.32 },
+  "clip6": { "gradeTemperature": 0.14, "gradeContrast": -0.2, "gradeSaturation": 1.04, "gradeVignette": 0.32 }
+}

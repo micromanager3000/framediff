@@ -7,31 +7,55 @@
       "durationInFrames": 180,
       "layer": 0,
       "trimStart": 0,
-      "playbackRate": 1
+      "playbackRate": 1,
+      "name": "Real media · front trim me",
+      "content": {
+        "type": "video",
+        "src": "asset://proxy-blazer"
+      }
     },
     {
       "id": "editorial-wash",
       "from": 15,
       "durationInFrames": 142,
-      "layer": 0
+      "layer": 0,
+      "name": "Look wash",
+      "content": {
+        "type": "layers",
+        "label": "Look wash"
+      }
     },
     {
       "id": "editorial-glass",
       "from": 26,
       "durationInFrames": 116,
-      "layer": 1
+      "layer": 1,
+      "name": "Glass lower third",
+      "content": {
+        "type": "layers",
+        "label": "Glass lower third"
+      }
     },
     {
       "id": "editorial-copy",
       "from": 43,
       "durationInFrames": 88,
-      "layer": 1
+      "layer": 1,
+      "name": "Editorial copy",
+      "content": {
+        "type": "layers",
+        "label": "Editorial copy"
+      }
     },
     {
       "id": "editorial-grade",
       "from": 0,
       "durationInFrames": 180,
-      "layer": 0
+      "layer": 0,
+      "name": "Finishing grade",
+      "content": {
+        "type": "grade-layer"
+      }
     }
   ]
 }

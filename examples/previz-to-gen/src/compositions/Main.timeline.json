@@ -26,7 +26,12 @@
     {
       "id": "music-bed",
       "from": 0,
-      "durationInFrames": 240
+      "durationInFrames": 240,
+      "name": "Music bed",
+      "content": {
+        "type": "audio",
+        "src": "asset://music-bed"
+      }
     }
   ]
 }

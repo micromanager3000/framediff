@@ -1,0 +1,29 @@
+{
+  "generatedTake": {
+    "src": "asset://c5ff38b5-3ca7-4a28-b782-43dfe8ef5b14",
+    "muted": true,
+    "fit": "cover"
+  },
+  "introCopy": { "x": 0, "y": 0, "width": 1040, "height": 620 },
+  "kicker": { "text": "FRAME-NATIVE · SOURCE-BACKED · END TO END" },
+  "titleLead": { "text": "One project." },
+  "titleAccent": { "text": "Every surface." },
+  "summary": { "text": "Scrub the chapters, then open GUIDE. Every step lands on the real composition, object, frame and tool you need to try." },
+  "graph1": { "number": "01", "title": "Author + generate", "surface": "SOURCE" },
+  "graph2": { "number": "02", "title": "Design + animate", "surface": "STUDIO" },
+  "graph3": { "number": "03", "title": "Edit + finish", "surface": "TIMELINE" },
+  "graph4": { "number": "04", "title": "Check + deliver", "surface": "LOCAL" },
+  "chapters": {
+    "chapter0": { "number": "00", "title": "Production graph" },
+    "chapter1": { "number": "01", "title": "Canvas editing" },
+    "chapter2": { "number": "02", "title": "Visual properties" },
+    "chapter3": { "number": "03", "title": "Editorial timeline" },
+    "chapter4": { "number": "04", "title": "GSAP, keys and paths" },
+    "chapter5": { "number": "05", "title": "Grade and LUT" },
+    "chapter6": { "number": "06", "title": "Full nested production" },
+    "chapter7": { "number": "07", "title": "Imported 3D camera" },
+    "chapter8": { "number": "08", "title": "Audio and delivery" }
+  },
+  "chapterSource": { "text": "GUIDE OPENS THE REAL TOOL · ⌘Z RESTORES SOURCE" },
+  "audio": { "volume": 0.08, "muted": false }
+}
