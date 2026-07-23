@@ -612,6 +612,9 @@ export class StudioSession {
 
     const category = (item: TimelineItemSnapshot): "video" | "audio" | "grade" =>
       item.content.type === "audio" ? "audio" : item.content.type === "grade-layer" ? "grade" : "video";
+    const removedNestedComposition = selected.length === 1 && selected[0].content.type === "nested"
+      ? compositionByReference(state.compositions, selected[0].content.compId)
+      : undefined;
     this.state.update((current) => {
       const remaining = (current.timelineByComposition[current.currentKey] ?? [])
         .filter((item) => !ids.includes(item.id))
@@ -629,7 +632,9 @@ export class StudioSession {
         selection: removedSelection ? null : current.selection,
         notice: compactLayer
           ? `Deleted ${compactLayer.kind} layer ${compactLayer.layer + 1}.`
-          : `Deleted ${selected.length === 1 ? selected[0].name ?? selected[0].id : `${selected.length} timeline items`}.`,
+          : removedNestedComposition
+            ? `Removed ${selected[0].name ?? selected[0].id} from the timeline. ${removedNestedComposition.id} remains available.`
+            : `Deleted ${selected.length === 1 ? selected[0].name ?? selected[0].id : `${selected.length} timeline items`}.`,
         timelineByComposition: { ...current.timelineByComposition, [current.currentKey]: remaining },
       };
     });

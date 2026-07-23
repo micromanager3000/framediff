@@ -5,7 +5,7 @@
       "id": "workflow-final",
       "from": 0,
       "durationInFrames": 420,
-      "name": "audio-locked final",
+      "name": "Final dialogue video",
       "content": {
         "type": "nested",
         "composition": "lighthouse-dialogue",

@@ -100,6 +100,7 @@ import { analyzeGsapSource, analyzeGsapUnrollGroups, ensureGsapTimelineSource, i
 import { parseMotionPathSvg } from "@framediff/studio-model";
 import { getGsapRuntimeTraces } from "../gsap";
 import {
+  findHtmlElementById,
   htmlGradeAttributes,
   inspectorFieldsFromHtml,
   insertNestedHtmlComposition,
@@ -1430,8 +1431,19 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (htmlFile) {
       const revision = await readSourceRevision(htmlFile);
       if (!revision || revision.text == null) return { ok: false, file: htmlFile, message: `Could not read ${htmlFile}.` };
+      const remainingSourceItems = snapshot
+        .filter((item) => !itemIds.includes(item.id) && findHtmlElementById(revision.text!, item.id))
+        .map((item) => item.id);
       nextHtml = revision.text;
       for (const itemId of itemIds) nextHtml = removeHtmlElement(nextHtml, itemId) ?? nextHtml;
+      const removedAlongsideSelection = remainingSourceItems.filter((itemId) => !findHtmlElementById(nextHtml, itemId));
+      if (removedAlongsideSelection.length) {
+        return {
+          ok: false,
+          file: htmlFile,
+          message: `Deleting ${itemIds.join(", ")} would also remove timeline item${removedAlongsideSelection.length === 1 ? "" : "s"} ${removedAlongsideSelection.join(", ")} from the composition source.`,
+        };
+      }
       if (request.compactLayer) {
         for (const item of snapshot) {
           const kind = item.content.type === "audio" ? "audio" : item.content.type === "grade-layer" ? "grade" : "video";

@@ -47,7 +47,11 @@ test("a JSON-authored nested volume controls preview and export gain", async ({ 
     const volume = page.getByRole("spinbutton", { name: "volume number" });
     await expect(volume).toHaveValue("0");
 
-    const approvalAudio = page.locator('.preview-runtime-host [data-fd-id="workflow-audio"] audio[data-framediff-audio]');
+    const editPreview = page.locator(
+      '.workspace:not(.generate-workspace) > .preview-panel > .preview-surface > .preview-host > .preview-runtime-host',
+    );
+    await expect(editPreview).toHaveCount(1);
+    const approvalAudio = editPreview.locator('[data-fd-id="workflow-audio"] audio[data-framediff-audio]');
     await expect(approvalAudio).toHaveCount(1);
     await expect.poll(() => approvalAudio.evaluate((audio: HTMLAudioElement) => ({
       clipVolume: audio.closest<HTMLElement>("[data-fd-comp]")?.dataset.fdVolume,
@@ -78,7 +82,7 @@ test("a JSON-authored nested volume controls preview and export gain", async ({ 
 
     // The final generated video is a separate audible layer. Silencing the approval reference
     // must not accidentally mute that sibling.
-    const finalVideo = page.locator('.preview-runtime-host [data-fd-id="workflow-final"] video[data-framediff-video]');
+    const finalVideo = editPreview.locator('[data-fd-id="workflow-final"] video[data-framediff-video]');
     await expect(finalVideo).toHaveCount(1);
     await expect.poll(() => finalVideo.evaluate((video: HTMLVideoElement) => ({
       previewVolume: video.volume,
@@ -87,6 +91,43 @@ test("a JSON-authored nested volume controls preview and export gain", async ({ 
       previewVolume: 1,
       exportVolume: "1",
     });
+
+    await page.locator('.clip[data-item-id="workflow-audio"]').evaluate((element) =>
+      (element as HTMLButtonElement).click());
+    await expect(page.getByText(
+      "Removes only this timeline placement. The source composition remains available. Undo restores it.",
+      { exact: true },
+    )).toBeVisible();
+    await page.getByRole("button", { name: "DELETE FROM TIMELINE" }).click();
+    await page.getByRole("button", { name: "CONFIRM DELETE" }).click();
+
+    await expect.poll(async () => {
+      const document = JSON.parse(await readFile(timelineFile, "utf8")) as { items: Array<{ id: string }> };
+      return document.items.some((item) => item.id === "workflow-audio");
+    }).toBe(false);
+    await expect(page.locator('.clip[data-item-id="workflow-audio"]')).toHaveCount(0);
+    await expect(finalVideo).toHaveCount(1);
+    await expect.poll(() => finalVideo.evaluate((video: HTMLVideoElement) => ({
+      display: getComputedStyle(video).display,
+      readyState: video.readyState,
+      source: video.currentSrc,
+    }))).toMatchObject({
+      display: "block",
+      readyState: 4,
+      source: expect.stringContaining("/__framediff-cache/"),
+    });
+    const libraryAudio = page.locator('.library-zone .composition-row[data-composition-key="lighthouse-dialogue-audio"]');
+    await expect(libraryAudio).toHaveCount(1);
+    await expect(page.getByText(
+      "Removed Locked dialogue performance from the timeline. lighthouseDialogueAudio remains available.",
+      { exact: true },
+    )).toBeVisible();
+
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect.poll(async () => readFile(timelineFile, "utf8")).toBe(originalTimeline);
+    await expect.poll(async () => readFile(htmlFile, "utf8")).toBe(originalHtml);
+    await expect(page.locator('.clip[data-item-id="workflow-audio"]')).toHaveCount(1);
+    await expect(finalVideo).toHaveCount(1);
   } finally {
     if (await readFile(timelineFile, "utf8") !== originalTimeline) await writeFile(timelineFile, originalTimeline);
     if (await readFile(htmlFile, "utf8") !== originalHtml) await writeFile(htmlFile, originalHtml);
