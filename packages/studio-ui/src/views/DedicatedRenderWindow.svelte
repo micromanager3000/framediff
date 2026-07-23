@@ -25,7 +25,7 @@
         {/if}
       </p>
     </div>
-    <RenderControl {viewModel} />
+    <RenderControl {viewModel} showTargets={false} />
   </section>
   {#if $store.status === "done" || $store.status === "error"}
     <button class="render-window-close" onclick={() => window.close()}>Close window</button>
