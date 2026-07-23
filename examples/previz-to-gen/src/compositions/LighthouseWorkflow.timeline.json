@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "workflow-final",
+      "from": 0,
+      "durationInFrames": 420,
+      "name": "audio-locked final",
+      "content": {
+        "type": "nested",
+        "composition": "lighthouse-dialogue",
+        "nestedScale": 0.503125
+      }
+    },
+    {
+      "id": "workflow-mara",
+      "from": 0,
+      "durationInFrames": 420,
+      "name": "Mara portrait",
+      "content": {
+        "type": "nested",
+        "composition": "lighthouse-visitor",
+        "nestedScale": 0.280556
+      }
+    },
+    {
+      "id": "workflow-elias",
+      "from": 0,
+      "durationInFrames": 420,
+      "name": "Elias portrait",
+      "content": {
+        "type": "nested",
+        "composition": "lighthouse-keeper",
+        "nestedScale": 0.280556
+      }
+    },
+    {
+      "id": "workflow-concept",
+      "from": 0,
+      "durationInFrames": 420,
+      "name": "Imported lighthouse concept",
+      "content": {
+        "type": "nested",
+        "composition": "lighthouse-concept",
+        "nestedScale": 0.323438
+      }
+    }
+  ]
+}

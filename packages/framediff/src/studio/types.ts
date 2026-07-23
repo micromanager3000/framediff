@@ -22,7 +22,7 @@ export interface CompMeta extends CompositionMetadata {
   /** Composites over the base with transparency (lower-thirds etc.). */
   alpha?: boolean;
   /** Artifact kind when this comp is used as an input to generation. Defaults to video. */
-  output?: "video" | "image";
+  output?: "video" | "image" | "audio";
   /** Frame captured when `output` is image. Defaults to the first frame. */
   outputFrame?: number;
   /** Declared lanes that introspection can't see (text/curve/markers). */

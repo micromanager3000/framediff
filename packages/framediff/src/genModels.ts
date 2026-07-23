@@ -1,4 +1,4 @@
-// The model registry: one entry per wired video model, each fitted to its fal endpoint's
+// The model registry: one entry per wired media model, each fitted to its fal endpoint's
 // OpenAPI (fetched 2026-07-07 — see each def's `fitted` note). The registry drives the
 // whole generative workbench: which ref kinds a model accepts, which params exist (and
 // their literals in the .gen.ts), how the provider input is built, what a take costs.
@@ -12,7 +12,7 @@ export type GenParamValue = string | number | boolean;
 
 export interface GenParamDef {
   /** Recipe field this param reads/writes (a literal in the .gen.ts). */
-  key: "tier" | "resolution" | "duration" | "aspect" | "audio" | "cfg" | "seed";
+  key: "tier" | "resolution" | "duration" | "aspect" | "audio" | "cfg" | "seed" | "speed" | "pitch";
   label: string;
   type: "enum" | "number";
   options?: GenParamValue[];
@@ -42,6 +42,8 @@ export interface GenModelDef {
   id: string;
   name: string;
   vendor: string;
+  /** Media kind produced by the endpoint and pinned as a take. */
+  output: "video" | "image" | "audio";
   /** Cost is an estimate (true) vs fitted to provider pricing (false). */
   est: boolean;
   /** Where the schema came from — shown in the model picker. */
@@ -94,6 +96,7 @@ const seedance: GenModelDef = {
   id: "seedance-2.0",
   name: "Seedance 2.0",
   vendor: "ByteDance · fal",
+  output: "video",
   est: false,
   fitted: "bytedance/seedance-2.0 OpenAPI · pricing exact (fal tokens)",
   accepts: { video: true, image: true, endImage: true, audio: true },
@@ -166,6 +169,7 @@ const veo31: GenModelDef = {
   id: "veo-3.1-fast",
   name: "Veo 3.1 fast",
   vendor: "Google · fal",
+  output: "video",
   est: true,
   fitted: "fal-ai/veo3.1/fast OpenAPI · price estimated",
   accepts: { video: false, image: true, endImage: false, audio: false },
@@ -216,6 +220,7 @@ const kling25: GenModelDef = {
   id: "kling-2.5-pro",
   name: "Kling 2.5 turbo pro",
   vendor: "Kuaishou · fal",
+  output: "video",
   est: true,
   fitted: "fal-ai/kling-video/v2.5-turbo/pro OpenAPI · price estimated",
   accepts: { video: false, image: true, endImage: true, audio: false },
@@ -268,6 +273,7 @@ const wan25: GenModelDef = {
   id: "wan-2.5",
   name: "Wan 2.5 preview",
   vendor: "Alibaba · fal",
+  output: "video",
   est: true,
   fitted: "fal-ai/wan-25-preview OpenAPI · price estimated",
   accepts: { video: false, image: true, endImage: false, audio: true },
@@ -317,11 +323,114 @@ const wan25: GenModelDef = {
 
 // ---------------------------------------------------------------------------
 
+// Seedream 5.0 Pro — image generation/editing; one pinned image per take
+
+const seedreamImageSize: Record<string, string> = {
+  "16:9": "landscape_16_9",
+  "4:3": "landscape_4_3",
+  "1:1": "square_hd",
+  "3:4": "portrait_4_3",
+  "9:16": "portrait_16_9",
+};
+
+const seedream50: GenModelDef = {
+  id: "seedream-5.0-pro",
+  name: "Seedream 5.0 Pro",
+  vendor: "ByteDance · fal",
+  output: "image",
+  est: false,
+  fitted: "bytedance/seedream/v5/pro text + edit OpenAPI · pricing exact",
+  accepts: { video: false, image: true, endImage: false, audio: false },
+  caps: ["text-to-image", "up to 10 image refs", "portrait + landscape", "precise continuity edits"],
+  limits: ["one pinned image per take", "no audio or video refs"],
+  negativePrompt: false,
+  params: [
+    { key: "aspect", label: "ASPECT", type: "enum", options: ["16:9", "4:3", "1:1", "3:4", "9:16"], def: "9:16" },
+  ],
+  dropHint: "optional concept/style images become an edit pass; no refs becomes text-to-image",
+  modeOf(r) {
+    return hasKind(r, "image") ? "image-edit" : "text-to-image";
+  },
+  endpointOf(r) {
+    return hasKind(r, "image")
+      ? "bytedance/seedream/v5/pro/edit"
+      : "bytedance/seedream/v5/pro/text-to-image";
+  },
+  buildInput(r) {
+    return {
+      prompt: r.prompt,
+      image_size: seedreamImageSize[r.aspect ?? "9:16"] ?? "portrait_16_9",
+      num_images: 1,
+      output_format: "jpeg",
+      enable_safety_checker: true,
+    };
+  },
+  refFieldsOf() {
+    return [{ kind: "image", field: "image_urls", many: true }];
+  },
+  costUsd() {
+    return 0.0675;
+  },
+  baseline: "$0.07 · one image",
+};
+
+// Seed Audio 1.0 — cheap performance approval before any video credits are spent
+
+const seedAudio10: GenModelDef = {
+  id: "seed-audio-1.0",
+  name: "Seed Audio 1.0",
+  vendor: "ByteDance · fal",
+  output: "audio",
+  est: false,
+  fitted: "bytedance/seed-audio-1.0 OpenAPI · pricing exact",
+  accepts: { video: false, image: true, endImage: false, audio: true },
+  caps: ["multi-speaker dialogue", "image-guided performance", "up to 3 voice refs", "mp3 output"],
+  limits: ["image and audio refs cannot be combined", "duration is directed in the prompt"],
+  negativePrompt: false,
+  params: [
+    // Timeline length controls composition bounds and cost preview, but Seed Audio takes its
+    // requested performance length from the prompt rather than an API duration field.
+    { key: "duration", label: "TIMELINE", type: "number", min: 4, max: 15, step: 1, def: 12, canonical: false },
+    { key: "speed", label: "SPEED", type: "number", min: 0.5, max: 2, step: 0.05, def: 1 },
+    { key: "pitch", label: "PITCH", type: "number", min: -12, max: 12, step: 1, def: 0 },
+  ],
+  dropHint: "one image can guide the performance, or up to three audio clips can guide voices",
+  modeOf(r) {
+    return hasKind(r, "audio") ? "reference-to-audio" : hasKind(r, "image") ? "image-to-audio" : "text-to-audio";
+  },
+  endpointOf() {
+    return "bytedance/seed-audio-1.0";
+  },
+  buildInput(r) {
+    return {
+      prompt: r.prompt,
+      output_format: "mp3",
+      sample_rate: 24000,
+      speed: r.speed ?? 1,
+      volume: 1,
+      pitch: r.pitch ?? 0,
+    };
+  },
+  refFieldsOf(r) {
+    return hasKind(r, "audio")
+      ? [{ kind: "audio", field: "audio_urls", many: true }]
+      : [{ kind: "image", field: "image_url" }];
+  },
+  costUsd(r) {
+    return (0.1875 / 60) * dur(r, 12);
+  },
+  baseline: "$0.04 · 12s target",
+};
+
+// ---------------------------------------------------------------------------
+
 export const GEN_MODELS: Record<string, GenModelDef> = {
   [seedance.id]: seedance,
   [veo31.id]: veo31,
   [kling25.id]: kling25,
   [wan25.id]: wan25,
+  [seedream50.id]: seedream50,
+  [seedAudio10.id]: seedAudio10,
 };
 
 /** Def for a recipe's model — unknown ids fall back to Seedance (the original default). */

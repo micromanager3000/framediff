@@ -31,6 +31,7 @@
   $: nextTake = ($store.workspace?.takes.at(-1)?.take ?? 0) + 1;
   const converted = (raw: string, original: unknown) => typeof original === "boolean" ? raw === "true" : typeof original === "number" ? Number(raw) : raw;
   const takeUrl = (contentHash: string) => `/__framediff-cache/${encodeURIComponent(contentHash)}`;
+  const takeExtension = (kind: "video" | "image" | "audio") => kind === "video" ? "mp4" : kind === "audio" ? "mp3" : "jpg";
   const COMP_DRAG_MIME = "application/x-framediff-comp";
   function dragCompositionOver(event: DragEvent): void {
     if (!event.dataTransfer?.types.includes(COMP_DRAG_MIME)) return;
@@ -86,7 +87,7 @@
         </div>
         <button class="draft-button" onclick={() => void editDraft()}>Back to current draft</button>
       {:else}
-        <div><span>GENERATIVE COMPOSITION</span><strong>{workspace.modelName}</strong><small>{workspace.mode} · ${workspace.costUsd.toFixed(2)} · {workspace.status}</small></div>
+        <div><span>GENERATIVE COMPOSITION · {workspace.outputKind}</span><strong>{workspace.modelName}</strong><small>{workspace.mode} · ${workspace.costUsd.toFixed(2)} · {workspace.status}</small></div>
         <select aria-label="Generation model" value={workspace.model} onchange={(event) => void viewModel.update({ model: event.currentTarget.value })}>
           {#each workspace.models as model}<option value={model.id}>{model.name} · {model.baseline}</option>{/each}
         </select>
@@ -188,21 +189,33 @@
           {#if !workspace.providerReady}
             <div class="provider-key"><input type="password" bind:value={providerKey} placeholder="FAL_KEY" /><button disabled={!providerKey} onclick={() => void viewModel.configure("fal", providerKey)}>Configure fal</button></div>
           {/if}
-          <button class="generate-button" disabled={$store.busy || !workspace.providerReady} onclick={() => void viewModel.generate()}>{$store.busy ? "Working…" : `Generate · $${workspace.costUsd.toFixed(2)}`}</button>
+          {#if workspace.blockedReason}<div class="message notice">{workspace.blockedReason}</div>{/if}
+          <button class="generate-button" disabled={$store.busy || !workspace.providerReady || !!workspace.blockedReason} onclick={() => void viewModel.generate()}>{$store.busy ? "Working…" : `Generate · $${workspace.costUsd.toFixed(2)}`}</button>
           {#if $store.error}<div class="message error">{$store.error}</div>{/if}
         {/if}
       </div>
       <div class="gen-output">
         <div class="gen-preview">
           {#if previewedTake}
-            <!-- svelte-ignore a11y_media_has_caption -->
-            <video
-              src={takeUrl(previewedTake.contentHash)}
-              controls
-              autoplay
-              playsinline
-              aria-label={`Preview of take ${previewedTake.take}`}
-            ></video>
+            {#if previewedTake.outputKind === "image"}
+              <img src={takeUrl(previewedTake.contentHash)} alt={`Preview of take ${previewedTake.take}`} />
+            {:else if previewedTake.outputKind === "audio"}
+              <div class="audio-take-preview">
+                <span>SEED AUDIO PERFORMANCE</span>
+                <strong>Take {previewedTake.take}</strong>
+                <!-- svelte-ignore a11y_media_has_caption -->
+                <audio src={takeUrl(previewedTake.contentHash)} controls autoplay aria-label={`Preview of take ${previewedTake.take}`}></audio>
+              </div>
+            {:else}
+              <!-- svelte-ignore a11y_media_has_caption -->
+              <video
+                src={takeUrl(previewedTake.contentHash)}
+                controls
+                autoplay
+                playsinline
+                aria-label={`Preview of take ${previewedTake.take}`}
+              ></video>
+            {/if}
             <span class="preview-label">PREVIEWING TAKE {previewedTake.take}</span>
           {:else}
             <PreviewHost {runtime} {session} interactive={false} />
@@ -251,7 +264,7 @@
             <a
               class="take-download"
               href={takeUrl(take.contentHash)}
-              download={`${workspace.recipeId}-take-${take.take}.mp4`}
+              download={`${workspace.recipeId}-take-${take.take}.${takeExtension(take.outputKind)}`}
               aria-label={`Download take ${take.take}`}
               title={`Download take ${take.take}`}
             >

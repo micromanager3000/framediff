@@ -2,7 +2,7 @@ import type { CanonicalTweenKind, NormalizedTweenOperation, ParamBinding } from 
 import type { CubicMotionSegment, GestureSample } from "./motionPath";
 
 export type CompositionKind = "edit" | "3d" | "generate" | "audio" | "doc" | "plan" | "scene" | "board" | "moodboard" | "script" | "storyboard" | "locations" | "cast";
-export type CompositionOutputKind = "video" | "image";
+export type CompositionOutputKind = "video" | "image" | "audio";
 export type CompositionTimelineMode = "auto" | "always" | "hidden";
 export type CompositionTransportMode = "auto" | "always" | "hidden";
 
@@ -647,6 +647,7 @@ export interface GenerativeRefSnapshot {
 export interface GenerativeTakeSettingsSnapshot {
   model: string;
   modelName: string;
+  outputKind: CompositionOutputKind;
   prompt: string;
   negativePrompt: string;
   acceptsNegativePrompt: boolean;
@@ -670,6 +671,7 @@ export interface GenerativeTakeSnapshot {
   endpoint: string;
   seed?: number;
   at?: string;
+  outputKind: CompositionOutputKind;
   settings?: GenerativeTakeSettingsSnapshot;
 }
 export interface GenerativeJobSnapshot { id: string; status: string; error?: string; take?: number; }
@@ -679,6 +681,7 @@ export interface GenerativeWorkspaceSnapshot {
   file?: string;
   model: string;
   modelName: string;
+  outputKind: CompositionOutputKind;
   models: { id: string; name: string; vendor: string; baseline: string }[];
   prompt: string;
   negativePrompt: string;
@@ -695,6 +698,8 @@ export interface GenerativeWorkspaceSnapshot {
   liveHash: string;
   status: "never" | "running" | "current" | "stale" | "unpinned";
   providerReady: boolean;
+  /** Upstream generative inputs that must have an available pinned take before submit. */
+  blockedReason?: string;
 }
 
 export interface ProjectWorkspacePort {

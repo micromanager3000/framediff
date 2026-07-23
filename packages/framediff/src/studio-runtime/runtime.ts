@@ -1931,7 +1931,18 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       throw new Error(`Cannot bake with unresolved render inputs: ${fingerprint.missing.join(", ")}.`);
     }
     let blob: Blob;
-    if (kind === "image") {
+    if (kind === "audio") {
+      if (!("recipe" in composition)) throw new Error("Audio bakes require a generative composition with a pinned take.");
+      const recipe = (composition as GenerativeComposition).recipe;
+      const pinned = (await genJobs(recipe.id))?.takes.find((take) => take.generator.take === (recipe.take ?? 0));
+      if (!pinned) throw new Error(`${composition.id} needs a pinned audio take before it can be baked.`);
+      onProgress({ phase: "prepare", completed: 0, total: 1 });
+      const response = await fetch(`/__framediff-cache/${encodeURIComponent(pinned.contentHash)}`);
+      if (!response.ok) throw new Error(`Pinned audio bytes are unavailable (${response.status}).`);
+      blob = await response.blob();
+      onProgress({ phase: "audio", completed: 1, total: 1 });
+      onProgress({ phase: "finalize", completed: 1, total: 1 });
+    } else if (kind === "image") {
       onProgress({ phase: "prepare", completed: 0, total: 1 });
       const frame = Math.max(0, Math.min(composition.durationInFrames - 1, Math.floor(composition.meta?.outputFrame ?? 0)));
       const canvas = await captureCompositeFrame(composition, frame, {
@@ -1963,7 +1974,8 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       blob = new Blob([buffer], { type: "video/mp4" });
     }
     const hash = await hashBlob(blob);
-    await new HttpFolderCAS().put(hash, blob, `${composition.id}.${kind}.${blob.type === "image/png" ? "png" : "mp4"}`);
+    const extension = kind === "image" ? "png" : kind === "audio" ? (blob.type.includes("wav") ? "wav" : "mp3") : "mp4";
+    await new HttpFolderCAS().put(hash, blob, `${composition.id}.${kind}.${extension}`);
     await writeArtifactMeta(hash, { compId: composition.id, label: `${composition.id} ${kind} bake`, inputs: fingerprint.inputs, createdAt: new Date().toISOString() });
     return { bytes: blob.size, filename: hash };
   }
@@ -2419,6 +2431,19 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const status = active ? "running" : !data.takes.length ? "never" : !pinned ? "unpinned" : pinned.generator.recipeHash === liveHash ? "current" : "stale";
     const assets = await getAssets();
     const secrets = await getSecrets();
+    const blockedInputs: string[] = [];
+    for (const ref of recipe.refs ?? []) {
+      if (!ref.src.startsWith("comp://")) continue;
+      const input = this.registry[ref.src.slice("comp://".length)];
+      if (!input || !("recipe" in input)) continue;
+      const inputRecipe = (input as GenerativeComposition).recipe;
+      const inputTakes = await genJobs(inputRecipe.id);
+      const pinned = inputTakes?.takes.some((take) => take.generator.take === (inputRecipe.take ?? 0));
+      if (!pinned) blockedInputs.push(input.id);
+    }
+    const blockedReason = blockedInputs.length
+      ? `Pin an approved take in ${[...new Set(blockedInputs)].join(", ")} before generating this composition.`
+      : undefined;
     const labelFor = (source: string) => source.startsWith("asset://")
       ? assets?.assets[source.slice(8)]?.name ?? source
       : source.startsWith("comp://")
@@ -2432,6 +2457,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       return {
         model: historicalRecipe.model ?? historicalDefinition.id,
         modelName: historicalDefinition.name,
+        outputKind: historicalDefinition.output,
         prompt: historicalRecipe.prompt,
         negativePrompt: historicalRecipe.negativePrompt ?? "",
         acceptsNegativePrompt: historicalDefinition.negativePrompt,
@@ -2456,6 +2482,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       file: recipe.dataFile ?? recipe.file,
       model: recipe.model ?? definition.id,
       modelName: definition.name,
+      outputKind: definition.output,
       models: Object.values(GEN_MODELS).map((model) => ({ id: model.id, name: model.name, vendor: model.vendor, baseline: model.baseline })),
       prompt: recipe.prompt,
       negativePrompt: recipe.negativePrompt ?? "",
@@ -2472,16 +2499,21 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       compositions: Object.entries(this.registry)
         .filter(([key, candidate]) => key !== compositionKey && candidate.id !== composition.id)
         .map(([key, candidate]) => ({ key, id: candidate.id, outputKind: candidate.meta?.output ?? "video" })),
-      takes: data.takes.map((take) => ({
-        take: take.generator.take, assetId: take.assetId, contentHash: take.contentHash, bytes: take.bytes,
-        recipeHash: take.generator.recipeHash, endpoint: take.generator.endpoint, seed: take.generator.seed, at: take.generator.at,
-        settings: takeSettings(take),
-      })),
+      takes: data.takes.map((take) => {
+        const settings = takeSettings(take);
+        return {
+          take: take.generator.take, assetId: take.assetId, contentHash: take.contentHash, bytes: take.bytes,
+          recipeHash: take.generator.recipeHash, endpoint: take.generator.endpoint, seed: take.generator.seed, at: take.generator.at,
+          outputKind: take.generator.outputKind ?? settings?.outputKind ?? definition.output,
+          settings,
+        };
+      }),
       jobs: data.jobs.map((job) => ({ id: job.id, status: job.status, error: job.error, take: job.take })),
       pinnedTake: recipe.take ?? 0,
       liveHash,
       status,
       providerReady: !!secrets?.providers.fal?.set,
+      blockedReason,
     };
   }
 
@@ -2548,6 +2580,30 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         const inputKey = ref.src.slice(7);
         const inputComp = this.registry[inputKey];
         if (!inputComp) return { ok: false, message: `Unknown input composition: ${inputKey}.` };
+        if ("recipe" in inputComp) {
+          const inputRecipe = (inputComp as GenerativeComposition).recipe;
+          const inputOutput = genModelOf(inputRecipe).output;
+          const expectedOutput = ref.kind === "endImage" ? "image" : ref.kind;
+          if (inputOutput !== expectedOutput) {
+            return { ok: false, message: `${inputComp.id} produces ${inputOutput}, not ${expectedOutput}.` };
+          }
+          const inputData = await genJobs(inputRecipe.id);
+          const pinned = inputData?.takes.find((take) => take.generator.take === (inputRecipe.take ?? 0));
+          if (!pinned) {
+            return { ok: false, message: `${inputComp.id} needs a pinned take before it can feed this recipe.` };
+          }
+          const extension = inputOutput === "video" ? "mp4" : inputOutput === "audio" ? "mp3" : "jpg";
+          resolved.push({
+            kind: ref.kind,
+            src: `/__framediff-cache/${encodeURIComponent(pinned.contentHash)}`,
+            mime: pinned.mime ?? (inputOutput === "video" ? "video/mp4" : inputOutput === "audio" ? "audio/mpeg" : "image/jpeg"),
+            name: `${inputComp.id}.${extension}`,
+          });
+          continue;
+        }
+        if (ref.kind === "audio") {
+          return { ok: false, message: `${inputComp.id} is not a pinnable audio generative composition; use an audio asset instead.` };
+        }
         const kind: CompositionOutputKind = ref.kind === "video" ? "video" : "image";
         const baked = await this.bakeComposition(inputKey, () => undefined, kind);
         resolved.push({

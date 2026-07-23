@@ -436,6 +436,7 @@ interface GenJobRecord {
   take?: number;
   assetId?: string;
   seed?: number;
+  outputKind?: "video" | "image" | "audio";
   at: string;
   doneAt?: string;
   recipe: GenRecipeSnapshot;
@@ -1022,21 +1023,41 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
                 changed = true;
               } else if (st.status === "COMPLETED") {
                 const rr = await fetch(job.responseUrl, { headers: { authorization: `Key ${k.key}` } });
-                const out = (await rr.json().catch(() => ({}))) as { video?: { url?: string }; seed?: number; detail?: unknown };
-                if (!rr.ok || !out.video?.url) {
+                const out = (await rr.json().catch(() => ({}))) as {
+                  video?: { url?: string; content_type?: string; file_name?: string };
+                  audio?: { url?: string; content_type?: string; file_name?: string };
+                  image?: { url?: string; content_type?: string; file_name?: string };
+                  images?: { url?: string; content_type?: string; file_name?: string }[];
+                  seed?: number;
+                  detail?: unknown;
+                };
+                const artifact = out.video ?? out.audio ?? out.images?.[0] ?? out.image;
+                const outputKind: "video" | "image" | "audio" = out.video
+                  ? "video"
+                  : out.audio
+                    ? "audio"
+                    : "image";
+                if (!rr.ok || !artifact?.url) {
                   job.status = "failed";
                   job.error = `result ${rr.status}: ${JSON.stringify(out.detail ?? out).slice(0, 300)}`;
                 } else {
-                  const vid = await fetch(out.video.url);
-                  if (!vid.ok) throw new Error(`take download ${vid.status}`);
-                  const buf = Buffer.from(await vid.arrayBuffer());
+                  const media = await fetch(artifact.url);
+                  if (!media.ok) throw new Error(`take download ${media.status}`);
+                  const buf = Buffer.from(await media.arrayBuffer());
+                  const mime = artifact.content_type ?? media.headers.get("content-type")?.split(";", 1)[0]
+                    ?? (outputKind === "video" ? "video/mp4" : outputKind === "audio" ? "audio/mpeg" : "image/jpeg");
+                  const namedExt = path.extname(artifact.file_name ?? "").slice(1).toLowerCase();
+                  const mimeExt = extensionForMime(mime).slice(1);
+                  const extension = /^[a-z0-9]{2,5}$/.test(namedExt)
+                    ? namedExt
+                    : mimeExt || (outputKind === "video" ? "mp4" : outputKind === "audio" ? "mp3" : "jpg");
                   // take number: next after the highest already recorded for this gen
                   const m = readManifest();
                   let takeNo = 1;
                   for (const e of Object.values(m.assets) as { generator?: { gen?: string; take?: number } }[]) {
                     if (e.generator?.gen === job.gen && (e.generator.take ?? 0) >= takeNo) takeNo = (e.generator.take ?? 0) + 1;
                   }
-                  const { id, entry } = ingestBytes(buf, `${job.gen}.take${takeNo}.mp4`);
+                  const { id, entry } = ingestBytes(buf, `${job.gen}.take${takeNo}.${extension}`);
                   const withGen = readManifest();
                   const target = withGen.assets[id] as { generator?: unknown };
                   const existingGen = (entry as { generator?: { take?: number } }).generator;
@@ -1052,6 +1073,7 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
                       inputs: job.inputs,
                       requestId: job.id,
                       seed: out.seed,
+                      outputKind,
                       at: new Date().toISOString(),
                     };
                     fs.writeFileSync(manifestPath, JSON.stringify(withGen, null, 2) + "\n");
@@ -1060,6 +1082,7 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
                   job.take = takeNo;
                   job.assetId = id;
                   job.seed = out.seed;
+                  job.outputKind = outputKind;
                 }
                 job.doneAt = new Date().toISOString();
                 changed = true;
@@ -1076,8 +1099,8 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
           if (changed) writeJobs(root, jobs);
           const m = readManifest();
           const takes: unknown[] = [];
-          for (const [assetId, e] of Object.entries(m.assets) as [string, { contentHash?: string; bytes?: number; generator?: { gen?: string; take?: number } }][]) {
-            if (gen && e.generator?.gen === gen) takes.push({ assetId, contentHash: e.contentHash, bytes: e.bytes, generator: e.generator });
+          for (const [assetId, e] of Object.entries(m.assets) as [string, { contentHash?: string; bytes?: number; mime?: string; generator?: { gen?: string; take?: number } }][]) {
+            if (gen && e.generator?.gen === gen) takes.push({ assetId, contentHash: e.contentHash, bytes: e.bytes, mime: e.mime, generator: e.generator });
           }
           (takes as { generator: { take: number } }[]).sort((a, b) => a.generator.take - b.generator.take);
           return json(res, 200, {

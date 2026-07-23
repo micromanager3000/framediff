@@ -266,6 +266,7 @@ export interface GenTakeRow {
   assetId: string;
   contentHash: string;
   bytes: number;
+  mime?: string;
   generator: {
     gen: string;
     take: number;
@@ -275,6 +276,7 @@ export interface GenTakeRow {
     inputs: GenInputProvenance[];
     requestId?: string;
     seed?: number;
+    outputKind?: "video" | "image" | "audio";
     at?: string;
   };
 }
