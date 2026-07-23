@@ -1,0 +1,5 @@
+# FrameDiff is a trusted development workspace. Let Codex complete routine
+# repository work, local server startup, network access, and publishing flows
+# without pausing for approval prompts.
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
