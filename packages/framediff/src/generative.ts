@@ -289,6 +289,7 @@ export function generative(recipe: GenRecipe): GenerativeComposition {
     video,img { position:absolute;inset:0;width:100%;height:100%;object-fit:cover; }
     audio { position:absolute;width:1px;height:1px;opacity:0;pointer-events:none; }
     .gen-slate { position:absolute;inset:0;display:grid;place-items:center;text-align:center;line-height:2; }
+    .gen-slate[hidden] { display:none; }
     .gen-slate.audio { background:radial-gradient(circle at 50% 42%,rgba(195,165,223,.14),transparent 42%); }
     .gen-id { font-size:13px;letter-spacing:.12em;color:#c3a5df;font-weight:700; }
     .gen-prompt { font-size:10px;opacity:.8; }

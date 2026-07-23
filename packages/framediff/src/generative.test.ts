@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   __generativeTest,
+  generative,
   genRecipeSnapshotOf,
   genTakesFrom,
   primeGenTakes,
@@ -105,5 +106,18 @@ describe("just-landed generative takes", () => {
     };
 
     expect(__generativeTest.knownGenTakes(manifest, "shot")[0].contentHash).toBe("sha256:landed");
+  });
+
+  it("does not paint recipe metadata over a pinned video", () => {
+    primeGenTakes([take(2)]);
+
+    const composition = generative({
+      id: "shot",
+      prompt: "A clean lighthouse dialogue shot",
+      take: 2,
+    });
+
+    expect(composition.html).toContain('<div class="gen-slate" hidden>');
+    expect(composition.html).toContain(".gen-slate[hidden] { display:none; }");
   });
 });
