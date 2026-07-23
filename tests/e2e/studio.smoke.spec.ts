@@ -1,7 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openComposition } from "./helpers";
 
 async function openProductionLab(page: Page): Promise<void> {
-  await page.goto("/?comp=production-lab");
+  await openComposition(page, "production-lab");
   await expect(page).toHaveTitle("FrameDiff — Studio Playground");
   await expect(page.getByRole("heading", { name: "One project. Every surface." })).toBeVisible();
   await expect(page.locator(".top-status")).toHaveText("ready");
@@ -45,7 +46,7 @@ test("the guide lands on a stable object and preserves it across refresh", async
   await expect(page.locator(".inspector > header strong")).toHaveText("move-card");
   await expect(page.getByRole("spinbutton", { name: /^x number$/i })).toHaveValue("161");
 
-  await page.evaluate(() => history.replaceState(null, "", "/?comp=direct-manipulation-lab"));
+  await expect(page).not.toHaveURL(/[?&]comp=/);
   await page.reload();
   await expect(page.locator(".top-status")).toHaveText("ready");
   await expect(page.locator(".inspector > header strong")).toHaveText("move-card");
@@ -180,8 +181,7 @@ test("the new-composition dialog is keyboard-dismissable and restores focus", as
 });
 
 test("the agent check reports warning state clearly and can capture the exact frame", async ({ page }) => {
-  await page.goto("/?comp=studio-playground");
-  await expect(page.locator(".top-status")).toHaveText("ready");
+  await openComposition(page, "studio-playground");
   await page.getByRole("button", { name: "AGENT API v1" }).click();
   await expect(page.locator(".agent-check-summary strong")).toHaveText("READY WITH WARNINGS");
   await expect(page.locator(".agent-check-summary span")).toContainText("warning");

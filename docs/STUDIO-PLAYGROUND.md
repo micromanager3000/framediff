@@ -55,7 +55,7 @@ observable success condition and a tested composition/frame target.
 ```sh
 npm ci
 npm run dev --workspace examples/studio-playground
-# http://localhost:5173/ defaults to ?comp=studio-playground
+# http://localhost:5173/ opens the Studio Playground project
 
 npm run check --workspace examples/studio-playground
 npm run build --workspace examples/studio-playground

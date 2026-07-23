@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFile, writeFile } from "node:fs/promises";
+import { openComposition } from "./helpers";
 
 const verticalBase = "http://127.0.0.1:4180";
 const lowerDocumentFile = "examples/vertical-hero/src/compositions/VerticalLowerThird.comp.json";
@@ -25,8 +26,7 @@ test("the from-scratch portrait comp edits JSON without rebuilding Studio", asyn
   const editedName = `${originalName} · live`;
 
   try {
-    await page.goto(`${verticalBase}/?comp=vertical-lower-third`);
-    await expect(page.locator(".top-status")).toHaveText("ready");
+    await openComposition(page, "vertical-lower-third", verticalBase);
     await expect(page.locator(".transport")).toBeVisible();
     await expect(page.getByRole("group", { name: /Timeline/ })).toHaveCount(0);
     await expect(page.getByRole("slider", { name: "Preview frame" })).toBeVisible();
@@ -59,8 +59,7 @@ test("the first recorded gesture bootstraps motion source and commits without an
   const originalModule = await readFile(backdropModuleFile, "utf8");
 
   try {
-    await page.goto(`${verticalBase}/?comp=vertical-backdrop`);
-    await expect(page.locator(".top-status")).toHaveText("ready");
+    await openComposition(page, "vertical-backdrop", verticalBase);
     const scrubber = page.getByRole("slider", { name: "Preview frame" });
     await expect(scrubber).toBeVisible();
     await scrubber.fill("90");
@@ -113,8 +112,7 @@ test("a library comp drags into the portrait edit's external timeline atomically
   const originalItems = JSON.parse(originalTimeline).items.length as number;
 
   try {
-    await page.goto(`${verticalBase}/?comp=vertical-main`);
-    await expect(page.locator(".top-status")).toHaveText("ready");
+    await openComposition(page, "vertical-main", verticalBase);
     const primaryCompositions = page.locator('.composition-list[role="list"]').first();
     const lowerThird = primaryCompositions.locator(".composition-row").filter({ hasText: "VerticalLowerThird" });
     const timeline = page.getByRole("group", { name: "Timeline; drop a composition to add it at a frame" });
@@ -138,8 +136,7 @@ test("a comp drags into the portrait generative recipe as a comp reference", asy
   const originalGenerator = await readFile(generatorFile, "utf8");
 
   try {
-    await page.goto(`${verticalBase}/?comp=vertical-atmosphere`);
-    await expect(page.locator(".top-status")).toHaveText("ready");
+    await openComposition(page, "vertical-atmosphere", verticalBase);
     const primaryCompositions = page.locator('.composition-list[role="list"]').first();
     const main = primaryCompositions.locator(".composition-row").filter({ hasText: "VerticalMain" });
     const references = page.getByRole("group", { name: "Generation input references; drop a composition to add it" });
@@ -156,8 +153,7 @@ test("a comp drags into the portrait generative recipe as a comp reference", asy
 });
 
 test("the portrait root can render an exact non-empty frame", async ({ page }) => {
-  await page.goto(`${verticalBase}/?comp=vertical-main`);
-  await expect(page.locator(".top-status")).toHaveText("ready");
+  await openComposition(page, "vertical-main", verticalBase);
   const result = await page.evaluate(async () => {
     const inspected = await window.__framediffAgent!.inspect();
     const frame = await window.__framediffAgent!.snapshot("vertical-main", 60);

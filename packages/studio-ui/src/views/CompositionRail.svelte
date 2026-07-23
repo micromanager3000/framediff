@@ -133,6 +133,7 @@
         onpointerleave={() => disarmDelete(composition.key)}
       >
         <button
+          data-composition-key={composition.key}
           draggable="true"
           ondragstart={(event) => startCompositionDrag(event, composition.key)}
           ondragend={endCompositionDrag}
@@ -186,6 +187,7 @@
             onpointerleave={() => disarmDelete(composition.key)}
           >
             <button
+              data-composition-key={composition.key}
               draggable="true"
               ondragstart={(event) => startCompositionDrag(event, composition.key)}
               ondragend={endCompositionDrag}

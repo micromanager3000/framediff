@@ -69,7 +69,7 @@ export function Main() {
 `;
 
 const COMPS = `// Every piece is a composition. Main nests these; each is also individually openable in the
-// Studio (?comp=hero / lower-third / end-card / excerpt) and individually bakeable.
+// Studio (hero / lower-third / end-card / excerpt) and individually bakeable.
 
 import type { CompositionConfig } from "framediff";
 import { Nested } from "framediff";

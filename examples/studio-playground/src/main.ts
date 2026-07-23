@@ -10,11 +10,8 @@ import {
 import { COMPOSITIONS } from "./config";
 import { preloadLuts } from "./effects/luts";
 
-// ?comp=studio-playground | production-lab | main | hero | lower-third — the ROOT comp;
-// the whole registry mounts, so every comp stays reachable through the tree/nesting.
-const which = new URLSearchParams(location.search).get("comp") ?? "studio-playground";
 let liveCompositions = COMPOSITIONS;
-let composition = liveCompositions[which] ?? liveCompositions.main;
+let composition = liveCompositions["studio-playground"];
 
 // This module is imported for its headless render hooks as well as config being imported by
 // studio-runtime. Accept that second path so a comp save updates only the HTML preview instead
@@ -23,7 +20,7 @@ if (import.meta.hot) {
   import.meta.hot.accept("./config", (module) => {
     if (!module) return;
     liveCompositions = module.COMPOSITIONS;
-    composition = liveCompositions[which] ?? liveCompositions.main;
+    composition = liveCompositions["studio-playground"];
   });
 }
 

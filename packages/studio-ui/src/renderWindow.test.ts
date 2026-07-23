@@ -1,19 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
-  RENDER_WINDOW_QUERY_PARAM,
+  buildRenderWindowName,
   buildRenderWindowUrl,
   isRenderWindowMessage,
-  renderWindowToken,
+  renderWindowRequest,
 } from "./renderWindow";
 
 describe("dedicated render window protocol", () => {
-  it("targets the selected composition while preserving project query parameters", () => {
-    const href = buildRenderWindowUrl("http://localhost:5173/studio?theme=dark&comp=old", "hero/main", "token-1");
+  it("targets the selected composition without putting composition state in the URL", () => {
+    const href = buildRenderWindowUrl("http://localhost:5173/studio?theme=dark&comp=old&framediff-render-window=old");
     const url = new URL(href);
     expect(url.searchParams.get("theme")).toBe("dark");
-    expect(url.searchParams.get("comp")).toBe("hero/main");
-    expect(url.searchParams.get(RENDER_WINDOW_QUERY_PARAM)).toBe("token-1");
-    expect(renderWindowToken(href)).toBe("token-1");
+    expect(url.searchParams.has("comp")).toBe(false);
+    expect(url.searchParams.has("framediff-render-window")).toBe(false);
+    expect(renderWindowRequest(buildRenderWindowName("hero/main", "token-1"))).toEqual({
+      compositionKey: "hero/main",
+      token: "token-1",
+    });
+    expect(renderWindowRequest("unrelated-window")).toBeNull();
+    expect(renderWindowRequest("framediff-render:not-json")).toBeNull();
   });
 
   it("accepts only complete progress, result, and error messages", () => {

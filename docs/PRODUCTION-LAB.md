@@ -12,8 +12,8 @@ npm install
 npm run dev --workspace examples/studio-playground
 ```
 
-Open `http://localhost:5173/?comp=production-lab` (use the port Vite prints if 5173 is occupied).
-Studio Playground is the example's default composition; `production-lab` remains directly addressable.
+Open the URL Vite prints, then choose `ProductionLab` in the composition rail.
+Studio Playground is the example's default composition; `ProductionLab` remains available in the rail.
 
 Start with **GUIDE** in the header. Progress is stored locally per guide version. **Start Tour** lands
 on the exact composition, frame, object, and panel for each exercise; the guided-task strip keeps the

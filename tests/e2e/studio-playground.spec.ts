@@ -1,8 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFile, writeFile } from "node:fs/promises";
+import { openComposition } from "./helpers";
 
 async function openPlayground(page: Page): Promise<void> {
-  await page.goto("/?comp=studio-playground");
+  await openComposition(page, "studio-playground");
   await expect(page).toHaveTitle("FrameDiff — Studio Playground");
   await expect(page.locator(".top-status")).toHaveText("ready");
   await expect(page.getByRole("heading", { name: "Every system." })).toBeVisible();
@@ -23,6 +24,13 @@ test("the default project presents the complete nested acceptance graph", async 
   const expected = ["CoverageMap", "AuthoringChapter", "EditorialChapter", "EffectsChapter", "PipelineChapter"];
   for (const id of expected) await expect(page.locator(".composition-row").filter({ hasText: id }).first()).toBeVisible();
   expect(missingLocalMedia).toEqual([]);
+});
+
+test("an obsolete composition query is removed and cannot override the project root", async ({ page }) => {
+  await page.goto("/?comp=production-lab");
+  await expect(page.locator(".top-status")).toHaveText("ready");
+  await expect(page).toHaveURL("http://127.0.0.1:4174/");
+  await expect(page.locator(".breadcrumb button.active")).toHaveText("StudioPlayground");
 });
 
 test("a user can descend root to chapter to leaf and return through breadcrumbs", async ({ page }) => {
@@ -52,8 +60,7 @@ test("the Guide starts at the map and targets a real nested chapter next", async
 });
 
 test("the packaged effects lab keeps visual and audio timing on separate lanes", async ({ page }) => {
-  await page.goto("/?comp=package-effects-lab");
-  await expect(page.locator(".top-status")).toHaveText("ready");
+  await openComposition(page, "package-effects-lab");
   await expect(page.locator('.clip[data-item-id="effects-scene"]')).toBeVisible();
   await expect(page.locator('.clip[data-item-id="effects-scene"]')).toHaveText(/Packaged DOM effects/);
   await expect(page.locator('.clip[data-item-id="effects-audio"]')).toBeVisible();
@@ -67,8 +74,7 @@ test("embedded composition textures never escape into stray network requests", a
     if (response.status() === 404 && response.url().includes("%23n")) missingTextureRequests.push(response.url());
   });
 
-  await page.goto("/?comp=rich-properties-lab");
-  await expect(page.locator(".top-status")).toHaveText("ready");
+  await openComposition(page, "rich-properties-lab");
   await expect(page.locator('[data-fd-id="rich-headline"]')).toContainText("Click any object. Edit the document.");
   await expect(page.locator(".transport")).toHaveCount(0);
   await expect(page.getByRole("slider", { name: "Preview frame" })).toHaveCount(0);
@@ -89,8 +95,7 @@ test("direct manipulation is immediate and writes bound geometry to composition 
   const originalX = JSON.parse(originalDocumentText).moveCard.x as number;
 
   try {
-    await page.goto("/?comp=direct-manipulation-lab");
-    await expect(page.locator(".top-status")).toHaveText("ready");
+    await openComposition(page, "direct-manipulation-lab");
     await expect(page.locator(".transport")).toBeVisible();
     await expect(page.getByRole("slider", { name: "Preview frame" })).toBeVisible();
     await expect(page.getByRole("group", { name: /Timeline/ })).toHaveCount(0);
@@ -123,8 +128,7 @@ test("direct manipulation is immediate and writes bound geometry to composition 
 });
 
 test("a composition can be dragged directly onto an edit timeline and undone", async ({ page }) => {
-  await page.goto("/?comp=editorial-lab");
-  await expect(page.locator(".top-status")).toHaveText("ready");
+  await openComposition(page, "editorial-lab");
 
   const primaryCompositions = page.locator('.composition-list[role="list"]').first();
   const endCard = primaryCompositions.locator(".composition-row").filter({ hasText: "EndCard" });
@@ -170,8 +174,7 @@ test("a JSON-only property edit hot-patches the comp without reloading Studio", 
   const editedGravity = originalGravity - 1.1;
 
   try {
-    await page.goto("/?comp=cloth-lab");
-    await expect(page.locator(".top-status")).toHaveText("ready");
+    await openComposition(page, "cloth-lab");
     await expect(page.locator(".transport")).toBeVisible();
     await expect(page.getByRole("slider", { name: "Preview frame" })).toBeVisible();
     await expect(page.getByRole("group", { name: /Timeline/ })).toHaveCount(0);
