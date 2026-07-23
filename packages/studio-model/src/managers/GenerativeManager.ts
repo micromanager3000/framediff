@@ -6,13 +6,21 @@ export interface GenerativeManagerState {
   workspace: GenerativeWorkspaceSnapshot | null;
   loading: boolean;
   busy: boolean;
+  submitting: boolean;
   error: string | null;
   message: string | null;
 }
 
 export class GenerativeManager {
   private static readonly NOTICE_KEY = "framediff:gen-notice";
-  public readonly state = new ObservableValue<GenerativeManagerState>({ workspace: null, loading: false, busy: false, error: null, message: null });
+  public readonly state = new ObservableValue<GenerativeManagerState>({
+    workspace: null,
+    loading: false,
+    busy: false,
+    submitting: false,
+    error: null,
+    message: null,
+  });
   private unsubscribe: (() => void) | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private lastKey = "";
@@ -72,12 +80,40 @@ export class GenerativeManager {
   }
 
   public update(patch: Record<string, unknown>): Promise<boolean> {
-    return this.run(() => this.workspacePort.updateGenerativeRecipe(this.session.state.get().currentKey, patch));
+    return this.runDraftOperation(() => this.workspacePort.updateGenerativeRecipe(this.session.state.get().currentKey, patch));
   }
-  public generate(): Promise<boolean> { return this.run(() => this.workspacePort.submitGeneration(this.session.state.get().currentKey)); }
+  public async generate(): Promise<boolean> {
+    if (this.draftLocked()) return this.refuseDraftOperation();
+    this.state.update((state) => ({ ...state, submitting: true }));
+    try {
+      return await this.run(() => this.workspacePort.submitGeneration(this.session.state.get().currentKey));
+    } finally {
+      this.state.update((state) => ({ ...state, submitting: false }));
+    }
+  }
   public pin(take: number): Promise<boolean> { return this.run(() => this.workspacePort.pinGenerationTake(this.session.state.get().currentKey, take)); }
-  public startFrom(take: number): Promise<boolean> { return this.run(() => this.workspacePort.startGenerationFromTake(this.session.state.get().currentKey, take)); }
+  public startFrom(take: number): Promise<boolean> { return this.runDraftOperation(() => this.workspacePort.startGenerationFromTake(this.session.state.get().currentKey, take)); }
   public configure(provider: string, key: string): Promise<boolean> { return this.run(() => this.workspacePort.configureProvider(provider, key)); }
+
+  private runDraftOperation(operation: () => Promise<{ ok: boolean; message: string }>): Promise<boolean> {
+    if (!this.draftLocked()) return this.run(operation);
+    return this.refuseDraftOperation();
+  }
+
+  private draftLocked(): boolean {
+    const state = this.state.get();
+    return state.submitting
+      || !!state.workspace?.jobs.some((job) => job.status === "queued" || job.status === "running");
+  }
+
+  private refuseDraftOperation(): Promise<boolean> {
+    this.state.update((state) => ({
+      ...state,
+      error: "This recipe is locked until the generating take finishes.",
+      message: null,
+    }));
+    return Promise.resolve(false);
+  }
 
   private async run(operation: () => Promise<{ ok: boolean; message: string }>): Promise<boolean> {
     if (this.state.get().busy) return false;

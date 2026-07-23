@@ -674,7 +674,12 @@ export interface GenerativeTakeSnapshot {
   outputKind: CompositionOutputKind;
   settings?: GenerativeTakeSettingsSnapshot;
 }
-export interface GenerativeJobSnapshot { id: string; status: string; error?: string; take?: number; }
+export interface GenerativeJobSnapshot {
+  id: string;
+  status: "queued" | "running" | "done" | "failed";
+  error?: string;
+  take?: number;
+}
 export interface GenerativeWorkspaceSnapshot {
   compositionKey: string;
   recipeId: string;
