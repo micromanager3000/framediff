@@ -1,0 +1,1596 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FrameDiff — Edit layout lab</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0b0a;
+      --panel: #111210;
+      --panel-2: #161714;
+      --line: #2b2a26;
+      --line-soft: #22221f;
+      --text: #f2eee4;
+      --muted: #989287;
+      --muted-2: #69655e;
+      --amber: #e8b95f;
+      --amber-soft: rgba(232, 185, 95, .12);
+      --mint: #76d7c2;
+      --blue: #83a9c8;
+      --danger: #dc7d70;
+      --radius: 12px;
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { min-height: 100%; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 50% -10%, rgba(232, 185, 95, .07), transparent 27rem),
+        var(--bg);
+    }
+
+    button, input, select { font: inherit; }
+
+    button {
+      color: inherit;
+      cursor: pointer;
+    }
+
+    .app {
+      height: 100vh;
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      overflow: hidden;
+    }
+
+    .topbar {
+      min-height: 54px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(12, 12, 11, .94);
+      backdrop-filter: blur(20px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 210px;
+      font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: 2px;
+    }
+
+    .brand-mark {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: conic-gradient(var(--amber) 0 25%, #35342f 25% 100%);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
+    }
+
+    .crumbs {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      color: var(--muted);
+      font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .crumbs strong { color: var(--text); font-weight: 600; }
+    .crumbs .slash { color: #4e4b45; }
+
+    .top-actions {
+      margin-left: auto;
+      display: flex;
+      gap: 8px;
+    }
+
+    .quiet-button,
+    .copy-button,
+    .add-button {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 11px;
+      background: #151512;
+      color: #c7c2b8;
+      font-size: 12px;
+    }
+
+    .quiet-button:hover,
+    .copy-button:hover,
+    .add-button:hover { border-color: #48443b; color: var(--text); }
+
+    .intro {
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) auto;
+      gap: 22px;
+      align-items: center;
+      padding: 17px 20px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #0f0f0d;
+    }
+
+    .intro-copy { min-width: 0; }
+
+    .eyebrow {
+      margin-bottom: 5px;
+      color: var(--amber);
+      font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font: 600 clamp(20px, 2vw, 30px)/1.12 Georgia, "Times New Roman", serif;
+      letter-spacing: -.4px;
+    }
+
+    .intro p {
+      max-width: 740px;
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .recommendation {
+      max-width: 370px;
+      padding: 10px 12px;
+      border: 1px solid rgba(118, 215, 194, .23);
+      border-radius: 9px;
+      background: rgba(118, 215, 194, .055);
+      color: #c9d9d3;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .recommendation b {
+      display: block;
+      margin-bottom: 2px;
+      color: var(--mint);
+      font: 700 10px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+    }
+
+    .workspace {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 258px minmax(520px, 1fr) 350px;
+    }
+
+    .rail,
+    .inspector {
+      min-height: 0;
+      background: var(--panel);
+    }
+
+    .rail {
+      border-right: 1px solid var(--line);
+      overflow: auto;
+    }
+
+    .inspector {
+      border-left: 1px solid var(--line);
+      overflow: auto;
+    }
+
+    .panel-head {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 39px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(17, 18, 16, .96);
+      color: #bdb7aa;
+      font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: 1.3px;
+      text-transform: uppercase;
+      backdrop-filter: blur(12px);
+    }
+
+    .prototype-list {
+      display: grid;
+      padding: 8px;
+      gap: 6px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .prototype-tab {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 9px;
+      align-items: start;
+      padding: 10px;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      background: transparent;
+      text-align: left;
+    }
+
+    .prototype-tab:hover { background: #171713; }
+
+    .prototype-tab[aria-selected="true"] {
+      border-color: rgba(232, 185, 95, .38);
+      background: var(--amber-soft);
+    }
+
+    .prototype-num {
+      display: grid;
+      place-items: center;
+      width: 27px;
+      height: 27px;
+      border-radius: 7px;
+      background: #1e201d;
+      color: var(--amber);
+      font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .prototype-tab strong {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .prototype-tab small {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.35;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 5px;
+      border-radius: 999px;
+      background: rgba(118, 215, 194, .1);
+      color: var(--mint);
+      font: 700 8px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+    }
+
+    .rail-section {
+      padding: 10px 8px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-label {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 5px 8px;
+      color: var(--muted-2);
+      font: 700 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+    }
+
+    .layer-list { display: grid; gap: 2px; }
+
+    .layer-row {
+      width: 100%;
+      min-height: 35px;
+      display: grid;
+      grid-template-columns: 22px 1fr auto;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 7px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: transparent;
+      text-align: left;
+      color: #c7c2b7;
+    }
+
+    .layer-row:hover { background: #181916; }
+
+    .layer-row.is-selected {
+      border-color: #474239;
+      background: #211f1a;
+      color: var(--text);
+    }
+
+    .layer-icon {
+      display: grid;
+      place-items: center;
+      width: 21px;
+      height: 21px;
+      border-radius: 5px;
+      background: #20231f;
+      color: var(--mint);
+      font: 700 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      text-transform: uppercase;
+    }
+
+    .layer-row span:nth-child(2) {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 11px;
+    }
+
+    .layer-kind {
+      color: var(--muted-2);
+      font: 700 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      text-transform: uppercase;
+    }
+
+    .tree-group {
+      margin: 2px 0;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .tree-group-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 7px;
+      font-weight: 650;
+    }
+
+    .tree-group .layer-row { padding-left: 20px; }
+
+    .rail-foot {
+      padding: 12px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.45;
+    }
+
+    .rail-foot strong { color: #d4cec0; font-weight: 600; }
+
+    .canvas-area {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: 40px minmax(0, 1fr) 42px;
+      background:
+        linear-gradient(45deg, #0f100e 25%, transparent 25%) 0 0/16px 16px,
+        linear-gradient(-45deg, #0f100e 25%, transparent 25%) 0 8px/16px 16px,
+        linear-gradient(45deg, transparent 75%, #0f100e 75%) 8px -8px/16px 16px,
+        linear-gradient(-45deg, transparent 75%, #0f100e 75%) -8px 0/16px 16px,
+        #0c0d0b;
+    }
+
+    .canvas-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 11px;
+      border-bottom: 1px solid var(--line);
+      background: #11120f;
+    }
+
+    .concept-title {
+      min-width: 0;
+      color: #ded8cc;
+      font-size: 11px;
+      font-weight: 650;
+    }
+
+    .concept-subtitle {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .toolbar-spacer { flex: 1; }
+
+    .toolbar-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .toolbar-toggle input { accent-color: var(--amber); }
+
+    .zoom {
+      padding: 5px 7px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #161713;
+      color: var(--muted);
+      font: 600 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .stage-wrap {
+      min-height: 0;
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      overflow: hidden;
+    }
+
+    .stage-shell {
+      width: min(100%, calc((100vh - 360px) * 1.7777));
+      min-width: 460px;
+      aspect-ratio: 16 / 9;
+      position: relative;
+      box-shadow: 0 25px 85px rgba(0,0,0,.46), 0 0 0 1px #383832;
+      background: #080d10;
+      user-select: none;
+      touch-action: none;
+    }
+
+    .stage {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 52% 16%, #223038 0%, #0b1216 48%, #070a0d 100%);
+    }
+
+    .stage.show-grid::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 100;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+      background-size: 5% 8.888%;
+    }
+
+    .safe-area {
+      position: absolute;
+      inset: 5%;
+      z-index: 101;
+      border: 1px dashed rgba(232, 185, 95, .23);
+      pointer-events: none;
+    }
+
+    .safe-area[hidden] { display: none; }
+
+    .stage-node {
+      position: absolute;
+      z-index: var(--layer);
+      min-width: 4px;
+      min-height: 4px;
+      border-radius: var(--node-radius);
+      transform: translateZ(0);
+      cursor: grab;
+      touch-action: none;
+    }
+
+    .stage-node:active { cursor: grabbing; }
+
+    .stage-node .media,
+    .stage-node video,
+    .stage-node img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border-radius: inherit;
+    }
+
+    .stage-node video,
+    .stage-node img {
+      object-fit: var(--node-fit);
+      object-position: var(--focal-x) var(--focal-y);
+      background: var(--letterbox, #080a0b);
+      pointer-events: none;
+    }
+
+    .stage-node.kind-comp,
+    .stage-node.kind-image {
+      overflow: hidden;
+      background: #080a0b;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.11);
+    }
+
+    .stage-node.kind-text {
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+      color: #f4efe5;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(11px, 2.15vw, 29px);
+      font-weight: 600;
+      letter-spacing: -.02em;
+    }
+
+    .stage-node.kind-shape {
+      display: flex;
+      align-items: center;
+      padding: 0 1.2%;
+      overflow: hidden;
+      border-left: 2px solid var(--amber);
+      background: rgba(232, 185, 95, .08);
+      color: #d7d0c2;
+      font-size: clamp(6px, .75vw, 11px);
+      line-height: 1.45;
+    }
+
+    .stage-node.kind-shape b { color: #fff; }
+
+    .stage-node.kind-decor {
+      border: 1px solid rgba(255,255,255,.11);
+      background: rgba(8, 12, 14, .72);
+    }
+
+    .media-label {
+      position: absolute;
+      left: 7px;
+      bottom: 6px;
+      max-width: calc(100% - 14px);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding: 3px 5px;
+      border-radius: 4px;
+      background: rgba(4,7,8,.78);
+      color: #fff;
+      font: 700 clamp(5px, .55vw, 8px)/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      pointer-events: none;
+    }
+
+    .stage-node.is-selected {
+      box-shadow:
+        inset 0 0 0 2px var(--amber),
+        0 0 0 1px rgba(0,0,0,.8),
+        0 0 24px rgba(232,185,95,.18);
+    }
+
+    .selection-label {
+      position: absolute;
+      left: -1px;
+      bottom: calc(100% + 5px);
+      z-index: 105;
+      padding: 4px 6px;
+      border-radius: 4px;
+      background: var(--amber);
+      color: #17130b;
+      font: 700 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .resize-handle {
+      position: absolute;
+      right: -5px;
+      bottom: -5px;
+      z-index: 106;
+      width: 11px;
+      height: 11px;
+      border: 2px solid #12120f;
+      border-radius: 2px;
+      background: var(--amber);
+      cursor: nwse-resize;
+    }
+
+    .slot-overlay {
+      position: absolute;
+      z-index: 90;
+      border: 1px dashed rgba(118, 215, 194, .7);
+      background: rgba(118, 215, 194, .035);
+      pointer-events: none;
+    }
+
+    .slot-overlay span {
+      position: absolute;
+      left: 5px;
+      top: 5px;
+      padding: 3px 5px;
+      border-radius: 3px;
+      background: rgba(7,14,13,.82);
+      color: var(--mint);
+      font: 700 7px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      text-transform: uppercase;
+    }
+
+    .constraint-pin {
+      position: absolute;
+      z-index: 95;
+      background: rgba(131, 169, 200, .8);
+      pointer-events: none;
+    }
+
+    .constraint-pin.h { height: 1px; }
+    .constraint-pin.v { width: 1px; }
+
+    .canvas-status {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px;
+      border-top: 1px solid var(--line);
+      background: #10110e;
+      color: var(--muted);
+      font: 500 9px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .status-hint {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .status-coords {
+      color: #d0c8b9;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .inspector-content { padding-bottom: 16px; }
+
+    .selection-summary {
+      padding: 13px 13px 11px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .selection-kicker {
+      margin-bottom: 5px;
+      color: var(--muted-2);
+      font: 700 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .selection-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 650;
+    }
+
+    .selection-path {
+      margin-top: 5px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--muted);
+      font: 500 9px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .inspector-section {
+      padding: 12px 13px 13px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .inspector-section h2 {
+      margin: 0 0 10px;
+      color: #aaa398;
+      font: 700 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: 1.1px;
+      text-transform: uppercase;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .field label,
+    .full-field label {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--muted);
+      font: 600 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .field input,
+    .full-field input,
+    .full-field select {
+      width: 100%;
+      height: 30px;
+      border: 1px solid #34332e;
+      border-radius: 6px;
+      padding: 0 7px;
+      outline: none;
+      background: #0d0e0c;
+      color: #e8e2d6;
+      font: 550 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .field input:focus,
+    .full-field input:focus,
+    .full-field select:focus { border-color: var(--amber); }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+    }
+
+    .segmented button {
+      min-width: 0;
+      height: 30px;
+      border: 1px solid #33322d;
+      border-radius: 6px;
+      background: #0f100e;
+      color: var(--muted);
+      font: 650 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      text-transform: capitalize;
+    }
+
+    .segmented button[aria-pressed="true"] {
+      border-color: rgba(232, 185, 95, .55);
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    .range-row {
+      display: grid;
+      grid-template-columns: 1fr 36px;
+      gap: 8px;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    .range-row input[type="range"] {
+      width: 100%;
+      accent-color: var(--amber);
+    }
+
+    .range-value {
+      color: #d6d0c3;
+      font: 550 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      text-align: right;
+    }
+
+    .pin-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+    }
+
+    .pin-button {
+      height: 30px;
+      border: 1px solid #33322d;
+      border-radius: 6px;
+      background: #0f100e;
+      color: var(--muted);
+      font: 650 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .pin-button[aria-pressed="true"] {
+      border-color: rgba(131, 169, 200, .55);
+      background: rgba(131, 169, 200, .1);
+      color: #a9c6dd;
+    }
+
+    .property-note {
+      margin-top: 9px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.4;
+    }
+
+    .json-section {
+      border-bottom: 1px solid var(--line);
+    }
+
+    .json-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--line-soft);
+      background: #121310;
+    }
+
+    .json-tab {
+      border: 0;
+      border-radius: 5px;
+      padding: 5px 7px;
+      background: transparent;
+      color: var(--muted);
+      font: 600 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .json-tab[aria-selected="true"] {
+      background: #22231e;
+      color: var(--text);
+    }
+
+    .json-toolbar .copy-button {
+      margin-left: auto;
+      padding: 5px 7px;
+      font: 600 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    pre {
+      max-height: 330px;
+      margin: 0;
+      overflow: auto;
+      padding: 12px;
+      background: #090a08;
+      color: #b9c7be;
+      font: 500 9px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+      tab-size: 2;
+      white-space: pre;
+    }
+
+    .idea-note {
+      margin: 12px;
+      padding: 10px 11px;
+      border-left: 2px solid var(--amber);
+      background: rgba(232, 185, 95, .055);
+      color: #beb8ad;
+      font-size: 10px;
+      line-height: 1.45;
+    }
+
+    .idea-note strong { color: var(--text); }
+
+    .slot-source { display: none; }
+    body[data-mode="slots"] .slot-source { display: block; }
+    body:not([data-mode="slots"]) .slot-only { display: none; }
+    body:not([data-mode="scene"]) .scene-only { display: none; }
+    body[data-mode="scene"] .direct-only,
+    body[data-mode="slots"] .direct-only { display: none; }
+
+    @media (max-width: 1180px) {
+      .workspace { grid-template-columns: 220px minmax(460px, 1fr) 310px; }
+      .intro { grid-template-columns: 1fr; }
+      .recommendation { display: none; }
+      .stage-wrap { padding: 14px; }
+      .stage-shell { min-width: 420px; }
+    }
+
+    @media (max-width: 900px) {
+      .app { display: block; height: auto; overflow: visible; }
+      .workspace { display: block; }
+      .rail, .inspector { border: 0; }
+      .prototype-list { grid-template-columns: repeat(3, 1fr); }
+      .prototype-tab { grid-template-columns: 1fr; }
+      .prototype-num { display: none; }
+      .prototype-tab small { display: none; }
+      .rail-section, .rail-foot { display: none; }
+      .canvas-area { min-height: 620px; }
+      .stage-shell { width: 100%; min-width: 0; }
+      .inspector { border-top: 1px solid var(--line); }
+      .top-actions { display: none; }
+    }
+  </style>
+</head>
+<body data-mode="direct">
+  <div class="app">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark"></span> FRAMEDIFF <span style="color:#57534b">/ LAB</span></div>
+      <div class="crumbs">
+        <strong>LighthouseWorkflow</strong>
+        <span class="slash">/</span>
+        <span>edit layout models</span>
+      </div>
+      <div class="top-actions">
+        <button class="quiet-button" id="resetButton" type="button">Reset prototype</button>
+        <button class="add-button" id="addShapeButton" type="button">+ Add shape</button>
+      </div>
+    </header>
+
+    <section class="intro">
+      <div class="intro-copy">
+        <div class="eyebrow">Current finding</div>
+        <h1>Timing is JSON-backed. Most screen layout is still HTML/CSS-backed.</h1>
+        <p>The current edit document owns source, timing, audio and track order. The rectangles you see in this comp mostly come from <code>LighthouseWorkflow.html</code>; only explicitly-authored <code>data-fd-*</code> values appear in the Inspector.</p>
+      </div>
+      <div class="recommendation">
+        <b>Suggested first move</b>
+        Ship inline rectangles now, with named layouts as an optional extraction when a composition becomes reusable.
+      </div>
+    </section>
+
+    <main class="workspace">
+      <aside class="rail">
+        <div class="panel-head"><span>Models</span><span>3</span></div>
+        <div class="prototype-list" role="tablist" aria-label="Layout model prototypes">
+          <button class="prototype-tab" type="button" data-mode-tab="direct" role="tab" aria-selected="true">
+            <span class="prototype-num">01</span>
+            <span><strong>Inline rectangles <span class="badge">Start here</span></strong><small>Every timeline item owns its rectangle, fit and crop.</small></span>
+          </button>
+          <button class="prototype-tab" type="button" data-mode-tab="slots" role="tab" aria-selected="false">
+            <span class="prototype-num">02</span>
+            <span><strong>Named layout slots</strong><small>A reusable layout declares slots; the edit binds media into them.</small></span>
+          </button>
+          <button class="prototype-tab" type="button" data-mode-tab="scene" role="tab" aria-selected="false">
+            <span class="prototype-num">03</span>
+            <span><strong>Scene graph</strong><small>Groups, constraints, shapes and media live in one render tree.</small></span>
+          </button>
+        </div>
+
+        <div class="rail-section">
+          <div class="section-label"><span id="layerSectionLabel">Edit items</span><span id="layerCount">6</span></div>
+          <div class="layer-list" id="layerList"></div>
+        </div>
+
+        <div class="rail-foot" id="railFoot">
+          <strong>Why it’s elegant:</strong> no extra file or indirection. The same object you trim on the timeline is the object you place on canvas.
+        </div>
+      </aside>
+
+      <section class="canvas-area">
+        <div class="canvas-toolbar">
+          <span class="concept-title" id="conceptTitle">Inline rectangles</span>
+          <span class="concept-subtitle" id="conceptSubtitle">one edit item = one time range + one screen rectangle</span>
+          <span class="toolbar-spacer"></span>
+          <label class="toolbar-toggle slot-only"><input id="templateToggle" type="checkbox"> Template only</label>
+          <label class="toolbar-toggle"><input id="gridToggle" type="checkbox"> Grid</label>
+          <label class="toolbar-toggle"><input id="safeToggle" type="checkbox" checked> Safe area</label>
+          <span class="zoom">FIT · 16:9</span>
+        </div>
+        <div class="stage-wrap">
+          <div class="stage-shell" id="stageShell">
+            <div class="stage" id="stage" aria-label="Interactive 1280 by 720 composition canvas">
+              <div class="safe-area" id="safeArea"></div>
+            </div>
+          </div>
+        </div>
+        <div class="canvas-status">
+          <span class="status-hint" id="statusHint">Select, drag or resize any layer. The JSON updates live.</span>
+          <span class="status-coords" id="statusCoords">x 430 · y 31 · w 348 · h 658</span>
+        </div>
+      </section>
+
+      <aside class="inspector">
+        <div class="panel-head"><span>Inspector</span><span id="authorityLabel">JSON authority</span></div>
+        <div class="inspector-content">
+          <div class="selection-summary">
+            <div class="selection-kicker" id="selectionKind">Nested composition</div>
+            <div class="selection-name"><span class="layer-icon" id="selectionIcon">C</span><span id="selectionName">Final dialogue video</span></div>
+            <div class="selection-path" id="selectionPath">items.workflow-final.layout</div>
+          </div>
+
+          <section class="inspector-section">
+            <h2 id="rectHeading">Rectangle · px</h2>
+            <div class="field-grid">
+              <div class="field"><label for="fieldX">X</label><input id="fieldX" type="number" step="1"></div>
+              <div class="field"><label for="fieldY">Y</label><input id="fieldY" type="number" step="1"></div>
+              <div class="field"><label for="fieldW">W</label><input id="fieldW" type="number" step="1" min="1"></div>
+              <div class="field"><label for="fieldH">H</label><input id="fieldH" type="number" step="1" min="1"></div>
+            </div>
+          </section>
+
+          <section class="inspector-section" id="fitSection">
+            <h2>Fit inside rectangle</h2>
+            <div class="segmented" id="fitButtons">
+              <button type="button" data-fit="cover" aria-pressed="true">Crop</button>
+              <button type="button" data-fit="contain" aria-pressed="false">Letterbox</button>
+              <button type="button" data-fit="fill" aria-pressed="false">Stretch</button>
+            </div>
+            <div class="range-row">
+              <input id="focalX" type="range" min="0" max="100" step="1" aria-label="Horizontal focal point">
+              <span class="range-value" id="focalXValue">50%</span>
+            </div>
+            <div class="range-row">
+              <input id="focalY" type="range" min="0" max="100" step="1" aria-label="Vertical focal point">
+              <span class="range-value" id="focalYValue">34%</span>
+            </div>
+            <p class="property-note">Crop is <code>cover</code>. Letterbox is <code>contain</code> plus a backdrop. Stretch maps to <code>fill</code>.</p>
+          </section>
+
+          <section class="inspector-section">
+            <h2>Appearance</h2>
+            <div class="field-grid" style="grid-template-columns:1fr 1fr">
+              <div class="field"><label for="fieldRadius">Radius</label><input id="fieldRadius" type="number" min="0" step="1"></div>
+              <div class="field"><label for="fieldLayer">Layer</label><input id="fieldLayer" type="number" min="0" step="1"></div>
+            </div>
+          </section>
+
+          <section class="inspector-section scene-only">
+            <h2>Constraints</h2>
+            <div class="pin-grid" id="pinButtons">
+              <button class="pin-button" data-pin="left" type="button" aria-pressed="true">Left</button>
+              <button class="pin-button" data-pin="right" type="button" aria-pressed="false">Right</button>
+              <button class="pin-button" data-pin="top" type="button" aria-pressed="true">Top</button>
+              <button class="pin-button" data-pin="bottom" type="button" aria-pressed="false">Bottom</button>
+            </div>
+            <p class="property-note">Constraints only matter when the parent or output format changes size.</p>
+          </section>
+
+          <section class="json-section">
+            <div class="json-toolbar" id="jsonToolbar">
+              <button class="json-tab" data-json-view="primary" type="button" aria-selected="true">Edit JSON</button>
+              <button class="json-tab slot-only" data-json-view="layout" type="button" aria-selected="false">Layout JSON</button>
+              <button class="copy-button" id="copyJsonButton" type="button">Copy</button>
+            </div>
+            <pre id="jsonPreview" aria-label="Live layout JSON"></pre>
+          </section>
+
+          <div class="idea-note" id="ideaNote">
+            <strong>Best immediate contract.</strong> Add a <code>layout</code> object to each timeline item. HTML can still provide presentation details, but it stops being the hidden authority for media placement.
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      const CANVAS = { width: 1280, height: 720 };
+      const media = {
+        dialogue: "/__framediff-cache/sha256%3Ad004a703d7305c4b6b7901b243524ac27fae3be4903b8a4743513749fa1db4e0",
+        mara: "/__framediff-cache/sha256%3A614148cd6e6e4533482ad8231a27ed780a67e20fd7e6eecf367b80a5ee10ac8a",
+        elias: "/__framediff-cache/sha256%3A3cd25d3edf7a736e2c1e03eb76ffb3e5dbc41a5df74c6bfe5573471edf23c1ff",
+        concept: "/__framediff-cache/sha256%3Aceee1f317c162ef2e13df64844fa81401ddbf2311f1e658cc25ee7272ad05969"
+      };
+
+      const initialNodes = [
+        {
+          id: "workflow-final", name: "Final dialogue video", kind: "comp", comp: "lighthouse-dialogue",
+          rect: { x: 430, y: 31, width: 348, height: 658 }, fit: "cover", focal: { x: 50, y: 34 },
+          radius: 28, layer: 3, slot: "hero", src: media.dialogue, pins: ["left", "top"]
+        },
+        {
+          id: "workflow-mara", name: "Mara portrait", kind: "image", comp: "lighthouse-visitor",
+          rect: { x: 822, y: 84, width: 205, height: 260 }, fit: "cover", focal: { x: 50, y: 36 },
+          radius: 12, layer: 3, slot: "portrait-a", src: media.mara, pins: ["right", "top"]
+        },
+        {
+          id: "workflow-elias", name: "Elias portrait", kind: "image", comp: "lighthouse-keeper",
+          rect: { x: 1037, y: 84, width: 209, height: 260 }, fit: "cover", focal: { x: 50, y: 38 },
+          radius: 12, layer: 3, slot: "portrait-b", src: media.elias, pins: ["right", "top"]
+        },
+        {
+          id: "workflow-concept", name: "Reference board", kind: "image", comp: "lighthouse-concept",
+          rect: { x: 822, y: 354, width: 424, height: 214 }, fit: "cover", focal: { x: 50, y: 50 },
+          radius: 12, layer: 2, slot: "reference-board", src: media.concept, pins: ["right", "top"]
+        },
+        {
+          id: "headline", name: "The light went dark.", kind: "text", text: "The light went dark.",
+          rect: { x: 34, y: 42, width: 350, height: 46 }, fit: "none", focal: { x: 50, y: 50 },
+          radius: 0, layer: 4, slot: "headline", pins: ["left", "top"]
+        },
+        {
+          id: "workflow-audio", name: "Approval gate", kind: "shape",
+          text: "<b>@Audio1 · approval gate:</b>&nbsp; pin the performance before spending video credits.",
+          rect: { x: 34, y: 610, width: 330, height: 76 }, fit: "none", focal: { x: 50, y: 50 },
+          radius: 0, layer: 4, slot: "approval-note", pins: ["left", "bottom"]
+        }
+      ];
+
+      const deepClone = (value) => JSON.parse(JSON.stringify(value));
+      let nodes = deepClone(initialNodes);
+      let selectedId = "workflow-final";
+      let mode = "direct";
+      let jsonView = "primary";
+      let templateOnly = false;
+      let drag = null;
+      let addedShapes = 0;
+
+      const stage = document.getElementById("stage");
+      const stageShell = document.getElementById("stageShell");
+      const layerList = document.getElementById("layerList");
+      const jsonPreview = document.getElementById("jsonPreview");
+      const statusCoords = document.getElementById("statusCoords");
+      const statusHint = document.getElementById("statusHint");
+      const fields = {
+        x: document.getElementById("fieldX"),
+        y: document.getElementById("fieldY"),
+        width: document.getElementById("fieldW"),
+        height: document.getElementById("fieldH"),
+        radius: document.getElementById("fieldRadius"),
+        layer: document.getElementById("fieldLayer")
+      };
+      const focalX = document.getElementById("focalX");
+      const focalY = document.getElementById("focalY");
+
+      const selectedNode = () => nodes.find((node) => node.id === selectedId) || nodes[0];
+      const kindLabel = (kind) => ({
+        comp: "Nested composition",
+        image: "Image asset",
+        text: "Text layer",
+        shape: "Shape layer",
+        decor: "Shape layer"
+      }[kind] || "Layer");
+      const kindIcon = (kind) => ({ comp: "C", image: "I", text: "T", shape: "S", decor: "S" }[kind] || "L");
+      const fitCss = (fit) => fit === "fill" ? "fill" : fit === "contain" ? "contain" : "cover";
+
+      function clampRect(rect) {
+        rect.width = Math.max(8, Math.round(rect.width));
+        rect.height = Math.max(8, Math.round(rect.height));
+        rect.x = Math.round(Math.max(-rect.width + 8, Math.min(CANVAS.width - 8, rect.x)));
+        rect.y = Math.round(Math.max(-rect.height + 8, Math.min(CANVAS.height - 8, rect.y)));
+      }
+
+      function nodeContent(node) {
+        if (node.kind === "comp") {
+          return `<video muted autoplay loop playsinline src="${node.src}"></video><span class="media-label">@Comp · ${node.comp}</span>`;
+        }
+        if (node.kind === "image") {
+          return `<img src="${node.src}" alt=""><span class="media-label">@Asset · ${node.name}</span>`;
+        }
+        if (node.kind === "text") return node.text;
+        if (node.kind === "shape") return node.text;
+        return "";
+      }
+
+      function renderStage() {
+        stage.querySelectorAll(".stage-node,.slot-overlay,.constraint-pin").forEach((element) => element.remove());
+        const fragment = document.createDocumentFragment();
+
+        for (const node of nodes) {
+          const element = document.createElement("div");
+          element.className = `stage-node kind-${node.kind}${node.id === selectedId ? " is-selected" : ""}`;
+          element.dataset.nodeId = node.id;
+          element.style.left = `${node.rect.x / CANVAS.width * 100}%`;
+          element.style.top = `${node.rect.y / CANVAS.height * 100}%`;
+          element.style.width = `${node.rect.width / CANVAS.width * 100}%`;
+          element.style.height = `${node.rect.height / CANVAS.height * 100}%`;
+          element.style.setProperty("--layer", node.layer);
+          element.style.setProperty("--node-radius", `${node.radius / CANVAS.width * stageShell.clientWidth}px`);
+          element.style.setProperty("--node-fit", fitCss(node.fit));
+          element.style.setProperty("--focal-x", `${node.focal.x}%`);
+          element.style.setProperty("--focal-y", `${node.focal.y}%`);
+          element.innerHTML = nodeContent(node);
+
+          if (node.id === selectedId) {
+            const label = document.createElement("span");
+            label.className = "selection-label";
+            label.textContent = mode === "slots" ? `slot:${node.slot}` : node.id;
+            const handle = document.createElement("span");
+            handle.className = "resize-handle";
+            handle.dataset.resizeHandle = "true";
+            element.append(label, handle);
+          }
+
+          if (templateOnly && mode === "slots" && (node.kind === "comp" || node.kind === "image")) {
+            element.style.opacity = ".08";
+            element.style.filter = "grayscale(1)";
+          }
+
+          element.addEventListener("pointerdown", onNodePointerDown);
+          fragment.appendChild(element);
+
+          if (mode === "slots") {
+            const overlay = document.createElement("div");
+            overlay.className = "slot-overlay";
+            overlay.style.left = element.style.left;
+            overlay.style.top = element.style.top;
+            overlay.style.width = element.style.width;
+            overlay.style.height = element.style.height;
+            overlay.innerHTML = `<span>${node.slot}</span>`;
+            fragment.appendChild(overlay);
+          }
+        }
+
+        if (mode === "scene") {
+          const node = selectedNode();
+          for (const pin of node.pins) {
+            const line = document.createElement("div");
+            line.className = `constraint-pin ${pin === "left" || pin === "right" ? "h" : "v"}`;
+            if (pin === "left") {
+              line.style.left = "0";
+              line.style.top = `${(node.rect.y + node.rect.height / 2) / CANVAS.height * 100}%`;
+              line.style.width = `${node.rect.x / CANVAS.width * 100}%`;
+            } else if (pin === "right") {
+              line.style.left = `${(node.rect.x + node.rect.width) / CANVAS.width * 100}%`;
+              line.style.top = `${(node.rect.y + node.rect.height / 2) / CANVAS.height * 100}%`;
+              line.style.right = "0";
+            } else if (pin === "top") {
+              line.style.left = `${(node.rect.x + node.rect.width / 2) / CANVAS.width * 100}%`;
+              line.style.top = "0";
+              line.style.height = `${node.rect.y / CANVAS.height * 100}%`;
+            } else {
+              line.style.left = `${(node.rect.x + node.rect.width / 2) / CANVAS.width * 100}%`;
+              line.style.top = `${(node.rect.y + node.rect.height) / CANVAS.height * 100}%`;
+              line.style.bottom = "0";
+            }
+            fragment.appendChild(line);
+          }
+        }
+
+        stage.appendChild(fragment);
+      }
+
+      function renderLayerList() {
+        const rows = nodes.map((node) => `
+          <button class="layer-row ${node.id === selectedId ? "is-selected" : ""}" type="button" data-select-node="${node.id}">
+            <span class="layer-icon">${kindIcon(node.kind)}</span>
+            <span>${mode === "slots" ? node.slot : node.name}</span>
+            <span class="layer-kind">${mode === "slots" ? "slot" : node.kind}</span>
+          </button>
+        `).join("");
+
+        if (mode === "scene") {
+          const copy = nodes.filter((node) => node.kind === "text" || node.kind === "shape").map((node) => rowsFor(node)).join("");
+          const mediaRows = nodes.filter((node) => node.kind === "comp" || node.kind === "image").map((node) => rowsFor(node)).join("");
+          layerList.innerHTML = `
+            <div class="tree-group"><div class="tree-group-label">⌄ Copy &amp; graphics</div>${copy}</div>
+            <div class="tree-group"><div class="tree-group-label">⌄ Media wall</div>${mediaRows}</div>
+          `;
+        } else {
+          layerList.innerHTML = rows;
+        }
+
+        layerList.querySelectorAll("[data-select-node]").forEach((button) => {
+          button.addEventListener("click", () => {
+            selectedId = button.dataset.selectNode;
+            render();
+          });
+        });
+      }
+
+      function rowsFor(node) {
+        return `
+          <button class="layer-row ${node.id === selectedId ? "is-selected" : ""}" type="button" data-select-node="${node.id}">
+            <span class="layer-icon">${kindIcon(node.kind)}</span>
+            <span>${node.name}</span>
+            <span class="layer-kind">${node.kind}</span>
+          </button>
+        `;
+      }
+
+      function directDocument() {
+        return {
+          version: 2,
+          canvas: CANVAS,
+          items: nodes.map((node) => ({
+            id: node.id,
+            from: 0,
+            durationInFrames: 420,
+            layer: node.layer,
+            content: node.kind === "comp"
+              ? { type: "nested", composition: node.comp }
+              : node.kind === "image"
+                ? { type: "image", src: `asset://${node.id}` }
+                : node.kind === "text"
+                  ? { type: "text", text: node.text }
+                  : { type: "shape", shape: "roundRect", text: node.name },
+            layout: {
+              rect: [node.rect.x, node.rect.y, node.rect.width, node.rect.height],
+              fit: node.fit,
+              focalPoint: [node.focal.x / 100, node.focal.y / 100],
+              cornerRadius: node.radius
+            }
+          }))
+        };
+      }
+
+      function layoutDocument() {
+        return {
+          version: 1,
+          id: "lighthouse-editorial",
+          size: CANVAS,
+          slots: nodes.map((node) => ({
+            id: node.slot,
+            accepts: node.kind === "comp" ? ["composition", "video"] : node.kind === "image" ? ["image", "composition"] : [node.kind],
+            rect: [node.rect.x, node.rect.y, node.rect.width, node.rect.height],
+            fit: node.fit,
+            focalPoint: [node.focal.x / 100, node.focal.y / 100],
+            cornerRadius: node.radius
+          }))
+        };
+      }
+
+      function slotEditDocument() {
+        return {
+          version: 2,
+          layout: "layout:lighthouse-editorial",
+          items: nodes.map((node) => ({
+            id: node.id,
+            from: 0,
+            durationInFrames: 420,
+            slot: node.slot,
+            content: node.kind === "comp"
+              ? { type: "nested", composition: node.comp }
+              : node.kind === "image"
+                ? { type: "image", src: `asset://${node.id}` }
+                : node.kind === "text"
+                  ? { type: "text", text: node.text }
+                  : { type: "shape", shape: "roundRect", text: node.name }
+          }))
+        };
+      }
+
+      function sceneDocument() {
+        const toSceneNode = (node) => ({
+          id: node.id,
+          type: node.kind === "comp" ? "composition" : node.kind,
+          source: node.kind === "comp" ? node.comp : node.kind === "image" ? `asset://${node.id}` : undefined,
+          text: node.kind === "text" ? node.text : undefined,
+          frame: {
+            x: node.rect.x, y: node.rect.y,
+            width: node.rect.width, height: node.rect.height
+          },
+          constraints: {
+            horizontal: node.pins.includes("left") && node.pins.includes("right") ? "stretch" : node.pins.includes("right") ? "right" : "left",
+            vertical: node.pins.includes("top") && node.pins.includes("bottom") ? "stretch" : node.pins.includes("bottom") ? "bottom" : "top"
+          },
+          media: node.kind === "comp" || node.kind === "image" ? {
+            fit: node.fit,
+            focalPoint: [node.focal.x / 100, node.focal.y / 100]
+          } : undefined,
+          style: { cornerRadius: node.radius }
+        });
+        return {
+          version: 1,
+          type: "scene",
+          size: CANVAS,
+          children: [
+            {
+              id: "copy-and-graphics",
+              type: "group",
+              children: nodes.filter((node) => node.kind === "text" || node.kind === "shape").map(toSceneNode)
+            },
+            {
+              id: "media-wall",
+              type: "group",
+              children: nodes.filter((node) => node.kind === "comp" || node.kind === "image").map(toSceneNode)
+            }
+          ]
+        };
+      }
+
+      function activeDocument() {
+        if (mode === "slots") return jsonView === "layout" ? layoutDocument() : slotEditDocument();
+        if (mode === "scene") return sceneDocument();
+        return directDocument();
+      }
+
+      function renderJson() {
+        jsonPreview.textContent = JSON.stringify(activeDocument(), (key, value) => value === undefined ? undefined : value, 2);
+      }
+
+      function renderInspector() {
+        const node = selectedNode();
+        document.getElementById("selectionKind").textContent = kindLabel(node.kind);
+        document.getElementById("selectionName").textContent = node.name;
+        document.getElementById("selectionIcon").textContent = kindIcon(node.kind);
+        document.getElementById("selectionPath").textContent = mode === "slots"
+          ? `layout.slots.${node.slot}`
+          : mode === "scene"
+            ? `scene.children…${node.id}`
+            : `items.${node.id}.layout`;
+        document.getElementById("rectHeading").textContent = mode === "scene" ? "Frame · px" : mode === "slots" ? "Slot rectangle · px" : "Rectangle · px";
+        document.getElementById("fitSection").style.display = node.kind === "comp" || node.kind === "image" ? "" : "none";
+        document.getElementById("authorityLabel").textContent = mode === "slots" ? "Layout authority" : "JSON authority";
+
+        fields.x.value = node.rect.x;
+        fields.y.value = node.rect.y;
+        fields.width.value = node.rect.width;
+        fields.height.value = node.rect.height;
+        fields.radius.value = node.radius;
+        fields.layer.value = node.layer;
+        focalX.value = node.focal.x;
+        focalY.value = node.focal.y;
+        document.getElementById("focalXValue").textContent = `${node.focal.x}%`;
+        document.getElementById("focalYValue").textContent = `${node.focal.y}%`;
+        document.querySelectorAll("[data-fit]").forEach((button) => {
+          button.setAttribute("aria-pressed", String(button.dataset.fit === node.fit));
+        });
+        document.querySelectorAll("[data-pin]").forEach((button) => {
+          button.setAttribute("aria-pressed", String(node.pins.includes(button.dataset.pin)));
+        });
+        statusCoords.textContent = `x ${node.rect.x} · y ${node.rect.y} · w ${node.rect.width} · h ${node.rect.height}`;
+      }
+
+      function renderModeCopy() {
+        const copy = {
+          direct: {
+            title: "Inline rectangles",
+            subtitle: "one edit item = one time range + one screen rectangle",
+            layerLabel: "Edit items",
+            foot: "<strong>Why it’s elegant:</strong> no extra file or indirection. The same object you trim on the timeline is the object you place on canvas.",
+            note: "<strong>Best immediate contract.</strong> Add a <code>layout</code> object to each timeline item. HTML can still provide presentation details, but it stops being the hidden authority for media placement.",
+            hint: "Select, drag or resize any layer. The timeline JSON updates live."
+          },
+          slots: {
+            title: "Named layout slots",
+            subtitle: "layout geometry is reusable; edits only bind content to slots",
+            layerLabel: "Layout slots",
+            foot: "<strong>Why it’s elegant:</strong> editorial templates become reusable across episodes, aspect ratios and asset swaps without duplicating coordinates.",
+            note: "<strong>Best when reuse is real.</strong> A layout is a composition-like resource with named slots and shapes. The edit stays lean, but authors now manage two linked documents.",
+            hint: "Drag a slot to edit the layout. Toggle “Template only” to see the reusable structure."
+          },
+          scene: {
+            title: "Scene graph",
+            subtitle: "groups, constraints, shapes and media share one render tree",
+            layerLabel: "Scene tree",
+            foot: "<strong>Why it’s elegant:</strong> one coherent model can express nested groups, responsive constraints, masks, text and vector shapes.",
+            note: "<strong>Most capable, biggest commitment.</strong> This becomes a real scene format rather than a small edit-document extension. It is the clean end state if FrameDiff wants Figma/AE-style authoring.",
+            hint: "Select a node, drag or resize it, then try the edge constraints in the Inspector."
+          }
+        }[mode];
+        document.getElementById("conceptTitle").textContent = copy.title;
+        document.getElementById("conceptSubtitle").textContent = copy.subtitle;
+        document.getElementById("layerSectionLabel").textContent = copy.layerLabel;
+        document.getElementById("railFoot").innerHTML = copy.foot;
+        document.getElementById("ideaNote").innerHTML = copy.note;
+        statusHint.textContent = copy.hint;
+      }
+
+      function render() {
+        document.body.dataset.mode = mode;
+        document.getElementById("layerCount").textContent = nodes.length;
+        document.querySelectorAll("[data-mode-tab]").forEach((button) => {
+          button.setAttribute("aria-selected", String(button.dataset.modeTab === mode));
+        });
+        document.querySelectorAll("[data-json-view]").forEach((button) => {
+          button.setAttribute("aria-selected", String(button.dataset.jsonView === jsonView));
+        });
+        renderModeCopy();
+        renderLayerList();
+        renderStage();
+        renderInspector();
+        renderJson();
+      }
+
+      function onNodePointerDown(event) {
+        const element = event.currentTarget;
+        const node = nodes.find((candidate) => candidate.id === element.dataset.nodeId);
+        if (!node) return;
+        selectedId = node.id;
+        const shellRect = stageShell.getBoundingClientRect();
+        const scaleX = CANVAS.width / shellRect.width;
+        const scaleY = CANVAS.height / shellRect.height;
+        drag = {
+          pointerId: event.pointerId,
+          type: event.target.dataset.resizeHandle ? "resize" : "move",
+          startX: event.clientX,
+          startY: event.clientY,
+          scaleX,
+          scaleY,
+          rect: { ...node.rect }
+        };
+        element.setPointerCapture(event.pointerId);
+        render();
+        event.preventDefault();
+      }
+
+      function onPointerMove(event) {
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        const node = selectedNode();
+        const dx = (event.clientX - drag.startX) * drag.scaleX;
+        const dy = (event.clientY - drag.startY) * drag.scaleY;
+        if (drag.type === "resize") {
+          node.rect.width = drag.rect.width + dx;
+          node.rect.height = drag.rect.height + dy;
+        } else {
+          node.rect.x = drag.rect.x + dx;
+          node.rect.y = drag.rect.y + dy;
+        }
+        clampRect(node.rect);
+        render();
+      }
+
+      function onPointerUp(event) {
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        drag = null;
+      }
+
+      document.addEventListener("pointermove", onPointerMove);
+      document.addEventListener("pointerup", onPointerUp);
+      document.addEventListener("pointercancel", onPointerUp);
+
+      for (const [key, input] of Object.entries(fields)) {
+        input.addEventListener("input", () => {
+          const node = selectedNode();
+          const value = Number(input.value);
+          if (!Number.isFinite(value)) return;
+          if (key === "radius" || key === "layer") node[key] = Math.max(0, Math.round(value));
+          else node.rect[key] = value;
+          clampRect(node.rect);
+          render();
+        });
+      }
+
+      focalX.addEventListener("input", () => {
+        selectedNode().focal.x = Number(focalX.value);
+        render();
+      });
+      focalY.addEventListener("input", () => {
+        selectedNode().focal.y = Number(focalY.value);
+        render();
+      });
+
+      document.querySelectorAll("[data-fit]").forEach((button) => {
+        button.addEventListener("click", () => {
+          selectedNode().fit = button.dataset.fit;
+          render();
+        });
+      });
+
+      document.querySelectorAll("[data-pin]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const node = selectedNode();
+          const pin = button.dataset.pin;
+          node.pins = node.pins.includes(pin) ? node.pins.filter((value) => value !== pin) : [...node.pins, pin];
+          render();
+        });
+      });
+
+      document.querySelectorAll("[data-mode-tab]").forEach((button) => {
+        button.addEventListener("click", () => {
+          mode = button.dataset.modeTab;
+          jsonView = "primary";
+          render();
+        });
+      });
+
+      document.querySelectorAll("[data-json-view]").forEach((button) => {
+        button.addEventListener("click", () => {
+          jsonView = button.dataset.jsonView;
+          render();
+        });
+      });
+
+      document.getElementById("gridToggle").addEventListener("change", (event) => {
+        stage.classList.toggle("show-grid", event.target.checked);
+      });
+      document.getElementById("safeToggle").addEventListener("change", (event) => {
+        document.getElementById("safeArea").hidden = !event.target.checked;
+      });
+      document.getElementById("templateToggle").addEventListener("change", (event) => {
+        templateOnly = event.target.checked;
+        render();
+      });
+
+      document.getElementById("resetButton").addEventListener("click", () => {
+        nodes = deepClone(initialNodes);
+        selectedId = "workflow-final";
+        addedShapes = 0;
+        render();
+      });
+
+      document.getElementById("addShapeButton").addEventListener("click", () => {
+        addedShapes += 1;
+        const id = `shape-${addedShapes}`;
+        nodes.push({
+          id,
+          name: `Shape ${addedShapes}`,
+          kind: "shape",
+          text: `<b>Shape ${addedShapes}</b>&nbsp; JSON-native graphic`,
+          rect: { x: 490 + addedShapes * 12, y: 590 - addedShapes * 12, width: 260, height: 58 },
+          fit: "none",
+          focal: { x: 50, y: 50 },
+          radius: 8,
+          layer: 5,
+          slot: id,
+          pins: ["left", "bottom"]
+        });
+        selectedId = id;
+        render();
+      });
+
+      document.getElementById("copyJsonButton").addEventListener("click", async (event) => {
+        try {
+          await navigator.clipboard.writeText(jsonPreview.textContent);
+          const button = event.currentTarget;
+          const previous = button.textContent;
+          button.textContent = "Copied";
+          setTimeout(() => { button.textContent = previous; }, 1200);
+        } catch {
+          statusHint.textContent = "Clipboard access was unavailable. Select the JSON text to copy it.";
+        }
+      });
+
+      window.addEventListener("resize", renderStage);
+      render();
+    })();
+  </script>
+</body>
+</html>
