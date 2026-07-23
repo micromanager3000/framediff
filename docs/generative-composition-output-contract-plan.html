@@ -1,0 +1,1949 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FrameDiff — Locked Generative Output Plan &amp; UX Mockups</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0e0d0b;
+      --panel: #131110;
+      --panel-raised: #1b1815;
+      --panel-hover: #242019;
+      --panel-soft: #171411;
+      --line: rgb(245 239 221 / 8%);
+      --line-strong: rgb(245 239 221 / 16%);
+      --text: #f5efdd;
+      --muted: #c6c0af;
+      --faint: #8f8879;
+      --accent: #e0ac57;
+      --accent-2: #f0c77f;
+      --pink: #c3a5df;
+      --green: #7fc79b;
+      --yellow: #e6c887;
+      --red: #e0655f;
+      --blue: #8fb4d1;
+      --image: #df9dba;
+      --video: #8fb4d1;
+      --audio: #7fc79b;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --shadow: 0 28px 80px rgba(0, 0, 0, .42);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 12% 5%, rgba(224, 172, 87, .08), transparent 26rem),
+        radial-gradient(circle at 85% 18%, rgba(195, 165, 223, .07), transparent 30rem),
+        var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    button, input, select, textarea { font: inherit; }
+    button { color: inherit; }
+    a { color: inherit; }
+    code { font-family: var(--mono); }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-height: 54px;
+      padding: 0 24px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(14, 13, 11, .86);
+      backdrop-filter: blur(18px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .13em;
+    }
+
+    .mark {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, var(--accent) 0 25%, rgb(245 239 221 / 10%) 25% 100%);
+      box-shadow: inset 0 0 0 1.5px rgb(245 239 221 / 22%);
+    }
+
+    .topbar .divider { width: 1px; height: 20px; background: var(--line-strong); }
+    .topbar .title { color: var(--muted); font-size: 12px; }
+    .topbar nav { display: flex; gap: 6px; margin-left: auto; }
+    .topbar nav a {
+      padding: 6px 10px;
+      border-radius: 7px;
+      color: var(--muted);
+      font-size: 11px;
+      text-decoration: none;
+    }
+    .topbar nav a:hover { background: var(--panel-raised); color: var(--text); }
+
+    main { width: min(1500px, calc(100% - 40px)); margin: 0 auto; padding-bottom: 96px; }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(320px, .65fr);
+      gap: 34px;
+      align-items: end;
+      padding: 74px 8px 48px;
+    }
+
+    .eyebrow {
+      margin-bottom: 13px;
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 880px;
+      margin: 0;
+      font-size: clamp(38px, 5.4vw, 72px);
+      line-height: .99;
+      letter-spacing: -.055em;
+    }
+
+    .hero-copy {
+      margin: 22px 0 0;
+      max-width: 760px;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.65;
+    }
+
+    .decision-card {
+      position: relative;
+      padding: 22px;
+      overflow: hidden;
+      border: 1px solid rgba(224, 172, 87, .24);
+      border-radius: 16px;
+      background: linear-gradient(145deg, rgba(224, 172, 87, .1), rgba(27, 24, 21, .9) 58%);
+      box-shadow: var(--shadow);
+    }
+
+    .decision-card::after {
+      position: absolute;
+      right: -32px;
+      top: -36px;
+      width: 130px;
+      height: 130px;
+      border: 1px solid rgba(224, 172, 87, .16);
+      border-radius: 50%;
+      content: "";
+    }
+
+    .decision-card small {
+      color: var(--accent-2);
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .12em;
+    }
+
+    .decision-card strong { display: block; margin: 10px 0 9px; font-size: 20px; line-height: 1.25; }
+    .decision-card p { margin: 0; color: var(--muted); font-size: 12px; }
+
+    .section { margin-top: 52px; scroll-margin-top: 76px; }
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 24px;
+      margin: 0 8px 18px;
+    }
+    .section-head h2 { margin: 0; font-size: 26px; letter-spacing: -.035em; }
+    .section-head p { max-width: 620px; margin: 0; color: var(--muted); font-size: 13px; }
+
+    /* Interactive prototype */
+    .prototype-shell {
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      border-radius: 18px;
+      background: #0c0b0a;
+      box-shadow: var(--shadow);
+    }
+
+    .prototype-tools {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 15px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    .prototype-tools .lights { display: flex; gap: 6px; }
+    .prototype-tools .lights i { display: block; width: 8px; height: 8px; border-radius: 50%; background: #3d3831; }
+    .prototype-tools .lights i:first-child { background: #b85b52; }
+    .prototype-tools .lights i:nth-child(2) { background: #c59347; }
+    .prototype-tools .lights i:last-child { background: #658f70; }
+    .prototype-tools .instruction {
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 9px;
+      white-space: nowrap;
+    }
+
+    .screen-tabs {
+      display: flex;
+      min-width: 0;
+      gap: 4px;
+      margin-left: auto;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .screen-tabs::-webkit-scrollbar { display: none; }
+    .screen-tab {
+      flex: none;
+      padding: 6px 9px;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--faint);
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: 8px;
+    }
+    .screen-tab:hover { color: var(--muted); }
+    .screen-tab.active { border-color: var(--line-strong); background: var(--panel-hover); color: var(--text); }
+
+    .studio {
+      position: relative;
+      display: grid;
+      grid-template-rows: 44px minmax(670px, 74vh);
+      min-height: 714px;
+      overflow: hidden;
+      background: var(--bg);
+      user-select: none;
+    }
+
+    .studio-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 13px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+      font-size: 11px;
+    }
+
+    .studio-logo { display: flex; align-items: center; gap: 7px; font-weight: 800; letter-spacing: .12em; }
+    .studio-logo .mark { width: 16px; height: 16px; }
+    .crumb { color: var(--muted); }
+    .crumb b { color: var(--text); }
+    .studio-grow { flex: 1; }
+    .sync {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 9px;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 8px;
+    }
+    .sync i { width: 5px; height: 5px; border-radius: 50%; background: var(--green); }
+    .mobile-add {
+      display: none;
+      padding: 4px 7px;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: var(--panel-raised);
+      color: var(--accent);
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: 7px;
+    }
+
+    .studio-main {
+      display: grid;
+      grid-template-columns: 224px minmax(0, 1fr) 286px;
+      min-height: 0;
+    }
+
+    .rail, .inspector {
+      min-height: 0;
+      background: var(--panel);
+    }
+    .rail { border-right: 1px solid var(--line); }
+    .inspector { border-left: 1px solid var(--line); }
+    .panel-heading {
+      display: flex;
+      align-items: center;
+      height: 39px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--line);
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 8px;
+      font-weight: 800;
+      letter-spacing: .12em;
+    }
+    .panel-heading span { margin-left: 6px; color: #5f594f; }
+    .panel-heading button {
+      display: grid;
+      width: 23px;
+      height: 23px;
+      margin-left: auto;
+      place-items: center;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: var(--panel-raised);
+      color: var(--text);
+      cursor: pointer;
+    }
+    .panel-heading button:hover { border-color: var(--accent); }
+    .attention-ring { animation: ring 1.8s ease-in-out infinite; }
+    @keyframes ring {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(224, 172, 87, 0); }
+      50% { box-shadow: 0 0 0 6px rgba(224, 172, 87, .14); border-color: var(--accent); }
+    }
+
+    .search {
+      margin: 9px 10px 7px;
+      padding: 7px 9px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 8px;
+    }
+    .tree-section {
+      padding: 8px 11px 5px;
+      color: #696256;
+      font-family: var(--mono);
+      font-size: 7px;
+      font-weight: 800;
+      letter-spacing: .12em;
+    }
+    .comp-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      width: 100%;
+      padding: 6px 11px;
+      border: 0;
+      border-left: 2px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      text-align: left;
+      cursor: pointer;
+      font-size: 10px;
+    }
+    .comp-row.active { border-left-color: var(--accent); background: var(--panel-raised); color: var(--text); }
+    .comp-row .glyph { width: 14px; color: var(--pink); text-align: center; }
+    .comp-row .name { flex: 1; }
+    .comp-row .kind {
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 7px;
+      text-transform: uppercase;
+    }
+    .comp-row .out {
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: rgba(143, 180, 209, .12);
+      color: var(--video);
+      font-family: var(--mono);
+      font-size: 6px;
+      font-weight: 800;
+    }
+    .rail-note {
+      margin: 13px 10px;
+      padding: 9px;
+      border: 1px dashed var(--line-strong);
+      border-radius: 7px;
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 7px;
+      line-height: 1.55;
+    }
+
+    .workspace {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      background:
+        linear-gradient(rgba(245, 239, 221, .012) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(245, 239, 221, .012) 1px, transparent 1px),
+        var(--bg);
+      background-size: 24px 24px;
+    }
+
+    .empty-stage {
+      display: grid;
+      height: 100%;
+      place-items: center;
+      padding: 30px;
+    }
+    .canvas {
+      position: relative;
+      width: min(680px, 84%);
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      border-radius: 10px;
+      background:
+        radial-gradient(circle at 30% 45%, rgba(224, 172, 87, .24), transparent 25%),
+        linear-gradient(158deg, #26303a, #0b1720 56%, #06080a);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, .5);
+    }
+    .canvas::before {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent 0 60%, rgba(10, 7, 5, .56)), linear-gradient(0deg, rgba(0, 0, 0, .6), transparent 38%);
+      content: "";
+    }
+    .canvas .scene-title {
+      position: absolute;
+      left: 6%;
+      bottom: 8%;
+      font-size: clamp(20px, 2.7vw, 42px);
+      font-weight: 800;
+      letter-spacing: -.04em;
+    }
+    .canvas .scene-title small {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 8px;
+      letter-spacing: .14em;
+    }
+    .canvas .play {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      display: grid;
+      width: 46px;
+      height: 46px;
+      place-items: center;
+      border: 1px solid rgba(255, 255, 255, .25);
+      border-radius: 50%;
+      background: rgba(0, 0, 0, .45);
+      color: white;
+      font-size: 13px;
+      transform: translate(-50%, -50%);
+    }
+
+    .inspector-copy { padding: 13px; }
+    .inspector-copy h3 { margin: 0 0 4px; font-size: 12px; }
+    .inspector-copy p { margin: 0; color: var(--faint); font-size: 9px; }
+    .kv {
+      display: flex;
+      gap: 8px;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--line);
+      font-family: var(--mono);
+      font-size: 8px;
+    }
+    .kv span { width: 72px; color: var(--faint); }
+    .kv b { color: var(--muted); font-weight: 500; }
+
+    .modal-shade {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      place-items: center;
+      padding: 30px;
+      background: rgba(5, 5, 4, .72);
+      backdrop-filter: blur(5px);
+    }
+    .studio[data-screen="kind"] .modal-shade.kind,
+    .studio[data-screen="output"] .modal-shade.output,
+    .studio[data-screen="details"] .modal-shade.details { display: grid; }
+
+    .modal {
+      width: min(700px, 92vw);
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      border-radius: 14px;
+      background: var(--panel);
+      box-shadow: 0 30px 100px rgba(0, 0, 0, .65);
+    }
+    .modal.narrow { width: min(580px, 92vw); }
+    .modal-head {
+      display: flex;
+      align-items: start;
+      gap: 12px;
+      padding: 17px 18px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .modal-step {
+      display: grid;
+      width: 24px;
+      height: 24px;
+      flex: none;
+      place-items: center;
+      border: 1px solid rgba(224, 172, 87, .4);
+      border-radius: 7px;
+      background: rgba(224, 172, 87, .1);
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 8px;
+      font-weight: 800;
+    }
+    .modal-head h2 { margin: 0; font-size: 16px; }
+    .modal-head p { margin: 3px 0 0; color: var(--faint); font-size: 10px; }
+    .modal-close {
+      margin-left: auto;
+      border: 0;
+      background: transparent;
+      color: var(--faint);
+      cursor: pointer;
+    }
+    .modal-body { padding: 17px 18px 18px; }
+    .card-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+    .choice-card {
+      position: relative;
+      min-height: 128px;
+      padding: 14px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--panel-soft);
+      color: var(--muted);
+      text-align: left;
+      cursor: pointer;
+    }
+    .choice-card:hover { border-color: var(--line-strong); background: var(--panel-raised); color: var(--text); }
+    .choice-card.featured { border-color: rgba(195, 165, 223, .32); background: linear-gradient(145deg, rgba(195, 165, 223, .1), var(--panel-soft)); }
+    .choice-card .choice-icon {
+      display: grid;
+      width: 30px;
+      height: 30px;
+      margin-bottom: 17px;
+      place-items: center;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: var(--panel-hover);
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    .choice-card.featured .choice-icon { color: var(--pink); }
+    .choice-card strong { display: block; margin-bottom: 3px; font-size: 11px; }
+    .choice-card small { display: block; color: var(--faint); font-size: 8px; line-height: 1.45; }
+    .choice-card .arrow { position: absolute; right: 13px; top: 13px; color: var(--faint); font-size: 9px; }
+    .choice-card[disabled] { opacity: .52; cursor: default; }
+    .choice-card[disabled]:hover { border-color: var(--line); background: var(--panel-soft); color: var(--muted); }
+
+    .output-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .output-card {
+      min-height: 210px;
+      padding: 15px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--panel-soft);
+      text-align: left;
+      cursor: pointer;
+    }
+    .output-card:hover { border-color: var(--kind-color); background: var(--panel-raised); transform: translateY(-1px); }
+    .output-visual {
+      display: grid;
+      height: 84px;
+      margin-bottom: 14px;
+      place-items: center;
+      border: 1px solid color-mix(in srgb, var(--kind-color) 25%, transparent);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--kind-color) 9%, var(--bg));
+      color: var(--kind-color);
+    }
+    .output-visual .image-icon {
+      position: relative;
+      width: 46px;
+      height: 36px;
+      overflow: hidden;
+      border: 1px solid currentColor;
+      border-radius: 4px;
+    }
+    .output-visual .image-icon::before {
+      position: absolute;
+      left: 7px;
+      bottom: 5px;
+      width: 22px;
+      height: 22px;
+      background: currentColor;
+      clip-path: polygon(0 100%, 45% 36%, 67% 62%, 80% 47%, 100% 100%);
+      content: "";
+      opacity: .65;
+    }
+    .output-visual .video-icon {
+      display: grid;
+      width: 50px;
+      height: 34px;
+      place-items: center;
+      border: 1px solid currentColor;
+      border-radius: 4px;
+    }
+    .output-visual .video-icon::after {
+      width: 0;
+      height: 0;
+      border-top: 6px solid transparent;
+      border-bottom: 6px solid transparent;
+      border-left: 9px solid currentColor;
+      content: "";
+    }
+    .output-visual .wave { display: flex; align-items: center; gap: 3px; height: 35px; }
+    .output-visual .wave i { display: block; width: 3px; height: var(--h); border-radius: 4px; background: currentColor; }
+    .output-card strong { display: block; font-size: 13px; }
+    .output-card p { margin: 4px 0 12px; color: var(--faint); font-size: 9px; line-height: 1.45; }
+    .contract-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 7px;
+    }
+    .contract-line i { width: 5px; height: 5px; border-radius: 50%; background: var(--kind-color); }
+    .no-default {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 13px;
+      padding: 8px 10px;
+      border: 1px dashed var(--line-strong);
+      border-radius: 8px;
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 7px;
+    }
+    .no-default b { color: var(--yellow); }
+
+    .details-layout { display: grid; grid-template-columns: minmax(0, 1fr) 218px; gap: 18px; }
+    .field { display: block; margin-bottom: 12px; }
+    .field > span {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 7px;
+      font-weight: 800;
+      letter-spacing: .1em;
+    }
+    .field input, .field select {
+      width: 100%;
+      min-height: 34px;
+      padding: 0 10px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 10px;
+    }
+    .field-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+    .locked-contract {
+      padding: 13px;
+      border: 1px solid color-mix(in srgb, var(--kind-color) 35%, transparent);
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--kind-color) 7%, var(--panel-soft));
+    }
+    .locked-contract .lock-top { display: flex; align-items: center; gap: 8px; color: var(--kind-color); }
+    .locked-contract .lock-icon {
+      display: grid;
+      width: 25px;
+      height: 25px;
+      place-items: center;
+      border: 1px solid currentColor;
+      border-radius: 7px;
+      font-size: 10px;
+    }
+    .locked-contract small { font-family: var(--mono); font-size: 7px; letter-spacing: .09em; }
+    .locked-contract strong { display: block; margin: 13px 0 3px; font-size: 18px; text-transform: capitalize; }
+    .locked-contract p { margin: 0; color: var(--faint); font-size: 8px; }
+    .locked-contract .contract-kv { margin-top: 11px; padding-top: 10px; border-top: 1px solid var(--line); }
+    .locked-contract .contract-kv div {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 7px;
+    }
+    .locked-contract .contract-kv b { color: var(--muted); font-weight: 500; }
+    .modal-foot {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 12px 18px;
+      border-top: 1px solid var(--line);
+      background: rgba(14, 13, 11, .35);
+    }
+    .modal-foot .summary { color: var(--faint); font-family: var(--mono); font-size: 7px; }
+    .modal-foot .grow { flex: 1; }
+    .button {
+      min-height: 31px;
+      padding: 0 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: var(--panel-raised);
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 9px;
+      font-weight: 700;
+    }
+    .button:hover { border-color: var(--accent); color: var(--text); }
+    .button.primary { border-color: transparent; background: linear-gradient(135deg, #c9923d, #e0ac57); color: #171410; }
+
+    /* Workbench prototype */
+    .workbench {
+      display: none;
+      grid-template-rows: auto minmax(0, 1fr);
+      height: 100%;
+      background: var(--bg);
+    }
+    .studio[data-screen="workbench"] .workbench,
+    .studio[data-screen="input"] .workbench { display: grid; }
+    .studio[data-screen="workbench"] .empty-stage,
+    .studio[data-screen="input"] .empty-stage { display: none; }
+
+    .gen-head {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
+    .gen-lock-badge {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 8px;
+      border: 1px solid color-mix(in srgb, var(--kind-color) 38%, transparent);
+      border-radius: 6px;
+      background: color-mix(in srgb, var(--kind-color) 10%, transparent);
+      color: var(--kind-color);
+      font-family: var(--mono);
+      font-size: 7px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .gen-title { min-width: 0; }
+    .gen-title strong { display: block; overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+    .gen-title small { display: block; color: var(--faint); font-family: var(--mono); font-size: 7px; }
+    .model-field { display: flex; align-items: center; gap: 7px; margin-left: auto; }
+    .model-field span { color: var(--faint); font-family: var(--mono); font-size: 7px; }
+    .model-field select {
+      min-width: 165px;
+      padding: 6px 8px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 8px;
+    }
+    .same-type { color: var(--green); font-family: var(--mono); font-size: 7px; }
+
+    .gen-body {
+      display: grid;
+      grid-template-columns: minmax(310px, .82fr) minmax(330px, 1.18fr);
+      min-height: 0;
+    }
+    .recipe-pane { padding: 15px; overflow: auto; border-right: 1px solid var(--line); }
+    .preview-pane { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; padding: 15px; }
+    .prompt-box span, .subheading {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 7px;
+      font-weight: 800;
+      letter-spacing: .1em;
+    }
+    .prompt-box textarea {
+      width: 100%;
+      min-height: 92px;
+      resize: none;
+      padding: 9px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 9px;
+      line-height: 1.5;
+    }
+    .param-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 10px 0 15px; }
+    .param {
+      padding: 7px 8px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel);
+    }
+    .param span { display: block; color: var(--faint); font-family: var(--mono); font-size: 6px; }
+    .param b { display: block; margin-top: 2px; color: var(--muted); font-family: var(--mono); font-size: 8px; font-weight: 500; }
+    .inputs-heading { display: flex; align-items: center; margin-top: 3px; }
+    .inputs-heading small { margin-left: auto; color: var(--faint); font-family: var(--mono); font-size: 6px; }
+    .input-card {
+      display: grid;
+      grid-template-columns: 38px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 9px;
+      width: 100%;
+      margin-top: 7px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--muted);
+      text-align: left;
+      cursor: pointer;
+    }
+    .input-card:hover, .studio[data-screen="input"] .input-card.selected { border-color: var(--pink); background: var(--panel-raised); }
+    .thumb {
+      position: relative;
+      width: 38px;
+      height: 29px;
+      overflow: hidden;
+      border-radius: 4px;
+      background: linear-gradient(150deg, #8e5a50 0 28%, #2d3b43 29% 62%, #121315 63%);
+    }
+    .thumb::after {
+      position: absolute;
+      left: 15px;
+      top: 5px;
+      width: 10px;
+      height: 15px;
+      border-radius: 48% 48% 38% 38%;
+      background: #c79772;
+      box-shadow: 0 10px 0 5px #2c3338;
+      content: "";
+    }
+    .input-copy { min-width: 0; }
+    .input-copy b { display: block; overflow: hidden; color: var(--text); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+    .input-copy small { display: block; color: var(--faint); font-family: var(--mono); font-size: 6px; }
+    .edge-badges { display: flex; flex-direction: column; align-items: end; gap: 3px; }
+    .edge-badges span {
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: rgba(195, 165, 223, .12);
+      color: var(--pink);
+      font-family: var(--mono);
+      font-size: 6px;
+      white-space: nowrap;
+    }
+    .add-input {
+      width: 100%;
+      margin-top: 7px;
+      padding: 7px;
+      border: 1px dashed var(--line-strong);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--faint);
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: 7px;
+    }
+    .generate-button {
+      width: 100%;
+      margin-top: 13px;
+      padding: 9px;
+      border: 0;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #a685bb, #c3a5df);
+      color: #1d1622;
+      font-size: 9px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .preview {
+      position: relative;
+      display: grid;
+      min-height: 270px;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      border-radius: 10px;
+      background:
+        radial-gradient(circle at 45% 42%, rgba(195, 165, 223, .18), transparent 30%),
+        linear-gradient(145deg, #221d25, #0b0b0d);
+    }
+    .preview .preview-type {
+      color: var(--pink);
+      font-family: var(--mono);
+      font-size: 8px;
+      letter-spacing: .1em;
+      text-align: center;
+    }
+    .preview .preview-type strong { display: block; margin: 5px 0; color: var(--text); font-size: 14px; letter-spacing: normal; }
+    .preview .preview-meta { position: absolute; left: 8px; bottom: 7px; color: var(--faint); font-family: var(--mono); font-size: 6px; }
+    .takes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 10px; }
+    .take {
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel);
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 6px;
+    }
+    .take.draft { border-style: dashed; border-color: rgba(195, 165, 223, .4); color: var(--pink); }
+    .take b { display: block; margin-bottom: 8px; color: var(--muted); font-size: 7px; }
+
+    .default-inspector, .input-inspector { height: 100%; overflow: auto; }
+    .input-inspector { display: none; }
+    .studio[data-screen="input"] .default-inspector { display: none; }
+    .studio[data-screen="input"] .input-inspector { display: block; }
+    .input-inspector .panel-heading { color: var(--pink); }
+    .edge-scope {
+      margin: 11px;
+      padding: 9px;
+      border: 1px solid rgba(195, 165, 223, .22);
+      border-radius: 8px;
+      background: rgba(195, 165, 223, .06);
+      color: var(--muted);
+      font-size: 8px;
+    }
+    .edge-scope b { display: block; margin-bottom: 2px; color: var(--pink); font-family: var(--mono); font-size: 7px; }
+    .fit-preview {
+      position: relative;
+      height: 138px;
+      margin: 11px;
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: #050505;
+    }
+    .fit-preview .source-portrait {
+      position: absolute;
+      left: 25%;
+      top: -48%;
+      width: 50%;
+      height: 196%;
+      background:
+        radial-gradient(circle at 52% 34%, #d0a07e 0 8%, transparent 8.5%),
+        radial-gradient(circle at 51% 46%, #20262a 0 20%, transparent 20.5%),
+        linear-gradient(155deg, #925c52, #253541 56%, #101112);
+      transition: all .2s ease;
+    }
+    .fit-preview[data-fit="cover"] .source-portrait { left: 0; top: -65%; width: 100%; height: 230%; }
+    .fit-preview[data-fit="contain"] .source-portrait { left: 37%; top: 0; width: 26%; height: 100%; }
+    .fit-preview[data-fit="stretch"] .source-portrait { left: 0; top: 0; width: 100%; height: 100%; }
+    .fit-preview[data-fit="native"] .source-portrait { left: 33%; top: -16%; width: 34%; height: 132%; }
+    .fit-preview::after {
+      position: absolute;
+      right: 6px;
+      bottom: 5px;
+      padding: 2px 4px;
+      border-radius: 3px;
+      background: rgba(0, 0, 0, .6);
+      color: rgba(255,255,255,.7);
+      content: "TARGET 16:9";
+      font-family: var(--mono);
+      font-size: 5px;
+    }
+    .fit-section { padding: 0 11px 12px; }
+    .fit-label { display: flex; justify-content: space-between; margin-bottom: 6px; color: var(--faint); font-family: var(--mono); font-size: 6px; }
+    .fit-label b { color: var(--muted); font-weight: 500; }
+    .fit-options { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .fit-option {
+      padding: 7px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel-soft);
+      color: var(--faint);
+      text-align: left;
+      cursor: pointer;
+      font-size: 7px;
+    }
+    .fit-option:hover { border-color: var(--line-strong); }
+    .fit-option.active { border-color: var(--pink); background: rgba(195, 165, 223, .08); color: var(--text); }
+    .fit-option b { display: block; margin-bottom: 1px; font-size: 8px; }
+    .fit-option small { color: var(--faint); font-size: 6px; }
+    .mini-field { display: flex; align-items: center; gap: 7px; margin-top: 8px; }
+    .mini-field label { width: 60px; color: var(--faint); font-family: var(--mono); font-size: 6px; }
+    .mini-field select, .mini-field input {
+      flex: 1;
+      min-width: 0;
+      padding: 5px 6px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 7px;
+    }
+    .apply-fit { width: 100%; margin-top: 10px; padding: 7px; border: 0; border-radius: 7px; background: var(--pink); color: #211824; cursor: pointer; font-size: 8px; font-weight: 800; }
+
+    .annotation {
+      position: absolute;
+      z-index: 40;
+      display: none;
+      max-width: 220px;
+      padding: 9px 10px;
+      border: 1px solid rgba(224, 172, 87, .28);
+      border-radius: 8px;
+      background: rgba(34, 29, 24, .95);
+      box-shadow: 0 10px 30px rgba(0,0,0,.45);
+      color: var(--muted);
+      font-size: 8px;
+      line-height: 1.45;
+    }
+    .annotation::before { color: var(--accent); content: "PLAN NOTE  "; font-family: var(--mono); font-size: 6px; font-weight: 800; letter-spacing: .1em; }
+    .studio[data-screen="kind"] .annotation.kind-note,
+    .studio[data-screen="output"] .annotation.output-note,
+    .studio[data-screen="details"] .annotation.details-note,
+    .studio[data-screen="workbench"] .annotation.workbench-note,
+    .studio[data-screen="input"] .annotation.input-note { display: block; }
+    .kind-note { left: calc(50% + 265px); top: 116px; }
+    .output-note { left: calc(50% + 262px); top: 146px; }
+    .details-note { left: calc(50% + 220px); top: 132px; }
+    .workbench-note { right: 301px; top: 58px; }
+    .input-note { right: 298px; top: 264px; }
+
+    .prototype-caption {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 15px;
+      border-top: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 10px;
+    }
+    .prototype-caption b { color: var(--text); }
+    .prototype-caption .grow { flex: 1; }
+    .proto-nav { display: flex; gap: 6px; }
+
+    /* Plan content */
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 22px;
+      padding: 25px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--panel);
+    }
+    .flow-step { position: relative; }
+    .flow-step:not(:last-child)::after {
+      position: absolute;
+      right: -16px;
+      top: 33px;
+      color: #5e584d;
+      content: "→";
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+    .flow-step .num {
+      display: grid;
+      width: 24px;
+      height: 24px;
+      margin-bottom: 11px;
+      place-items: center;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 8px;
+    }
+    .flow-step strong { display: block; margin-bottom: 5px; font-size: 12px; }
+    .flow-step p { margin: 0; color: var(--faint); font-size: 9px; }
+
+    .plan-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .plan-card {
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--panel);
+    }
+    .plan-card.wide { grid-column: 1 / -1; }
+    .plan-card h3 { display: flex; align-items: center; gap: 9px; margin: 0 0 11px; font-size: 14px; }
+    .plan-card h3 .pill {
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(224, 172, 87, .12);
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 7px;
+      letter-spacing: .08em;
+    }
+    .plan-card p { margin: 0; color: var(--muted); font-size: 11px; }
+    .plan-card ul { margin: 12px 0 0; padding-left: 17px; color: var(--muted); font-size: 10px; }
+    .plan-card li + li { margin-top: 7px; }
+    .plan-card li::marker { color: var(--accent); }
+
+    .contract-diagram {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      align-items: center;
+      gap: 13px;
+      margin-top: 16px;
+    }
+    .diagram-node {
+      min-height: 108px;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--panel-soft);
+    }
+    .diagram-node.edge { border-color: rgba(195, 165, 223, .25); background: rgba(195, 165, 223, .05); }
+    .diagram-node small { color: var(--faint); font-family: var(--mono); font-size: 7px; letter-spacing: .08em; }
+    .diagram-node strong { display: block; margin: 7px 0 4px; font-size: 11px; }
+    .diagram-node code { color: var(--muted); font-size: 8px; }
+    .diagram-arrow { color: #6b6458; font-family: var(--mono); }
+
+    .code-sample {
+      margin-top: 15px;
+      padding: 15px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #0a0908;
+      color: #d4cdbb;
+      font: 9px/1.65 var(--mono);
+      white-space: pre;
+    }
+    .code-sample .key { color: var(--pink); }
+    .code-sample .str { color: var(--green); }
+    .code-sample .comment { color: #6d665b; }
+
+    .table-wrap {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--panel);
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      padding: 11px 13px;
+      border-bottom: 1px solid var(--line-strong);
+      background: var(--panel-raised);
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 7px;
+      letter-spacing: .1em;
+      text-align: left;
+      text-transform: uppercase;
+    }
+    td {
+      padding: 12px 13px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 10px;
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: 0; }
+    td:first-child { color: var(--text); font-weight: 700; }
+    td code { color: var(--pink); font-size: 8px; }
+    .status-pill {
+      display: inline-flex;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: rgba(127, 199, 155, .12);
+      color: var(--green);
+      font-family: var(--mono);
+      font-size: 7px;
+      white-space: nowrap;
+    }
+
+    .roadmap { counter-reset: phase; }
+    .phase {
+      display: grid;
+      grid-template-columns: 48px 190px minmax(0, 1fr);
+      gap: 16px;
+      padding: 17px 18px;
+      border: 1px solid var(--line);
+      border-bottom: 0;
+      background: var(--panel);
+      counter-increment: phase;
+    }
+    .phase:first-child { border-radius: 13px 13px 0 0; }
+    .phase:last-child { border-bottom: 1px solid var(--line); border-radius: 0 0 13px 13px; }
+    .phase-num {
+      display: grid;
+      width: 31px;
+      height: 31px;
+      place-items: center;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 8px;
+    }
+    .phase-num::after { content: "0" counter(phase); }
+    .phase h3 { margin: 2px 0 4px; font-size: 12px; }
+    .phase .files { color: var(--faint); font-family: var(--mono); font-size: 7px; line-height: 1.55; }
+    .phase p { margin: 2px 0 0; color: var(--muted); font-size: 10px; }
+
+    .confirm-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .confirm {
+      display: flex;
+      gap: 11px;
+      padding: 15px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--panel);
+    }
+    .confirm .check {
+      display: grid;
+      width: 22px;
+      height: 22px;
+      flex: none;
+      place-items: center;
+      border: 1px solid rgba(127, 199, 155, .35);
+      border-radius: 6px;
+      background: rgba(127, 199, 155, .08);
+      color: var(--green);
+      font-size: 9px;
+    }
+    .confirm strong { display: block; margin-bottom: 3px; font-size: 11px; }
+    .confirm p { margin: 0; color: var(--faint); font-size: 9px; }
+
+    .recommendation {
+      margin-top: 14px;
+      padding: 18px 20px;
+      border: 1px solid rgba(224, 172, 87, .28);
+      border-radius: 13px;
+      background: linear-gradient(110deg, rgba(224, 172, 87, .09), rgba(27, 24, 21, .86));
+    }
+    .recommendation strong { color: var(--accent-2); }
+    .recommendation p { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
+
+    .footer {
+      margin-top: 58px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 8px;
+      text-align: center;
+    }
+
+    @media (max-width: 1050px) {
+      .hero { grid-template-columns: 1fr; }
+      .studio-main { grid-template-columns: 190px minmax(0, 1fr); }
+      .inspector { display: none; }
+      .annotation { display: none !important; }
+      .flow { grid-template-columns: 1fr; gap: 16px; }
+      .flow-step:not(:last-child)::after { left: 11px; right: auto; top: auto; bottom: -16px; content: "↓"; }
+      .contract-diagram { grid-template-columns: 1fr; }
+      .diagram-arrow { text-align: center; transform: rotate(90deg); }
+    }
+
+    @media (max-width: 760px) {
+      main { width: min(100% - 22px, 1500px); }
+      .topbar { padding: 0 12px; }
+      .topbar .title, .topbar nav { display: none; }
+      .hero { padding-top: 46px; }
+      .section-head { display: block; }
+      .section-head p { margin-top: 7px; }
+      .prototype-tools .instruction { display: none; }
+      .studio { grid-template-rows: 42px 660px; min-height: 702px; }
+      .studio-main { grid-template-columns: 1fr; }
+      .rail { display: none; }
+      .mobile-add { display: block; }
+      .card-grid, .output-grid { grid-template-columns: 1fr; }
+      .choice-card { min-height: 110px; }
+      .output-card { min-height: 170px; }
+      .modal { max-height: 590px; overflow: auto; }
+      .details-layout, .gen-body { grid-template-columns: 1fr; }
+      .locked-contract { order: -1; }
+      .recipe-pane { border-right: 0; }
+      .preview-pane { display: none; }
+      .plan-grid, .confirm-grid { grid-template-columns: 1fr; }
+      .plan-card.wide { grid-column: auto; }
+      .phase { grid-template-columns: 36px 1fr; }
+      .phase p { grid-column: 2; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="mark"></span>FRAMEDIFF</div>
+    <span class="divider"></span>
+    <span class="title">Generative output contracts · UX plan</span>
+    <nav aria-label="Plan sections">
+      <a href="#prototype">Prototype</a>
+      <a href="#flow">Flow</a>
+      <a href="#contract">Contract</a>
+      <a href="#delivery">Delivery</a>
+      <a href="#confirm">Confirm</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <div class="eyebrow">Decision-ready product plan · July 2026</div>
+        <h1>The output type belongs to the comp—not the model.</h1>
+        <p class="hero-copy">
+          A generative comp declares <strong>Image</strong>, <strong>Video</strong>, or <strong>Audio</strong> when it is created.
+          That contract never changes, so timelines, nested comps, generation inputs, bakes, and historical takes can rely on it.
+        </p>
+      </div>
+      <aside class="decision-card">
+        <small>CORE PRODUCT DECISION</small>
+        <strong>Immutable output.<br />Flexible recipe.</strong>
+        <p>Users may change the model, prompt, provider, parameters, takes, and inputs. The model picker only offers models that produce the comp’s declared output.</p>
+      </aside>
+    </section>
+
+    <section class="section" id="prototype">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">Clickable HTML mockup</div>
+          <h2>Walk the proposed flow</h2>
+        </div>
+        <p>Use the numbered tabs or the controls inside the Studio mockup. Pick any generation output; the details and model choices adapt to it.</p>
+      </div>
+
+      <div class="prototype-shell">
+        <div class="prototype-tools">
+          <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+          <span class="instruction">INTERACTIVE · START WITH “＋” OR JUMP TO A STEP</span>
+          <div class="screen-tabs" role="tablist" aria-label="Prototype screens">
+            <button class="screen-tab active" data-go="start">0 · Studio</button>
+            <button class="screen-tab" data-go="kind">1 · Add comp</button>
+            <button class="screen-tab" data-go="output">2 · Output</button>
+            <button class="screen-tab" data-go="details">3 · Details</button>
+            <button class="screen-tab" data-go="workbench">4 · Workbench</button>
+            <button class="screen-tab" data-go="input">5 · Input handling</button>
+          </div>
+        </div>
+
+        <div class="studio" id="studio" data-screen="start" style="--kind-color: var(--video)">
+          <div class="studio-bar">
+            <div class="studio-logo"><span class="mark"></span>FRAMEDIFF</div>
+            <span class="crumb">previz-to-gen / <b id="crumb-name">Main</b></span>
+            <span class="studio-grow"></span>
+            <button class="mobile-add" id="mobile-add">＋ Add comp</button>
+            <span class="sync"><i></i> source clean</span>
+          </div>
+
+          <div class="studio-main">
+            <aside class="rail">
+              <div class="panel-heading">
+                COMPOSITIONS <span>7</span>
+                <button id="add-comp" class="attention-ring" title="Add composition" aria-label="Add composition">＋</button>
+              </div>
+              <div class="search">⌕ &nbsp; Find a composition…</div>
+              <div class="tree-section">PROJECT</div>
+              <button class="comp-row active" id="main-row"><span class="glyph">⌗</span><span class="name">Main</span><span class="kind">edit</span></button>
+              <button class="comp-row"><span class="glyph">◇</span><span class="name">HarborPreviz</span><span class="kind">3d</span><span class="out">VIDEO</span></button>
+              <button class="comp-row"><span class="glyph">✦</span><span class="name">HarborShot</span><span class="kind">gen</span><span class="out">VIDEO</span></button>
+              <button class="comp-row"><span class="glyph">✦</span><span class="name">LighthouseVisitor</span><span class="kind">gen</span><span class="out" style="color:var(--image);background:rgba(223,157,186,.12)">IMAGE</span></button>
+              <button class="comp-row"><span class="glyph">✦</span><span class="name">Dialogue</span><span class="kind">gen</span><span class="out" style="color:var(--audio);background:rgba(127,199,155,.12)">AUDIO</span></button>
+              <button class="comp-row" id="created-row" style="display:none"><span class="glyph">✦</span><span class="name" id="created-row-name">Harbor Reshoot</span><span class="kind">gen</span><span class="out" id="created-row-output">VIDEO</span></button>
+              <div class="tree-section">LIBRARY</div>
+              <button class="comp-row"><span class="glyph">▦</span><span class="name">Locations</span><span class="kind">board</span></button>
+              <div class="rail-note">Output badges are stable contracts. The rail never has to reinterpret a comp after a model change.</div>
+            </aside>
+
+            <section class="workspace">
+              <div class="empty-stage">
+                <div class="canvas">
+                  <div class="play">▶</div>
+                  <div class="scene-title"><small>MAIN EDIT · 00:00:08:00</small>LIGHTHOUSE / BLUE HOUR</div>
+                </div>
+              </div>
+
+              <section class="workbench" aria-label="Generative composition workbench">
+                <header class="gen-head">
+                  <span class="gen-lock-badge">▣ &nbsp;<span id="locked-output-label">VIDEO OUTPUT · LOCKED</span></span>
+                  <div class="gen-title">
+                    <strong id="workbench-name">Harbor Reshoot</strong>
+                    <small>Output contract was set when this comp was created</small>
+                  </div>
+                  <label class="model-field">
+                    <span>MODEL</span>
+                    <select id="model-select" aria-label="Generation model"></select>
+                  </label>
+                  <span class="same-type">✓ same output</span>
+                </header>
+                <div class="gen-body">
+                  <div class="recipe-pane">
+                    <label class="prompt-box">
+                      <span>PROMPT</span>
+                      <textarea>Re-render the lighthouse approach with documentary-grade coastal cinematography. Preserve the camera move and subject timing.</textarea>
+                    </label>
+                    <div class="param-row" id="param-row"></div>
+                    <div class="inputs-heading">
+                      <span class="subheading" style="margin:0">INPUTS</span>
+                      <small>type comes from source · role belongs to this recipe</small>
+                    </div>
+                    <button class="input-card selected" id="input-card">
+                      <span class="thumb"></span>
+                      <span class="input-copy">
+                        <b>LighthouseVisitor</b>
+                        <small>IMAGE · 1152×1536 · comp://lighthouse-visitor</small>
+                      </span>
+                      <span class="edge-badges">
+                        <span id="input-role">START FRAME</span>
+                        <span id="fit-badge">FIT · SOURCE</span>
+                      </span>
+                    </button>
+                    <button class="add-input">＋ Add comp or media input</button>
+                    <button class="generate-button">Generate · <span id="generate-cost">$1.21</span></button>
+                  </div>
+                  <div class="preview-pane">
+                    <div class="preview">
+                      <div class="preview-type">
+                        GENERATIVE <span id="preview-kind">VIDEO</span>
+                        <strong id="preview-title">Harbor Reshoot</strong>
+                        no take pinned — Generate runs the recipe
+                      </div>
+                      <span class="preview-meta" id="preview-meta">1280×720 · 5s · 24fps</span>
+                    </div>
+                    <div class="takes">
+                      <div class="take draft"><b>TAKE 1 · DRAFT</b>editing now</div>
+                      <div class="take"><b>TAKES ARE TYPED</b>only <span id="typed-take-word">video</span> takes can pin here</div>
+                      <div class="take"><b>PROVENANCE</b>output + input fit are hashed</div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </section>
+
+            <aside class="inspector">
+              <div class="default-inspector">
+                <div class="panel-heading">PROPERTIES</div>
+                <div class="inspector-copy">
+                  <h3 id="inspector-name">Main</h3>
+                  <p id="inspector-description">Selected composition</p>
+                  <div class="kv"><span>KIND</span><b id="inspector-kind">edit</b></div>
+                  <div class="kv"><span>OUTPUT</span><b id="inspector-output">video</b></div>
+                  <div class="kv"><span id="inspector-measure-label">SIZE</span><b id="inspector-measure">1920 × 1080</b></div>
+                  <div class="kv"><span>DURATION</span><b id="inspector-duration">240f · 30fps</b></div>
+                </div>
+              </div>
+
+              <div class="input-inspector">
+                <div class="panel-heading">INPUT PROPERTIES <span style="margin-left:auto">EDGE</span></div>
+                <div class="edge-scope">
+                  <b>APPLIES ONLY HERE</b>
+                  LighthouseVisitor → <span id="edge-consumer">Harbor Reshoot</span>. Other uses keep their own handling.
+                </div>
+                <div class="fit-preview" id="fit-preview" data-fit="native"><div class="source-portrait"></div></div>
+                <div class="fit-section">
+                  <div class="fit-label"><span>SOURCE</span><b>1152×1536 · 3:4</b></div>
+                  <div class="fit-label"><span>TARGET</span><b id="target-dims">1280×720 · 16:9</b></div>
+                  <div class="fit-label" style="margin-top:10px"><span>SIZE HANDLING</span><b id="fit-label">Use source as-is</b></div>
+                  <div class="fit-options">
+                    <button class="fit-option active" data-fit="native"><b>Source as-is</b><small>No preprocessing</small></button>
+                    <button class="fit-option" data-fit="cover"><b>Crop to fill</b><small>Keep aspect + crop</small></button>
+                    <button class="fit-option" data-fit="contain"><b>Fit inside</b><small>Keep aspect + letterbox</small></button>
+                    <button class="fit-option" data-fit="stretch"><b>Stretch</b><small>Resize to exact target</small></button>
+                  </div>
+                  <div class="mini-field"><label>POSITION</label><select><option>Center</option><option>Top</option><option>Face / focal point</option></select></div>
+                  <div class="mini-field"><label>MATTE</label><input type="text" value="#000000" /></div>
+                  <button class="apply-fit" id="apply-fit">Apply to this input</button>
+                </div>
+              </div>
+            </aside>
+          </div>
+
+          <div class="modal-shade kind">
+            <div class="modal">
+              <div class="modal-head">
+                <span class="modal-step">01</span>
+                <div><h2>New composition</h2><p>Choose the authoring surface first.</p></div>
+                <button class="modal-close" data-go="start" aria-label="Close">×</button>
+              </div>
+              <div class="modal-body">
+                <div class="card-grid">
+                  <button class="choice-card"><span class="choice-icon">⌗</span><strong>Edit</strong><small>Timeline composition with nested clips and effects.</small></button>
+                  <button class="choice-card featured" id="choose-generate"><span class="choice-icon">✦</span><span class="arrow">→</span><strong>Generate</strong><small>Image, video, or audio recipe with pinned takes.</small></button>
+                  <button class="choice-card"><span class="choice-icon">▦</span><strong>Moodboard</strong><small>Spatial canvas for notes, refs, and visual direction.</small></button>
+                  <button class="choice-card" disabled><span class="choice-icon">◇</span><strong>3D scene</strong><small>Code-backed camera, lights, geometry, and motion.</small></button>
+                  <button class="choice-card" disabled><span class="choice-icon">¶</span><strong>Document</strong><small>Script, plan, or production document surface.</small></button>
+                  <button class="choice-card" disabled><span class="choice-icon">♒</span><strong>Audio edit</strong><small>Multitrack audio composition and mix.</small></button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-shade output">
+            <div class="modal">
+              <div class="modal-head">
+                <span class="modal-step">02</span>
+                <div><h2>Choose generation output</h2><p>This becomes the comp’s permanent output contract.</p></div>
+                <button class="modal-close" data-go="kind" aria-label="Back">←</button>
+              </div>
+              <div class="modal-body">
+                <div class="output-grid">
+                  <button class="output-card" data-output="image" style="--kind-color:var(--image)">
+                    <span class="output-visual"><span class="image-icon"></span></span>
+                    <strong>Image</strong>
+                    <p>A single still frame. Holds for any duration when placed in an edit.</p>
+                    <span class="contract-line"><i></i> IMAGE MODELS ONLY</span>
+                    <span class="contract-line"><i></i> WIDTH × HEIGHT</span>
+                  </button>
+                  <button class="output-card" data-output="video" style="--kind-color:var(--video)">
+                    <span class="output-visual"><span class="video-icon"></span></span>
+                    <strong>Video</strong>
+                    <p>Time-based picture, with optional generated or embedded audio.</p>
+                    <span class="contract-line"><i></i> VIDEO MODELS ONLY</span>
+                    <span class="contract-line"><i></i> SIZE + DURATION + FPS</span>
+                  </button>
+                  <button class="output-card" data-output="audio" style="--kind-color:var(--audio)">
+                    <span class="output-visual"><span class="wave"><i style="--h:11px"></i><i style="--h:28px"></i><i style="--h:18px"></i><i style="--h:35px"></i><i style="--h:16px"></i><i style="--h:25px"></i><i style="--h:9px"></i></span></span>
+                    <strong>Audio</strong>
+                    <p>Time-based sound with no visual output or canvas dependency.</p>
+                    <span class="contract-line"><i></i> AUDIO MODELS ONLY</span>
+                    <span class="contract-line"><i></i> DURATION + CHANNELS</span>
+                  </button>
+                </div>
+                <div class="no-default"><b>EXPLICIT CHOICE</b> Nothing is preselected, so a user cannot accidentally accept the current model’s type.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-shade details">
+            <div class="modal narrow">
+              <div class="modal-head">
+                <span class="modal-step">03</span>
+                <div><h2>Set up the <span id="details-output-word">video</span> comp</h2><p>These are starting values. Everything except output type remains editable.</p></div>
+                <button class="modal-close" data-go="output" aria-label="Back">←</button>
+              </div>
+              <div class="modal-body">
+                <div class="details-layout">
+                  <div>
+                    <label class="field"><span>NAME</span><input id="comp-name" value="Harbor Reshoot" /></label>
+                    <label class="field"><span>STARTING MODEL · FILTERED TO <span id="model-filter-word">VIDEO</span></span><select id="details-model"></select></label>
+                    <div class="field-row" id="type-specific-fields"></div>
+                    <div class="no-default" style="margin-top:3px"><b>MODEL MAY CHANGE</b> The workbench will continue to show every compatible <span id="inline-output-word">video</span> model.</div>
+                  </div>
+                  <aside class="locked-contract">
+                    <div class="lock-top"><span class="lock-icon">▣</span><small>OUTPUT CONTRACT</small></div>
+                    <strong id="contract-output-word">Video</strong>
+                    <p id="contract-description">Behaves as a time-based visual source everywhere in the project.</p>
+                    <div class="contract-kv">
+                      <div><span>SET NOW</span><b>yes</b></div>
+                      <div><span>CHANGE LATER</span><b>no</b></div>
+                      <div><span>NEW TYPE</span><b>duplicate as…</b></div>
+                    </div>
+                  </aside>
+                </div>
+              </div>
+              <div class="modal-foot">
+                <span class="summary">Creates typed recipe + registers composition</span>
+                <span class="grow"></span>
+                <button class="button" data-go="output">Back</button>
+                <button class="button primary" id="create-comp">Create <span id="create-word">video</span> comp</button>
+              </div>
+            </div>
+          </div>
+
+          <aside class="annotation kind-note">“Generate” remains one composition family; choosing it reveals the media contract instead of overloading the existing Kind dropdown.</aside>
+          <aside class="annotation output-note">No default selection. This is the one intentional pause that prevents downstream type ambiguity.</aside>
+          <aside class="annotation details-note">The locked summary is visible before Create. A future type change is expressed as “Duplicate as another output,” never mutation.</aside>
+          <aside class="annotation workbench-note">The model picker is filtered by the locked output. Server-side validation enforces the same rule.</aside>
+          <aside class="annotation input-note">Sizing lives on the use-site edge, not on LighthouseVisitor itself. Select the input card to edit it.</aside>
+        </div>
+
+        <div class="prototype-caption">
+          <span><b id="caption-title">Studio</b> · <span id="caption-copy">Click the ＋ in Compositions to begin.</span></span>
+          <span class="grow"></span>
+          <div class="proto-nav">
+            <button class="button" id="prev-screen">←</button>
+            <button class="button primary" id="next-screen">Next →</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="flow">
+      <div class="section-head">
+        <div><div class="eyebrow">Recommended flow</div><h2>Five states, one irreversible decision</h2></div>
+        <p>Only the output contract is permanent. All creative choices stay fluid, and the user sees the consequence before creation.</p>
+      </div>
+      <div class="flow">
+        <div class="flow-step"><span class="num">01</span><strong>Add comp</strong><p>Open the existing creation surface from the composition rail.</p></div>
+        <div class="flow-step"><span class="num">02</span><strong>Choose Generate</strong><p>Keep Generate alongside Edit, Moodboard, 3D, and other composition families.</p></div>
+        <div class="flow-step"><span class="num">03</span><strong>Pick output</strong><p>Require an explicit Image, Video, or Audio selection. Do not preselect.</p></div>
+        <div class="flow-step"><span class="num">04</span><strong>Set starting values</strong><p>Name, same-type model, and type-specific defaults. Show the lock before Create.</p></div>
+        <div class="flow-step"><span class="num">05</span><strong>Work freely</strong><p>Change model, inputs, prompt, provider, settings, and takes—within the output contract.</p></div>
+      </div>
+    </section>
+
+    <section class="section" id="contract">
+      <div class="section-head">
+        <div><div class="eyebrow">Behavior & data contract</div><h2>Make type stability structural</h2></div>
+        <p>The Studio guardrail is helpful, but the source schema and runtime must remain authoritative when recipes are edited by hand or by agents.</p>
+      </div>
+
+      <div class="plan-grid">
+        <article class="plan-card">
+          <h3><span class="pill">RULE 1</span> Comp owns output</h3>
+          <p>Add a required <code>output</code> field to generative recipe data. Build the composition descriptor and media element from that value, never from the selected model.</p>
+          <ul>
+            <li><code>output</code> is written at creation and excluded from normal recipe patch operations.</li>
+            <li>Changing output means “Duplicate as Image / Video / Audio,” creating a new identity.</li>
+            <li>Image comps expose one frame; edit placement owns how long the still is held.</li>
+          </ul>
+        </article>
+
+        <article class="plan-card">
+          <h3><span class="pill">RULE 2</span> Model must match</h3>
+          <p>Filter the picker to <code>model.output === recipe.output</code>, then repeat that assertion in runtime update and generation submission paths.</p>
+          <ul>
+            <li>A hand-authored mismatch produces a typed “model does not produce video” diagnostic.</li>
+            <li>Changing model never deletes inputs; incompatible roles are marked and block Generate.</li>
+            <li>Historical takes with a different kind remain viewable/downloadable but cannot be pinned.</li>
+          </ul>
+        </article>
+
+        <article class="plan-card wide">
+          <h3><span class="pill">RULE 3</span> Adaptation belongs to the edge</h3>
+          <p>The source comp remains untouched. Each consumer stores how it wants to use that source, so the same portrait image can be cropped in one recipe, letterboxed in another, and passed through natively in a third.</p>
+          <div class="contract-diagram">
+            <div class="diagram-node">
+              <small>SOURCE COMPOSITION</small>
+              <strong>LighthouseVisitor</strong>
+              <code>output: "image"<br />1152 × 1536</code>
+            </div>
+            <span class="diagram-arrow">→</span>
+            <div class="diagram-node edge">
+              <small>CONSUMER EDGE</small>
+              <strong>Start-frame input</strong>
+              <code>fit: "cover"<br />position: [0.5, 0.42]</code>
+            </div>
+            <span class="diagram-arrow">→</span>
+            <div class="diagram-node">
+              <small>CONSUMER / MODEL</small>
+              <strong>Harbor Reshoot</strong>
+              <code>output: "video"<br />1280 × 720</code>
+            </div>
+          </div>
+        </article>
+
+        <article class="plan-card">
+          <h3><span class="pill">INPUT UX</span> Separate type from role</h3>
+          <p>Today <code>image</code>, <code>endImage</code>, <code>video</code>, and <code>audio</code> mix media identity with provider role. Split them conceptually:</p>
+          <ul>
+            <li><strong>Media kind</strong> is derived from the source comp or asset and cannot be lied about.</li>
+            <li><strong>Role</strong> belongs to the consumer: start frame, end frame, style reference, motion reference, or audio guide.</li>
+            <li>On drop, choose the only valid role automatically; ask only when multiple roles are valid.</li>
+          </ul>
+        </article>
+
+        <article class="plan-card">
+          <h3><span class="pill">FIT UX</span> Four visual policies</h3>
+          <p>Show policies only for image/video inputs when source and target geometry differ:</p>
+          <ul>
+            <li><strong>Source as-is</strong> — no preprocessing; default when the provider accepts arbitrary geometry.</li>
+            <li><strong>Crop to fill</strong> — preserve aspect, fill target, expose focal point.</li>
+            <li><strong>Fit inside</strong> — preserve all content, expose matte color.</li>
+            <li><strong>Stretch</strong> — exact target size, explicitly warns about aspect distortion.</li>
+          </ul>
+        </article>
+
+        <article class="plan-card wide">
+          <h3><span class="pill">SOURCE SHAPE</span> Proposed authored representation</h3>
+          <p>The media kind is intentionally absent from the ref: it is resolved from the source. The role and adaptation are properties of this use.</p>
+          <div class="code-sample">{
+  <span class="key">"output"</span>: <span class="str">"video"</span>,                      <span class="comment">// required, immutable</span>
+  <span class="key">"model"</span>: <span class="str">"seedance-2.0"</span>,              <span class="comment">// may change; must output video</span>
+  <span class="key">"refs"</span>: [{
+    <span class="key">"src"</span>: <span class="str">"comp://lighthouse-visitor"</span>, <span class="comment">// resolves to image</span>
+    <span class="key">"role"</span>: <span class="str">"start-frame"</span>,               <span class="comment">// consumer meaning</span>
+    <span class="key">"adapt"</span>: {
+      <span class="key">"fit"</span>: <span class="str">"cover"</span>,
+      <span class="key">"position"</span>: [0.5, 0.42],
+      <span class="key">"matte"</span>: <span class="str">"#000000"</span>
+    }
+  }]
+}</div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div><div class="eyebrow">Downstream behavior</div><h2>Every consumer gets a dependable answer</h2></div>
+        <p>Once output is stable, compatibility can be checked when an edge is created instead of failing much later during generation or export.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Consumer</th><th>Image comp</th><th>Video comp</th><th>Audio comp</th><th>Guardrail</th></tr></thead>
+          <tbody>
+            <tr><td>Edit timeline</td><td>Still clip; timeline item owns hold duration</td><td>Timed clip with trim/rate behavior</td><td>Audio track item only</td><td><span class="status-pill">CHECK ON DROP</span></td></tr>
+            <tr><td>Generative recipe</td><td>Image roles offered by selected model</td><td>Video/motion roles offered by model</td><td>Audio-guide roles offered by model</td><td><span class="status-pill">TYPE + ROLE</span></td></tr>
+            <tr><td>Nested comp / graph</td><td>Visual input with per-edge fit</td><td>Visual input with per-edge fit + time mapping</td><td>Audio-only edge; no visual canvas</td><td><span class="status-pill">EDGE CONTRACT</span></td></tr>
+            <tr><td>Pin historical take</td><td colspan="3">Take output must exactly match the composition’s declared output</td><td><span class="status-pill">CHECK ON PIN</span></td></tr>
+            <tr><td>Manual source edit</td><td colspan="3">Runtime renders an actionable invalid-recipe slate and refuses submission</td><td><span class="status-pill">SERVER ENFORCED</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section" id="delivery">
+      <div class="section-head">
+        <div><div class="eyebrow">Implementation plan</div><h2>Ship the invariant before the polish</h2></div>
+        <p>Each phase leaves the project coherent. The first two establish type safety; edge adaptation follows without changing the source-comp contract.</p>
+      </div>
+      <div class="roadmap">
+        <article class="phase">
+          <span class="phase-num"></span>
+          <div><h3>Define the output contract</h3><div class="files">generative.ts<br />genModels.ts<br />studio-model/types.ts</div></div>
+          <p>Add <code>GenOutputKind</code> and required recipe <code>output</code>; derive composition metadata from it; add helpers to list compatible models and validate model/output pairs. Make new-composition requests a discriminated union so Generate must carry an output.</p>
+        </article>
+        <article class="phase">
+          <span class="phase-num"></span>
+          <div><h3>Create + edit guardrails</h3><div class="files">NewCompositionSheet.svelte<br />GenerativeWorkbench.svelte<br />studio-runtime/runtime.ts</div></div>
+          <p>Build the two-stage Generate branch shown above, write type-specific defaults, surface the locked badge, filter models, reject cross-type patches, and prevent mismatched generation submission or pinning.</p>
+        </article>
+        <article class="phase">
+          <span class="phase-num"></span>
+          <div><h3>Typed downstream use</h3><div class="files">CompositionRail.svelte<br />Timeline.svelte<br />nesting + authoring helpers</div></div>
+          <p>Add compact output badges, validate drops before edges are authored, route audio to audio tracks, hold images as stills, and keep video timing semantics. Add “Duplicate as another output…” as the escape hatch.</p>
+        </article>
+        <article class="phase">
+          <span class="phase-num"></span>
+          <div><h3>Per-edge input handling</h3><div class="files">GenerativeWorkbench.svelte<br />Inspector.svelte<br />runtime bake/resolve paths</div></div>
+          <p>Make input cards selectable; store role plus adaptation on the ref; render fit/crop/letterbox preview; deterministically preprocess only when requested or required. Include source hash, target geometry, and full adaptation policy in the normalized artifact hash and generation provenance.</p>
+        </article>
+        <article class="phase">
+          <span class="phase-num"></span>
+          <div><h3>Migrate + prove</h3><div class="files">gen source migration<br />unit + e2e tests<br />example recipes</div></div>
+          <p>For legacy recipes, choose output in this order: explicit field → pinned take kind → current model kind. Write the result into source. Preserve mixed-kind old takes as read-only history, flag conflicts, and block mismatched pinning.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div><div class="eyebrow">Acceptance coverage</div><h2>What must be true before merge</h2></div>
+        <p>The invariant should be tested through both Studio interactions and direct runtime calls, because source and agents can bypass the visual picker.</p>
+      </div>
+      <div class="confirm-grid">
+        <div class="confirm"><span class="check">✓</span><div><strong>Explicit creation</strong><p>Create remains disabled until Image, Video, or Audio is deliberately selected.</p></div></div>
+        <div class="confirm"><span class="check">✓</span><div><strong>Stable descriptor</strong><p>Changing model within the allowed set never changes <code>CompositionDescriptor.outputKind</code>.</p></div></div>
+        <div class="confirm"><span class="check">✓</span><div><strong>Defense in depth</strong><p>A cross-type patch, submit, or pin is rejected even when invoked without the Studio UI.</p></div></div>
+        <div class="confirm"><span class="check">✓</span><div><strong>Typed drag/drop</strong><p>Invalid timeline and generation-input drops refuse before changing source.</p></div></div>
+        <div class="confirm"><span class="check">✓</span><div><strong>Edge-local fit</strong><p>Two consumers can use the same source with different policies and different artifact hashes.</p></div></div>
+        <div class="confirm"><span class="check">✓</span><div><strong>Legacy safety</strong><p>Existing recipes gain a deterministic lock; incompatible historical takes remain accessible.</p></div></div>
+        <div class="confirm"><span class="check">✓</span><div><strong>Undoable edits</strong><p>Model, input role, and adaptation changes use existing source transactions and undo/redo.</p></div></div>
+        <div class="confirm"><span class="check">✓</span><div><strong>Provenance</strong><p>Generation records identify declared output and exact normalized input handling.</p></div></div>
+      </div>
+    </section>
+
+    <section class="section" id="confirm">
+      <div class="section-head">
+        <div><div class="eyebrow">Product calls to confirm</div><h2>Recommended defaults</h2></div>
+        <p>These are the four choices embodied in the prototype. None block the core type invariant, but confirming them keeps implementation focused.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Decision</th><th>Recommendation</th><th>Reason</th></tr></thead>
+          <tbody>
+            <tr><td>Where output selection lives</td><td>Second screen inside the Generate branch</td><td>Keeps the top-level composition taxonomy stable while making the media decision unmistakable.</td></tr>
+            <tr><td>Default output selection</td><td>No preselection</td><td>The user’s explicit choice is the purpose of this flow; remembering or guessing a type reintroduces ambiguity.</td></tr>
+            <tr><td>Changing output later</td><td>Duplicate as another output</td><td>Preserves every existing timeline/input edge and makes identity change visible and undoable.</td></tr>
+            <tr><td>Default mismatch handling</td><td>Source as-is when supported; Fit inside when normalization is required</td><td>Avoids silently cropping reference information. Users can choose Crop to fill with a visible preview.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="recommendation">
+        <strong>Recommended approval:</strong>
+        <p>Confirm the five-state flow and immutable contract now. Treat per-edge visual adaptation as the next slice of the same design: the schema should reserve it immediately, while the deterministic preprocessor and inspector can ship after the creation/model guardrails.</p>
+      </div>
+    </section>
+
+    <footer class="footer">FrameDiff product plan · locked generative outputs · self-contained interactive HTML</footer>
+  </main>
+
+  <script>
+    (() => {
+      const studio = document.getElementById("studio");
+      const tabs = [...document.querySelectorAll(".screen-tab")];
+      const screens = ["start", "kind", "output", "details", "workbench", "input"];
+      const captions = {
+        start: ["Studio", "Click the ＋ in Compositions to begin."],
+        kind: ["Add composition", "Choose Generate from the existing composition families."],
+        output: ["Output contract", "Pick Image, Video, or Audio. Nothing is selected for you."],
+        details: ["Starting setup", "The lock is visible before creation; the model is already filtered."],
+        workbench: ["Typed workbench", "Models, prompts, parameters, and inputs can change. Output cannot."],
+        input: ["Per-edge handling", "Click an input to set source-size behavior for this use only."]
+      };
+      const outputs = {
+        image: {
+          color: "var(--image)",
+          name: "Lighthouse Keyframe",
+          models: [
+            ["seedream-5.0-pro", "Seedream 5.0 Pro · ByteDance"],
+          ],
+          fields: [
+            ["SIZE", "2048 × 2048"],
+            ["ASPECT", "1:1"]
+          ],
+          params: [["SIZE", "2048²"], ["ASPECT", "1:1"], ["QUALITY", "high"]],
+          desc: "Behaves as a single still frame everywhere in the project.",
+          preview: "2048×2048 · 1 frame",
+          cost: "$0.08",
+          role: "STYLE REF",
+          target: "2048×2048 · 1:1"
+        },
+        video: {
+          color: "var(--video)",
+          name: "Harbor Reshoot",
+          models: [
+            ["seedance-2.0", "Seedance 2.0 · ByteDance / fal"],
+            ["seedance-2.0-direct", "Seedance 2.0 direct · BytePlus"],
+            ["veo-3.1-fast", "Veo 3.1 fast · Google"],
+            ["kling-2.5-pro", "Kling 2.5 turbo pro · Kuaishou"],
+            ["wan-2.5", "Wan 2.5 preview · Alibaba"]
+          ],
+          fields: [
+            ["DURATION", "5 seconds"],
+            ["FORMAT", "720p · 16:9"]
+          ],
+          params: [["RES", "720p"], ["DURATION", "5s"], ["ASPECT", "16:9"]],
+          desc: "Behaves as a time-based visual source everywhere in the project.",
+          preview: "1280×720 · 5s · 24fps",
+          cost: "$1.21",
+          role: "START FRAME",
+          target: "1280×720 · 16:9"
+        },
+        audio: {
+          color: "var(--audio)",
+          name: "Lighthouse Dialogue",
+          models: [
+            ["seed-audio-1.0", "Seed Audio 1.0 · ByteDance"]
+          ],
+          fields: [
+            ["DURATION", "14 seconds"],
+            ["OUTPUT", "Stereo · 48 kHz"]
+          ],
+          params: [["DURATION", "14s"], ["SPEED", "1.0"], ["PITCH", "0"]],
+          desc: "Behaves as time-based audio with no visual output dependency.",
+          preview: "14s · stereo · 48 kHz",
+          cost: "$0.12",
+          role: "VOICE REF",
+          target: "No visual target"
+        }
+      };
+      let output = "video";
+      let chosenFit = "native";
+      const fitNames = { native: "Use source as-is", cover: "Crop to fill", contain: "Fit inside", stretch: "Stretch" };
+
+      function selectOptions(element, items) {
+        element.innerHTML = items.map(([value, label]) => `<option value="${value}">${label}</option>`).join("");
+      }
+
+      function renderOutput() {
+        const cfg = outputs[output];
+        studio.style.setProperty("--kind-color", cfg.color);
+        document.getElementById("details-output-word").textContent = output;
+        document.getElementById("model-filter-word").textContent = output.toUpperCase();
+        document.getElementById("inline-output-word").textContent = output;
+        document.getElementById("contract-output-word").textContent = output[0].toUpperCase() + output.slice(1);
+        document.getElementById("contract-description").textContent = cfg.desc;
+        document.getElementById("create-word").textContent = output;
+        document.getElementById("comp-name").value = cfg.name;
+        document.getElementById("workbench-name").textContent = cfg.name;
+        document.getElementById("edge-consumer").textContent = cfg.name;
+        document.getElementById("locked-output-label").textContent = `${output.toUpperCase()} OUTPUT · LOCKED`;
+        document.getElementById("preview-kind").textContent = output.toUpperCase();
+        document.getElementById("preview-title").textContent = cfg.name;
+        document.getElementById("preview-meta").textContent = cfg.preview;
+        document.getElementById("generate-cost").textContent = cfg.cost;
+        document.getElementById("input-role").textContent = cfg.role;
+        document.getElementById("target-dims").textContent = cfg.target;
+        document.getElementById("typed-take-word").textContent = output;
+        document.getElementById("created-row-name").textContent = cfg.name;
+        const createdOutput = document.getElementById("created-row-output");
+        createdOutput.textContent = output.toUpperCase();
+        createdOutput.style.color = cfg.color;
+        createdOutput.style.background = `color-mix(in srgb, ${cfg.color} 12%, transparent)`;
+        selectOptions(document.getElementById("details-model"), cfg.models);
+        selectOptions(document.getElementById("model-select"), cfg.models);
+        document.getElementById("type-specific-fields").innerHTML = cfg.fields.map(([label, value]) =>
+          `<label class="field"><span>${label}</span><input value="${value}" /></label>`
+        ).join("");
+        document.getElementById("param-row").innerHTML = cfg.params.map(([label, value]) =>
+          `<div class="param"><span>${label}</span><b>${value}</b></div>`
+        ).join("");
+      }
+
+      function go(screen) {
+        studio.dataset.screen = screen;
+        tabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.go === screen));
+        const [title, copy] = captions[screen];
+        document.getElementById("caption-title").textContent = title;
+        document.getElementById("caption-copy").textContent = copy;
+        const index = screens.indexOf(screen);
+        document.getElementById("prev-screen").disabled = index === 0;
+        const nextButton = document.getElementById("next-screen");
+        nextButton.disabled = screen === "output";
+        nextButton.textContent = index === screens.length - 1 ? "Restart ↺" : screen === "output" ? "Pick a type" : "Next →";
+        const created = screen === "workbench" || screen === "input";
+        document.getElementById("crumb-name").textContent = created ? outputs[output].name : "Main";
+        document.getElementById("main-row").classList.toggle("active", !created);
+        document.getElementById("created-row").classList.toggle("active", created);
+        document.getElementById("created-row").style.display = created ? "flex" : "none";
+        document.getElementById("inspector-name").textContent = created ? outputs[output].name : "Main";
+        document.getElementById("inspector-description").textContent = created ? "Generative composition" : "Selected composition";
+        document.getElementById("inspector-kind").textContent = created ? "generate" : "edit";
+        document.getElementById("inspector-output").textContent = created ? output : "video";
+        document.getElementById("inspector-measure-label").textContent = output === "audio" && created ? "FORMAT" : "SIZE";
+        document.getElementById("inspector-measure").textContent = created ? outputs[output].preview.split(" · ")[0] : "1920 × 1080";
+        document.getElementById("inspector-duration").textContent = created ? outputs[output].preview : "240f · 30fps";
+        if (screen === "details" || screen === "workbench" || screen === "input") renderOutput();
+      }
+
+      document.querySelectorAll("[data-go]").forEach((button) => button.addEventListener("click", () => go(button.dataset.go)));
+      document.getElementById("add-comp").addEventListener("click", () => go("kind"));
+      document.getElementById("mobile-add").addEventListener("click", () => go("kind"));
+      document.getElementById("choose-generate").addEventListener("click", () => go("output"));
+      document.querySelectorAll("[data-output]").forEach((card) => card.addEventListener("click", () => {
+        output = card.dataset.output;
+        renderOutput();
+        go("details");
+      }));
+      document.getElementById("create-comp").addEventListener("click", () => {
+        outputs[output].name = document.getElementById("comp-name").value || outputs[output].name;
+        renderOutput();
+        go("workbench");
+      });
+      document.getElementById("input-card").addEventListener("click", () => go("input"));
+      document.querySelectorAll(".fit-option").forEach((button) => button.addEventListener("click", () => {
+        chosenFit = button.dataset.fit;
+        document.querySelectorAll(".fit-option").forEach((item) => item.classList.toggle("active", item === button));
+        document.getElementById("fit-preview").dataset.fit = chosenFit;
+        document.getElementById("fit-label").textContent = fitNames[chosenFit];
+      }));
+      document.getElementById("apply-fit").addEventListener("click", () => {
+        document.getElementById("fit-badge").textContent = `FIT · ${chosenFit === "native" ? "SOURCE" : chosenFit.toUpperCase()}`;
+        go("workbench");
+      });
+      document.getElementById("prev-screen").addEventListener("click", () => {
+        const index = screens.indexOf(studio.dataset.screen);
+        go(screens[Math.max(0, index - 1)]);
+      });
+      document.getElementById("next-screen").addEventListener("click", () => {
+        const index = screens.indexOf(studio.dataset.screen);
+        go(index === screens.length - 1 ? "start" : screens[index + 1]);
+      });
+      renderOutput();
+      go("start");
+    })();
+  </script>
+</body>
+</html>
