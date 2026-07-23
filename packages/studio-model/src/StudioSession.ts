@@ -1,6 +1,7 @@
 import { ObservableValue } from "./observable";
 import { frontTrimPlacement } from "./timeline";
 import { fitGesturePath, makeArcSegment, motionPathToSvg, sampleGestureByFrame, type MotionPoint } from "./motionPath";
+import { compositionByReference } from "./compositionRef";
 import type {
   AnimationCreateRequest,
   AnimationClock,
@@ -150,7 +151,7 @@ export class StudioSession {
     const item = this.currentItems.find((entry) => entry.id === itemId);
     const content = item?.content;
     if (content?.type !== "nested") return;
-    const child = this.state.get().compositions.find((entry) => entry.id === content.compId);
+    const child = compositionByReference(this.state.get().compositions, content.compId);
     if (!child) return;
     const state = this.state.get();
     this.pause();
@@ -673,7 +674,7 @@ export class StudioSession {
       for (const item of graph[key] ?? []) {
         const content = item.content;
         if (content.type !== "nested") continue;
-        const child = compositions.find((entry) => entry.id === content.compId);
+        const child = compositionByReference(compositions, content.compId);
         if (!child) continue;
         const found = visit(child.key, nextSeen);
         if (found) return [key, ...found];

@@ -30,7 +30,7 @@ const compositions = [
   comp("free", "Free"),
 ];
 const timelines: Record<string, TimelineItemSnapshot[]> = {
-  main: [nested("Title"), nested("LibComp")],
+  main: [nested("title"), nested("lib")],
 };
 
 const runtime = {

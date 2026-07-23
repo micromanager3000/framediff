@@ -35,6 +35,17 @@
       }
     },
     {
+      "id": "workflow-audio",
+      "from": 0,
+      "durationInFrames": 420,
+      "name": "Locked dialogue performance",
+      "content": {
+        "type": "nested",
+        "composition": "lighthouse-dialogue-audio",
+        "nestedScale": 0.458333
+      }
+    },
+    {
       "id": "workflow-concept",
       "from": 0,
       "durationInFrames": 420,

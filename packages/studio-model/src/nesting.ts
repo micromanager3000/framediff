@@ -1,5 +1,6 @@
 import type { StudioSessionState } from "./types";
 import { compositionKindAuthoringDefaults } from "./authoring";
+import { compositionByReference } from "./compositionRef";
 
 export interface NestVerdict {
   ok: boolean;
@@ -26,7 +27,7 @@ export function canNestComposition(
     for (const item of state.timelineByComposition[key] ?? []) {
       const content = item.content;
       if (content.type !== "nested") continue;
-      const child = state.compositions.find((entry) => entry.id === content.compId);
+      const child = compositionByReference(state.compositions, content.compId);
       if (!child) continue;
       if (child.id === target.id || contains(child.key)) return true;
     }

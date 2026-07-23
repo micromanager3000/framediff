@@ -54,7 +54,7 @@ class FakeRuntime implements CompositionRuntimePort {
     this.listener = listener;
     return () => { this.listener = null; };
   }
-  probe = vi.fn(async () => this.probeItems);
+  probe = vi.fn(async (_key: string) => this.probeItems);
   probeAnimations = vi.fn(async () => this.animationProbe);
   async editPlacement(request: PlacementEditRequest) {
     this.edits.push(request);
@@ -129,6 +129,30 @@ describe("StudioSession", () => {
     expect(runtime.edits).toEqual([{ compositionKey: "main", itemId: "it:0", field: "from", value: 24 }]);
     expect(session.currentItems[0].from).toBe(24);
     expect(session.state.get().selectedItemId).toBe("it:0");
+  });
+
+  it("opens nested compositions referenced by stable registry key", async () => {
+    const runtime = new FakeRuntime();
+    runtime.probe.mockImplementation(async (key: string) => key === "main"
+      ? [{
+          id: "nested-title",
+          from: 10,
+          durationInFrames: 40,
+          name: "Title",
+          content: { type: "nested", compId: "title", trimStart: 0 },
+          order: 0,
+          origin: "sequence",
+        }]
+      : []);
+    const session = new StudioSession(runtime, new ManualClock(), "main");
+    await session.start();
+
+    session.enterNested("nested-title");
+
+    expect(session.state.get()).toMatchObject({
+      currentKey: "title",
+      path: ["main", "title"],
+    });
   });
 
   it("drives playback through an injected clock", async () => {

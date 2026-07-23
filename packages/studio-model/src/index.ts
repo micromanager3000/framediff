@@ -12,6 +12,7 @@ export { ProjectOperationsManager, type ProjectOperationsState } from "./manager
 export { HistoryManager, mergeGroupedReceipts, type HistoryState } from "./managers/HistoryManager";
 export { artifactStatusFromInputs, buildTimelineLanes, frontTrimPlacement, timelineItemLabel, type FrontTrimResult } from "./timeline";
 export { canNestComposition, type NestVerdict } from "./nesting";
+export { compositionByReference } from "./compositionRef";
 export {
   COMPOSITION_KIND_CONTRACTS,
   compositionKindContract,

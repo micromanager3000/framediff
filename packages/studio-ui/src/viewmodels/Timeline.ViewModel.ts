@@ -1,6 +1,7 @@
 import { derived, type Readable } from "svelte/store";
 import {
   buildTimelineLanes,
+  compositionByReference,
   type AnimationDiagnosticSnapshot,
   type AnimationSnapshot,
   type StudioSession,
@@ -40,7 +41,7 @@ export class TimelineViewModel {
         const content = item.content;
         if (!composition) continue;
         if (content.type === "nested") {
-          const child = state.compositions.find((entry) => entry.id === content.compId);
+          const child = compositionByReference(state.compositions, content.compId);
           if (!child) continue;
           const availableSeconds = Math.max(0, child.durationInFrames / child.fps - (content.trimStart ?? 0));
           sourceLimits[item.id] = availableSeconds / Math.max(0.0001, content.playbackRate ?? 1) * composition.fps;
