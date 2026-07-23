@@ -702,6 +702,23 @@ export interface GenerativeWorkspaceSnapshot {
   blockedReason?: string;
 }
 
+export interface ProviderCredentialSnapshot {
+  provider: "fal" | "midjourney" | "luma";
+  name: string;
+  envVar: string;
+  description: string;
+  integration: "active" | "credentials-only";
+  set: boolean;
+  last4?: string;
+  source?: "file" | "env";
+}
+
+export interface ProviderCredentialsSnapshot {
+  providers: ProviderCredentialSnapshot[];
+  /** Local JSON path relative to the project root. Secret values are never included. */
+  file: string;
+}
+
 export interface ProjectWorkspacePort {
   readSource(file: string): Promise<string | null>;
   listAssets(): Promise<AssetDescriptor[]>;
@@ -732,7 +749,9 @@ export interface ProjectWorkspacePort {
   submitGeneration(compositionKey: string): Promise<ProjectOperationResult>;
   pinGenerationTake(compositionKey: string, take: number): Promise<ProjectOperationResult>;
   startGenerationFromTake(compositionKey: string, take: number): Promise<ProjectOperationResult>;
+  getProviderCredentials(): Promise<ProviderCredentialsSnapshot>;
   configureProvider(provider: string, key: string): Promise<ProjectOperationResult>;
+  clearProvider(provider: string): Promise<ProjectOperationResult>;
 }
 
 export type StudioRuntimePort = CompositionRuntimePort & ProjectWorkspacePort;

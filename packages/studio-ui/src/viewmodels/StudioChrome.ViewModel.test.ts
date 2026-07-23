@@ -27,5 +27,10 @@ describe("StudioChromeViewModel", () => {
     chrome.openLeft();
     chrome.closePanels();
     expect(get(chrome.store)).toMatchObject({ leftOpen: false, rightOpen: false });
+
+    chrome.setCacheOpen(true);
+    expect(get(chrome.store)).toMatchObject({ cacheOpen: true, servicesOpen: false });
+    chrome.setServicesOpen(true);
+    expect(get(chrome.store)).toMatchObject({ cacheOpen: false, servicesOpen: true });
   });
 });

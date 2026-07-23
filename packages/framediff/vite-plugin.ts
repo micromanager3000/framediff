@@ -388,9 +388,14 @@ function writeSourceTransaction(
 // provenance block. Jobs persist in <root>/.framediff/gen-jobs.json so a reload can't lose
 // an in-flight (paid) request.
 
-const KNOWN_PROVIDERS = ["fal", "byteplus", "replicate", "elevenlabs"] as const;
+const KNOWN_PROVIDERS = ["fal", "midjourney", "luma", "byteplus", "replicate", "elevenlabs"] as const;
 const PROVIDER_ENV: Record<string, string> = {
-  fal: "FAL_KEY", byteplus: "ARK_API_KEY", replicate: "REPLICATE_API_TOKEN", elevenlabs: "ELEVENLABS_API_KEY",
+  fal: "FAL_KEY",
+  midjourney: "MIDJOURNEY_API_KEY",
+  luma: "LUMAAI_API_KEY",
+  byteplus: "ARK_API_KEY",
+  replicate: "REPLICATE_API_TOKEN",
+  elevenlabs: "ELEVENLABS_API_KEY",
 };
 
 /** Nearest .framediff/secrets.json walking up from root; settle at the git top-level. */
@@ -832,21 +837,42 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
               const k = providerKey(root, p);
               providers[p] = k ? { set: true, last4: k.key.slice(-4), source: k.source } : { set: false };
             }
-            return json(res, 200, { providers, file: path.relative(root, secretsFile(root)) });
+            return json(res, 200, { providers, file: ".framediff/secrets.json" });
           }
           if (req.method === "PUT") {
             try {
               const { provider, key } = JSON.parse((await readBody(req)).toString("utf8")) as {
                 provider?: string; key?: string;
               };
-              if (!provider || !/^[a-z0-9-]+$/.test(provider)) return json(res, 400, { error: "provider required" });
-              if (typeof key !== "string" || key.length < 8) return json(res, 400, { error: "key looks too short" });
+              if (!provider || !KNOWN_PROVIDERS.includes(provider as (typeof KNOWN_PROVIDERS)[number])) {
+                return json(res, 400, { error: "unknown provider" });
+              }
+              const normalizedKey = typeof key === "string" ? key.trim() : "";
+              if (normalizedKey.length < 8) return json(res, 400, { error: "key looks too short" });
               const file = secretsFile(root);
               fs.mkdirSync(path.dirname(file), { recursive: true });
               const all = readSecretsRaw(root);
-              all[provider] = { key: key.trim() };
+              all[provider] = { key: normalizedKey };
               fs.writeFileSync(file, JSON.stringify(all, null, 2) + "\n", { mode: 0o600 });
-              return json(res, 200, { ok: true, last4: key.trim().slice(-4) });
+              fs.chmodSync(file, 0o600);
+              return json(res, 200, { ok: true, last4: normalizedKey.slice(-4) });
+            } catch (e) {
+              return json(res, 400, { error: String((e as Error).message) });
+            }
+          }
+          if (req.method === "DELETE") {
+            try {
+              const { provider } = JSON.parse((await readBody(req)).toString("utf8")) as { provider?: string };
+              if (!provider || !KNOWN_PROVIDERS.includes(provider as (typeof KNOWN_PROVIDERS)[number])) {
+                return json(res, 400, { error: "unknown provider" });
+              }
+              const file = secretsFile(root);
+              const all = readSecretsRaw(root);
+              delete all[provider];
+              fs.mkdirSync(path.dirname(file), { recursive: true });
+              fs.writeFileSync(file, JSON.stringify(all, null, 2) + "\n", { mode: 0o600 });
+              fs.chmodSync(file, 0o600);
+              return json(res, 200, { ok: true });
             } catch (e) {
               return json(res, 400, { error: String((e as Error).message) });
             }

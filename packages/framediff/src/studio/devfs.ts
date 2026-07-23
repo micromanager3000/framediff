@@ -197,8 +197,8 @@ export async function ingestAssetPath(p: string, name?: string): Promise<string 
 // ---- generative comps (provider secrets + the fal proxy) ----
 
 export interface SecretsInfo {
-  providers: Record<string, { set: boolean; last4?: string; source?: string }>;
-  /** Where keys land on disk, relative to the dev root (gitignored). */
+  providers: Record<string, { set: boolean; last4?: string; source?: "file" | "env" }>;
+  /** Where keys land at the project repository root (gitignored). */
   file?: string;
 }
 
@@ -217,6 +217,20 @@ export async function putSecret(provider: string, key: string): Promise<{ ok: bo
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ provider, key }),
+    });
+    const j = (await r.json()) as { ok?: boolean; error?: string };
+    return { ok: !!j.ok, error: j.error };
+  } catch (e) {
+    return { ok: false, error: String((e as Error).message) };
+  }
+}
+
+export async function deleteSecret(provider: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const r = await fetch("/__framediff/secrets", {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ provider }),
     });
     const j = (await r.json()) as { ok?: boolean; error?: string };
     return { ok: !!j.ok, error: j.error };

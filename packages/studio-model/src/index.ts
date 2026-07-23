@@ -8,6 +8,7 @@ export { GitManager, type GitState } from "./managers/GitManager";
 export { RenderManager, type RenderExecutor, type RenderState } from "./managers/RenderManager";
 export { InspectorManager, type InspectorManagerState } from "./managers/InspectorManager";
 export { GenerativeManager, type GenerativeManagerState } from "./managers/GenerativeManager";
+export { CredentialsManager, type CredentialsManagerState } from "./managers/CredentialsManager";
 export { ProjectOperationsManager, type ProjectOperationsState } from "./managers/ProjectOperationsManager";
 export { HistoryManager, mergeGroupedReceipts, type HistoryState } from "./managers/HistoryManager";
 export { artifactStatusFromInputs, buildTimelineLanes, frontTrimPlacement, timelineItemLabel, type FrontTrimResult } from "./timeline";
@@ -126,6 +127,8 @@ export type {
   PreviewElementProperties,
   PreviewNodeSnapshot,
   PreviewOptions,
+  ProviderCredentialSnapshot,
+  ProviderCredentialsSnapshot,
   ProjectWorkspacePort,
   RenderProgressSnapshot,
   RenderResult,

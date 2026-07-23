@@ -7,13 +7,13 @@
   export let viewModel: GenerativeViewModel;
   export let runtime: CompositionRuntimePort;
   export let session: StudioSession;
+  export let onservices: () => void;
   const store = viewModel.store;
   let promptDraft = "";
   let negativeDraft = "";
   let previousRecipe = "";
   let assetId = "";
   let refKind = "image";
-  let providerKey = "";
   let compDragOver = false;
   let previewCompositionKey = "";
   let previewTake: number | null = null;
@@ -187,7 +187,10 @@
             </div>
           </section>
           {#if !workspace.providerReady}
-            <div class="provider-key"><input type="password" bind:value={providerKey} placeholder="FAL_KEY" /><button disabled={!providerKey} onclick={() => void viewModel.configure("fal", providerKey)}>Configure fal</button></div>
+            <div class="provider-missing">
+              <div><strong>FAL credentials required</strong><span>Add a FAL_KEY in Services before running this generation.</span></div>
+              <button onclick={onservices}>Open Services</button>
+            </div>
           {/if}
           {#if workspace.blockedReason}<div class="message notice">{workspace.blockedReason}</div>{/if}
           <button class="generate-button" disabled={$store.busy || !workspace.providerReady || !!workspace.blockedReason} onclick={() => void viewModel.generate()}>{$store.busy ? "Working…" : `Generate · $${workspace.costUsd.toFixed(2)}`}</button>
