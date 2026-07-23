@@ -151,7 +151,7 @@ test("mobile uses a canvas-first shell with reachable drawers and project action
   await page.getByRole("button", { name: "Open project actions" }).click();
   const actions = page.getByRole("complementary", { name: "Project actions menu" });
   await expect(actions).toBeVisible();
-  await expect(actions.getByRole("button", { name: "Agent API v1" })).toBeVisible();
+  await expect(actions.getByRole("button", { name: /Agent API/i })).toHaveCount(0);
   await expect(actions.getByRole("button", { name: "Cache" })).toBeVisible();
   await expect(actions.getByRole("button", { name: "Render MP4" })).toBeInViewport();
   await actions.getByRole("button", { name: "Cache" }).click();
@@ -182,10 +182,12 @@ test("the new-composition dialog is keyboard-dismissable and restores focus", as
 
 test("the agent check reports warning state clearly and can capture the exact frame", async ({ page }) => {
   await openComposition(page, "studio-playground");
-  await page.getByRole("button", { name: "AGENT API v1" }).click();
+  await expect(page.locator(".topbar").getByRole("button", { name: /Agent API/i })).toHaveCount(0);
+  await page.locator(".guide-step-summary").filter({ hasText: "Check and capture through the Agent API" }).click();
+  await page.getByRole("button", { name: "RESET TARGET" }).click();
   await expect(page.locator(".agent-check-summary strong")).toHaveText("READY WITH WARNINGS");
   await expect(page.locator(".agent-check-summary span")).toContainText("warning");
   await page.getByRole("button", { name: "SNAPSHOT CURRENT FRAME" }).click();
   await expect(page.locator(".agent-frame-result img")).toBeVisible({ timeout: 45_000 });
-  await expect(page.locator(".agent-frame-result figcaption")).toContainText("studio-playground · 0f");
+  await expect(page.locator(".agent-frame-result figcaption")).toContainText("studio-playground · 90f");
 });

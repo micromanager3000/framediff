@@ -118,11 +118,6 @@ html, body, #svelte { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .git-popover > div button { padding: 5px 9px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--panel-raised); cursor: pointer; font-size: 9px; }
 .git-popover > div button.primary { border-color: transparent; background: var(--accent); color: #171410; }
 .git-popover p { margin: 0; color: var(--red); font-size: 9px; }
-.agent-api-button { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border: 1px solid rgb(127 199 155 / 38%); border-radius: 999px; background: rgb(127 199 155 / 8%); color: var(--green); cursor: pointer; font: 800 8px/1 var(--mono); letter-spacing: .08em; white-space: nowrap; }
-.agent-api-button small { color: var(--faint); font-size: 7px; letter-spacing: 0; }
-.agent-api-button:hover { border-color: var(--green); background: rgb(127 199 155 / 13%); }
-.agent-api-button.warning { border-color: rgb(224 101 95 / 45%); background: rgb(224 101 95 / 8%); color: var(--red); }
-.agent-api-button.notice { border-color: rgb(230 200 135 / 45%); background: rgb(230 200 135 / 8%); color: var(--yellow); }
 .compact-left-button, .compact-panel-button, .mobile-actions-button, .panel-close, .mobile-actions-menu, .panel-scrim { display: none; }
 .mobile-actions-menu { position: fixed; z-index: 95; }
 .mobile-actions-heading { display: flex; align-items: center; justify-content: space-between; }
@@ -836,15 +831,13 @@ dd { margin: 0; overflow: hidden; color: var(--muted); font-family: var(--mono);
 @media (max-width: 900px) {
   .edition { display: none; }
   .framediff-studio > main { grid-template-columns: 190px minmax(0, 1fr); }
-  .agent-api-button { padding-inline: 7px; }
-  .agent-api-button small { display: none; }
 }
 
 @media (max-width: 800px) {
   .framediff-studio { grid-template-rows: 52px minmax(0, 1fr); }
   .topbar { gap: 5px; padding: 0 7px; }
   .studio-brand { flex: none; }
-  .studio-brand strong, .edition, .top-status, .git-status, .studio-guide-button, .agent-api-button, .top-group { display: none; }
+  .studio-brand strong, .edition, .top-status, .git-status, .studio-guide-button, .top-group { display: none; }
   .studio-brand .mark { width: 22px; height: 22px; }
   .up-button { flex: none; width: 36px; height: 36px; }
   .current { min-width: 0; flex: 1; }

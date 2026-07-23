@@ -342,9 +342,6 @@
         <span>GUIDE</span><small>{guideCompletedIds.length}/{$store.guide.steps.length}</small>
       </button>
     {/if}
-    <button class="agent-api-button" class:warning={agentErrorCount > 0} class:notice={!agentErrorCount && agentWarningCount > 0} onclick={() => void runAgentCheck()} title="Run the same machine-readable check available at window.__framediffAgent" aria-expanded={agentPanelOpen}>
-      <span>AGENT API</span><small>v1</small>
-    </button>
     <button class="compact-panel-button" onclick={() => chrome.openRight()} aria-label="Open side panel" title="Open Properties, Code or Guide" aria-expanded={$chromeStore.rightOpen}>
       PANEL
     </button>
@@ -368,7 +365,6 @@
       <div class="mobile-actions-heading"><strong>PROJECT ACTIONS</strong><button onclick={() => mobileActionsOpen = false} aria-label="Close project actions">×</button></div>
       <div class="mobile-actions-grid">
         {#if $store.guide}<button class="mobile-menu-action" onclick={() => { mobileActionsOpen = false; chrome.showRight("guide"); }}>Guide <small>{guideCompletedIds.length}/{$store.guide.steps.length}</small></button>{/if}
-        <button class="mobile-menu-action" class:warning={agentErrorCount > 0} onclick={() => { mobileActionsOpen = false; void runAgentCheck(); }}>Agent API <small>v1</small></button>
         <button class="mobile-menu-action" onclick={() => void application.history.undo()} disabled={!$historyStore.undo.length || $historyStore.applying}>Undo</button>
         <button class="mobile-menu-action" onclick={() => void application.history.redo()} disabled={!$historyStore.redo.length || $historyStore.applying}>Redo</button>
         <button class="mobile-menu-action" onclick={() => { mobileActionsOpen = false; chrome.setServicesOpen(true); }}>Services</button>
