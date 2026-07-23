@@ -1,15 +1,59 @@
 import { derived, get, type Readable } from "svelte/store";
-import type { AssetManager, GenerativeManager, GenerativeManagerState, AssetState } from "@framediff/studio-model";
+import type {
+  AssetManager,
+  GenerativeJobSnapshot,
+  GenerativeManager,
+  GenerativeManagerState,
+  GenerativeWorkspaceSnapshot,
+  AssetState,
+} from "@framediff/studio-model";
 import { observableStore } from "./store";
 
-export interface GenerativeViewSnapshot extends GenerativeManagerState { assets: AssetState["assets"]; }
+export interface GeneratingTakeView {
+  id: string;
+  take: number;
+  status: Extract<GenerativeJobSnapshot["status"], "queued" | "running">;
+}
+
+export function generatingTakeViews(
+  workspace: GenerativeWorkspaceSnapshot | null,
+  submitting = false,
+): GeneratingTakeView[] {
+  if (!workspace) return [];
+  let nextTake = Math.max(0, ...workspace.takes.map((take) => take.take)) + 1;
+  const active = workspace.jobs
+    .filter((job): job is GenerativeJobSnapshot & { status: "queued" | "running" } =>
+      job.status === "queued" || job.status === "running")
+    .map((job) => ({
+      id: job.id,
+      take: job.take ?? nextTake++,
+      status: job.status,
+    }));
+  return submitting && !active.length
+    ? [{ id: "submitting", take: nextTake, status: "queued" }]
+    : active;
+}
+
+export interface GenerativeViewSnapshot extends GenerativeManagerState {
+  assets: AssetState["assets"];
+  generatingTakes: GeneratingTakeView[];
+  generationActive: boolean;
+}
 
 export class GenerativeViewModel {
   public readonly store: Readable<GenerativeViewSnapshot>;
   private readonly generationStore: Readable<GenerativeManagerState>;
   public constructor(private readonly manager: GenerativeManager, assets: AssetManager) {
     this.generationStore = observableStore(manager.state);
-    this.store = derived([this.generationStore, observableStore(assets.state)], ([generation, assetState]) => ({ ...generation, assets: assetState.assets }));
+    this.store = derived([this.generationStore, observableStore(assets.state)], ([generation, assetState]) => {
+      const generatingTakes = generatingTakeViews(generation.workspace, generation.submitting);
+      return {
+        ...generation,
+        assets: assetState.assets,
+        generatingTakes,
+        generationActive: generatingTakes.length > 0,
+      };
+    });
   }
   public update(patch: Record<string, unknown>) { return this.manager.update(patch); }
   public generate() { return this.manager.generate(); }

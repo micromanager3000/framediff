@@ -28,7 +28,7 @@
     previewTake = null;
   }
   $: previewedTake = $store.workspace?.takes.find((take) => take.take === previewTake) ?? null;
-  $: nextTake = ($store.workspace?.takes.at(-1)?.take ?? 0) + 1;
+  $: nextTake = Math.max(0, ...($store.workspace?.takes.map((take) => take.take) ?? [])) + 1;
   const converted = (raw: string, original: unknown) => typeof original === "boolean" ? raw === "true" : typeof original === "number" ? Number(raw) : raw;
   const takeUrl = (contentHash: string) => `/__framediff-cache/${encodeURIComponent(contentHash)}`;
   const takeExtension = (kind: "video" | "image" | "audio") => kind === "video" ? "mp4" : kind === "audio" ? "mp3" : "jpg";
@@ -85,16 +85,21 @@
           <strong>{previewedTake.settings?.modelName ?? "Saved take"}</strong>
           <small>{previewedTake.settings?.mode ?? previewedTake.endpoint} · read only</small>
         </div>
-        <button class="draft-button" onclick={() => void editDraft()}>Back to current draft</button>
+        <button class="draft-button" disabled={$store.generationActive} onclick={() => void editDraft()}>Back to current draft</button>
       {:else}
         <div><span>GENERATIVE COMPOSITION · {workspace.outputKind}</span><strong>{workspace.modelName}</strong><small>{workspace.mode} · ${workspace.costUsd.toFixed(2)} · {workspace.status}</small></div>
-        <select aria-label="Generation model" value={workspace.model} onchange={(event) => void viewModel.update({ model: event.currentTarget.value })}>
+        <select disabled={$store.generationActive || $store.busy} aria-label="Generation model" value={workspace.model} onchange={(event) => void viewModel.update({ model: event.currentTarget.value })}>
           {#each workspace.models as model}<option value={model.id}>{model.name} · {model.baseline}</option>{/each}
         </select>
       {/if}
     </header>
     <div class="gen-grid">
-      <div class="gen-form">
+      <div
+        class="gen-form"
+        class:generation-active={$store.generationActive}
+        aria-busy={$store.generationActive}
+        inert={$store.generationActive}
+      >
         {#if previewedTake}
           <section class="take-inspector">
             {#if previewedTake.settings}
@@ -134,7 +139,7 @@
                 <span>This take predates recipe snapshots and can only be previewed or used as output.</span>
               </div>
             {/if}
-            <button class="generate-button" disabled={$store.busy || !previewedTake.settings} onclick={() => void startFromSelectedTake()}>{$store.busy ? "Working…" : "Add Take from This"}</button>
+            <button class="generate-button" disabled={$store.generationActive || $store.busy || !previewedTake.settings} onclick={() => void startFromSelectedTake()}>{$store.busy ? "Working…" : "Add Take from This"}</button>
             {#if $store.error}<div class="message error">{$store.error}</div>{/if}
           </section>
         {:else}
@@ -193,7 +198,7 @@
             </div>
           {/if}
           {#if workspace.blockedReason}<div class="message notice">{workspace.blockedReason}</div>{/if}
-          <button class="generate-button" disabled={$store.busy || !workspace.providerReady || !!workspace.blockedReason} onclick={() => void viewModel.generate()}>{$store.busy ? "Working…" : `Generate · $${workspace.costUsd.toFixed(2)}`}</button>
+          <button class="generate-button" disabled={$store.generationActive || $store.busy || !workspace.providerReady || !!workspace.blockedReason} onclick={() => void viewModel.generate()}>{$store.busy ? "Working…" : `Generate · $${workspace.costUsd.toFixed(2)}`}</button>
           {#if $store.error}<div class="message error">{$store.error}</div>{/if}
         {/if}
       </div>
@@ -227,25 +232,39 @@
         <div class="takes-heading">
           <h3>TAKES</h3>
           <button
-            disabled={$store.busy || (!!workspace.takes.length && !workspace.takes.at(-1)?.settings)}
+            disabled={$store.generationActive || $store.busy || (!!workspace.takes.length && !workspace.takes.at(-1)?.settings)}
             title="Start the next take with the latest generated take's settings"
             onclick={() => void addTake(workspace)}
           >Add Take</button>
         </div>
         {#if $store.message}<div class="message notice">{$store.message}</div>{/if}
-        <button
-          type="button"
-          class="gen-take draft draft-take"
-          class:selected={!previewedTake}
-          aria-pressed={!previewedTake}
-          aria-label={`Edit the draft for take ${nextTake}`}
-          onclick={() => void editDraft()}
-        >
-          <span class="take-preview">
-            <b>take {nextTake} · draft</b>
-            <span>{previewedTake ? "back to the editable draft" : `editing now — Generate runs it · $${workspace.costUsd.toFixed(2)}`}</span>
-          </span>
-        </button>
+        {#each $store.generatingTakes as generatingTake (generatingTake.id)}
+          <div class="gen-take generating" role="status" aria-live="polite">
+            <div class="take-preview">
+              <b>take {generatingTake.take} · generating</b>
+              <span>{generatingTake.status === "queued" ? "queued with provider" : "generation in progress"} · {generatingTake.id.slice(0, 8)}…</span>
+            </div>
+            <div class="take-generating-state">
+              <i aria-hidden="true"></i>
+              <span>{generatingTake.status}</span>
+            </div>
+          </div>
+        {/each}
+        {#if !$store.generationActive}
+          <button
+            type="button"
+            class="gen-take draft draft-take"
+            class:selected={!previewedTake}
+            aria-pressed={!previewedTake}
+            aria-label={`Edit the draft for take ${nextTake}`}
+            onclick={() => void editDraft()}
+          >
+            <span class="take-preview">
+              <b>take {nextTake} · draft</b>
+              <span>{previewedTake ? "back to the editable draft" : `editing now — Generate runs it · $${workspace.costUsd.toFixed(2)}`}</span>
+            </span>
+          </button>
+        {/if}
         {#each workspace.takes.slice().reverse() as take (take.take)}
           <div class:pinned={take.take === workspace.pinnedTake} class:selected={take.take === previewTake} class="gen-take">
             <button
@@ -275,7 +294,10 @@
               <span>Download</span>
             </a>
           </div>
-        {:else}<div class="panel-empty">Generated takes land here and are pinned into source.</div>{/each}
+        {/each}
+        {#if !workspace.takes.length && !$store.generatingTakes.length}
+          <div class="panel-empty">Generated takes land here and are pinned into source.</div>
+        {/if}
       </div>
     </div>
   {/if}
