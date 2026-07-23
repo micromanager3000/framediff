@@ -83,8 +83,8 @@ cover the feature set as one production journey:
    then Undo. Expand Focus, Video plane and Finishing to confirm the whole shot is source-addressable.
 8. Open the pinned `skyTimelapse` generation composition. Editing a draft parameter should mark the
    draft stale; no provider call occurs until **Generate** is pressed.
-9. Open Cache and run **AGENT API v1**. A frame snapshot should report its dimensions and SHA-256.
-   Capture the same composition/frame again and compare the hashes.
+9. Open Cache, then use the walkthrough's **Check, snapshot and render** step. A frame snapshot should
+   report its dimensions and SHA-256. Capture the same composition/frame again and compare the hashes.
 10. Use **Render MP4** for the final local-path check. Preview, LUT/grade, nested comps, media and audio
    use the same browser-local frame clock and capture path.
 

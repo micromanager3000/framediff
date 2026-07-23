@@ -88,5 +88,5 @@ subject to the platform encoder where applicable.
 - Undo and Redo replay receipts only when their expected hashes still match. External edits surface as
   conflicts instead of being overwritten.
 
-The top-bar **AGENT API v1** control runs the same `check()` call and provides a compact human-readable
-diagnostic view. The global API remains the full JSON surface for tools.
+The Studio walkthrough can open a compact human-readable diagnostic view backed by the same `check()`
+call. The global API remains the full JSON surface for tools.
