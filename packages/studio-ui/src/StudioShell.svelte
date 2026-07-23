@@ -14,6 +14,7 @@
   import CacheDrawer from "./views/CacheDrawer.svelte";
   import StudioGuide from "./views/StudioGuide.svelte";
   import DedicatedRenderWindow from "./views/DedicatedRenderWindow.svelte";
+  import CompositionFrameBar from "./views/CompositionFrameBar.svelte";
   import { StudioShellViewModel } from "./viewmodels/StudioShell.ViewModel";
   import { CompositionRailViewModel } from "./viewmodels/CompositionRail.ViewModel";
   import { TimelineViewModel } from "./viewmodels/Timeline.ViewModel";
@@ -73,28 +74,10 @@
   let agentSnapshotting = false;
   let agentCheckError: string | null = null;
   let agentSnapshotError: string | null = null;
+  let mobileActionsOpen = false;
   let guideLoadedId = "";
   let guideCompletedIds: string[] = [];
   let activeGuideStep: StudioGuideStep | null = null;
-
-  const bakeActionLabel = (status: string): string => status === "current"
-    ? "Bake ✓"
-    : status === "stale"
-      ? "Bake stale"
-      : status === "untracked"
-        ? "Re-bake"
-        : status === "checking"
-          ? "Bake …"
-          : "Bake comp";
-  const bakeActionTitle = (status: string): string => status === "current"
-    ? "The cached artifact matches every current render input. Bake it again."
-    : status === "stale"
-      ? "This composition changed since its cached artifact was built. Bake the current source."
-      : status === "untracked"
-        ? "The cached artifact predates source fingerprints. Bake a tracked replacement."
-        : status === "checking"
-          ? "Checking the current composition against cached artifact inputs."
-          : "This composition has no cached artifact. Bake it now.";
 
   $: currentTimelineItems = $timelineStore.lanes.flatMap((lane) => lane.items);
   $: authoring = resolveCompositionAuthoring($store.current, currentTimelineItems, $timelineStore.animations, $timelineStore.unrollGroups);
@@ -227,7 +210,11 @@
   function onKeyDown(event: KeyboardEvent): void {
     const target = event.target as HTMLElement;
     if (target.matches("input, textarea, select, [contenteditable='true']")) return;
-    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
+    if (event.key === "Escape" && (mobileActionsOpen || $chromeStore.leftOpen || $chromeStore.rightOpen)) {
+      event.preventDefault();
+      mobileActionsOpen = false;
+      chrome.closePanels();
+    } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
       event.preventDefault();
       if (event.shiftKey) void application.history.redo();
       else void application.history.undo();
@@ -269,17 +256,7 @@
       if (window.matchMedia("(max-width: 900px)").matches && $chromeStore.rightOpen) chrome.closeRight();
       else if ($mediaStore.selected) media.clearSelection();
       else session.selectItem(null);
-    } else if (event.key.toLowerCase() === "b") {
-      shell.setGradeBypass(true);
     }
-  }
-
-  function onKeyUp(event: KeyboardEvent): void {
-    if (event.key.toLowerCase() === "b") shell.setGradeBypass(false);
-  }
-
-  function onWindowBlur(): void {
-    shell.setGradeBypass(false);
   }
 
   onMount(() => {
@@ -315,14 +292,10 @@
       });
     });
     window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
-    window.addEventListener("blur", onWindowBlur);
   });
 
   onDestroy(() => {
     window.removeEventListener("keydown", onKeyDown);
-    window.removeEventListener("keyup", onKeyUp);
-    window.removeEventListener("blur", onWindowBlur);
     unsubscribeSelection?.();
     unsubscribeRenderWindow?.();
     agentSurface?.dispose();
@@ -336,6 +309,9 @@
 <div class="framediff-studio">
   <header class="topbar">
     <div class="studio-brand"><span class="mark"></span><strong>FRAMEDIFF</strong><span class="edition">STUDIO</span></div>
+    <button class="compact-left-button" onclick={() => chrome.openLeft()} aria-label="Open compositions and media" title="Open compositions and media" aria-expanded={$chromeStore.leftOpen}>
+      COMPS
+    </button>
     <button class="up-button" disabled={$store.path.length <= 1} onclick={() => shell.goUp()} title="Up one composition" aria-label="Up one composition">
       <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10.5 10.5 4 4M4 9.5V4h5.5"/></svg>
     </button>
@@ -361,20 +337,15 @@
     <button class="agent-api-button" class:warning={agentErrorCount > 0} class:notice={!agentErrorCount && agentWarningCount > 0} onclick={() => void runAgentCheck()} title="Run the same machine-readable check available at window.__framediffAgent" aria-expanded={agentPanelOpen}>
       <span>AGENT API</span><small>v1</small>
     </button>
-    <button class="compact-panel-button" onclick={() => chrome.openRight()} aria-label="Open side panel" title="Open Properties, Code or Guide">
+    <button class="compact-panel-button" onclick={() => chrome.openRight()} aria-label="Open side panel" title="Open Properties, Code or Guide" aria-expanded={$chromeStore.rightOpen}>
       PANEL
+    </button>
+    <button class="mobile-actions-button" class:active={mobileActionsOpen} onclick={() => mobileActionsOpen = !mobileActionsOpen} aria-label="Open project actions" aria-expanded={mobileActionsOpen}>
+      MORE
     </button>
     <div class="top-group" role="group" aria-label="Project actions">
       <button class="top-action" onclick={() => void application.history.undo()} disabled={!$historyStore.undo.length || $historyStore.applying} title={$historyStore.undo.length ? `Undo ${$historyStore.undo[$historyStore.undo.length - 1].label} (⌘/Ctrl+Z)` : "Nothing to undo"}>Undo</button>
       <button class="top-action" onclick={() => void application.history.redo()} disabled={!$historyStore.redo.length || $historyStore.applying} title={$historyStore.redo.length ? `Redo ${$historyStore.redo[$historyStore.redo.length - 1].label} (⌘/Ctrl+Shift+Z)` : "Nothing to redo"}>Redo</button>
-      {#if $operationsStore.currentBake}
-        <button
-          class="top-action bake {$operationsStore.currentBake.status}"
-          onclick={() => void operations.bakeCurrent()}
-          disabled={$operationsStore.busy || $operationsStore.currentBake.status === "checking"}
-          title={bakeActionTitle($operationsStore.currentBake.status)}
-        >{$operationsStore.progress ? "Baking…" : bakeActionLabel($operationsStore.currentBake.status)}</button>
-      {/if}
       <button class="top-action" onclick={() => chrome.setCacheOpen(true)} title="Cached renders and bakes">Cache</button>
       <button class="refresh" onclick={() => void shell.refresh()} title="Reload compositions from source" aria-label="Reload compositions">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13.5 8a5.5 5.5 0 1 1-2-4.24"/><path d="M13.7 2.3v3.2h-3.2"/></svg>
@@ -382,6 +353,21 @@
       <RenderControl viewModel={render} />
     </div>
   </header>
+
+  {#if mobileActionsOpen}
+    <aside class="mobile-actions-menu" aria-label="Project actions menu">
+      <div class="mobile-actions-heading"><strong>PROJECT ACTIONS</strong><button onclick={() => mobileActionsOpen = false} aria-label="Close project actions">×</button></div>
+      <div class="mobile-actions-grid">
+        {#if $store.guide}<button class="mobile-menu-action" onclick={() => { mobileActionsOpen = false; chrome.showRight("guide"); }}>Guide <small>{guideCompletedIds.length}/{$store.guide.steps.length}</small></button>{/if}
+        <button class="mobile-menu-action" class:warning={agentErrorCount > 0} onclick={() => { mobileActionsOpen = false; void runAgentCheck(); }}>Agent API <small>v1</small></button>
+        <button class="mobile-menu-action" onclick={() => void application.history.undo()} disabled={!$historyStore.undo.length || $historyStore.applying}>Undo</button>
+        <button class="mobile-menu-action" onclick={() => void application.history.redo()} disabled={!$historyStore.redo.length || $historyStore.applying}>Redo</button>
+        <button class="mobile-menu-action" onclick={() => { mobileActionsOpen = false; chrome.setCacheOpen(true); }}>Cache</button>
+        <button class="mobile-menu-action" onclick={() => { mobileActionsOpen = false; void shell.refresh(); }}>Reload source</button>
+      </div>
+      <RenderControl viewModel={render} />
+    </aside>
+  {/if}
 
   {#if agentPanelOpen}
     <aside class="agent-check-panel" aria-label="Agent project check">
@@ -425,16 +411,22 @@
     </aside>
   {/if}
 
+  {#if $chromeStore.leftOpen || $chromeStore.rightOpen}
+    <button class="panel-scrim" class:left={$chromeStore.leftOpen} class:right={$chromeStore.rightOpen} onclick={() => chrome.closePanels()} aria-label="Close open panel"></button>
+  {/if}
+
   <main>
-    <section class="left-panel">
+    <section class="left-panel" class:compact-open={$chromeStore.leftOpen}>
       <nav class="panel-tabs" aria-label="Left panel">
         <button class:active={$chromeStore.left === "compositions"} onclick={() => chrome.showLeft("compositions")}>COMPS</button>
         <button class:active={$chromeStore.left === "media"} onclick={() => chrome.showLeft("media")}>MEDIA</button>
+        <button class="panel-close" onclick={() => chrome.closeLeft()} aria-label="Close compositions panel">×</button>
       </nav>
       {#if $chromeStore.left === "compositions"}
         <CompositionRail
           viewModel={rail}
           onnewcomposition={() => chrome.setNewCompositionOpen(true)}
+          onopen={() => chrome.closeLeft()}
           onduplicate={(key) => void operations.copy(key)}
           oncopytolibrary={(key) => void operations.copy(key, { library: true })}
           onnest={(targetKey, sourceKey) =>
@@ -454,7 +446,7 @@
       {/if}
     </section>
 
-    <section class="workspace" class:guided={!!activeGuideStep} class:generate-workspace={$store.current?.kind === "generate"} class:timeline-hidden={!showTimeline}>
+    <section class="workspace" class:guided={!!activeGuideStep} class:generate-workspace={$store.current?.kind === "generate"} class:timeline-hidden={!showTimeline} class:transport-hidden={!authoring.transport}>
       {#if activeGuideStep}
         <aside class="guide-task-bar" aria-label={`Guided task: ${activeGuideStep.title}`}>
           <div><span>{activeGuideStep.phase} · GUIDED TASK</span><strong>{activeGuideStep.title}</strong></div>
@@ -464,12 +456,20 @@
           <button class="task-close" onclick={() => activeGuideStep = null} aria-label="Dismiss guided task">×</button>
         </aside>
       {/if}
+      <CompositionFrameBar composition={$store.current} operations={$operationsStore} onbake={() => void operations.bakeCurrent()} />
       {#if $store.current?.kind === "generate"}
         <GenerativeWorkbench viewModel={generative} {runtime} {session} />
       {:else}
       <div class="preview-panel">
-        <PreviewHost {runtime} {session} directManipulation={authoring.directManipulation} onselect={() => chrome.showRight("inspector")} />
-        {#if $store.gradeBypass}<div class="bypass">GRADE BYPASS</div>{/if}
+        <PreviewHost
+          {runtime}
+          {session}
+          cachedArtifact={$operationsStore.currentBake?.status === "current" && $operationsStore.currentBake.compositionKey === $store.current?.key
+            ? $operationsStore.currentBake.artifact
+            : undefined}
+          directManipulation={authoring.directManipulation}
+          onselect={() => chrome.showRight("inspector")}
+        />
       </div>
 
       {#if authoring.transport}
@@ -503,7 +503,6 @@
             />
           </label>
         {/if}
-        <button class="t-grade" class:active={$store.gradeBypass} aria-pressed={$store.gradeBypass} onclick={() => shell.setGradeBypass(!$store.gradeBypass)} title="Compare the ungraded image (hold B for momentary bypass)">{$store.gradeBypass ? "GRADE BYPASSED" : "GRADE ON"}<kbd>B</kbd></button>
         <span class="spacer"></span>
         <span class="timecode" title="Output time — 0 is the render window's start">{String($store.frame - ($store.current?.render?.from ?? 0)).padStart(4, "0")}f</span>
         <span class="duration">/ {$store.current?.render ? $store.current.render.to - $store.current.render.from : $store.current?.durationInFrames ?? 0}</span>

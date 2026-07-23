@@ -33,7 +33,7 @@ without playing through the intervening frames.
 | 360–539 | `RichPropertiesLab` | Text, typography, color, gradients, image fills, flex, spacing, opacity, blend/isolation |
 | 540–719 | `EditorialLab` | Source-backed lanes, stacking, real media front trims, proxy/content provenance |
 | 720–899 | `GsapMotionLab` | Frame-authored GSAP, keys/eases, curves, auto-key, arc paths, gesture recording, unroll |
-| 900–1187 | `GradeLab` | Browser-local color grade, LUT processing, exact bypass comparison |
+| 900–1187 | `GradeLab` | Browser-local color grade, LUT processing and editable finishing controls |
 | 1188–1427 | `HeroWithLowerThird` | Legacy nested production, raw-derived footage, trims, overlays, audio, effects |
 | 1428–1607 | `HeroPlane3D.uizoom` | Imported AE camera authority, 3D video plane, depth of field, motion blur, LUT |
 | 1608–1787 | `EndCard` | Legacy authored cards, animation, audio and local delivery |
@@ -78,7 +78,7 @@ cover the feature set as one production journey:
    operation and confirm timing and stacking return together.
 5. In `GsapMotionLab`, move a key and jump across it in both directions. Then edit an arc handle,
    preview a gesture, and unroll/undo the helper.
-6. In `GradeLab`, click **GRADE ON** or hold B. Capture the graded frame and verify the bypass resets.
+6. In `GradeLab`, select a graded clip, adjust a finishing control, and capture the graded frame.
 7. In `HeroPlane3D.uizoom`, select the clip, switch to **B · END**, change **End focal length**, scrub,
    then Undo. Expand Focus, Video plane and Finishing to confirm the whole shot is source-addressable.
 8. Open the pinned `skyTimelapse` generation composition. Editing a draft parameter should mark the

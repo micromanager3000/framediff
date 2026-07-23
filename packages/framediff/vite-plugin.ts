@@ -22,7 +22,10 @@ type DevServer = {
 };
 export interface FrameDiffDevPlugin {
   name: string;
-  config(): { server: { fs: { allow: string[] } } };
+  config(): {
+    optimizeDeps: { include: string[] };
+    server: { fs: { allow: string[] } };
+  };
   configureServer(server: DevServer): void;
 }
 
@@ -493,7 +496,13 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
   return {
     name: "framediff-dev",
     config() {
-      return { server: { fs: { allow: [PLUGIN_DIR] } } };
+      return {
+        // Vite does not crawl module-worker entry points during its initial dependency scan.
+        // Prebundle the encoder's only bare import up front so the first Bake cannot receive
+        // a transient `504 Outdated Optimize Dep` while Vite discovers it on demand.
+        optimizeDeps: { include: ["mp4-muxer"] },
+        server: { fs: { allow: [PLUGIN_DIR] } },
+      };
     },
     configureServer(server) {
       const root = server.config.root;

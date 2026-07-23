@@ -10,6 +10,7 @@
             "type": "object",
             "properties": {
               "name": { "type": "string", "title": "Name" },
+              "durationInFrames": { "type": "integer", "title": "Duration", "minimum": 1 },
               "startFrame": { "type": "number" }, "endFrame": { "type": "number" },
               "startCameraX": { "type": "number" }, "startCameraY": { "type": "number" }, "startCameraZ": { "type": "number" },
               "endCameraX": { "type": "number" }, "endCameraY": { "type": "number" }, "endCameraZ": { "type": "number" },

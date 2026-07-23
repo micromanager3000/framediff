@@ -58,6 +58,13 @@ const gitLfsAvailable = (() => {
 })();
 
 describe("framediffDev local cache folder", () => {
+  it("prebundles the module worker dependency before the first bake", () => {
+    const config = framediffDev().config();
+
+    expect(config.optimizeDeps.include).toContain("mp4-muxer");
+    expect(config.server.fs.allow).toHaveLength(1);
+  });
+
   it("writes to the visible default without reading the former hidden cache", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "framediff-vite-"));
     const legacy = path.join(root, ".framediff-cache");

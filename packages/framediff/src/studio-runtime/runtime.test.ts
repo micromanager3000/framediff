@@ -70,6 +70,58 @@ describe("HtmlStudioRuntime Inspector batches", () => {
   });
 });
 
+describe("HtmlStudioRuntime document-backed composition duration", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("makes a generated leaf duration editable and commits it to the bound JSON object", async () => {
+    const document = { moves: [{ name: "shot", durationInFrames: 48 }] };
+    const comp = {
+      ...composition,
+      document,
+      meta: {
+        ...composition.meta,
+        document: {
+          file: "src/Camera.comp.json",
+          bindings: { shot: "/moves/0" },
+          hotUpdate: "remount" as const,
+        },
+      },
+    } satisfies StudioComposition;
+    let transaction: { label: string; files: Array<{ file: string; text: string }> } | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/__framediff/assets") return new Response("missing", { status: 404 });
+      if (url.startsWith("/__framediff/src?")) {
+        const file = new URL(url, "http://local").searchParams.get("file")!;
+        if (file === "src/Camera.comp.json") return Response.json({ file, text: JSON.stringify(document), hash: "document:1" });
+        return new Response("missing", { status: 404 });
+      }
+      if (url === "/__framediff/edit" && init?.method === "POST") {
+        transaction = JSON.parse(String(init.body));
+        return Response.json({ ok: true, receipt: { id: "duration-1", label: transaction!.label, before: [], after: [] } });
+      }
+      return new Response("not found", { status: 404 });
+    }));
+    const runtime = createStudioRuntime({ main: comp } as CompRegistry);
+
+    expect((await runtime.probe("main"))[0].editable?.duration).toBe(true);
+    const result = await runtime.editPlacement({
+      compositionKey: "main",
+      itemId: "shot",
+      field: "durationInFrames",
+      value: 72,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(transaction?.label).toBe("Edit composition duration");
+    expect(JSON.parse(transaction?.files[0].text ?? "{}")).toEqual({
+      moves: [{ name: "shot", durationInFrames: 72 }],
+    });
+    expect(runtime.getCompositions()[0].durationInFrames).toBe(72);
+    expect((await runtime.probe("main"))[0]).toMatchObject({ durationInFrames: 72, editable: { duration: true } });
+  });
+});
+
 describe("HtmlStudioRuntime first recorded motion", () => {
   afterEach(() => vi.unstubAllGlobals());
 

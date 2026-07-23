@@ -55,7 +55,7 @@ export const heroPlaneShotComps: Record<string, StudioComposition> = Object.from
       width: 1920,
       height: 1080,
       fps: FPS,
-      durationInFrames: shot.durationInFrames,
+      durationInFrames: move.durationInFrames,
       trimStart: shot.trimStart,
       playbackRate: shot.playbackRate,
       background: heroBackdrop,

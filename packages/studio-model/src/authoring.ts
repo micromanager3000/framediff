@@ -77,7 +77,10 @@ function hasTemporalProjection(
     return items.some((item) => {
       if (item.from !== 0 || item.durationInFrames !== composition.durationInFrames) return true;
       if (item.content.type === "layers") return false;
-      return Object.values(item.editable ?? {}).some(Boolean);
+      // A leaf comp may expose its JSON-backed total duration in the Inspector while still only
+      // needing a compact scrubber. Start/layer/trim edits describe a real arrangement and do
+      // warrant the full timeline; duration alone does not.
+      return !!(item.editable?.from || item.editable?.layer || item.editable?.trimStart);
     });
   }
   return items.some((item) =>

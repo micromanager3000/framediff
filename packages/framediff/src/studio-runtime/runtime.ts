@@ -1024,8 +1024,10 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         ...(artifact ?? {}),
         effects: "effects" in content && !!content.effects?.length,
       };
+      const documentBinding = this.documentBinding(composition, item.id);
+      const documentOwnsDuration = typeof documentBinding?.value.durationInFrames === "number";
       return composition.meta?.sourceFormat === "generated"
-        ? { ...item, production, editable: { from: false, duration: false, layer: false, trimStart: false } }
+        ? { ...item, production, editable: { from: false, duration: documentOwnsDuration, layer: false, trimStart: false } }
         : { ...item, production };
     }));
     this.probed.set(compositionKey, latest);
@@ -1262,6 +1264,22 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const composition = this.registry[compositionKey];
     if (composition?.meta?.timelineFile && composition.timeline) {
       return this.editTimelineDocumentPlacements(compositionKey, composition, requests);
+    }
+    const documentDurationEdits = composition ? requests.map((request) => {
+      const binding = request.field === "durationInFrames" ? this.documentBinding(composition, request.itemId) : null;
+      return binding && typeof binding.value.durationInFrames === "number"
+        ? { file: binding.file, pointer: `${binding.pointer}/durationInFrames`, value: Math.max(1, Math.round(request.value)) }
+        : null;
+    }) : [];
+    if (composition && documentDurationEdits.length > 0 && documentDurationEdits.every((edit) => edit != null)) {
+      const files = [...new Set(documentDurationEdits.map((edit) => edit.file))];
+      if (files.length !== 1) return { ok: false, message: "Document-backed placement edits must target one composition document." };
+      return this.editJsonDocumentValues({
+        compositionKey,
+        file: files[0],
+        edits: documentDurationEdits.map(({ pointer, value }) => ({ pointer, value })),
+        label: requests.length === 1 ? "Edit composition duration" : "Edit composition durations",
+      });
     }
     const file = composition?.meta?.file;
     if (!composition || !file) return { ok: false, message: "This composition does not declare a source file." };
@@ -1591,9 +1609,28 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     // without waiting for Vite's watcher. The ensuing HMR registry contains the same document and
     // is therefore runtime-equal, avoiding a second remount.
     if (composition.meta?.document?.hotUpdate === "remount") {
+      let nextComposition = { ...composition, document };
+      if (composition.meta.sourceFormat === "generated") {
+        const rawItems = timelineFromComposition(composition);
+        const durationEdit = options.edits.flatMap((edit) => {
+          if (!edit.pointer.endsWith("/durationInFrames") || typeof edit.value !== "number") return [];
+          const binding = Object.entries(composition.meta?.document?.bindings ?? {})
+            .find(([, pointer]) => `${pointer}/durationInFrames` === edit.pointer);
+          const item = binding ? rawItems.find((candidate) => candidate.id === binding[0]) : undefined;
+          return item && rawItems.length === 1 && item.from === 0 && item.durationInFrames === composition.durationInFrames
+            ? [{ itemId: item.id, durationInFrames: Math.max(1, Math.round(edit.value)) }]
+            : [];
+        })[0];
+        if (durationEdit) {
+          let html = rewriteHtmlAttribute(composition.html, durationEdit.itemId, "data-fd-duration", durationEdit.durationInFrames)
+            ?? composition.html;
+          html = rewriteHtmlAttribute(html, composition.id, "data-fd-duration", durationEdit.durationInFrames) ?? html;
+          nextComposition = { ...nextComposition, durationInFrames: durationEdit.durationInFrames, html };
+        }
+      }
       this.replaceRegistry({
         ...this.registry,
-        [options.compositionKey]: { ...composition, document },
+        [options.compositionKey]: nextComposition,
       });
       return { ok: true, file: options.file, receipt: committed.receipt };
     }
