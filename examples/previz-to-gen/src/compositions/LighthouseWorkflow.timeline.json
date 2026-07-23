@@ -49,7 +49,7 @@
       "id": "workflow-concept",
       "from": 0,
       "durationInFrames": 420,
-      "name": "Imported lighthouse concept",
+      "name": "Lighthouse reference board",
       "content": {
         "type": "nested",
         "composition": "lighthouse-concept",

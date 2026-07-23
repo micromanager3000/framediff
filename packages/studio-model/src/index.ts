@@ -1,4 +1,9 @@
 export { ObservableValue, type Unsubscribe } from "./observable";
+export {
+  FRAMEDIFF_ASSET_DRAG_MIME,
+  parseFramediffAssetDragPayload,
+  type FramediffAssetDragPayload,
+} from "./assetDrag";
 export { StudioSession } from "./StudioSession";
 export { StudioApplication } from "./StudioApplication";
 export { StudioAgentApi, exposeStudioAgentApi } from "./agent";
