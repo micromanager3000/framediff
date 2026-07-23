@@ -16,6 +16,7 @@ import type { StudioComposition } from "./studio/types";
 import { defineComposition } from "./composition";
 
 export type GenRefKind = "image" | "endImage" | "video" | "audio";
+export type GenProvider = "fal" | "byteplus";
 
 /** A reference input: `asset://<manifest-id>`, a `/__framediff-cache/<hash>` URL, an http(s)
  *  URL, or a data: URI. asset:// and cache refs are resolved server-side at submit time. */
@@ -31,7 +32,7 @@ export interface GenRecipe {
   file?: string;
   /** Project-relative JSON document containing mutable recipe settings and composition refs. */
   dataFile?: string;
-  provider?: "fal";
+  provider?: GenProvider;
   /** Model id — a key in GEN_MODELS (genModels.ts); the def drives params/refs/cost. */
   model?: string;
   tier?: "standard" | "fast";

@@ -81,7 +81,7 @@ import { downloadBuffer } from "../save";
 import { hashBlob, hashString } from "../graph/hash";
 import { camelName, kebabName, pascalName } from "../studio/compose";
 import { remapRecipeForModel, rewriteRecipeSource, withRecipe } from "../studio/genSource";
-import { GEN_MODELS, genModelOf, genParamValue } from "../genModels";
+import { GEN_MODELS, genModelOf, genParamValue, genRefAccept } from "../genModels";
 import {
   genRecipeSnapshotOf,
   genRecipeDataOf,
@@ -2426,6 +2426,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (!composition || !("recipe" in composition)) return null;
     const recipe = (composition as GenerativeComposition).recipe;
     const definition = genModelOf(recipe);
+    const provider = definition.provider ?? recipe.provider ?? "fal";
     const liveHash = await recipeHashOf(recipe);
     const data = await genJobs(recipe.id) ?? { jobs: [], takes: [] };
     primeGenTakes(data.takes);
@@ -2454,9 +2455,12 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       const pinned = inputTakes?.takes.some((take) => take.generator.take === (inputRecipe.take ?? 0));
       if (!pinned) blockedInputs.push(input.id);
     }
+    const missingRefs = (definition.requiredRefs ?? []).filter((kind) => !(recipe.refs ?? []).some((ref) => ref.kind === kind));
     const blockedReason = blockedInputs.length
       ? `Pin an approved take in ${[...new Set(blockedInputs)].join(", ")} before generating this composition.`
-      : undefined;
+      : missingRefs.length
+        ? `Add a required ${missingRefs.map((kind) => kind === "endImage" ? "end-frame" : kind).join(" and ")} reference before generating with ${definition.name}.`
+        : undefined;
     const labelFor = (source: string) => source.startsWith("asset://")
       ? assets?.assets[source.slice(8)]?.name ?? source
       : source.startsWith("comp://")
@@ -2534,7 +2538,8 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       pinnedTake: recipe.take ?? 0,
       liveHash,
       status,
-      providerReady: !!secrets?.providers.fal?.set,
+      providerReady: !!secrets?.providers[provider]?.set,
+      providerName: provider === "byteplus" ? "BytePlus ModelArk" : "fal.ai",
       blockedReason,
     };
   }
@@ -2549,17 +2554,29 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const source = revision?.text;
     if (!revision || source == null) return { ok: false, message: `Could not read ${file}.` };
     const { model: requestedModel, ...remainingPatch } = patch;
-    const base = typeof requestedModel === "string"
-      ? remapRecipeForModel(recipe, requestedModel).next
-      : recipe;
+    const remapped = typeof requestedModel === "string"
+      ? remapRecipeForModel(recipe, requestedModel)
+      : { next: recipe, droppedRefs: [] };
+    const base = remapped.next;
     const next = withRecipe(base, remainingPatch as Partial<GenRecipe>);
+    if (Array.isArray(next.refs)) {
+      const accepted: GenRef[] = [];
+      for (const ref of next.refs) {
+        const decision = genRefAccept({ ...next, refs: accepted }, genModelOf(next), ref.kind);
+        if (!decision.ok) return { ok: false, message: decision.why ?? "That input reference is not supported." };
+        accepted.push(ref);
+      }
+    }
     const rewritten = recipe.dataFile
       ? { text: `${JSON.stringify(genRecipeDataOf(next), null, 2)}\n` }
       : rewriteRecipeSource(source, next);
     if (!rewritten) return { ok: false, message: `Could not rewrite ${file}.` };
     const committed = await this.commitSourceText("Edit generative recipe", revision, rewritten.text);
     if (!committed.ok) return { ok: false, message: committed.message ?? `Could not rewrite ${file}.` };
-    return { ok: true, message: `Updated ${Object.keys(patch).join(", ")} in ${file}.`, receipt: committed.receipt };
+    const dropped = remapped.droppedRefs.length
+      ? ` Dropped unsupported inputs: ${remapped.droppedRefs.join(", ")}.`
+      : "";
+    return { ok: true, message: `Updated ${Object.keys(patch).join(", ")} in ${file}.${dropped}`, receipt: committed.receipt };
   }
 
   public async pinGenerationTake(compositionKey: string, take: number): Promise<ProjectOperationResult> {
@@ -2624,6 +2641,19 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (!composition || !("recipe" in composition)) return { ok: false, message: "This is not a generative composition." };
     const recipe = (composition as GenerativeComposition).recipe;
     const definition = genModelOf(recipe);
+    const missingRefs = (definition.requiredRefs ?? []).filter((kind) => !(recipe.refs ?? []).some((ref) => ref.kind === kind));
+    if (missingRefs.length) {
+      return {
+        ok: false,
+        message: `${definition.name} requires ${missingRefs.map((kind) => `a ${kind === "endImage" ? "end-frame" : kind} reference`).join(" and ")}.`,
+      };
+    }
+    const accepted: GenRef[] = [];
+    for (const ref of recipe.refs ?? []) {
+      const decision = genRefAccept({ ...recipe, refs: accepted }, definition, ref.kind);
+      if (!decision.ok) return { ok: false, message: decision.why ?? "That input reference is not supported." };
+      accepted.push(ref);
+    }
     const liveHash = await recipeHashOf(recipe);
     const resolved: (GenRef & { mime?: string; name?: string })[] = [];
     for (const ref of recipe.refs ?? []) {
@@ -2668,6 +2698,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     }
     const fields = definition.refFieldsOf(recipe);
     const result = await genSubmit({
+      provider: definition.provider ?? recipe.provider ?? "fal",
       gen: recipe.id,
       endpoint: definition.endpointOf(recipe),
       recipeHash: liveHash,
@@ -2707,6 +2738,14 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         description: "Runs the generative models currently available in FrameDiff.",
         integration: "active",
         ...(secrets.providers.fal ?? { set: false }),
+      },
+      {
+        provider: "byteplus",
+        name: "Seedance direct",
+        envVar: "ARK_API_KEY",
+        description: "Runs Dreamina Seedance 2.0 through ByteDance's official BytePlus ModelArk API. Availability depends on your account region and model activation.",
+        integration: "active",
+        ...(secrets.providers.byteplus ?? { set: false }),
       },
       {
         provider: "midjourney",

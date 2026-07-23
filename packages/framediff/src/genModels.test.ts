@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { genModelOf } from "./genModels";
+import { genModelOf, genRefAccept } from "./genModels";
 import { recipeCanonical, type GenRecipe } from "./generative";
 
 const recipe = (patch: Partial<GenRecipe>): GenRecipe => ({
@@ -41,5 +41,83 @@ describe("multi-media generative models", () => {
 
   it("keeps existing video models explicitly typed as video output", () => {
     expect(genModelOf(recipe({ model: "seedance-2.0" })).output).toBe("video");
+  });
+
+  it("maps direct Seedance to the official BytePlus multimodal task", () => {
+    const value = recipe({
+      provider: "byteplus",
+      model: "seedance-2.0-direct",
+      tier: "standard",
+      resolution: "720p",
+      duration: 14,
+      aspect: "9:16",
+      audio: true,
+      prompt: "@Image1 and @Image2 perform to @Audio1.",
+      refs: [
+        { kind: "image", src: "comp://visitor" },
+        { kind: "image", src: "comp://keeper" },
+        { kind: "audio", src: "comp://dialogue" },
+      ],
+    });
+    const model = genModelOf(value);
+    expect(model.provider).toBe("byteplus");
+    expect(model.modeOf(value)).toBe("reference-to-video");
+    expect(model.endpointOf(value)).toBe("dreamina-seedance-2-0-260128");
+    expect(model.refFieldsOf(value)).toEqual([]);
+    expect(model.buildInput(value)).toMatchObject({
+      prompt: "Image 1 and Image 2 perform to Audio 1.",
+      duration: 14,
+      ratio: "9:16",
+      generate_audio: true,
+      watermark: false,
+    });
+  });
+
+  it("maps locked audio and one keyframe into LTX audio-to-video", () => {
+    const value = recipe({
+      model: "ltx-2.3-audio",
+      duration: 14,
+      aspect: "9:16",
+      audio: true,
+      seed: 42,
+      refs: [
+        { kind: "image", src: "comp://combined-keyframe" },
+        { kind: "audio", src: "comp://dialogue" },
+      ],
+    });
+    const model = genModelOf(value);
+    expect(model.provider).toBeUndefined();
+    expect(model.modeOf(value)).toBe("image+audio-to-video");
+    expect(model.endpointOf(value)).toBe("fal-ai/ltx-2.3-quality/audio-to-video");
+    expect(model.requiredRefs).toEqual(["audio"]);
+    expect(model.maxRefs).toMatchObject({ image: 1, audio: 1 });
+    expect(model.refFieldsOf(value)).toEqual([
+      { kind: "image", field: "image_url" },
+      { kind: "audio", field: "audio_url" },
+    ]);
+    expect(model.buildInput(value)).toMatchObject({
+      match_audio_length: true,
+      resolution: "portrait_16_9",
+      frames_per_second: 24,
+      generate_audio: true,
+      seed: 42,
+      enable_prompt_expansion: false,
+    });
+    expect(model.costUsd(value)).toBeCloseTo(0.7477, 3);
+    expect(recipeCanonical(value)).not.toHaveProperty("duration");
+  });
+
+  it("refuses duplicate LTX inputs before the provider can silently overwrite them", () => {
+    const value = recipe({
+      model: "ltx-2.3-audio",
+      refs: [
+        { kind: "image", src: "comp://keyframe" },
+        { kind: "audio", src: "comp://dialogue" },
+      ],
+    });
+    const model = genModelOf(value);
+    expect(genRefAccept(value, model, "image")).toMatchObject({ ok: false });
+    expect(genRefAccept(value, model, "audio")).toMatchObject({ ok: false });
+    expect(genRefAccept(value, model, "video")).toMatchObject({ ok: false });
   });
 });

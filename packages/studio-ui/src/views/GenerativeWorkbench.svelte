@@ -207,7 +207,7 @@
           </section>
           {#if !workspace.providerReady}
             <div class="provider-missing">
-              <div><strong>FAL credentials required</strong><span>Add a FAL_KEY in Services before running this generation.</span></div>
+              <div><strong>{workspace.providerName} credentials required</strong><span>Add the matching API key in Services before running this generation.</span></div>
               <button onclick={onservices}>Open Services</button>
             </div>
           {/if}

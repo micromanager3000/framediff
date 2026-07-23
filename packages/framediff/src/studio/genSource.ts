@@ -84,7 +84,7 @@ export function remapRecipeForModel(recipe: GenRecipe, modelId: string): { next:
     id: recipe.id,
     file: recipe.file,
     dataFile: recipe.dataFile,
-    provider: recipe.provider ?? "fal",
+    provider: nextDef.provider ?? "fal",
     model: modelId,
     prompt: recipe.prompt,
     take: recipe.take ?? 0,
@@ -104,10 +104,16 @@ export function remapRecipeForModel(recipe: GenRecipe, modelId: string): { next:
     (next as unknown as Record<string, unknown>)[p.key] = allowed ? v : p.def;
   }
   const droppedRefs: string[] = [];
+  const counts = new Map<string, number>();
   const keep = (recipe.refs ?? []).filter((r) => {
-    if (nextDef.accepts[r.kind]) return true;
-    droppedRefs.push(r.src);
-    return false;
+    const count = counts.get(r.kind) ?? 0;
+    const max = nextDef.maxRefs?.[r.kind];
+    if (!nextDef.accepts[r.kind] || (max != null && count >= max)) {
+      droppedRefs.push(r.src);
+      return false;
+    }
+    counts.set(r.kind, count + 1);
+    return true;
   });
   if (keep.length) next.refs = keep;
   return { next, droppedRefs };

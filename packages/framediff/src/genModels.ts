@@ -6,7 +6,7 @@
 // Seedance pricing is exact (fal token pricing); the others are estimates (`est: true`)
 // until we've paid a real invoice — the UI says "est." wherever that's true.
 
-import type { GenRecipe, GenRef, GenRefKind } from "./generative";
+import type { GenProvider, GenRecipe, GenRef, GenRefKind } from "./generative";
 
 export type GenParamValue = string | number | boolean;
 
@@ -42,6 +42,8 @@ export interface GenModelDef {
   id: string;
   name: string;
   vendor: string;
+  /** Credential + transport adapter used to submit and poll this model. */
+  provider?: GenProvider;
   /** Media kind produced by the endpoint and pinned as a take. */
   output: "video" | "image" | "audio";
   /** Cost is an estimate (true) vs fitted to provider pricing (false). */
@@ -49,6 +51,10 @@ export interface GenModelDef {
   /** Where the schema came from — shown in the model picker. */
   fitted: string;
   accepts: Record<GenRefKind, boolean>;
+  /** Per-kind reference caps. Omitted kinds are limited only by the provider schema. */
+  maxRefs?: Partial<Record<GenRefKind, number>>;
+  /** Reference kinds that must be present before the recipe can be submitted. */
+  requiredRefs?: GenRefKind[];
   /** Capability chips (things it can do). */
   caps: string[];
   /** Dashed chips (things it can't — ambient knowledge beats submit-time surprises). */
@@ -159,6 +165,148 @@ const seedance: GenModelDef = {
     return (tokensPerSec / 1000) * rate * dur(r, 4) * videoRefMult;
   },
   baseline: "$1.21 · fast 720p 5s",
+};
+
+// ---------------------------------------------------------------------------
+// Seedance 2.0 direct — ByteDance's official BytePlus ModelArk API
+// ---------------------------------------------------------------------------
+
+const BYTEPLUS_SEEDANCE_RATE_PER_1K = { standard: 0.007, fast: 0.0056 } as const;
+
+const seedanceDirect: GenModelDef = {
+  id: "seedance-2.0-direct",
+  name: "Seedance 2.0 · direct",
+  vendor: "ByteDance · BytePlus",
+  provider: "byteplus",
+  output: "video",
+  est: false,
+  fitted: "BytePlus ModelArk Dreamina Seedance 2.0 API · pricing exact",
+  accepts: { video: true, image: true, endImage: true, audio: true },
+  caps: ["official BytePlus API", "image + video + audio refs", "4–15s", "480p–720p", "opt. audio"],
+  limits: ["BytePlus account + model activation required", "service unavailable in the United States", "reference media must be publicly reachable"],
+  negativePrompt: false,
+  params: [
+    { key: "tier", label: "TIER", type: "enum", options: ["fast", "standard"], def: "fast", canonical: false },
+    { key: "resolution", label: "RES", type: "enum", options: ["480p", "720p"], def: "720p" },
+    { key: "duration", label: "DUR", type: "number", min: 4, max: 15, step: 1, def: 5 },
+    { key: "aspect", label: "ASPECT", type: "enum", options: ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"], def: "16:9" },
+    { key: "audio", label: "AUDIO", type: "enum", options: [true, false], def: true },
+  ],
+  dropHint: "official multimodal route — images, video and audio are reference materials",
+  modeOf(r) {
+    const refs = r.refs ?? [];
+    if (!refs.length) return "text-to-video";
+    const starts = refs.filter((x) => x.kind === "image").length;
+    const ends = refs.filter((x) => x.kind === "endImage").length;
+    if (starts === 1 && starts + ends === refs.length && ends <= 1) return "image-to-video";
+    return "reference-to-video";
+  },
+  endpointOf(r) {
+    return (r.tier ?? "fast") === "fast"
+      ? "dreamina-seedance-2-0-fast-260128"
+      : "dreamina-seedance-2-0-260128";
+  },
+  buildInput(r) {
+    return {
+      prompt: r.prompt
+        .replace(/@Image(\d+)/gi, "Image $1")
+        .replace(/@Video(\d+)/gi, "Video $1")
+        .replace(/@Audio(\d+)/gi, "Audio $1"),
+      resolution: r.resolution ?? "720p",
+      duration: dur(r, 5),
+      ratio: r.aspect ?? "16:9",
+      generate_audio: r.audio ?? true,
+      watermark: false,
+    };
+  },
+  refFieldsOf() {
+    // BytePlus references are structured content records, assembled by its provider
+    // adapter instead of being assigned to flat fal input fields.
+    return [];
+  },
+  costUsd(r) {
+    const { width, height } = dimsOf(r, "720p");
+    const tokensPerSec = (width * height * 24) / 1024;
+    const rate = BYTEPLUS_SEEDANCE_RATE_PER_1K[(r.tier ?? "fast") as "fast" | "standard"];
+    const videoRefMult = hasKind(r, "video") ? 0.6 : 1;
+    return (tokensPerSec / 1000) * rate * dur(r, 5) * videoRefMult;
+  },
+  baseline: "$0.60 · fast 720p 5s",
+};
+
+// ---------------------------------------------------------------------------
+// LTX 2.3 Quality audio-to-video — fal fallback for regions without BytePlus
+// ---------------------------------------------------------------------------
+
+const LTX_QUALITY_RATE_PER_MP = 0.0024075;
+const LTX_NEGATIVE_PROMPT = "color distortion, overexposure, static, blurry details, subtitles, text, artwork, painting, still frame, low quality, compression artifacts, deformed face, malformed limbs, fused fingers, motionless frame";
+const LTX_SIZE: Record<string, string> = {
+  "16:9": "landscape_16_9",
+  "4:3": "landscape_4_3",
+  "1:1": "square_hd",
+  "3:4": "portrait_4_3",
+  "9:16": "portrait_16_9",
+};
+
+const ltx23Audio: GenModelDef = {
+  id: "ltx-2.3-audio",
+  name: "LTX 2.3 Quality · audio",
+  vendor: "Lightricks · fal",
+  output: "video",
+  est: false,
+  fitted: "fal-ai/ltx-2.3-quality/audio-to-video OpenAPI · pricing exact",
+  accepts: { video: false, image: true, endImage: false, audio: true },
+  maxRefs: { image: 1, audio: 1 },
+  requiredRefs: ["audio"],
+  caps: ["locked audio drives motion", "optional first frame", "audio-length output", "seed ✓", "negative prompt", "portrait + landscape"],
+  limits: ["one image + one audio ref", "no separate character refs — combine characters in the keyframe", "prompt expansion pinned off"],
+  negativePrompt: true,
+  params: [
+    // The provider derives its true output length from the audio. This field keeps the
+    // composition bounds and price preview honest without pretending to control the API.
+    { key: "duration", label: "AUDIO DUR", type: "number", min: 1, max: 20, step: 1, def: 5, canonical: false },
+    { key: "aspect", label: "ASPECT", type: "enum", options: ["16:9", "4:3", "1:1", "3:4", "9:16"], def: "16:9" },
+    { key: "audio", label: "INCLUDE AUDIO", type: "enum", options: [true, false], def: true },
+    { key: "seed", label: "SEED", type: "number", min: 0, max: 2147483647, step: 1, def: 0 },
+  ],
+  dropHint: "required audio locks timing and performance · one optional image supplies the first frame",
+  modeOf(r) {
+    return hasKind(r, "image") ? "image+audio-to-video" : "audio-to-video";
+  },
+  endpointOf() {
+    return "fal-ai/ltx-2.3-quality/audio-to-video";
+  },
+  buildInput(r) {
+    return {
+      prompt: r.prompt,
+      match_audio_length: true,
+      resolution: LTX_SIZE[r.aspect ?? "16:9"] ?? "auto",
+      frames_per_second: 24,
+      num_inference_steps: 15,
+      guidance_scale: 1,
+      generate_audio: r.audio ?? true,
+      image_strength: 0.7,
+      negative_prompt: r.negativePrompt ?? LTX_NEGATIVE_PROMPT,
+      ...(r.seed ? { seed: r.seed } : {}),
+      enable_prompt_expansion: false,
+      enable_safety_checker: true,
+      video_quality: "high",
+      video_write_mode: "balanced",
+    };
+  },
+  refFieldsOf() {
+    return [
+      { kind: "image", field: "image_url" },
+      { kind: "audio", field: "audio_url" },
+    ];
+  },
+  costUsd(r) {
+    const { width, height } = dimsOf(r, "720p", 720);
+    const frames = Math.round(dur(r, 5) * 24) + 1;
+    return (width * height * frames / 1_000_000) * LTX_QUALITY_RATE_PER_MP;
+  },
+  fixedHeight: 720,
+  baseline: "$0.27 · 720p 5s",
 };
 
 // ---------------------------------------------------------------------------
@@ -426,6 +574,8 @@ const seedAudio10: GenModelDef = {
 
 export const GEN_MODELS: Record<string, GenModelDef> = {
   [seedance.id]: seedance,
+  [seedanceDirect.id]: seedanceDirect,
+  [ltx23Audio.id]: ltx23Audio,
   [veo31.id]: veo31,
   [kling25.id]: kling25,
   [wan25.id]: wan25,
@@ -450,6 +600,10 @@ export function genRefAccept(recipe: GenRecipe, def: GenModelDef, kind: GenRefKi
   if (!def.accepts[kind]) return { ok: false, why: `${def.name} takes no ${kind === "endImage" ? "end-frame" : kind} refs` };
   if (kind === "endImage" && !(recipe.refs ?? []).some((r) => r.kind === "image"))
     return { ok: false, why: "an end frame needs a start frame first" };
+  const max = def.maxRefs?.[kind];
+  const count = (recipe.refs ?? []).filter((ref) => ref.kind === kind).length;
+  if (max != null && count >= max)
+    return { ok: false, why: `${def.name} accepts at most ${max} ${kind === "endImage" ? "end-frame" : kind} ref${max === 1 ? "" : "s"}` };
   return { ok: true };
 }
 
