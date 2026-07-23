@@ -3,7 +3,8 @@
 // A `.gen.ts` module registers executable behavior; mutable prompt/refs/params may live in an
 // adjacent `.gen.json` document. `generative()` turns the merged recipe into a StudioComposition
 // whose HTML plays the *pinned take*:
-// a content-addressed mp4 in the configured local cache (`framediff-cache` by default), recorded in framediff.assets.json with a
+// a content-addressed image, audio file, or video in the configured local cache
+// (`framediff-cache` by default), recorded in framediff.assets.json with a
 // `generator` provenance block. Takes are the lockfile: `take: N` in source pins what ships,
 // and the recipe hash drifting from the pinned take's hash is what STALE means. Nothing
 // regenerates implicitly — generation happens only through the Studio's Generate action
@@ -44,6 +45,10 @@ export interface GenRecipe {
   aspect?: "21:9" | "16:9" | "4:3" | "1:1" | "3:4" | "9:16";
   /** Ask the model for synced audio. */
   audio?: boolean;
+  /** Speech rate for audio models. */
+  speed?: number;
+  /** Voice pitch shift in semitones for audio models. */
+  pitch?: number;
   /** Guidance strength 0–1 (Kling). */
   cfg?: number;
   /** Reproducibility seed (Veo/Wan — Seedance has no seed input). */
@@ -179,6 +184,7 @@ export interface GenProvenance {
   inputs: GenInputProvenance[];
   requestId?: string;
   seed?: number;
+  outputKind?: "video" | "image" | "audio";
   at?: string;
 }
 
@@ -186,11 +192,12 @@ export interface GenTake {
   assetId: string;
   contentHash: string;
   bytes: number;
+  mime?: string;
   generator: GenProvenance;
 }
 
 interface ManifestLike {
-  assets: Record<string, { contentHash: string; bytes: number; generator?: GenProvenance }>;
+  assets: Record<string, { contentHash: string; bytes: number; mime?: string; generator?: GenProvenance }>;
 }
 
 export function genTakesFrom(manifest: ManifestLike | null, genId: string): GenTake[] {
@@ -198,7 +205,7 @@ export function genTakesFrom(manifest: ManifestLike | null, genId: string): GenT
   const takes: GenTake[] = [];
   for (const [assetId, e] of Object.entries(manifest.assets)) {
     if (e.generator?.gen === genId) {
-      takes.push({ assetId, contentHash: e.contentHash, bytes: e.bytes, generator: e.generator });
+      takes.push({ assetId, contentHash: e.contentHash, bytes: e.bytes, mime: e.mime, generator: e.generator });
     }
   }
   return takes.sort((a, b) => a.generator.take - b.generator.take);
@@ -259,6 +266,8 @@ export const __generativeTest = {
  * the attached `recipe`) and shows the generative editor for it.
  */
 export function generative(recipe: GenRecipe): GenerativeComposition {
+  const definition = genModelOf(recipe);
+  const outputKind = definition.output;
   const fps = recipe.fps ?? GEN_DEFAULTS.fps;
   const { width, height } = genDims(recipe);
   const durationInFrames = Math.round((recipe.duration ?? GEN_DEFAULTS.duration) * fps);
@@ -266,35 +275,50 @@ export function generative(recipe: GenRecipe): GenerativeComposition {
   const wantTake = recipe.take ?? GEN_DEFAULTS.take;
   const initial = primedTake(recipe.id, wantTake);
   const initialUrl = initial ? `/__framediff-cache/${encodeURIComponent(initial.contentHash)}` : "";
+  const media = outputKind === "video"
+    ? `<video data-gen-output data-fd-type="video" data-fd-src="${initialUrl}" data-fd-muted="${!(recipe.audio ?? GEN_DEFAULTS.audio)}"></video>`
+    : outputKind === "image"
+      ? `<img data-gen-output data-fd-type="image" data-fd-src="${initialUrl}" alt="">`
+      : `<audio data-gen-output data-fd-type="audio" data-fd-src="${initialUrl}" data-fd-volume="1"></audio>`;
+  const initialStatus = wantTake > 0
+    ? `take ${wantTake} not in the cache — regenerate or re-pin`
+    : "no take pinned — Generate runs the recipe";
   const source = `<!doctype html><html><head><style>
     [data-fd-composition] { position:relative;overflow:hidden;background:linear-gradient(135deg,#191420 0%,#0e0d0b 60%,#1d1410 100%);color:#c6c0af;font-family:SFMono-Regular,Consolas,monospace; }
-    video { position:absolute;inset:0;width:100%;height:100%;object-fit:cover; }
+    video,img { position:absolute;inset:0;width:100%;height:100%;object-fit:cover; }
+    audio { position:absolute;width:1px;height:1px;opacity:0;pointer-events:none; }
     .gen-slate { position:absolute;inset:0;display:grid;place-items:center;text-align:center;line-height:2; }
+    .gen-slate.audio { background:radial-gradient(circle at 50% 42%,rgba(195,165,223,.14),transparent 42%); }
     .gen-id { font-size:13px;letter-spacing:.12em;color:#c3a5df;font-weight:700; }
     .gen-prompt { font-size:10px;opacity:.8; }
     .gen-status { font-size:9px;color:#a69e8d; }
+    .wave { height:48px;display:flex;align-items:center;justify-content:center;gap:5px;margin:18px 0 12px; }
+    .wave i { width:4px;height:var(--h);border-radius:9px;background:#c3a5df;opacity:.75; }
   </style></head><body>
-  <main data-fd-composition data-fd-id="${escapeHtml(recipe.id)}" data-fd-width="${width}" data-fd-height="${height}" data-fd-fps="${fps}" data-fd-duration="${durationInFrames}" data-fd-kind="generate" data-fd-library="true">
-    <video data-fd-type="video" data-fd-src="${initialUrl}" data-fd-muted="${!(recipe.audio ?? GEN_DEFAULTS.audio)}"></video>
-    <div class="gen-slate"${initial ? " hidden" : ""}><div><div class="gen-id">◇ ${escapeHtml(recipe.id)}</div><div class="gen-prompt">“${prompt}”</div><div class="gen-status">${wantTake > 0 ? `take ${wantTake} not in the cache — regenerate or re-pin` : "no take pinned — Generate runs the recipe"}</div></div></div>
+  <main data-fd-composition data-fd-id="${escapeHtml(recipe.id)}" data-fd-width="${width}" data-fd-height="${height}" data-fd-fps="${fps}" data-fd-duration="${durationInFrames}" data-fd-kind="generate" data-fd-output="${outputKind}" data-fd-library="true">
+    ${media}
+    <div class="gen-slate${outputKind === "audio" ? " audio" : ""}"${initial && outputKind !== "audio" ? " hidden" : ""}><div><div class="gen-id">◇ ${escapeHtml(recipe.id)} · ${outputKind}</div>${outputKind === "audio" ? '<div class="wave"><i style="--h:16px"></i><i style="--h:31px"></i><i style="--h:44px"></i><i style="--h:25px"></i><i style="--h:38px"></i><i style="--h:20px"></i><i style="--h:34px"></i><i style="--h:14px"></i></div>' : ""}<div class="gen-prompt">“${prompt}”</div><div class="gen-status">${initial && outputKind === "audio" ? `take ${wantTake} pinned · audio-first performance` : initialStatus}</div></div></div>
   </main></body></html>`;
   const composition = defineComposition(source, {
-    meta: { kind: "generate", file: recipe.file, module: recipe.file, sourceFormat: "generated", library: true, deps: recipe.dataFile ? [recipe.dataFile] : undefined },
+    meta: { kind: "generate", output: outputKind, file: recipe.file, module: recipe.file, sourceFormat: "generated", library: true, deps: recipe.dataFile ? [recipe.dataFile] : undefined },
     setup: ({ query, onCleanup, signal }) => {
-      const video = query<HTMLVideoElement>("video")!;
+      const output = query<HTMLMediaElement | HTMLImageElement>("[data-gen-output]")!;
       const slate = query<HTMLElement>(".gen-slate")!;
+      const status = query<HTMLElement>(".gen-status")!;
       const load = async () => {
         const immediate = primedTake(recipe.id, wantTake);
         const takes = immediate ? [immediate] : knownGenTakes(await fetchManifest(), recipe.id);
         if (signal.aborted) return;
         const pinned = takes.find((take) => take.generator.take === wantTake) ?? null;
-        slate.hidden = !!pinned;
+        slate.hidden = outputKind === "audio" ? false : !!pinned;
         if (pinned) {
           const url = `/__framediff-cache/${encodeURIComponent(pinned.contentHash)}`;
-          video.dataset.fdSrc = url;
-          video.src = url;
+          (output as HTMLElement).dataset.fdSrc = url;
+          output.setAttribute("src", url);
+          if (outputKind === "audio") status.textContent = `take ${wantTake} pinned · audio-first performance`;
         } else {
-          video.removeAttribute("src");
+          output.removeAttribute("src");
+          status.textContent = initialStatus;
         }
       };
       void load();

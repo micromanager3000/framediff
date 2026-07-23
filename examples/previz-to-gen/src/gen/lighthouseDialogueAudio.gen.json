@@ -1,0 +1,17 @@
+{
+  "provider": "fal",
+  "model": "seed-audio-1.0",
+  "prompt": "Create exactly a 14-second English dramatic dialogue performance and nothing else. No narrator, no introduction, no music, no trailer effects. Two distinct actors in a lighthouse lantern room during a storm. MARA is the woman shown in @Image1: early thirties, breath still recovering from a hard climb, low clear voice, hurt held under control. ELIAS is an unseen man in his late sixties: weathered, quiet, gravel in the voice, guilt held behind professional calm. Underplay every line; natural breath, tiny hesitations, never melodramatic. Preserve the exact words. Timing: 00:00.00–00:03.30 MARA, close and restrained: \"You saw our flare.\" 00:03.30–00:05.70 ELIAS, after one guilty breath: \"I saw it.\" 00:05.70–00:09.20 MARA, quieter now, more hurt than angry: \"Then why was the lamp dark?\" 00:09.20–00:13.40 ELIAS, almost a whisper after a long pause: \"Because your father was on the boat.\" 00:13.40–00:14.00 only room tone and Mara's small stopped breath. Background throughout: low wind against curved glass, distant surf below stone, a faint brass lantern mechanism turning. Dialogue dry and intimate, ambience subtle, no reverb wash.",
+  "refs": [
+    {
+      "kind": "image",
+      "src": "comp://lighthouse-visitor"
+    }
+  ],
+  "duration": 14,
+  "aspect": "9:16",
+  "speed": 1,
+  "pitch": 0,
+  "fps": 30,
+  "take": 0
+}

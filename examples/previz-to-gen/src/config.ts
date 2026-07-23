@@ -10,7 +10,13 @@ import { scriptComp } from "./compositions/Script";
 import { storyboardComp } from "./compositions/Storyboard";
 import { locationsComp } from "./compositions/Locations";
 import { castComp } from "./compositions/Cast";
+import { lighthouseConceptComp } from "./compositions/LighthouseConcept";
+import { lighthouseWorkflowComp } from "./compositions/LighthouseWorkflow";
 import { harborShot } from "./gen/harborShot.gen";
+import { lighthouseVisitor } from "./gen/lighthouseVisitor.gen";
+import { lighthouseKeeper } from "./gen/lighthouseKeeper.gen";
+import { lighthouseDialogueAudio } from "./gen/lighthouseDialogueAudio.gen";
+import { lighthouseDialogue } from "./gen/lighthouseDialogue.gen";
 
 /** The Studio registry. "main" is the root edit — the top of the stack; ?comp= picks which
  *  comp to open, and every comp stays reachable in the tree. */
@@ -25,6 +31,12 @@ export const COMPOSITIONS: CompRegistry = {
   locations: locationsComp,
   cast: castComp,
   "harbor-previz": harborPrevizComp,
+  "lighthouse-concept": lighthouseConceptComp,
   // generative comps — recipes in src/gen/*.gen.ts, takes pinned in framediff.assets.json
   harborShot,
+  "lighthouse-visitor": lighthouseVisitor,
+  "lighthouse-keeper": lighthouseKeeper,
+  "lighthouse-dialogue-audio": lighthouseDialogueAudio,
+  "lighthouse-dialogue": lighthouseDialogue,
+  "lighthouse-workflow": lighthouseWorkflowComp,
 };

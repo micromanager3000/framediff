@@ -1,0 +1,15 @@
+{
+  "provider": "fal",
+  "model": "seedream-5.0-pro",
+  "prompt": "Use @Image1 only for the lighthouse's coastal world, blue-hour palette, wet stone, salt haze, and practical amber lamp light. Create a new 9:16 live-action character key frame inside the lantern room: MARA, a woman in her early thirties who has just climbed out of a rescue boat, wet dark hair pinned back badly, pale salt-streaked skin, faded ochre fisherman's sweater under a dark oilskin coat. Tight head-and-shoulders portrait, looking just off lens at the keeper, listening before an accusation. Her jaw is set but her eyes are frightened and searching; underplayed, intelligent, no glamour pose. One warm tungsten practical brushes camera-right cheek, cold storm window fill on camera-left, shallow 85mm depth of field, weathered brass and fogged glass only as soft background shapes. Photoreal cinema still, natural pores, fine wet flyaway hairs, restrained color, subtle 35mm grain. No text, no duplicate person, no open mouth, no smile, no fashion editorial styling.",
+  "refs": [
+    {
+      "kind": "image",
+      "src": "comp://lighthouse-concept"
+    }
+  ],
+  "aspect": "9:16",
+  "duration": 14,
+  "fps": 30,
+  "take": 0
+}

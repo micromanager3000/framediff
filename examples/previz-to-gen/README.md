@@ -22,6 +22,46 @@ npm run dev --workspace examples/previz-to-gen
 Open the printed URL: `?comp=main` (the edit), `?comp=harbor-previz` (the 3D previz),
 `?comp=harborShot` (the generative workbench).
 
+## Dialogue-first lighthouse scene
+
+The project also contains a vertical two-actor lighthouse scene built around an audio approval
+gate. Open `?comp=lighthouse-workflow` for the overview or `?comp=lighthouse-dialogue` for the
+final generative composition.
+
+```
+imported Midjourney key frame
+              │
+              ├──▶ lighthouseVisitor ─┐
+              │    Seedream 5.0 image │
+              └──▶ lighthouseKeeper ──┼──▶ lighthouseDialogue
+                   Seedream 5.0 image │    Seedance 2.0 video
+                                     │
+lighthouseVisitor ──▶ lighthouseDialogueAudio
+                       Seed Audio 1.0 ┘
+```
+
+Generate and pin the takes in this order:
+
+1. `?comp=lighthouse-visitor` — Seedream turns the imported coastal key frame into Mara's
+   lantern-room portrait.
+2. `?comp=lighthouse-keeper` — a second Seedream comp locks Elias independently, so a weak face
+   never forces a video reroll.
+3. `?comp=lighthouse-dialogue-audio` — Seed Audio performs the complete 14-second scene for about
+   four cents. Listen, adjust the acting prompt, and pin only an approved reading.
+4. `?comp=lighthouse-dialogue` — Seedance receives the two pinned image bytes and the pinned audio
+   bytes as `@Image1`, `@Image2`, and `@Audio1`. The prompt treats the audio as the master edit:
+   exact dialogue, breaths, pauses, room tone, speaker cuts, and the silent reaction beat.
+
+The final step is deliberately blocked until all three upstream comps have pinned takes. A
+`comp://` reference to a generative image or audio comp resolves to that exact take instead of
+re-rendering the composition, so the downstream request and its provenance agree byte for byte.
+The imported image is the existing lighthouse/ship concept in `framediff.assets.json`; replace
+that asset with a new Midjourney 8.2 handoff when desired.
+
+FrameDiff's generative workbench now supports image, audio, and video outputs. The fal bridge
+ingests `images[0]`, `audio`, or `video` responses into the same take lockfile, and historical
+takes keep their media kind for correct preview and download behavior.
+
 ## The pipeline, step by step
 
 1. **Previz** — [src/compositions/harborScene.ts](src/compositions/harborScene.ts) defines the
