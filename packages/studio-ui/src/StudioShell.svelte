@@ -255,6 +255,12 @@
           void session.editTimelineItem(item.id, { from: item.from, durationInFrames: playhead - item.from });
         }
       }
+    } else if (event.key === "Delete" || event.key === "Backspace") {
+      const item = selectedTimelineItem();
+      if (session.state.get().selection?.kind === "clip" && item?.editable?.delete) {
+        event.preventDefault();
+        void session.deleteTimelineItems([item.id]);
+      }
     } else if (event.key === "Escape") {
       if (window.matchMedia("(max-width: 900px)").matches && $chromeStore.rightOpen) chrome.closeRight();
       else if ($mediaStore.selected) media.clearSelection();

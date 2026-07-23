@@ -101,6 +101,11 @@ export class TimelineViewModel {
     return this.session.editTimelineItem(itemId, { from, durationInFrames, ...(layer == null ? {} : { layer }) });
   }
 
+  public deleteLane(lane: TimelineLaneSnapshot): Promise<boolean> {
+    if (lane.layer == null || !lane.items.length || lane.items.some((item) => !item.editable?.delete)) return Promise.resolve(false);
+    return this.session.deleteTimelineItems(lane.items.map((item) => item.id), { kind: lane.kind, layer: lane.layer });
+  }
+
   public commitRenderWindow(from: number, to: number): Promise<boolean> {
     return this.session.setRenderWindow(from, to);
   }

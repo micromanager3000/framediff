@@ -15,6 +15,7 @@ import type {
   PreviewHandle,
   PreviewOptions,
   TimelineItemSnapshot,
+  TimelineDeleteRequest,
   UnrollGroupRequest,
 } from "./types";
 
@@ -45,6 +46,7 @@ class FakeRuntime implements CompositionRuntimePort {
   public readonly motionPathEdits: MotionPathEditRequest[] = [];
   public readonly motionPathCreates: MotionPathCreateRequest[] = [];
   public readonly unrollRequests: UnrollGroupRequest[] = [];
+  public readonly deleteRequests: TimelineDeleteRequest[] = [];
   private listener: ((next: CompositionDescriptor[]) => void) | null = null;
   public probeItems: TimelineItemSnapshot[] = items;
   public animationProbe: AnimationProbeSnapshot = { animations: [], diagnostics: [], opaqueCallCount: 0 };
@@ -64,6 +66,7 @@ class FakeRuntime implements CompositionRuntimePort {
     this.edits.push(...requests);
     return { ok: true, file: "src/Main.tsx" };
   }
+  async deleteTimelineItems(request: TimelineDeleteRequest) { this.deleteRequests.push(request); return { ok: true, file: "src/Main.timeline.json" }; }
   async editAnimation(request: AnimationEditRequest) { this.animationEdits.push(request); return { ok: true }; }
   async editAnimations(requests: AnimationEditRequest[]) { this.animationEdits.push(...requests); return { ok: true }; }
   async createAnimation(request: AnimationCreateRequest) { this.animationCreates.push(request); return { ok: true }; }
@@ -364,6 +367,45 @@ describe("StudioSession", () => {
       layer: 2,
       content: { trimStart: 1.5 },
     });
+  });
+
+  it("deletes timeline items and compacts a removed layer optimistically", async () => {
+    const runtime = new FakeRuntime();
+    runtime.probeItems = [
+      {
+        id: "video",
+        from: 0,
+        durationInFrames: 40,
+        layer: 0,
+        order: 0,
+        origin: "sequence",
+        editable: { from: true, duration: true, layer: true, delete: true },
+        content: { type: "video", src: "asset://hero" },
+      },
+      {
+        id: "overlay",
+        from: 0,
+        durationInFrames: 40,
+        layer: 2,
+        order: 1,
+        origin: "sequence",
+        editable: { from: true, duration: true, layer: true, delete: true },
+        content: { type: "layers", label: "Overlay" },
+      },
+    ];
+    const session = new StudioSession(runtime, new ManualClock(), "main");
+    await session.start();
+    session.selectItem("video");
+
+    await expect(session.deleteTimelineItems(["video"], { kind: "video", layer: 0 })).resolves.toBe(true);
+
+    expect(runtime.deleteRequests).toEqual([{
+      compositionKey: "main",
+      itemIds: ["video"],
+      compactLayer: { kind: "video", layer: 0 },
+    }]);
+    expect(session.currentItems).toEqual([expect.objectContaining({ id: "overlay", layer: 1 })]);
+    expect(session.state.get()).toMatchObject({ selectedItemId: null, selection: null, notice: "Deleted video layer 1." });
   });
 
   it("keeps negative trim when extending a clip left so visual pre-roll can hold frame one", async () => {

@@ -221,11 +221,25 @@ async function exportVideoInternal(
       renderSync(n);
       host.querySelectorAll<HTMLElement>("audio[data-framediff-audio]").forEach((a) => {
         if (!isAudioElementActive(a, host)) return;
+        const volume = parseFloat(a.dataset.framediffVolume || "1");
+        if (!(volume > 0)) return;
         samples.push({
           n: n - startFrame, // clip-local frame — the exported window's timeline starts at 0
           src: a.getAttribute("src") || "",
           time: parseFloat(a.dataset.framediffTime || "0"),
-          volume: parseFloat(a.dataset.framediffVolume || "1"),
+          volume,
+        });
+      });
+      host.querySelectorAll<HTMLVideoElement>("video[data-framediff-video]").forEach((video) => {
+        if (!isAudioElementActive(video, host)) return;
+        const volume = parseFloat(video.dataset.framediffVolume || "1");
+        const src = videoFrameSource(video);
+        if (!(volume > 0) || !src) return;
+        samples.push({
+          n: n - startFrame,
+          src,
+          time: parseFloat(video.dataset.framediffTime || "0"),
+          volume,
         });
       });
       audioFramesScanned = n - startFrame + 1;

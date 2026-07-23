@@ -13,6 +13,7 @@ import type {
   PlacementField,
   PreviewElementPatch,
   StudioSessionState,
+  TimelineDeleteRequest,
   TimelineItemSnapshot,
 } from "./types";
 
@@ -586,6 +587,53 @@ export class StudioSession {
       },
     }));
     return result;
+  }
+
+  public async deleteTimelineItems(
+    itemIds: string[],
+    compactLayer?: TimelineDeleteRequest["compactLayer"],
+  ): Promise<boolean> {
+    const state = this.state.get();
+    const ids = [...new Set(itemIds)];
+    if (!state.currentKey || state.editing || !this.runtime.deleteTimelineItems || !ids.length) return false;
+    const selected = this.currentItems.filter((item) => ids.includes(item.id));
+    if (selected.length !== ids.length || selected.some((item) => !item.editable?.delete)) return false;
+
+    this.state.update((current) => ({ ...current, editing: true, error: null, notice: null }));
+    const result = await this.runtime.deleteTimelineItems({
+      compositionKey: state.currentKey,
+      itemIds: ids,
+      ...(compactLayer ? { compactLayer } : {}),
+    });
+    if (!result.ok) {
+      this.state.update((current) => ({ ...current, editing: false, error: result.message ?? "Could not delete timeline items." }));
+      return false;
+    }
+
+    const category = (item: TimelineItemSnapshot): "video" | "audio" | "grade" =>
+      item.content.type === "audio" ? "audio" : item.content.type === "grade-layer" ? "grade" : "video";
+    this.state.update((current) => {
+      const remaining = (current.timelineByComposition[current.currentKey] ?? [])
+        .filter((item) => !ids.includes(item.id))
+        .map((item) => compactLayer && category(item) === compactLayer.kind && item.layer != null && item.layer > compactLayer.layer
+          ? { ...item, layer: item.layer - 1 }
+          : item);
+      const removedSelection = !!current.selection && (
+        ids.includes(current.selection.objectId)
+        || (current.selectedItemId != null && ids.includes(current.selectedItemId))
+      );
+      return {
+        ...current,
+        editing: false,
+        selectedItemId: current.selectedItemId && ids.includes(current.selectedItemId) ? null : current.selectedItemId,
+        selection: removedSelection ? null : current.selection,
+        notice: compactLayer
+          ? `Deleted ${compactLayer.kind} layer ${compactLayer.layer + 1}.`
+          : `Deleted ${selected.length === 1 ? selected[0].name ?? selected[0].id : `${selected.length} timeline items`}.`,
+        timelineByComposition: { ...current.timelineByComposition, [current.currentKey]: remaining },
+      };
+    });
+    return true;
   }
 
   public async refresh(): Promise<void> {

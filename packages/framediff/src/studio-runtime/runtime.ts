@@ -29,6 +29,7 @@ import type {
   ProviderCredentialsSnapshot,
   RenderProgressSnapshot,
   RenderResult,
+  TimelineDeleteRequest,
   TimelineItemSnapshot,
   UnrollGroupRequest,
 } from "@framediff/studio-model";
@@ -103,6 +104,7 @@ import {
   inspectorFieldsFromHtml,
   insertNestedHtmlComposition,
   removeHtmlAttribute,
+  removeHtmlElement,
   rewriteHtmlAttribute,
   rewriteHtmlAttributes,
   timelineFromComposition,
@@ -1258,6 +1260,18 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     return this.editPlacements([request]);
   }
 
+  private async refreshEditedComposition(compositionKey: string): Promise<void> {
+    this.probed.delete(compositionKey);
+    await this.probe(compositionKey);
+    for (const preview of this.previews) {
+      if (preview.compositionKey !== compositionKey) continue;
+      preview.handle?.destroy();
+      preview.handle = undefined;
+      preview.mountedKey = undefined;
+      this.renderPreview(preview);
+    }
+  }
+
   public async editPlacements(requests: PlacementEditRequest[]): Promise<PlacementEditResult> {
     if (!requests.length) return { ok: false, message: "No placement edits were requested." };
     const compositionKey = requests[0].compositionKey;
@@ -1371,22 +1385,80 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     // Apply the data edit immediately. A later JSON HMR update is harmless, but Studio does not
     // wait for it and does not remount unrelated compositions.
     composition.timeline = document;
-    this.probed.delete(compositionKey);
-    await this.probe(compositionKey);
-    for (const preview of this.previews) {
-      if (preview.compositionKey !== compositionKey) continue;
-      preview.handle?.destroy();
-      preview.handle = undefined;
-      preview.mountedKey = undefined;
-      this.renderPreview(preview);
-    }
+    await this.refreshEditedComposition(compositionKey);
     return { ok: true, file, receipt: committed.receipt };
+  }
+
+  public async deleteTimelineItems(request: TimelineDeleteRequest): Promise<PlacementEditResult> {
+    const composition = this.registry[request.compositionKey];
+    const itemIds = [...new Set(request.itemIds)];
+    if (!composition || (composition.meta?.kind ?? "edit") !== "edit") return { ok: false, message: "Only edit compositions expose removable timeline layers." };
+    if (!itemIds.length) return { ok: false, message: "No timeline items were selected for deletion." };
+
+    const snapshot = await this.probe(request.compositionKey);
+    const byId = new Map(snapshot.map((item) => [item.id, item]));
+    const unknown = itemIds.filter((id) => !byId.get(id)?.editable?.delete);
+    if (unknown.length) return { ok: false, message: `Timeline item${unknown.length === 1 ? "" : "s"} ${unknown.join(", ")} cannot be removed safely.` };
+
+    const changes: Array<{ before: { file: string; text: string | null; hash: string | null }; text: string | null }> = [];
+    let nextTimeline: CompositionTimelineDocument | undefined;
+    const timelineFile = composition.meta?.timelineFile;
+    if (timelineFile && composition.timeline) {
+      const revision = await readSourceRevision(timelineFile);
+      if (!revision || revision.text == null) return { ok: false, file: timelineFile, message: `Could not read ${timelineFile}.` };
+      try {
+        const parsed = JSON.parse(revision.text) as CompositionTimelineDocument;
+        if (parsed.version !== 1 || !Array.isArray(parsed.items)) throw new Error("expected { version: 1, items: [] }");
+        nextTimeline = { version: 1, items: parsed.items.filter((item) => !itemIds.includes(item.id)).map((item) => ({ ...item })) };
+      } catch (error) {
+        return { ok: false, file: timelineFile, message: `${timelineFile} is not a valid FrameDiff timeline document: ${error instanceof Error ? error.message : String(error)}` };
+      }
+      if (request.compactLayer) {
+        for (const placement of nextTimeline.items) {
+          const item = byId.get(placement.id);
+          const kind = item?.content.type === "audio" ? "audio" : item?.content.type === "grade-layer" ? "grade" : "video";
+          if (kind === request.compactLayer.kind && placement.layer != null && placement.layer > request.compactLayer.layer) {
+            placement.layer -= 1;
+          }
+        }
+      }
+      changes.push({ before: revision, text: `${JSON.stringify(nextTimeline, null, 2)}\n` });
+    }
+
+    const htmlFile = composition.meta?.sourceFormat !== "generated" ? composition.meta?.file : undefined;
+    let nextHtml = composition.html;
+    if (htmlFile) {
+      const revision = await readSourceRevision(htmlFile);
+      if (!revision || revision.text == null) return { ok: false, file: htmlFile, message: `Could not read ${htmlFile}.` };
+      nextHtml = revision.text;
+      for (const itemId of itemIds) nextHtml = removeHtmlElement(nextHtml, itemId) ?? nextHtml;
+      if (request.compactLayer) {
+        for (const item of snapshot) {
+          const kind = item.content.type === "audio" ? "audio" : item.content.type === "grade-layer" ? "grade" : "video";
+          if (!itemIds.includes(item.id) && kind === request.compactLayer.kind && item.layer != null && item.layer > request.compactLayer.layer) {
+            nextHtml = rewriteHtmlAttribute(nextHtml, item.id, "data-fd-layer", item.layer - 1) ?? nextHtml;
+          }
+        }
+      }
+      if (nextHtml !== revision.text) changes.push({ before: revision, text: nextHtml });
+    }
+    if (!changes.length) return { ok: false, message: "The selected timeline items have no writable source authority." };
+
+    const label = request.compactLayer
+      ? `Delete ${request.compactLayer.kind} layer ${request.compactLayer.layer + 1}`
+      : itemIds.length === 1 ? `Delete timeline item ${itemIds[0]}` : "Delete timeline items";
+    const committed = await this.commitSourceTexts(label, changes);
+    if (!committed.ok) return { ok: false, message: committed.message, conflicts: committed.conflicts };
+    if (nextTimeline) composition.timeline = nextTimeline;
+    if (nextHtml !== composition.html) composition.html = nextHtml;
+    await this.refreshEditedComposition(request.compositionKey);
+    return { ok: true, file: timelineFile ?? htmlFile, receipt: committed.receipt };
   }
 
   public async inspectItem(compositionKey: string, itemId: string): Promise<InspectorDetailsSnapshot> {
     const composition = this.registry[compositionKey];
-    const item = this.probed.get(compositionKey)?.find((entry) => entry.id === itemId);
     if (!composition) return { compositionKey, itemId, sections: [] };
+    const item = (this.probed.get(compositionKey) ?? await this.probe(compositionKey)).find((entry) => entry.id === itemId);
     const files = await this.loadCompositionSources(compositionKey);
     const file = composition.meta?.file;
     const sections: InspectorSectionSnapshot[] = [];
@@ -1441,10 +1513,47 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       }
     }
 
+    const timelinePlacement = composition.meta?.timelineFile
+      ? composition.timeline?.items.find((placement) => placement.id === itemId)
+      : undefined;
+    const timelineMediaContent = item?.content.type === "video" || item?.content.type === "audio" ? item.content : undefined;
+    const timelineOwnsMediaAudio = !!timelinePlacement && !!timelineMediaContent;
+    if (timelineOwnsMediaAudio) {
+      const volume = Math.max(0, Math.min(1, timelinePlacement.volume ?? timelineMediaContent.volume ?? 1));
+      const muted = timelinePlacement.muted ?? timelineMediaContent.muted ?? false;
+      sections.push({
+        id: "timeline-media-audio",
+        title: item?.content.type === "video" ? "VIDEO AUDIO" : "AUDIO",
+        kind: "data",
+        fields: [
+          {
+            id: "timeline:volume",
+            label: "volume",
+            value: volume,
+            valueType: "number",
+            editable: true,
+            step: 0.01,
+            source: composition.meta?.timelineFile,
+            control: { type: "number", value: volume, min: 0, max: 1, step: 0.01, slider: true },
+          },
+          {
+            id: "timeline:muted",
+            label: "muted",
+            boolean: muted,
+            valueType: "boolean",
+            editable: true,
+            source: composition.meta?.timelineFile,
+            control: { type: "boolean", value: muted },
+          },
+        ],
+      });
+    }
+
     // Generated HTML often contains template expressions rather than rewriteable authored
     // attribute literals. Its explicit editableData declarations remain available below.
     if (file && files[file] && composition.meta?.sourceFormat !== "generated") {
-      const fields = inspectorFieldsFromHtml(files[file], itemId);
+      const fields = inspectorFieldsFromHtml(files[file], itemId).filter((field) =>
+        !timelineOwnsMediaAudio || (field.attribute !== "data-fd-volume" && field.attribute !== "data-fd-muted"));
       const grade = fields.filter((field) => htmlGradeAttributes.includes(field.attribute) || ["data-fd-lut", "data-fd-lut-name", "data-fd-lut-intensity"].includes(field.attribute));
       const properties = fields.filter((field) => !grade.includes(field));
       if (properties.length) sections.push({
@@ -1525,6 +1634,9 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   }
 
   public async editInspectorField(request: InspectorFieldEditRequest): Promise<PlacementEditResult> {
+    if (request.fieldId === "timeline:volume" || request.fieldId === "timeline:muted") {
+      return this.editTimelineMediaAudio(request);
+    }
     if (request.fieldId.startsWith("json:")) return this.editJsonDocumentField(request);
     if (request.fieldId.startsWith("html:") || request.fieldId.startsWith("html-target:")) {
       const composition = this.registry[request.compositionKey];
@@ -1557,6 +1669,42 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       itemId: request.itemId,
       edits: [{ fieldId: request.fieldId, value: request.value }],
     });
+  }
+
+  private async editTimelineMediaAudio(request: InspectorFieldEditRequest): Promise<PlacementEditResult> {
+    const composition = this.registry[request.compositionKey];
+    const file = composition?.meta?.timelineFile;
+    if (!composition || !file || !composition.timeline) return { ok: false, message: "This media item has no external timeline document." };
+    const revision = await readSourceRevision(file);
+    if (!revision || revision.text == null) return { ok: false, file, message: `Could not read ${file}.` };
+    let document: CompositionTimelineDocument;
+    try {
+      const parsed = JSON.parse(revision.text) as CompositionTimelineDocument;
+      if (parsed.version !== 1 || !Array.isArray(parsed.items)) throw new Error("expected { version: 1, items: [] }");
+      document = { version: 1, items: parsed.items.map((item) => ({ ...item })) };
+    } catch (error) {
+      return { ok: false, file, message: `${file} is not a valid FrameDiff timeline document: ${error instanceof Error ? error.message : String(error)}` };
+    }
+    const placement = document.items.find((item) => item.id === request.itemId);
+    const type = placement?.content?.type
+      ?? this.probed.get(request.compositionKey)?.find((item) => item.id === request.itemId)?.content.type;
+    if (!placement || (type !== "video" && type !== "audio")) return { ok: false, file, message: `"${request.itemId}" is not a timeline media item.` };
+    if (request.fieldId === "timeline:volume") {
+      if (typeof request.value !== "number" || !Number.isFinite(request.value)) return { ok: false, file, message: "Volume must be a number." };
+      placement.volume = Math.max(0, Math.min(1, request.value));
+    } else {
+      if (typeof request.value !== "boolean") return { ok: false, file, message: "Muted must be true or false." };
+      placement.muted = request.value;
+    }
+    const committed = await this.commitSourceText(
+      request.fieldId === "timeline:volume" ? "Adjust media volume" : request.value ? "Mute media" : "Unmute media",
+      revision,
+      `${JSON.stringify(document, null, 2)}\n`,
+    );
+    if (!committed.ok) return { ok: false, file, message: committed.message, conflicts: committed.conflicts };
+    composition.timeline = document;
+    await this.refreshEditedComposition(request.compositionKey);
+    return { ok: true, file, receipt: committed.receipt };
   }
 
   private async editJsonDocumentField(request: InspectorFieldEditRequest): Promise<PlacementEditResult> {

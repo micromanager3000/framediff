@@ -199,6 +199,11 @@ export class InspectorViewModel {
     if (itemId) this.session.enterNested(itemId);
   }
 
+  public deleteItem(): Promise<boolean> {
+    const itemId = this.session.state.get().selectedItemId;
+    return itemId ? this.session.deleteTimelineItems([itemId]) : Promise.resolve(false);
+  }
+
   public clearSelection(): void {
     this.session.selectItem(null);
   }
