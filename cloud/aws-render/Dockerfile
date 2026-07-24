@@ -25,7 +25,8 @@ LABEL org.opencontainers.image.title="FrameDiff AWS GPU render worker" \
 ENV DEBIAN_FRONTEND=noninteractive \
     FD_CHROME_PATH=/usr/bin/google-chrome \
     FD_WORKSPACE=/workspace \
-    NODE_ENV=production
+    NODE_ENV=production \
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 RUN apt-get update \
     && apt-get upgrade -y \
@@ -37,7 +38,25 @@ RUN apt-get update \
       > /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends google-chrome-stable \
-    && apt-get purge -y curl gnupg gnupg-utils gpg gpg-agent gpgconf gpgsm keyboxd \
+    && apt-get purge -y \
+      curl \
+      gnupg \
+      gnupg-utils \
+      gpg \
+      gpg-agent \
+      gpgconf \
+      gpgsm \
+      keyboxd \
+      gstreamer1.0-libav \
+      libavcodec60 \
+      libavfilter9 \
+      libavformat60 \
+      libavutil58 \
+      libcjson1 \
+      libpostproc57 \
+      librist4 \
+      libswresample4 \
+      libswscale7 \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
