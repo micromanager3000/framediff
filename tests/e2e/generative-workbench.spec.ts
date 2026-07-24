@@ -29,6 +29,39 @@ test("a draft take is an obvious, repeatable path back to editing", async ({ pag
   await expect(prompt).toBeFocused();
 });
 
+test("legacy phone-local geometry keeps the pinned Lighthouse take visible", async ({ page }) => {
+  await openComposition(page, "lighthouse-workflow", "http://127.0.0.1:4175/");
+
+  const editPreview = page.locator(
+    '.workspace:not(.generate-workspace) > .preview-panel > .preview-surface > .preview-host > .preview-runtime-host',
+  );
+  const finalFrame = editPreview.locator('[data-fd-id="workflow-final"]');
+  const finalVideo = finalFrame.locator("video[data-gen-output]");
+  await expect(finalFrame).toHaveCount(1);
+  await expect(finalVideo).toHaveCount(1);
+  await expect.poll(() => finalFrame.evaluate((frame) => {
+    const phone = frame.closest<HTMLElement>(".phone")!;
+    const video = frame.querySelector<HTMLVideoElement>("video[data-gen-output]")!;
+    const frameRect = frame.getBoundingClientRect();
+    const phoneRect = phone.getBoundingClientRect();
+    const overlapWidth = Math.max(0, Math.min(frameRect.right, phoneRect.right) - Math.max(frameRect.left, phoneRect.left));
+    const overlapHeight = Math.max(0, Math.min(frameRect.bottom, phoneRect.bottom) - Math.max(frameRect.top, phoneRect.top));
+    return {
+      layoutSpace: frame.getAttribute("data-fd-layout-space"),
+      layoutLocalX: frame.getAttribute("data-fd-layout-local-x"),
+      layoutLocalY: frame.getAttribute("data-fd-layout-local-y"),
+      visibleInsidePhone: overlapWidth * overlapHeight / Math.max(1, frameRect.width * frameRect.height) > 0.9,
+      hasPinnedSource: video.currentSrc.includes("/__framediff-cache/"),
+    };
+  })).toEqual({
+    layoutSpace: null,
+    layoutLocalX: null,
+    layoutLocalY: null,
+    visibleInsidePhone: true,
+    hasPinnedSource: true,
+  });
+});
+
 test("a JSON-authored nested volume controls preview and export gain", async ({ page }) => {
   const timelineFile = "examples/previz-to-gen/src/compositions/LighthouseWorkflow.timeline.json";
   const htmlFile = "examples/previz-to-gen/src/compositions/LighthouseWorkflow.html";

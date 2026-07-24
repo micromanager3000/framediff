@@ -207,7 +207,7 @@ function previewElement(preview: PreviewRecord, element: HTMLElement): PreviewNo
   const parent = element.parentElement?.closest<HTMLElement>("[data-fd-id]");
   const compRef = element.getAttribute("data-fd-comp");
   const text = previewText(element);
-  const materializedLayout = element.getAttribute("data-fd-layout-owner") === "timeline"
+  const materializedLayout = element.getAttribute("data-fd-layout-space") === "composition"
     && element.hasAttribute("data-fd-x")
     && element.hasAttribute("data-fd-y");
   const offset = offsetWithinRoot(element, root);
