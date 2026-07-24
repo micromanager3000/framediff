@@ -2,12 +2,16 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   __generativeTest,
   generative,
+  genDims,
+  genNativeDims,
+  genOutputKindOf,
   genRecipeSnapshotOf,
   genTakesFrom,
   primeGenTakes,
   forkGenRecipe,
   type GenRecipe,
   type GenTake,
+  recipeCanonical,
 } from "./generative";
 
 const take = (n: number, hash = `sha256:t${n}`): GenTake => ({
@@ -119,5 +123,60 @@ describe("just-landed generative takes", () => {
 
     expect(composition.html).toContain('<div class="gen-slate" hidden>');
     expect(composition.html).toContain(".gen-slate[hidden] { display:none; }");
+  });
+});
+
+describe("generative output contracts", () => {
+  it("keeps legacy recipes readable and honors an explicit locked output", () => {
+    expect(genOutputKindOf({ model: "seedream-5.0-pro" })).toBe("image");
+    expect(genOutputKindOf({ model: "seedance-2.0", output: "audio" })).toBe("audio");
+  });
+
+  it("makes visual output shaping optional and presentation-only", () => {
+    const recipe: GenRecipe = {
+      id: "image",
+      output: "image",
+      model: "seedream-5.0-pro",
+      prompt: "A portrait",
+      aspect: "9:16",
+    };
+    const native = genNativeDims(recipe);
+    const shaped = {
+      ...recipe,
+      desiredOutput: {
+        width: 1920,
+        height: 1080,
+        fit: "cover" as const,
+        crop: { x: 0.3418, y: 0, width: 0.3164, height: 1 },
+      },
+    };
+
+    expect(genDims(recipe)).toEqual(native);
+    expect(genDims(shaped)).toEqual({ width: 1920, height: 1080 });
+    expect(recipeCanonical(shaped)).toEqual(recipeCanonical(recipe));
+    expect(generative(shaped)).toMatchObject({
+      width: 1920,
+      height: 1080,
+      durationInFrames: 1,
+      meta: { output: "image" },
+    });
+  });
+
+  it("hashes per-input adaptation because it changes provider input bytes", () => {
+    const recipe: GenRecipe = {
+      id: "video",
+      output: "video",
+      prompt: "Animate this",
+      refs: [{
+        kind: "image",
+        src: "comp://portrait",
+        adapt: { fit: "contain", matte: "#000000" },
+      }],
+    };
+    expect(recipeCanonical(recipe).refs).toEqual([{
+      kind: "image",
+      src: "comp://portrait",
+      adapt: { fit: "contain", matte: "#000000" },
+    }]);
   });
 });

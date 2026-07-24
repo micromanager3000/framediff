@@ -306,7 +306,7 @@ export async function genSubmit(payload: {
   endpoint: string;
   recipeHash: string;
   input: Record<string, unknown>;
-  refs: { kind: GenRefKind; src: string; authoredSrc: string; mime?: string; name?: string; field?: string; many?: boolean }[];
+  refs: { kind: GenRefKind; src: string; authoredSrc: string; mime?: string; name?: string; field?: string; many?: boolean; adapt?: GenInputProvenance["adapt"] }[];
   recipe: GenRecipeSnapshot;
 }): Promise<{ job?: GenJob; error?: string }> {
   try {

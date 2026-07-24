@@ -12,6 +12,11 @@
 
 import { hashCanonical } from "./graph/hash";
 import { genModelOf, genParamValue } from "./genModels";
+import { cropRegionMatchesTargetAspect, normalizeCropRegion } from "@framediff/studio-model";
+import type {
+  CompositionOutputKind,
+  VisualAdaptation,
+} from "@framediff/studio-model";
 import type { StudioComposition } from "./studio/types";
 import { defineComposition } from "./composition";
 
@@ -23,6 +28,13 @@ export type GenProvider = "fal" | "byteplus";
 export interface GenRef {
   kind: GenRefKind;
   src: string;
+  /** Consumer-specific preprocessing applied before these bytes reach the selected model. */
+  adapt?: VisualAdaptation;
+}
+
+export interface GenDesiredOutput extends VisualAdaptation {
+  width: number;
+  height: number;
 }
 
 export interface GenRecipe {
@@ -33,6 +45,8 @@ export interface GenRecipe {
   /** Project-relative JSON document containing mutable recipe settings and composition refs. */
   dataFile?: string;
   provider?: GenProvider;
+  /** Immutable composition contract. Optional only so older recipes can be loaded and migrated. */
+  output?: CompositionOutputKind;
   /** Model id — a key in GEN_MODELS (genModels.ts); the def drives params/refs/cost. */
   model?: string;
   tier?: "standard" | "fast";
@@ -55,6 +69,8 @@ export interface GenRecipe {
   /** Reproducibility seed (Veo/Wan — Seedance has no seed input). */
   seed?: number;
   fps?: number;
+  /** Optional post-generation visual contract. Omit to preserve the model's native shape. */
+  desiredOutput?: GenDesiredOutput;
   /** Pinned take number — the lockfile. 0 = nothing pinned yet. */
   take?: number;
 }
@@ -70,6 +86,7 @@ export interface GenInputProvenance {
   kind: GenRefKind;
   src: string;
   contentHash?: string;
+  adapt?: VisualAdaptation;
 }
 
 export function genRecipeSnapshotOf(recipe: GenRecipe): GenRecipeSnapshot {
@@ -131,12 +148,17 @@ export function genEndpoint(recipe: GenRecipe): string {
   return genModelOf(recipe).endpointOf(recipe);
 }
 
+/** New recipes author output explicitly. Older recipes inherit it once from their model. */
+export function genOutputKindOf(recipe: Pick<GenRecipe, "model" | "output">): CompositionOutputKind {
+  return recipe.output ?? genModelOf(recipe).output;
+}
+
 const RES_HEIGHT = { "480p": 480, "720p": 720, "1080p": 1080, "4k": 2160 } as const;
 const ASPECT: Record<NonNullable<GenRecipe["aspect"]>, number> = {
   "21:9": 21 / 9, "16:9": 16 / 9, "4:3": 4 / 3, "1:1": 1, "3:4": 3 / 4, "9:16": 9 / 16,
 };
 
-export function genDims(recipe: GenRecipe): { width: number; height: number } {
+export function genNativeDims(recipe: GenRecipe): { width: number; height: number } {
   const def = genModelOf(recipe);
   const h = def.fixedHeight ?? RES_HEIGHT[recipe.resolution ?? GEN_DEFAULTS.resolution];
   const ar = ASPECT[recipe.aspect ?? GEN_DEFAULTS.aspect];
@@ -144,6 +166,23 @@ export function genDims(recipe: GenRecipe): { width: number; height: number } {
   const height = ar >= 1 ? h : Math.round((h / ar) / 2) * 2;
   const width = ar >= 1 ? Math.round((h * ar) / 2) * 2 : h;
   return { width, height };
+}
+
+export function genDims(recipe: GenRecipe): { width: number; height: number } {
+  const native = genNativeDims(recipe);
+  const desired = recipe.desiredOutput;
+  if (
+    genOutputKindOf(recipe) === "audio" ||
+    !desired ||
+    !Number.isFinite(desired.width) ||
+    !Number.isFinite(desired.height) ||
+    desired.width < 1 ||
+    desired.height < 1
+  ) return native;
+  return {
+    width: Math.round(desired.width),
+    height: Math.round(desired.height),
+  };
 }
 
 /** The exact object the recipe hash covers — what "the recipe changed" means. Excludes
@@ -157,7 +196,9 @@ export function recipeCanonical(recipe: GenRecipe): Record<string, unknown> {
   const canon: Record<string, unknown> = {
     endpoint: def.endpointOf(recipe),
     prompt: recipe.prompt,
-    refs: (recipe.refs ?? []).map((r) => ({ kind: r.kind, src: r.src })),
+    refs: (recipe.refs ?? []).map((r) => r.adapt
+      ? { kind: r.kind, src: r.src, adapt: r.adapt }
+      : { kind: r.kind, src: r.src }),
   };
   for (const p of def.params) {
     if (p.canonical === false) continue;
@@ -267,26 +308,45 @@ export const __generativeTest = {
  * the attached `recipe`) and shows the generative editor for it.
  */
 export function generative(recipe: GenRecipe): GenerativeComposition {
-  const definition = genModelOf(recipe);
-  const outputKind = definition.output;
+  const outputKind = genOutputKindOf(recipe);
   const fps = recipe.fps ?? GEN_DEFAULTS.fps;
+  const native = genNativeDims(recipe);
   const { width, height } = genDims(recipe);
-  const durationInFrames = Math.round((recipe.duration ?? GEN_DEFAULTS.duration) * fps);
+  const durationInFrames = outputKind === "image"
+    ? 1
+    : Math.round((recipe.duration ?? GEN_DEFAULTS.duration) * fps);
   const prompt = escapeHtml(recipe.prompt.length > 90 ? `${recipe.prompt.slice(0, 90)}…` : recipe.prompt);
   const wantTake = recipe.take ?? GEN_DEFAULTS.take;
-  const initial = primedTake(recipe.id, wantTake);
+  const initialCandidate = primedTake(recipe.id, wantTake);
+  const initial = initialCandidate?.generator.outputKind == null ||
+    initialCandidate.generator.outputKind === outputKind
+    ? initialCandidate
+    : null;
   const initialUrl = initial ? `/__framediff-cache/${encodeURIComponent(initial.contentHash)}` : "";
+  const desired = outputKind === "audio" ? undefined : recipe.desiredOutput;
+  const crop = desired?.fit === "cover" && desired.crop &&
+    cropRegionMatchesTargetAspect(desired.crop, native.width, native.height, width, height)
+    ? normalizeCropRegion(desired.crop)
+    : undefined;
+  const matte = /^#[0-9a-f]{6}$/i.test(desired?.matte ?? "") ? desired?.matte : "#000000";
+  const visualStyle = crop
+    ? `left:${-(crop.x / crop.width) * 100}%;top:${-(crop.y / crop.height) * 100}%;width:${100 / crop.width}%;height:${100 / crop.height}%;object-fit:fill;`
+    : desired?.fit === "contain"
+      ? "object-fit:contain;"
+      : desired?.fit === "stretch" || desired?.fit === "resize"
+        ? "object-fit:fill;"
+        : "object-fit:cover;";
   const media = outputKind === "video"
-    ? `<video data-gen-output data-fd-type="video" data-fd-src="${initialUrl}" data-fd-muted="${!(recipe.audio ?? GEN_DEFAULTS.audio)}"></video>`
+    ? `<video data-gen-output data-fd-type="video" data-fd-src="${initialUrl}" data-fd-muted="${!(recipe.audio ?? GEN_DEFAULTS.audio)}" style="${visualStyle}"></video>`
     : outputKind === "image"
-      ? `<img data-gen-output data-fd-type="image" data-fd-src="${initialUrl}" alt="">`
+      ? `<img data-gen-output data-fd-type="image" data-fd-src="${initialUrl}" alt="" style="${visualStyle}">`
       : `<audio data-gen-output data-fd-type="audio" data-fd-src="${initialUrl}" data-fd-volume="1"></audio>`;
   const initialStatus = wantTake > 0
     ? `take ${wantTake} not in the cache — regenerate or re-pin`
     : "no take pinned — Generate runs the recipe";
   const source = `<!doctype html><html><head><style>
-    [data-fd-composition] { position:relative;overflow:hidden;background:linear-gradient(135deg,#191420 0%,#0e0d0b 60%,#1d1410 100%);color:#c6c0af;font-family:SFMono-Regular,Consolas,monospace; }
-    video,img { position:absolute;inset:0;width:100%;height:100%;object-fit:cover; }
+    [data-fd-composition] { position:relative;overflow:hidden;background:${desired?.fit === "contain" ? matte : "linear-gradient(135deg,#191420 0%,#0e0d0b 60%,#1d1410 100%)"};color:#c6c0af;font-family:SFMono-Regular,Consolas,monospace; }
+    video,img { position:absolute;inset:0;width:100%;height:100%; }
     audio { position:absolute;width:1px;height:1px;opacity:0;pointer-events:none; }
     .gen-slate { position:absolute;inset:0;display:grid;place-items:center;text-align:center;line-height:2; }
     .gen-slate[hidden] { display:none; }
@@ -311,7 +371,10 @@ export function generative(recipe: GenRecipe): GenerativeComposition {
         const immediate = primedTake(recipe.id, wantTake);
         const takes = immediate ? [immediate] : knownGenTakes(await fetchManifest(), recipe.id);
         if (signal.aborted) return;
-        const pinned = takes.find((take) => take.generator.take === wantTake) ?? null;
+        const pinned = takes.find((take) =>
+          take.generator.take === wantTake &&
+          (take.generator.outputKind == null || take.generator.outputKind === outputKind)
+        ) ?? null;
         slate.hidden = outputKind === "audio" ? false : !!pinned;
         if (pinned) {
           const url = `/__framediff-cache/${encodeURIComponent(pinned.contentHash)}`;

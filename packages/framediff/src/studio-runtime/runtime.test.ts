@@ -435,9 +435,82 @@ describe("HtmlStudioRuntime generative recipe documents", () => {
     expect(transaction?.files).toHaveLength(1);
     expect(transaction?.files[0].file).toBe("src/Generated.gen.json");
     expect(JSON.parse(transaction?.files[0].text ?? "{}")).toMatchObject({
+      output: "video",
       prompt: "JSON only",
       refs: [{ kind: "video", src: "comp://new-input" }],
     });
+  });
+
+  it("rejects changing either the locked output or a model from another media type", async () => {
+    const data = { provider: "fal" as const, output: "video" as const, model: "seedance-2.0", prompt: "Original", refs: [], take: 0 };
+    const generated = generative({ id: "Generated", file: "src/Generated.gen.ts", dataFile: "src/Generated.gen.json", ...data });
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url === "/__framediff/assets") return new Response("missing", { status: 404 });
+      if (url.startsWith("/__framediff/src?")) {
+        return Response.json({ file: "src/Generated.gen.json", text: JSON.stringify(data), hash: "gen-data:1" });
+      }
+      return new Response("not found", { status: 404 });
+    }));
+    const runtime = createStudioRuntime({ generated } as CompRegistry);
+
+    await expect(runtime.updateGenerativeRecipe("generated", { output: "image" })).resolves.toMatchObject({
+      ok: false,
+      message: expect.stringContaining("locked to video"),
+    });
+    await expect(runtime.updateGenerativeRecipe("generated", { model: "seedream-5.0-pro" })).resolves.toMatchObject({
+      ok: false,
+      message: expect.stringContaining("produces image"),
+    });
+  });
+
+  it("reports only same-type models and classifies composition input geometry", async () => {
+    const generated = generative({
+      id: "Generated",
+      output: "video",
+      model: "seedance-2.0",
+      prompt: "Animate the portrait",
+      resolution: "720p",
+      aspect: "16:9",
+      refs: [{ kind: "image", src: "comp://portrait" }],
+    });
+    const portrait = {
+      ...composition,
+      id: "Portrait",
+      width: 1152,
+      height: 1536,
+      meta: { ...composition.meta, output: "image" as const },
+    } satisfies StudioComposition;
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url === "/__framediff/assets") return Response.json({ assets: {} });
+      if (url === "/__framediff/secrets") return Response.json({ providers: { fal: { set: true } } });
+      if (url.startsWith("/__framediff/gen/jobs?")) return Response.json({ jobs: [], takes: [] });
+      return new Response("not found", { status: 404 });
+    }));
+    const runtime = createStudioRuntime({ generated, portrait } as CompRegistry);
+
+    const workspace = await runtime.getGenerativeWorkspace("generated");
+
+    expect(workspace).toMatchObject({
+      outputKind: "video",
+      nativeWidth: 1280,
+      nativeHeight: 720,
+      refs: [{
+        sourceWidth: 1152,
+        sourceHeight: 1536,
+        targetWidth: 1280,
+        targetHeight: 720,
+        geometry: {
+          relation: "mixed",
+          allowedFits: ["cover", "contain", "stretch"],
+        },
+      }],
+      compositions: [{ key: "portrait", width: 1152, height: 1536 }],
+    });
+    expect(workspace?.models.length).toBeGreaterThan(3);
+    expect(workspace?.models.map((model) => model.id)).not.toContain("seedream-5.0-pro");
+    expect(workspace?.models.map((model) => model.id)).not.toContain("seed-audio-1.0");
   });
 
   it("starts a new draft from the saved recipe and inputs of a failed take", async () => {
@@ -862,6 +935,7 @@ describe("HtmlStudioRuntime composition creation", () => {
       name: "New Shot",
       kind: "generate",
       durationInFrames: 120,
+      outputKind: "video",
     }, "main");
 
     expect(result).toMatchObject({ ok: true, compositionKey: "new-shot" });
@@ -869,13 +943,44 @@ describe("HtmlStudioRuntime composition creation", () => {
     expect(sources["src/NewShot.gen.ts"]).toContain("export const newShotComp = generative({");
     expect(sources["src/NewShot.gen.ts"]).toContain('file: "src/NewShot.gen.ts"');
     expect(sources["src/NewShot.gen.ts"]).toContain('dataFile: "src/NewShot.gen.json"');
-    expect(JSON.parse(sources["src/NewShot.gen.json"])).toMatchObject({ duration: 5, aspect: "16:9", take: 0 });
+    expect(JSON.parse(sources["src/NewShot.gen.json"])).toMatchObject({
+      output: "video",
+      model: "seedance-2.0",
+      duration: 5,
+      aspect: "16:9",
+      take: 0,
+    });
     expect(sources["src/NewShot.html"]).toBeUndefined();
     expect(sources["src/config.ts"]).toContain('import { newShotComp } from "./NewShot.gen";');
     expect(sources["src/config.ts"]).toContain('{ main: composition, "new-shot": newShotComp, }');
     expect(sources["src/Main.html"]).toContain('data-fd-name="NewShot"');
     expect(sources["src/Main.html"]).toContain('data-fd-type="nested" data-fd-comp="NewShot"');
     expect(result.message).toContain("nested it under Main");
+
+    await expect(runtime.createComposition({
+      name: "Poster Frame",
+      kind: "generate",
+      durationInFrames: 1,
+      outputKind: "image",
+    }, "main")).resolves.toMatchObject({ ok: true, compositionKey: "poster-frame" });
+    expect(JSON.parse(sources["src/PosterFrame.gen.json"])).toMatchObject({
+      output: "image",
+      model: "seedream-5.0-pro",
+      take: 0,
+    });
+
+    await expect(runtime.createComposition({
+      name: "Dialogue Track",
+      kind: "generate",
+      durationInFrames: 120,
+      outputKind: "audio",
+    }, "main")).resolves.toMatchObject({ ok: true, compositionKey: "dialogue-track" });
+    expect(JSON.parse(sources["src/DialogueTrack.gen.json"])).toMatchObject({
+      output: "audio",
+      model: "seed-audio-1.0",
+      duration: 5,
+      take: 0,
+    });
   });
 
   it("keeps a new composition top-level when no parent is selected", async () => {

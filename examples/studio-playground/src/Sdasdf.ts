@@ -4,6 +4,7 @@ export const sdasdfComp = generative({
   id: "Sdasdf",
   file: "src/Sdasdf.ts",
   provider: "fal",
+  output: "video",
   model: "veo-3.1-fast",
   prompt: "Describe the shot you want to generate.",
   resolution: "720p",

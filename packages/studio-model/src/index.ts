@@ -55,6 +55,18 @@ export {
   type ResizeHandle,
 } from "./geometry";
 export {
+  classifyVisualGeometry,
+  cropRegionMatchesTargetAspect,
+  cropRegionForTargetAspect,
+  normalizeCropRegion,
+  retargetCropRegion,
+  type DimensionRelation,
+  type NormalizedCropRegion,
+  type VisualAdaptation,
+  type VisualFitMode,
+  type VisualGeometryClassification,
+} from "./generativeGeometry";
+export {
   normalizeTweenTrace,
   tweenTracesEqual,
   type CanonicalTweenKind,

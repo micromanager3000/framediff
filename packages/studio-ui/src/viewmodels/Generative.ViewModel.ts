@@ -6,6 +6,7 @@ import type {
   GenerativeManagerState,
   GenerativeWorkspaceSnapshot,
   AssetState,
+  VisualAdaptation,
 } from "@framediff/studio-model";
 import { observableStore } from "./store";
 
@@ -107,21 +108,39 @@ export class GenerativeViewModel {
   public startFrom(take: number) { return this.manager.startFrom(take); }
   public startFromJob(jobId: string) { return this.manager.startFromJob(jobId); }
   public configure(provider: string, key: string) { return this.manager.configure(provider, key); }
+  private authoredRefs(workspace: GenerativeWorkspaceSnapshot) {
+    return workspace.refs.map(({ kind, src, adaptation }) => ({
+      kind,
+      src,
+      ...(adaptation ? { adapt: adaptation } : {}),
+    }));
+  }
   public removeRef(index: number) {
     const workspace = get(this.generationStore).workspace;
     if (!workspace) return Promise.resolve(false);
-    return this.update({ refs: workspace.refs.filter((_, current) => current !== index).map(({ kind, src }) => ({ kind, src })) });
+    return this.update({ refs: this.authoredRefs(workspace).filter((_, current) => current !== index) });
+  }
+  public updateRefAdaptation(index: number, adaptation?: VisualAdaptation) {
+    const workspace = get(this.generationStore).workspace;
+    if (!workspace || !workspace.refs[index]) return Promise.resolve(false);
+    const refs = this.authoredRefs(workspace);
+    refs[index] = {
+      kind: refs[index].kind,
+      src: refs[index].src,
+      ...(adaptation ? { adapt: adaptation } : {}),
+    };
+    return this.update({ refs });
   }
   public addAssetRef(assetId: string, kind: string) {
     const workspace = get(this.generationStore).workspace;
     if (!workspace) return Promise.resolve(false);
-    return this.update({ refs: [...workspace.refs.map(({ kind: refKind, src }) => ({ kind: refKind, src })), { kind, src: `asset://${assetId}` }] });
+    return this.update({ refs: [...this.authoredRefs(workspace), { kind, src: `asset://${assetId}` }] });
   }
   public addCompositionRef(compositionKey: string, kind: string) {
     const workspace = get(this.generationStore).workspace;
     if (!workspace || compositionKey === workspace.compositionKey) return Promise.resolve(false);
     const src = `comp://${compositionKey}`;
     if (workspace.refs.some((ref) => ref.src === src)) return Promise.resolve(false);
-    return this.update({ refs: [...workspace.refs.map(({ kind: refKind, src: refSrc }) => ({ kind: refKind, src: refSrc })), { kind, src }] });
+    return this.update({ refs: [...this.authoredRefs(workspace), { kind, src }] });
   }
 }

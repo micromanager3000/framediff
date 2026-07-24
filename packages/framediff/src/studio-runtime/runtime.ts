@@ -32,8 +32,16 @@ import type {
   TimelineDeleteRequest,
   TimelineItemSnapshot,
   UnrollGroupRequest,
+  VisualAdaptation,
 } from "@framediff/studio-model";
-import { artifactStatusFromInputs, buildTimelineLanes } from "@framediff/studio-model";
+import {
+  artifactStatusFromInputs,
+  buildTimelineLanes,
+  classifyVisualGeometry,
+  cropRegionMatchesTargetAspect,
+  normalizeCropRegion,
+  retargetCropRegion,
+} from "@framediff/studio-model";
 import { createAssetResolver, type AssetResolver } from "../assets/resolver";
 import { HttpFolderCAS } from "../assets/httpCas";
 import type { AssetManifest } from "../graph/schemas";
@@ -82,8 +90,17 @@ import { downloadBuffer } from "../save";
 import { hashBlob, hashString } from "../graph/hash";
 import { camelName, kebabName, pascalName } from "../studio/compose";
 import { remapRecipeForModel, rewriteRecipeSource, withRecipe } from "../studio/genSource";
-import { GEN_MODELS, genModelOf, genParamValue, genRefAccept } from "../genModels";
 import {
+  DEFAULT_GEN_MODEL_BY_OUTPUT,
+  GEN_MODELS,
+  genModelOf,
+  genModelsForOutput,
+  genParamValue,
+  genRefAccept,
+} from "../genModels";
+import {
+  genNativeDims,
+  genOutputKindOf,
   genRecipeSnapshotOf,
   genRecipeDataOf,
   invalidateGenManifest,
@@ -95,7 +112,7 @@ import {
   type GenerativeComposition,
 } from "../generative";
 import { mountComposition, type CompositionHandle } from "../runtime";
-import type { CompositionTimelineDocument } from "../composition";
+import { defineComposition, type CompositionTimelineDocument } from "../composition";
 import { analyzeGsapSource, analyzeGsapUnrollGroups, ensureGsapTimelineSource, insertGsapTweenSource, rewriteGsapAnimationSource, rewriteGsapMotionPathSource, rewriteGsapUnrollSource } from "../gsap/source";
 import { parseMotionPathSvg } from "@framediff/studio-model";
 import { getGsapRuntimeTraces } from "../gsap";
@@ -852,6 +869,50 @@ function describeRegistry(registry: CompRegistry): CompositionDescriptor[] {
     guide: composition.meta?.guide,
     authoring: composition.meta?.authoring,
   }));
+}
+
+const escapeAttribute = (value: string): string => value
+  .replaceAll("&", "&amp;")
+  .replaceAll("\"", "&quot;")
+  .replaceAll("<", "&lt;")
+  .replaceAll(">", "&gt;");
+
+function adaptedVisualComposition(options: {
+  id: string;
+  src: string;
+  kind: "image" | "video";
+  width: number;
+  height: number;
+  fps: number;
+  durationInFrames: number;
+  adaptation: VisualAdaptation;
+}): StudioComposition {
+  const crop = options.adaptation.fit === "cover" && options.adaptation.crop
+    ? normalizeCropRegion(options.adaptation.crop)
+    : undefined;
+  const mediaStyle = crop
+    ? `left:${-(crop.x / crop.width) * 100}%;top:${-(crop.y / crop.height) * 100}%;width:${100 / crop.width}%;height:${100 / crop.height}%;object-fit:fill;`
+    : options.adaptation.fit === "contain"
+      ? "object-fit:contain;"
+      : options.adaptation.fit === "stretch" || options.adaptation.fit === "resize"
+        ? "object-fit:fill;"
+        : "object-fit:cover;";
+  const matte = /^#[0-9a-f]{6}$/i.test(options.adaptation.matte ?? "")
+    ? options.adaptation.matte
+    : "#000000";
+  const media = options.kind === "image"
+    ? `<img data-fd-type="image" data-fd-src="${escapeAttribute(options.src)}" alt="" style="${mediaStyle}">`
+    : `<video data-fd-type="video" data-fd-src="${escapeAttribute(options.src)}" data-fd-muted="false" style="${mediaStyle}"></video>`;
+  return defineComposition(`<!doctype html><html><head><style>
+    [data-fd-composition]{position:relative;overflow:hidden;background:${matte}}
+    img,video{position:absolute;inset:0;width:100%;height:100%}
+  </style></head><body><main data-fd-composition data-fd-id="${escapeAttribute(options.id)}"
+    data-fd-width="${options.width}" data-fd-height="${options.height}"
+    data-fd-fps="${options.fps}" data-fd-duration="${options.durationInFrames}">
+    ${media}
+  </main></body></html>`, {
+    meta: { kind: "generate", output: options.kind, sourceFormat: "generated" },
+  });
 }
 
 export class HtmlStudioRuntime implements CompositionRuntimePort {
@@ -2282,6 +2343,85 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     return { bytes: blob.size, filename: hash };
   }
 
+  private async adaptVisualReference(options: {
+    id: string;
+    src: string;
+    kind: "image" | "video";
+    sourceWidth: number;
+    sourceHeight: number;
+    targetWidth: number;
+    targetHeight: number;
+    fps: number;
+    durationInFrames: number;
+    adaptation: VisualAdaptation;
+  }): Promise<{ contentHash: string; mime: string; name: string }> {
+    const relation = classifyVisualGeometry(
+      options.sourceWidth,
+      options.sourceHeight,
+      options.targetWidth,
+      options.targetHeight,
+    );
+    if (!relation.allowedFits.includes(options.adaptation.fit)) {
+      throw new Error(
+        `${options.adaptation.fit} is not valid for ${relation.label.toLowerCase()}; choose ${relation.allowedFits.join(", ")}.`,
+      );
+    }
+    if (
+      options.adaptation.fit === "cover" &&
+      options.adaptation.crop &&
+      !cropRegionMatchesTargetAspect(
+        options.adaptation.crop,
+        options.sourceWidth,
+        options.sourceHeight,
+        options.targetWidth,
+        options.targetHeight,
+      )
+    ) {
+      throw new Error("The crop region must match the target aspect ratio.");
+    }
+    const composition = adaptedVisualComposition({
+      id: `${options.id}-input-adaptation`,
+      src: options.src,
+      kind: options.kind,
+      width: options.targetWidth,
+      height: options.targetHeight,
+      fps: options.fps,
+      durationInFrames: options.kind === "image" ? 1 : options.durationInFrames,
+      adaptation: options.adaptation,
+    });
+    let blob: Blob;
+    if (options.kind === "image") {
+      const canvas = await captureCompositeFrame(composition, 0, {
+        width: options.targetWidth,
+        height: options.targetHeight,
+        resolver: this.resolver,
+        registry: this.registry,
+      });
+      blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((result) => result ? resolve(result) : reject(new Error("PNG encoding failed")), "image/png");
+      });
+    } else {
+      const buffer = await exportVideo(composition, {
+        width: options.targetWidth,
+        height: options.targetHeight,
+        codec: "avc1.640028",
+        muxerCodec: "avc",
+        bitrate: Math.round(options.targetWidth * options.targetHeight * options.fps * 0.2),
+        resolver: this.resolver,
+        registry: this.registry,
+      });
+      blob = new Blob([buffer], { type: "video/mp4" });
+    }
+    const contentHash = await hashBlob(blob);
+    const extension = options.kind === "image" ? "png" : "mp4";
+    await new HttpFolderCAS().put(contentHash, blob, `${options.id}.input.${extension}`);
+    return {
+      contentHash,
+      mime: options.kind === "image" ? "image/png" : "video/mp4",
+      name: `${options.id}.${extension}`,
+    };
+  }
+
   public async createComposition(request: NewCompositionRequest, relativeToKey: string): Promise<ProjectOperationResult> {
     const selectedParent = this.registry[relativeToKey];
     const relative = selectedParent ?? Object.values(this.registry)[0];
@@ -2300,6 +2440,9 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (!registryFile) return { ok: false, message: "No COMPOSITIONS registry source file was found." };
     if (!sources[registryFile]) sources[registryFile] = (await readSource(registryFile)) ?? "";
     const isGenerative = request.kind === "generate";
+    if (isGenerative && !request.outputKind) {
+      return { ok: false, message: "Choose whether this generative composition outputs image, video, or audio." };
+    }
     const isMoodboard = request.kind === "moodboard";
     const file = isGenerative ? `src/${pascal}.gen.ts` : isMoodboard ? `src/${pascal}.ts` : `src/${pascal}.html`;
     const module = isGenerative || isMoodboard ? file : `src/${pascal}.ts`;
@@ -2357,18 +2500,32 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     };
     if (isGenerative) {
       const duration = Number((request.durationInFrames / relative.fps).toFixed(6));
-      const recipeData = {
+      const output = request.outputKind!;
+      const model = DEFAULT_GEN_MODEL_BY_OUTPUT[output];
+      const initialAspect = nearestGenerativeAspect(relative.width, relative.height);
+      const recipeData: Record<string, unknown> = {
         provider: "fal",
-        model: "seedance-2.0",
+        output,
+        model,
         prompt: "Describe the shot you want to generate.",
-        tier: "fast",
-        resolution: "720p",
-        duration,
-        aspect: nearestGenerativeAspect(relative.width, relative.height),
-        audio: true,
         fps: relative.fps,
         take: 0,
       };
+      if (output === "video") Object.assign(recipeData, {
+        tier: "fast",
+        resolution: "720p",
+        duration,
+        aspect: initialAspect,
+        audio: true,
+      });
+      else if (output === "image") Object.assign(recipeData, {
+        aspect: initialAspect === "21:9" ? "16:9" : initialAspect,
+      });
+      else Object.assign(recipeData, {
+        duration,
+        speed: 1,
+        pitch: 0,
+      });
       if (!(await writeSource(generativeDataFile, `${JSON.stringify(recipeData, null, 2)}\n`))) {
         return { ok: false, message: `Could not write ${generativeDataFile}.` };
       }
@@ -2724,13 +2881,18 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const composition = this.registry[compositionKey];
     if (!composition || !("recipe" in composition)) return null;
     const recipe = (composition as GenerativeComposition).recipe;
+    const outputKind = genOutputKindOf(recipe);
     const definition = genModelOf(recipe);
+    const native = genNativeDims(recipe);
     const provider = definition.provider ?? recipe.provider ?? "fal";
     const liveHash = await recipeHashOf(recipe);
     const data = await genJobs(recipe.id) ?? { jobs: [], takes: [] };
     primeGenTakes(data.takes);
     const active = data.jobs.some((job) => job.status === "queued" || job.status === "running");
-    const pinned = data.takes.find((take) => take.generator.take === (recipe.take ?? 0));
+    const pinned = data.takes.find((take) =>
+      take.generator.take === (recipe.take ?? 0) &&
+      (take.generator.outputKind == null || take.generator.outputKind === outputKind)
+    );
     const status = active
       ? "running"
       : latestFailedGenJob(data.jobs)
@@ -2751,7 +2913,11 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       if (!input || !("recipe" in input)) continue;
       const inputRecipe = (input as GenerativeComposition).recipe;
       const inputTakes = await genJobs(inputRecipe.id);
-      const pinned = inputTakes?.takes.some((take) => take.generator.take === (inputRecipe.take ?? 0));
+      const inputOutput = genOutputKindOf(inputRecipe);
+      const pinned = inputTakes?.takes.some((take) =>
+        take.generator.take === (inputRecipe.take ?? 0) &&
+        (take.generator.outputKind == null || take.generator.outputKind === inputOutput)
+      );
       if (!pinned) blockedInputs.push(input.id);
     }
     const missingRefs = (definition.requiredRefs ?? []).filter((kind) => !(recipe.refs ?? []).some((ref) => ref.kind === kind));
@@ -2765,6 +2931,29 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       : source.startsWith("comp://")
         ? this.registry[source.slice(7)]?.id ?? source
         : source;
+    const refSnapshot = (ref: GenRef, contentHash?: string) => {
+      const source = ref.src.startsWith("comp://")
+        ? this.registry[ref.src.slice("comp://".length)]
+        : undefined;
+      const visual = outputKind !== "audio" &&
+        (ref.kind === "image" || ref.kind === "endImage" || ref.kind === "video");
+      const geometry = source && visual
+        ? classifyVisualGeometry(source.width, source.height, native.width, native.height)
+        : undefined;
+      return {
+        ...ref,
+        label: labelFor(ref.src),
+        ...(contentHash ? { contentHash } : {}),
+        ...(source && visual ? {
+          sourceWidth: source.width,
+          sourceHeight: source.height,
+          targetWidth: native.width,
+          targetHeight: native.height,
+          geometry,
+          adaptation: ref.adapt,
+        } : {}),
+      };
+    };
     const takeSettings = (take: (typeof data.takes)[number]) => {
       const historical = take.generator.recipe;
       if (!historical) return undefined;
@@ -2773,7 +2962,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       return {
         model: historicalRecipe.model ?? historicalDefinition.id,
         modelName: historicalDefinition.name,
-        outputKind: historicalDefinition.output,
+        outputKind: genOutputKindOf(historicalRecipe),
         prompt: historicalRecipe.prompt,
         negativePrompt: historicalRecipe.negativePrompt ?? "",
         acceptsNegativePrompt: historicalDefinition.negativePrompt,
@@ -2785,21 +2974,36 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
           options: param.gate?.(historicalRecipe) ?? param.options, min: param.min, max: param.max, step: param.step,
           enabled: param.enabledIf?.(historicalRecipe) ?? true,
         })),
-        refs: (historicalRecipe.refs ?? []).map((ref, index) => ({
-          ...ref,
-          label: labelFor(ref.src),
-          contentHash: take.generator.inputs?.[index]?.contentHash,
-        })),
+        refs: (historicalRecipe.refs ?? []).map((ref, index) =>
+          refSnapshot(ref, take.generator.inputs?.[index]?.contentHash)),
       };
     };
+    const desiredOutput = outputKind !== "audio" && recipe.desiredOutput
+      ? {
+          width: recipe.desiredOutput.width,
+          height: recipe.desiredOutput.height,
+          adaptation: {
+            fit: recipe.desiredOutput.fit,
+            crop: recipe.desiredOutput.crop,
+            matte: recipe.desiredOutput.matte,
+          },
+          geometry: classifyVisualGeometry(
+            native.width,
+            native.height,
+            recipe.desiredOutput.width,
+            recipe.desiredOutput.height,
+          ),
+        }
+      : undefined;
     return {
       compositionKey,
       recipeId: recipe.id,
       file: recipe.dataFile ?? recipe.file,
-      model: recipe.model ?? definition.id,
+      model: definition.id,
       modelName: definition.name,
-      outputKind: definition.output,
-      models: Object.values(GEN_MODELS).map((model) => ({ id: model.id, name: model.name, vendor: model.vendor, baseline: model.baseline })),
+      outputKind,
+      ...(outputKind !== "audio" ? { nativeWidth: native.width, nativeHeight: native.height, desiredOutput } : {}),
+      models: genModelsForOutput(outputKind).map((model) => ({ id: model.id, name: model.name, vendor: model.vendor, baseline: model.baseline })),
       prompt: recipe.prompt,
       negativePrompt: recipe.negativePrompt ?? "",
       acceptsNegativePrompt: definition.negativePrompt,
@@ -2811,16 +3015,22 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         options: param.gate?.(recipe) ?? param.options, min: param.min, max: param.max, step: param.step,
         enabled: param.enabledIf?.(recipe) ?? true,
       })),
-      refs: (recipe.refs ?? []).map((ref) => ({ ...ref, label: labelFor(ref.src) })),
+      refs: (recipe.refs ?? []).map((ref) => refSnapshot(ref)),
       compositions: Object.entries(this.registry)
         .filter(([key, candidate]) => key !== compositionKey && candidate.id !== composition.id)
-        .map(([key, candidate]) => ({ key, id: candidate.id, outputKind: candidate.meta?.output ?? "video" })),
+        .map(([key, candidate]) => ({
+          key,
+          id: candidate.id,
+          outputKind: candidate.meta?.output ?? "video",
+          width: candidate.width,
+          height: candidate.height,
+        })),
       takes: data.takes.map((take) => {
         const settings = takeSettings(take);
         return {
           take: take.generator.take, assetId: take.assetId, contentHash: take.contentHash, bytes: take.bytes,
           recipeHash: take.generator.recipeHash, endpoint: take.generator.endpoint, seed: take.generator.seed, at: take.generator.at,
-          outputKind: take.generator.outputKind ?? settings?.outputKind ?? definition.output,
+          outputKind: take.generator.outputKind ?? settings?.outputKind ?? outputKind,
           settings,
         };
       }),
@@ -2852,17 +3062,140 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const revision = await readSourceRevision(file);
     const source = revision?.text;
     if (!revision || source == null) return { ok: false, message: `Could not read ${file}.` };
-    const { model: requestedModel, ...remainingPatch } = patch;
+    const lockedOutput = genOutputKindOf(recipe);
+    const { model: requestedModel, output: requestedOutput, ...remainingPatch } = patch;
+    if (requestedOutput != null && requestedOutput !== lockedOutput) {
+      return {
+        ok: false,
+        message: `This composition is locked to ${lockedOutput}. Create a new generative composition for ${String(requestedOutput)} output.`,
+      };
+    }
+    if (typeof requestedModel === "string") {
+      const requestedDefinition = GEN_MODELS[requestedModel];
+      if (!requestedDefinition) return { ok: false, message: `Unknown generative model: ${requestedModel}.` };
+      if (requestedDefinition.output !== lockedOutput) {
+        return {
+          ok: false,
+          message: `${requestedDefinition.name} produces ${requestedDefinition.output}; this composition is locked to ${lockedOutput}.`,
+        };
+      }
+    }
     const remapped = typeof requestedModel === "string"
       ? remapRecipeForModel(recipe, requestedModel)
       : { next: recipe, droppedRefs: [] };
-    const base = remapped.next;
-    const next = withRecipe(base, remainingPatch as Partial<GenRecipe>);
+    const base = { ...remapped.next, output: lockedOutput };
+    let next = withRecipe(base, remainingPatch as Partial<GenRecipe>);
+    const previousNative = genNativeDims(recipe);
+    const nextNative = genNativeDims(next);
+    const nativeShapeChanged =
+      previousNative.width !== nextNative.width ||
+      previousNative.height !== nextNative.height;
+    if (nativeShapeChanged) {
+      if (
+        !Object.prototype.hasOwnProperty.call(remainingPatch, "desiredOutput") &&
+        next.desiredOutput?.fit === "cover" &&
+        next.desiredOutput.crop
+      ) {
+        next = {
+          ...next,
+          desiredOutput: {
+            ...next.desiredOutput,
+            crop: retargetCropRegion(
+              next.desiredOutput.crop,
+              previousNative.width,
+              previousNative.height,
+              next.desiredOutput.width,
+              next.desiredOutput.height,
+              nextNative.width,
+              nextNative.height,
+              next.desiredOutput.width,
+              next.desiredOutput.height,
+            ),
+          },
+        };
+      }
+      if (
+        !Object.prototype.hasOwnProperty.call(remainingPatch, "refs") &&
+        next.refs?.some((ref) => ref.adapt?.fit === "cover" && ref.adapt.crop && ref.src.startsWith("comp://"))
+      ) {
+        next = {
+          ...next,
+          refs: next.refs.map((ref) => {
+            if (ref.adapt?.fit !== "cover" || !ref.adapt.crop || !ref.src.startsWith("comp://")) return ref;
+            const sourceComposition = this.registry[ref.src.slice("comp://".length)];
+            if (!sourceComposition) return ref;
+            return {
+              ...ref,
+              adapt: {
+                ...ref.adapt,
+                crop: retargetCropRegion(
+                  ref.adapt.crop,
+                  sourceComposition.width,
+                  sourceComposition.height,
+                  previousNative.width,
+                  previousNative.height,
+                  sourceComposition.width,
+                  sourceComposition.height,
+                  nextNative.width,
+                  nextNative.height,
+                ),
+              },
+            };
+          }),
+        };
+      }
+    }
+    if (next.desiredOutput) {
+      if (lockedOutput === "audio") {
+        return { ok: false, message: "Audio output has no visual shape to adapt." };
+      }
+      const { width, height, fit } = next.desiredOutput;
+      if (!Number.isFinite(width) || !Number.isFinite(height) || width < 1 || height < 1) {
+        return { ok: false, message: "Desired output width and height must be positive numbers." };
+      }
+      const native = genNativeDims(next);
+      const geometry = classifyVisualGeometry(native.width, native.height, width, height);
+      if (!geometry.allowedFits.includes(fit)) {
+        return {
+          ok: false,
+          message: `${fit} is not valid for ${geometry.label.toLowerCase()}; choose ${geometry.allowedFits.join(", ")}.`,
+        };
+      }
+      if (
+        fit === "cover" &&
+        next.desiredOutput.crop &&
+        !cropRegionMatchesTargetAspect(next.desiredOutput.crop, native.width, native.height, width, height)
+      ) {
+        return { ok: false, message: "The output crop region must match the desired output aspect ratio." };
+      }
+    }
     if (Array.isArray(next.refs)) {
       const accepted: GenRef[] = [];
       for (const ref of next.refs) {
         const decision = genRefAccept({ ...next, refs: accepted }, genModelOf(next), ref.kind);
         if (!decision.ok) return { ok: false, message: decision.why ?? "That input reference is not supported." };
+        if (ref.adapt && !ref.src.startsWith("comp://")) {
+          return { ok: false, message: "Input fitting currently applies to composition references; preprocess standalone assets before adding them." };
+        }
+        if (ref.adapt && ref.src.startsWith("comp://") && ref.kind !== "audio") {
+          const source = this.registry[ref.src.slice("comp://".length)];
+          if (!source) return { ok: false, message: `Unknown input composition: ${ref.src.slice("comp://".length)}.` };
+          const target = genNativeDims(next);
+          const geometry = classifyVisualGeometry(source.width, source.height, target.width, target.height);
+          if (!geometry.allowedFits.includes(ref.adapt.fit)) {
+            return {
+              ok: false,
+              message: `${ref.adapt.fit} is not valid for ${source.id}: ${geometry.label.toLowerCase()}.`,
+            };
+          }
+          if (
+            ref.adapt.fit === "cover" &&
+            ref.adapt.crop &&
+            !cropRegionMatchesTargetAspect(ref.adapt.crop, source.width, source.height, target.width, target.height)
+          ) {
+            return { ok: false, message: `The crop region for ${source.id} must match the model input aspect ratio.` };
+          }
+        }
         accepted.push(ref);
       }
     }
@@ -2879,6 +3212,16 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   }
 
   public async pinGenerationTake(compositionKey: string, take: number): Promise<ProjectOperationResult> {
+    const composition = this.registry[compositionKey];
+    if (!composition || !("recipe" in composition)) return { ok: false, message: "This is not a generative composition." };
+    const recipe = (composition as GenerativeComposition).recipe;
+    const candidate = (await genJobs(recipe.id))?.takes.find((item) => item.generator.take === take);
+    if (!candidate) return { ok: false, message: `Take ${take} is unavailable.` };
+    const outputKind = candidate.generator.outputKind ??
+      (candidate.generator.recipe ? genOutputKindOf({ model: candidate.generator.recipe.model, output: candidate.generator.recipe.output }) : undefined);
+    if (outputKind && outputKind !== genOutputKindOf(recipe)) {
+      return { ok: false, message: `Take ${take} is ${outputKind}; this composition is locked to ${genOutputKindOf(recipe)}.` };
+    }
     return this.updateGenerativeRecipe(compositionKey, { take });
   }
 
@@ -2888,6 +3231,9 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const recipe = (composition as GenerativeComposition).recipe;
     const historical = (await genJobs(recipe.id))?.takes.find((candidate) => candidate.generator.take === take);
     if (!historical) return { ok: false, message: `Take ${take} is unavailable.` };
+    if (genOutputKindOf({ model: historical.generator.recipe?.model, output: historical.generator.recipe?.output }) !== genOutputKindOf(recipe)) {
+      return { ok: false, message: `Take ${take} has a different output type and cannot seed this locked composition.` };
+    }
     const file = recipe.dataFile ?? recipe.file;
     if (!file) return { ok: false, message: "The recipe does not declare its source file." };
     const revision = await readSourceRevision(file);
@@ -2912,6 +3258,9 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const historical = (await genJobs(recipe.id))?.jobs.find((candidate) => candidate.id === jobId);
     if (!historical || historical.status !== "failed" || !historical.recipe) {
       return { ok: false, message: "That failed generation attempt is unavailable." };
+    }
+    if (genOutputKindOf(historical.recipe) !== genOutputKindOf(recipe)) {
+      return { ok: false, message: "That failed attempt has a different output type and cannot seed this locked composition." };
     }
     const file = recipe.dataFile ?? recipe.file;
     if (!file) return { ok: false, message: "The recipe does not declare its source file." };
@@ -2940,6 +3289,13 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (!composition || !("recipe" in composition)) return { ok: false, message: "This is not a generative composition." };
     const recipe = (composition as GenerativeComposition).recipe;
     const definition = genModelOf(recipe);
+    const outputKind = genOutputKindOf(recipe);
+    if (definition.output !== outputKind) {
+      return {
+        ok: false,
+        message: `${definition.name} produces ${definition.output}; this composition is locked to ${outputKind}.`,
+      };
+    }
     const missingRefs = (definition.requiredRefs ?? []).filter((kind) => !(recipe.refs ?? []).some((ref) => ref.kind === kind));
     if (missingRefs.length) {
       return {
@@ -2955,43 +3311,88 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     }
     const liveHash = await recipeHashOf(recipe);
     const resolved: (GenRef & { mime?: string; name?: string })[] = [];
+    const target = genNativeDims(recipe);
     for (const ref of recipe.refs ?? []) {
-      if (!ref.src.startsWith("comp://")) resolved.push(ref);
+      if (!ref.src.startsWith("comp://")) {
+        if (ref.adapt) {
+          return { ok: false, message: "Input fitting currently applies to composition references; preprocess standalone assets before adding them." };
+        }
+        resolved.push(ref);
+      }
       else {
         const inputKey = ref.src.slice(7);
         const inputComp = this.registry[inputKey];
         if (!inputComp) return { ok: false, message: `Unknown input composition: ${inputKey}.` };
+        const expectedOutput = ref.kind === "endImage" ? "image" : ref.kind;
+        let src: string;
+        let mime: string;
+        let name: string;
         if ("recipe" in inputComp) {
           const inputRecipe = (inputComp as GenerativeComposition).recipe;
-          const inputOutput = genModelOf(inputRecipe).output;
-          const expectedOutput = ref.kind === "endImage" ? "image" : ref.kind;
+          const inputOutput = genOutputKindOf(inputRecipe);
           if (inputOutput !== expectedOutput) {
             return { ok: false, message: `${inputComp.id} produces ${inputOutput}, not ${expectedOutput}.` };
           }
           const inputData = await genJobs(inputRecipe.id);
-          const pinned = inputData?.takes.find((take) => take.generator.take === (inputRecipe.take ?? 0));
+          const pinned = inputData?.takes.find((take) =>
+            take.generator.take === (inputRecipe.take ?? 0) &&
+            (take.generator.outputKind == null || take.generator.outputKind === inputOutput)
+          );
           if (!pinned) {
             return { ok: false, message: `${inputComp.id} needs a pinned take before it can feed this recipe.` };
           }
-          const extension = inputOutput === "video" ? "mp4" : inputOutput === "audio" ? "mp3" : "jpg";
-          resolved.push({
-            kind: ref.kind,
-            src: `/__framediff-cache/${encodeURIComponent(pinned.contentHash)}`,
-            mime: pinned.mime ?? (inputOutput === "video" ? "video/mp4" : inputOutput === "audio" ? "audio/mpeg" : "image/jpeg"),
-            name: `${inputComp.id}.${extension}`,
-          });
-          continue;
+          if (inputOutput !== "audio" && inputRecipe.desiredOutput) {
+            const baked = await this.bakeComposition(inputKey, () => undefined, inputOutput);
+            src = `/__framediff-cache/${encodeURIComponent(baked.filename)}`;
+            mime = inputOutput === "image" ? "image/png" : "video/mp4";
+            name = `${inputComp.id}.${inputOutput === "image" ? "png" : "mp4"}`;
+          } else {
+            const extension = inputOutput === "video" ? "mp4" : inputOutput === "audio" ? "mp3" : "jpg";
+            src = `/__framediff-cache/${encodeURIComponent(pinned.contentHash)}`;
+            mime = pinned.mime ?? (inputOutput === "video" ? "video/mp4" : inputOutput === "audio" ? "audio/mpeg" : "image/jpeg");
+            name = `${inputComp.id}.${extension}`;
+          }
+        } else {
+          const inputOutput = inputComp.meta?.output ?? "video";
+          if (inputOutput !== expectedOutput) {
+            return { ok: false, message: `${inputComp.id} produces ${inputOutput}, not ${expectedOutput}.` };
+          }
+          if (ref.kind === "audio") {
+            return { ok: false, message: `${inputComp.id} is not a pinnable audio generative composition; use an audio asset instead.` };
+          }
+          const kind: CompositionOutputKind = ref.kind === "video" ? "video" : "image";
+          const baked = await this.bakeComposition(inputKey, () => undefined, kind);
+          src = `/__framediff-cache/${encodeURIComponent(baked.filename)}`;
+          mime = kind === "image" ? "image/png" : "video/mp4";
+          name = `${inputComp.id}.${kind === "image" ? "png" : "mp4"}`;
         }
-        if (ref.kind === "audio") {
-          return { ok: false, message: `${inputComp.id} is not a pinnable audio generative composition; use an audio asset instead.` };
+        if (ref.adapt && ref.kind !== "audio") {
+          try {
+            const adapted = await this.adaptVisualReference({
+              id: inputComp.id,
+              src,
+              kind: ref.kind === "video" ? "video" : "image",
+              sourceWidth: inputComp.width,
+              sourceHeight: inputComp.height,
+              targetWidth: target.width,
+              targetHeight: target.height,
+              fps: inputComp.fps,
+              durationInFrames: inputComp.durationInFrames,
+              adaptation: ref.adapt,
+            });
+            src = `/__framediff-cache/${encodeURIComponent(adapted.contentHash)}`;
+            mime = adapted.mime;
+            name = adapted.name;
+          } catch (error) {
+            return { ok: false, message: error instanceof Error ? error.message : String(error) };
+          }
         }
-        const kind: CompositionOutputKind = ref.kind === "video" ? "video" : "image";
-        const baked = await this.bakeComposition(inputKey, () => undefined, kind);
         resolved.push({
           kind: ref.kind,
-          src: `/__framediff-cache/${encodeURIComponent(baked.filename)}`,
-          mime: kind === "image" ? "image/png" : "video/mp4",
-          name: `${inputComp.id}.${kind === "image" ? "png" : "mp4"}`,
+          src,
+          mime,
+          name,
+          adapt: ref.adapt,
         });
       }
     }
@@ -3008,6 +3409,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         authoredSrc: recipe.refs?.[index]?.src ?? ref.src,
         mime: ref.mime,
         name: ref.name,
+        adapt: recipe.refs?.[index]?.adapt,
         ...fields.find((field) => field.kind === ref.kind),
       })),
       recipe: genRecipeSnapshotOf(recipe),

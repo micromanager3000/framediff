@@ -1,5 +1,6 @@
 {
   "provider": "fal",
+  "output": "image",
   "model": "seedream-5.0-pro",
   "prompt": "Use @Image1 only for the lighthouse's coastal world, blue-hour palette, wet stone, salt haze, and practical amber lamp light. Create a new 9:16 live-action character key frame inside the same lantern room: ELIAS, the lighthouse keeper in his late sixties, lean weathered face, close grey beard, deep-set tired eyes, navy wool watch cap, charcoal gansey and an old black oilskin with salt-whitened seams. Chest-up portrait, standing square but not rigid, looking just off lens at Mara. He has already decided to confess and is trying not to show it; guilt held behind professional calm, one hand loosely at his side, tiny forward lean. Warm rotating lamp grazes one side of his face while cold storm light falls through fogged glass on the other; weathered brass mechanism and curved iron wall dissolve into shadow. Photoreal cinema still, 65mm lens, natural skin texture, restrained color, subtle 35mm grain. No priest clothing, no text, no smile, no theatrical villain expression, no duplicate person.",
   "refs": [

@@ -1,8 +1,17 @@
 <script lang="ts">
-  import { tick } from "svelte";
-  import type { StudioSession, CompositionRuntimePort } from "@framediff/studio-model";
+  import { onDestroy, tick } from "svelte";
+  import {
+    classifyVisualGeometry,
+    cropRegionForTargetAspect,
+    retargetCropRegion,
+    type StudioSession,
+    type CompositionRuntimePort,
+    type GenerativeWorkspaceSnapshot,
+    type VisualAdaptation,
+  } from "@framediff/studio-model";
   import { nextGenerationTake, type GenerativeViewModel } from "../viewmodels/Generative.ViewModel";
   import PreviewHost from "./PreviewHost.svelte";
+  import VisualAdaptationEditor from "./VisualAdaptationEditor.svelte";
 
   export let viewModel: GenerativeViewModel;
   export let runtime: CompositionRuntimePort;
@@ -18,6 +27,15 @@
   let previewCompositionKey = "";
   let previewTake: number | null = null;
   let failedDraftStarted = "";
+  let selectedRefIndex: number | null = null;
+  let outputWidth = 0;
+  let outputHeight = 0;
+  let outputAdaptation: VisualAdaptation | undefined;
+  let outputDraftKey = "";
+  let refAdaptation: VisualAdaptation | undefined;
+  let refDraftKey = "";
+  let outputSaveTimer: ReturnType<typeof setTimeout> | undefined;
+  let refSaveTimer: ReturnType<typeof setTimeout> | undefined;
   let promptEditor: HTMLTextAreaElement | undefined;
   $: if ($store.workspace && $store.workspace.liveHash !== previousRecipe) {
     previousRecipe = $store.workspace.liveHash;
@@ -36,10 +54,113 @@
   $: failedAttemptBlocksDraft = !!latestFailedTake
     && latestFailedTake.matchesCurrentRecipe
     && failedDraftStarted !== latestFailedTake.id;
+  $: selectedRef = selectedRefIndex == null ? undefined : $store.workspace?.refs[selectedRefIndex];
+  $: currentOutputKey = JSON.stringify($store.workspace?.desiredOutput ?? null);
+  $: if ($store.workspace && currentOutputKey !== outputDraftKey) {
+    outputDraftKey = currentOutputKey;
+    outputWidth = $store.workspace.desiredOutput?.width ?? $store.workspace.nativeWidth ?? 0;
+    outputHeight = $store.workspace.desiredOutput?.height ?? $store.workspace.nativeHeight ?? 0;
+    outputAdaptation = $store.workspace.desiredOutput?.adaptation;
+  }
+  $: currentRefKey = `${selectedRefIndex ?? "none"}:${JSON.stringify(selectedRef?.adaptation ?? null)}`;
+  $: if (currentRefKey !== refDraftKey) {
+    refDraftKey = currentRefKey;
+    refAdaptation = selectedRef?.adaptation;
+  }
   const converted = (raw: string, original: unknown) => typeof original === "boolean" ? raw === "true" : typeof original === "number" ? Number(raw) : raw;
   const takeUrl = (contentHash: string) => `/__framediff-cache/${encodeURIComponent(contentHash)}`;
   const takeExtension = (kind: "video" | "image" | "audio") => kind === "video" ? "mp4" : kind === "audio" ? "mp3" : "jpg";
   const COMP_DRAG_MIME = "application/x-framediff-comp";
+  const defaultAdaptation = (sourceWidth: number, sourceHeight: number, targetWidth: number, targetHeight: number): VisualAdaptation => {
+    const geometry = classifyVisualGeometry(sourceWidth, sourceHeight, targetWidth, targetHeight);
+    return {
+      fit: geometry.recommendedFit,
+      ...(geometry.recommendedFit === "cover"
+        ? { crop: cropRegionForTargetAspect(sourceWidth, sourceHeight, targetWidth, targetHeight) }
+        : {}),
+      ...(geometry.recommendedFit === "contain" ? { matte: "#000000" } : {}),
+    };
+  };
+  function desiredOutputValue(workspace: GenerativeWorkspaceSnapshot, width = outputWidth, height = outputHeight, adaptation = outputAdaptation) {
+    if (!workspace.nativeWidth || !workspace.nativeHeight || !adaptation) return undefined;
+    const geometry = classifyVisualGeometry(workspace.nativeWidth, workspace.nativeHeight, width, height);
+    const fit = geometry.allowedFits.includes(adaptation.fit) ? adaptation.fit : geometry.recommendedFit;
+    return {
+      width: Math.max(1, Math.round(width)),
+      height: Math.max(1, Math.round(height)),
+      ...adaptation,
+      fit,
+      ...(fit === "cover" && adaptation.fit !== "cover"
+        ? { crop: cropRegionForTargetAspect(workspace.nativeWidth, workspace.nativeHeight, width, height) }
+        : {}),
+    };
+  }
+  function enableDesiredOutput(workspace: GenerativeWorkspaceSnapshot): void {
+    if (!workspace.nativeWidth || !workspace.nativeHeight) return;
+    outputWidth = workspace.nativeWidth;
+    outputHeight = workspace.nativeHeight;
+    outputAdaptation = defaultAdaptation(workspace.nativeWidth, workspace.nativeHeight, outputWidth, outputHeight);
+    void viewModel.update({ desiredOutput: desiredOutputValue(workspace) });
+  }
+  function saveDesiredOutput(workspace: GenerativeWorkspaceSnapshot, adaptation = outputAdaptation): void {
+    if (!adaptation) return;
+    outputAdaptation = adaptation;
+    clearTimeout(outputSaveTimer);
+    outputSaveTimer = setTimeout(() => {
+      void viewModel.update({ desiredOutput: desiredOutputValue(workspace, outputWidth, outputHeight, outputAdaptation) });
+    }, 180);
+  }
+  function changeDesiredDimensions(workspace: GenerativeWorkspaceSnapshot): void {
+    if (!workspace.nativeWidth || !workspace.nativeHeight || !outputAdaptation) return;
+    const geometry = classifyVisualGeometry(workspace.nativeWidth, workspace.nativeHeight, outputWidth, outputHeight);
+    const previousWidth = workspace.desiredOutput?.width ?? workspace.nativeWidth;
+    const previousHeight = workspace.desiredOutput?.height ?? workspace.nativeHeight;
+    const fit = geometry.allowedFits.includes(outputAdaptation.fit)
+      ? outputAdaptation.fit
+      : geometry.recommendedFit;
+    const crop = fit === "cover"
+      ? outputAdaptation.fit === "cover" && outputAdaptation.crop
+        ? retargetCropRegion(
+            outputAdaptation.crop,
+            workspace.nativeWidth,
+            workspace.nativeHeight,
+            previousWidth,
+            previousHeight,
+            workspace.nativeWidth,
+            workspace.nativeHeight,
+            outputWidth,
+            outputHeight,
+          )
+        : cropRegionForTargetAspect(workspace.nativeWidth, workspace.nativeHeight, outputWidth, outputHeight)
+      : outputAdaptation.crop;
+    outputAdaptation = {
+      ...outputAdaptation,
+      fit,
+      ...(crop ? { crop } : {}),
+    };
+    saveDesiredOutput(workspace);
+  }
+  function setDesiredPreset(workspace: GenerativeWorkspaceSnapshot, width: number, height: number): void {
+    outputWidth = width;
+    outputHeight = height;
+    changeDesiredDimensions(workspace);
+  }
+  function enableRefAdaptation(): void {
+    if (!selectedRef?.sourceWidth || !selectedRef.sourceHeight || !selectedRef.targetWidth || !selectedRef.targetHeight || selectedRefIndex == null) return;
+    refAdaptation = defaultAdaptation(selectedRef.sourceWidth, selectedRef.sourceHeight, selectedRef.targetWidth, selectedRef.targetHeight);
+    void viewModel.updateRefAdaptation(selectedRefIndex, refAdaptation);
+  }
+  function saveRefAdaptation(adaptation: VisualAdaptation): void {
+    if (selectedRefIndex == null) return;
+    const index = selectedRefIndex;
+    refAdaptation = adaptation;
+    clearTimeout(refSaveTimer);
+    refSaveTimer = setTimeout(() => void viewModel.updateRefAdaptation(index, refAdaptation), 180);
+  }
+  onDestroy(() => {
+    clearTimeout(outputSaveTimer);
+    clearTimeout(refSaveTimer);
+  });
   function dragCompositionOver(event: DragEvent): void {
     if (!event.dataTransfer?.types.includes(COMP_DRAG_MIME)) return;
     event.preventDefault();
@@ -174,6 +295,40 @@
               </label>
             {/each}
           </div>
+          {#if workspace.outputKind !== "audio" && workspace.nativeWidth && workspace.nativeHeight}
+            <section class="output-shape">
+              <div class="shape-heading">
+                <div><h3>OUTPUT SHAPE <small>optional</small></h3><p>Model choices are never filtered by dimensions.</p></div>
+                {#if workspace.desiredOutput}
+                  <button type="button" onclick={() => void viewModel.update({ desiredOutput: undefined })}>Use model output</button>
+                {:else}
+                  <button type="button" onclick={() => enableDesiredOutput(workspace)}>Set desired shape</button>
+                {/if}
+              </div>
+              {#if workspace.desiredOutput && outputAdaptation}
+                <div class="shape-dimensions">
+                  <label><span>WIDTH</span><input type="number" min="1" step="2" bind:value={outputWidth} onblur={() => changeDesiredDimensions(workspace)} /></label>
+                  <i>×</i>
+                  <label><span>HEIGHT</span><input type="number" min="1" step="2" bind:value={outputHeight} onblur={() => changeDesiredDimensions(workspace)} /></label>
+                  <div class="shape-presets">
+                    {#each [[1920, 1080], [1080, 1920], [1024, 1024], [1280, 720]] as [width, height]}
+                      <button type="button" onclick={() => setDesiredPreset(workspace, width, height)}>{width}×{height}</button>
+                    {/each}
+                  </div>
+                </div>
+                <VisualAdaptationEditor
+                  sourceWidth={workspace.nativeWidth}
+                  sourceHeight={workspace.nativeHeight}
+                  targetWidth={Math.max(1, outputWidth)}
+                  targetHeight={Math.max(1, outputHeight)}
+                  value={outputAdaptation}
+                  onchange={(adaptation) => saveDesiredOutput(workspace, adaptation)}
+                />
+              {:else}
+                <div class="shape-native"><strong>{workspace.nativeWidth}×{workspace.nativeHeight}</strong><span>The composition follows whatever shape {workspace.modelName} produces.</span></div>
+              {/if}
+            </section>
+          {/if}
           <section
             role="group"
             aria-label="Generation input references; drop a composition to add it"
@@ -185,7 +340,14 @@
           >
             <h3>INPUT REFERENCES <small>drag a composition here</small></h3>
             {#each workspace.refs as ref, index (`${ref.kind}:${ref.src}`)}
-              <div><b>{ref.kind}</b><span>{ref.label}</span><button aria-label={`Remove ${ref.kind} reference ${ref.label}`} title={`Remove ${ref.label}`} onclick={() => void viewModel.removeRef(index)}>×</button></div>
+              <div class:selected={selectedRefIndex === index}>
+                <b>{ref.kind}</b>
+                <button class="ref-select" aria-pressed={selectedRefIndex === index} onclick={() => selectedRefIndex = selectedRefIndex === index ? null : index}>
+                  <span>{ref.label}</span>
+                  {#if ref.geometry}<small>{ref.sourceWidth}×{ref.sourceHeight} → {ref.targetWidth}×{ref.targetHeight} · {ref.adaptation ? ref.adaptation.fit : "pass through"}</small>{/if}
+                </button>
+                <button aria-label={`Remove ${ref.kind} reference ${ref.label}`} title={`Remove ${ref.label}`} onclick={() => { selectedRefIndex = null; void viewModel.removeRef(index); }}>×</button>
+              </div>
             {/each}
             <div class="add-ref">
               <select aria-label="Reference type" bind:value={refKind}>{#each ["image", "endImage", "video", "audio"] as kind}<option value={kind}>{kind}</option>{/each}</select>
@@ -204,6 +366,30 @@
               </select>
               <button aria-label="Add input reference" disabled={!assetId} onclick={() => addSelectedInput(workspace)}>Add</button>
             </div>
+            {#if selectedRef?.geometry && selectedRef.sourceWidth && selectedRef.sourceHeight && selectedRef.targetWidth && selectedRef.targetHeight && selectedRefIndex != null}
+              <div class="input-adaptation">
+                <div class="shape-heading">
+                  <div><h3>INPUT HANDLING</h3><p>Applies only when {selectedRef.label} feeds this recipe.</p></div>
+                  {#if refAdaptation}
+                    <button type="button" onclick={() => { refAdaptation = undefined; void viewModel.updateRefAdaptation(selectedRefIndex!, undefined); }}>Pass through</button>
+                  {:else}
+                    <button type="button" onclick={enableRefAdaptation}>Adapt to model</button>
+                  {/if}
+                </div>
+                {#if refAdaptation}
+                  <VisualAdaptationEditor
+                    sourceWidth={selectedRef.sourceWidth}
+                    sourceHeight={selectedRef.sourceHeight}
+                    targetWidth={selectedRef.targetWidth}
+                    targetHeight={selectedRef.targetHeight}
+                    value={refAdaptation}
+                    onchange={saveRefAdaptation}
+                  />
+                {:else}
+                  <div class="shape-native"><strong>Source as-is</strong><span>No preprocessing. The provider receives the composition's native bytes.</span></div>
+                {/if}
+              </div>
+            {/if}
           </section>
           {#if !workspace.providerReady}
             <div class="provider-missing">
