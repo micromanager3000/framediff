@@ -12,6 +12,7 @@ import { locationsComp } from "./compositions/Locations";
 import { castComp } from "./compositions/Cast";
 import { lighthouseConceptComp } from "./compositions/LighthouseConcept";
 import { lighthouseWorkflowComp } from "./compositions/LighthouseWorkflow";
+import { lighthouseWorkflowStepsComp } from "./compositions/LighthouseWorkflowSteps";
 import { harborShot } from "./gen/harborShot.gen";
 import { lighthouseVisitor } from "./gen/lighthouseVisitor.gen";
 import { lighthouseKeeper } from "./gen/lighthouseKeeper.gen";
@@ -22,6 +23,7 @@ import { lighthouseDialogue } from "./gen/lighthouseDialogue.gen";
  *  stays reachable from the project rail. */
 export const COMPOSITIONS = {
   "lighthouse-workflow": lighthouseWorkflowComp,
+  "lighthouse-workflow-steps": lighthouseWorkflowStepsComp,
   main: mainComp,
   // pre-production comps — ordinary comps in the same graph: the script's rows nest the
   // take/previz they reference, location cards are live cameras into the previz set, the

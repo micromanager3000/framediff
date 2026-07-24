@@ -2,7 +2,7 @@ import type { CanonicalTweenKind, NormalizedTweenOperation, ParamBinding } from 
 import type { VisualAdaptation, VisualGeometryClassification } from "./generativeGeometry";
 import type { CubicMotionSegment, GestureSample } from "./motionPath";
 
-export type CompositionKind = "edit" | "3d" | "generate" | "audio" | "doc" | "plan" | "scene" | "board" | "moodboard" | "script" | "storyboard" | "locations" | "cast";
+export type CompositionKind = "edit" | "custom" | "3d" | "generate" | "audio" | "doc" | "plan" | "scene" | "board" | "moodboard" | "script" | "storyboard" | "locations" | "cast";
 export type CompositionOutputKind = "video" | "image" | "audio";
 export type CompositionTimelineMode = "auto" | "always" | "hidden";
 export type CompositionTransportMode = "auto" | "always" | "hidden";

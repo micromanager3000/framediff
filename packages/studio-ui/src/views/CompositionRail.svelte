@@ -13,6 +13,7 @@
 
   const glyph: Record<CompositionKind, string> = {
     edit: "⌗",
+    custom: "⌘",
     "3d": "◇",
     generate: "✦",
     audio: "♒",

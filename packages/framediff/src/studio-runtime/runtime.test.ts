@@ -1118,6 +1118,23 @@ describe("HtmlStudioRuntime composition creation", () => {
     });
     expect(sources["src/TopLevel.ts"]).toContain('import document from "./TopLevel.comp.json";');
     expect(sources["src/TopLevel.ts"]).toContain("defineTimelineDocument(timeline)");
+
+    const custom = await runtime.createComposition({
+      name: "Frame Logic",
+      kind: "custom",
+      durationInFrames: 72,
+    }, "");
+
+    expect(custom).toMatchObject({ ok: true, compositionKey: "frame-logic" });
+    expect(sources["src/FrameLogic.html"]).toContain('data-fd-kind="custom"');
+    expect(sources["src/FrameLogic.html"]).toContain('data-fd-timeline="hidden" data-fd-transport="always"');
+    expect(sources["src/FrameLogic.html"]).toContain("onFrame(({ frame, time, playing, fps, durationInFrames }) =>");
+    expect(sources["src/FrameLogic.html"]).toContain('data-fd-comp="its-registry-key"');
+    expect(sources["src/FrameLogic.ts"]).toContain("defineComposition(source)");
+    expect(sources["src/FrameLogic.ts"]).not.toContain("import document");
+    expect(sources["src/FrameLogic.comp.json"]).toBeUndefined();
+    expect(sources["src/FrameLogic.schema.json"]).toBeUndefined();
+    expect(sources["src/FrameLogic.timeline.json"]).toBeUndefined();
   });
 
   it("does not inject timeline clips into scene and document compositions", async () => {

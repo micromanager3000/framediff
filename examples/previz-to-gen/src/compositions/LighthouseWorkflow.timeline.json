@@ -1,22 +1,47 @@
 {
-  "version": 1,
+  "version": 2,
   "items": [
+    {
+      "id": "workflow-steps",
+      "name": "Frame-aware workflow steps",
+      "from": 0,
+      "durationInFrames": 420,
+      "layer": 0,
+      "layout": {
+        "rect": [
+          0,
+          0,
+          400,
+          600
+        ],
+        "fit": "fill",
+        "cornerRadius": 0,
+        "opacity": 1
+      },
+      "content": {
+        "type": "nested",
+        "composition": "lighthouse-workflow-steps"
+      }
+    },
     {
       "id": "workflow-final",
       "from": 0,
       "durationInFrames": 420,
+      "layer": 2,
       "name": "Final dialogue video",
       "content": {
         "type": "nested",
         "composition": "lighthouse-dialogue",
         "nestedScale": 0.503125
       },
-      "volume": 0
+      "volume": 1,
+      "trimStart": 0
     },
     {
       "id": "workflow-mara",
       "from": 0,
       "durationInFrames": 420,
+      "layer": 2,
       "name": "Mara portrait",
       "content": {
         "type": "nested",
@@ -28,6 +53,7 @@
       "id": "workflow-elias",
       "from": 0,
       "durationInFrames": 420,
+      "layer": 2,
       "name": "Elias portrait",
       "content": {
         "type": "nested",
@@ -39,23 +65,61 @@
       "id": "workflow-audio",
       "from": 0,
       "durationInFrames": 420,
-      "volume": 1,
+      "layer": 3,
+      "volume": 0,
       "name": "Locked dialogue performance",
       "content": {
         "type": "nested",
         "composition": "lighthouse-dialogue-audio",
         "nestedScale": 0.458333
+      },
+      "layout": {
+        "rect": [
+          33,
+          610,
+          330,
+          76
+        ],
+        "fit": "cover",
+        "cornerRadius": 0,
+        "opacity": 1
       }
     },
     {
       "id": "workflow-concept",
       "from": 0,
       "durationInFrames": 420,
+      "layer": 2,
       "name": "Lighthouse reference board",
       "content": {
         "type": "nested",
         "composition": "lighthouse-concept",
         "nestedScale": 0.323438
+      }
+    },
+    {
+      "id": "rectangle-shape",
+      "name": "Rectangle shape",
+      "from": 112,
+      "durationInFrames": 294,
+      "layer": 1,
+      "layout": {
+        "rect": [
+          141,
+          307,
+          538,
+          274
+        ],
+        "fit": "fill",
+        "cornerRadius": 20,
+        "opacity": 1
+      },
+      "content": {
+        "type": "shape",
+        "shape": "rect",
+        "fill": "#f0b969",
+        "stroke": "#f0b969",
+        "strokeWidth": 2
       }
     }
   ]

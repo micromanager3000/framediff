@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+<head>
+  <style>
+    [data-fd-composition]{position:relative;overflow:hidden;background:transparent;font-family:-apple-system,"SF Pro Display","Segoe UI",sans-serif;color:#f5f1e8}
+    .kicker{position:absolute;left:34px;top:28px;color:#d6a85e;font:800 11px ui-monospace;letter-spacing:1.4px}
+    .title{position:absolute;left:34px;top:47px;margin:0;font:650 31px/1.05 Georgia,serif}
+    .dek{position:absolute;left:34px;top:121px;width:330px;color:#aeb9bd;font-size:12px;line-height:1.5}
+    .pipeline{position:absolute;left:34px;top:190px;width:330px;display:grid;gap:8px}
+    .stage{position:relative;display:grid;grid-template-columns:38px 1fr auto;align-items:center;gap:10px;padding:11px 12px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(12,18,22,.82);transition:border-color .15s,background .15s,transform .15s}
+    .stage.active{border-color:rgba(214,168,94,.62);background:rgba(214,168,94,.1);transform:translateX(2px)}
+    .n{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#17242a;color:#d6a85e;font:800 11px ui-monospace}
+    .stage b{display:block;font-size:13px}.stage small{display:block;margin-top:2px;color:#8f9da2;font-size:10px}.cost{font:700 10px ui-monospace;color:#80d8c7}
+    .progress{position:absolute;left:34px;right:36px;bottom:5px;height:2px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
+    .progress i{display:block;width:0;height:100%;border-radius:inherit;background:#d6a85e}
+  </style>
+</head>
+<body>
+<main data-fd-composition data-fd-id="LighthouseWorkflowSteps" data-fd-name="Lighthouse workflow · custom frame logic" data-fd-width="400" data-fd-height="600" data-fd-fps="30" data-fd-duration="420" data-fd-kind="custom" data-fd-library="true" data-fd-alpha="true" data-fd-timeline="hidden" data-fd-transport="always" data-fd-source="src/compositions/LighthouseWorkflowSteps.html" data-fd-module="src/compositions/LighthouseWorkflowSteps.ts" data-fd-export="lighthouseWorkflowStepsComp">
+  <div class="kicker" data-fd-id="workflow-kicker">PERFORMANCE BEFORE PIXELS</div>
+  <h1 class="title" data-fd-id="workflow-title">The light went dark.</h1>
+  <p class="dek" data-fd-id="workflow-description">A quiet two-hander inside the lantern room. The cheap decision is made first: approve the voices, pauses, and emotional turn before spending video credits.</p>
+  <section class="pipeline" data-fd-id="workflow-pipeline">
+    <div class="stage" data-fd-id="workflow-stage-1" data-stage="0" data-end="60"><span class="n">01</span><div><b>Midjourney 8.2</b><small>import the coastal world key frame</small></div><span class="cost">import</span></div>
+    <div class="stage" data-fd-id="workflow-stage-2" data-stage="60" data-end="150"><span class="n">02</span><div><b>Seedream 5.0</b><small>lock Mara + Elias as separate portrait takes</small></div><span class="cost">$0.14</span></div>
+    <div class="stage" data-fd-id="workflow-stage-3" data-stage="150" data-end="270"><span class="n">03</span><div><b>Seed Audio 1.0</b><small>approve the complete 14-second performance</small></div><span class="cost">~$0.04</span></div>
+    <div class="stage" data-fd-id="workflow-stage-4" data-stage="270" data-end="420"><span class="n">04</span><div><b>Seedance 2.0</b><small>sync picture and micro-acting to @Audio1</small></div><span class="cost">~$3.39</span></div>
+  </section>
+  <div class="progress" aria-hidden="true"><i></i></div>
+  <script>
+    const stages=queryAll(".stage"),progress=query(".progress i");
+    onFrame(({frame,durationInFrames})=>{
+      for(const stage of stages)stage.classList.toggle("active",frame>=Number(stage.dataset.stage)&&frame<Number(stage.dataset.end));
+      progress.style.width=`${Math.max(0,Math.min(1,frame/(durationInFrames-1)))*100}%`;
+    });
+  </script>
+</main>
+</body>
+</html>

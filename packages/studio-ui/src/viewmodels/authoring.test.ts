@@ -46,14 +46,15 @@ const item = (
 describe("composition authoring surfaces", () => {
   it("has one deliberate contract for every public composition kind", () => {
     expect(COMPOSITION_KIND_CONTRACTS.map((contract) => contract.kind)).toEqual([
-      "edit", "scene", "3d", "generate", "audio", "plan", "doc", "script",
+      "edit", "custom", "scene", "3d", "generate", "audio", "plan", "doc", "script",
       "storyboard", "board", "moodboard", "locations", "cast",
     ]);
-    expect(new Set(COMPOSITION_KIND_CONTRACTS.map((contract) => contract.kind)).size).toBe(13);
+    expect(new Set(COMPOSITION_KIND_CONTRACTS.map((contract) => contract.kind)).size).toBe(14);
   });
 
   it.each([
     ["edit", true, true, true, true],
+    ["custom", false, true, true, false],
     ["3d", false, true, true, false],
     ["generate", false, false, false, false],
     ["audio", true, true, false, false],

@@ -62,6 +62,39 @@ test("legacy phone-local geometry keeps the pinned Lighthouse take visible", asy
   });
 });
 
+test("a CUSTOM comp owns frame logic without owning a timeline", async ({ page }) => {
+  await openComposition(page, "lighthouse-workflow-steps", "http://127.0.0.1:4175/");
+
+  await expect(page.getByText("custom · video · 400×600 · 420f", { exact: true })).toBeVisible();
+  await expect(page.getByRole("slider", { name: "Preview frame" })).toBeVisible();
+  await expect(page.getByRole("group", { name: /Timeline/ })).toHaveCount(0);
+
+  const customPreview = page.locator(
+    '.workspace:not(.generate-workspace) > .preview-panel > .preview-surface > .preview-host > .preview-runtime-host',
+  );
+  await page.getByRole("slider", { name: "Preview frame" }).fill("75");
+  await expect(customPreview.locator('[data-fd-id="workflow-stage-2"]')).toHaveClass(/active/);
+  await expect(customPreview.locator('[data-fd-id="workflow-stage-1"]')).not.toHaveClass(/active/);
+
+  await openComposition(page, "lighthouse-workflow", "http://127.0.0.1:4175/");
+  const editPreview = page.locator(
+    '.workspace:not(.generate-workspace) > .preview-panel > .preview-surface > .preview-host > .preview-runtime-host',
+  );
+  const nestedCustom = editPreview.locator(
+    '[data-fd-id="workflow-steps"] [data-fd-id="LighthouseWorkflowSteps"]',
+  );
+  await expect(nestedCustom).toHaveCount(1);
+  await expect(nestedCustom.locator('[data-fd-id="workflow-stage-1"]')).toHaveClass(/active/);
+
+  const customClip = page.locator('.clip[data-item-id="workflow-steps"]');
+  await expect(customClip).toBeVisible();
+  await customClip.evaluate((element) => (element as HTMLButtonElement).click());
+  await expect(page.getByRole("textbox", { name: "composition text" })).toHaveValue("lighthouse-workflow-steps");
+  await expect(page.getByRole("spinbutton", { name: "width number" })).toHaveValue("400");
+  await expect(page.getByRole("spinbutton", { name: "height number" })).toHaveValue("600");
+  await expect(page.getByRole("spinbutton", { name: "corner radius number" })).toHaveValue("0");
+});
+
 test("a JSON-authored nested volume controls preview and export gain", async ({ page }) => {
   const timelineFile = "examples/previz-to-gen/src/compositions/LighthouseWorkflow.timeline.json";
   const htmlFile = "examples/previz-to-gen/src/compositions/LighthouseWorkflow.html";
@@ -110,6 +143,7 @@ test("a JSON-authored nested volume controls preview and export gain", async ({ 
 
     await page.getByRole("button", { name: "Undo", exact: true }).click();
     await expect.poll(async () => readFile(timelineFile, "utf8")).toBe(originalTimeline);
+    await expect(approvalAudio).toHaveCount(1);
     await expect.poll(() => approvalAudio.evaluate((audio: HTMLAudioElement) =>
       audio.dataset.framediffVolume)).toBe("0");
 

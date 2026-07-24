@@ -555,6 +555,76 @@ function htmlCompositionScaffold(options: HtmlCompositionScaffoldOptions): strin
 }
 
 /**
+ * Custom comps deliberately own only source. They have a render clock and can nest anything in
+ * the registry, but they do not get an implicit JSON document or a private timeline.
+ */
+function customCompositionScaffold(options: HtmlCompositionScaffoldOptions): string {
+  return `<!doctype html>
+<html>
+<head>
+  <style>
+    [data-fd-composition] {
+      position: relative;
+      overflow: hidden;
+      box-sizing: border-box;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 78% 20%, rgba(103, 232, 249, .16), transparent 32%),
+        linear-gradient(145deg, #111827, #090b11 64%);
+      color: #f8fafc;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+    }
+    .custom-card {
+      width: min(72%, 860px);
+      padding: 52px;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 28px;
+      background: rgba(15,23,42,.72);
+      box-shadow: 0 28px 90px rgba(0,0,0,.36);
+      transform: translateY(calc(sin(var(--custom-time, 0)) * 8px));
+    }
+    .eyebrow { margin: 0 0 14px; color: #67e8f9; font: 750 13px/1 ui-monospace, monospace; letter-spacing: .16em; }
+    h1 { margin: 0; font-size: clamp(52px, 7vw, 104px); line-height: .95; letter-spacing: -.055em; }
+    .description { max-width: 680px; margin: 24px 0 0; color: #a9b5c7; font-size: 20px; line-height: 1.55; }
+    .frame-readout { margin-top: 34px; color: #7d8ba3; font: 650 14px/1 ui-monospace, monospace; letter-spacing: .08em; }
+    .frame-readout b { color: #f8fafc; font-size: 24px; }
+    .progress { height: 3px; margin-top: 16px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.09); }
+    .progress::after { content: ""; display: block; width: calc(var(--custom-progress, 0) * 100%); height: 100%; background: #67e8f9; }
+  </style>
+</head>
+<body>
+  <main data-fd-composition data-fd-id="${options.id}"
+    data-fd-width="${options.width}" data-fd-height="${options.height}"
+    data-fd-fps="${options.fps}" data-fd-duration="${options.duration}"
+    data-fd-kind="custom" data-fd-timeline="hidden" data-fd-transport="always"
+    data-fd-source="${options.file}" data-fd-module="${options.module}" data-fd-export="${options.exportName}">
+    <section class="custom-card" data-fd-id="custom-card" data-fd-name="Custom content">
+      <p class="eyebrow">CUSTOM · SOURCE OWNED</p>
+      <h1 data-fd-id="custom-title">${options.id}</h1>
+      <p class="description">Author any HTML, CSS, and JavaScript here. When this comp is placed in an edit, its render-local frame is supplied to the same callback in preview and export.</p>
+      <div class="frame-readout">FRAME <b>0000</b></div>
+      <div class="progress"></div>
+    </section>
+    <!-- To reference another registered comp, add an element with
+         data-fd-type="nested" and data-fd-comp="its-registry-key". -->
+    <script>
+      const frameReadout = query(".frame-readout b");
+      onFrame(({ frame, time, playing, fps, durationInFrames }) => {
+        frameReadout.textContent = String(Math.floor(frame)).padStart(4, "0");
+        root.dataset.playing = String(playing);
+        root.style.setProperty("--custom-time", String(time));
+        root.style.setProperty("--custom-progress", String(frame / Math.max(1, durationInFrames - 1)));
+        root.style.setProperty("--custom-fps", String(fps));
+      });
+    </script>
+  </main>
+</body>
+</html>
+`;
+}
+
+/**
  * Plan comps hold intent as timed rows (script scenes, rundown segments, shot-list
  * shots). Rows are ordinary clips, so the document is scrubbable, its timing edits in
  * the timeline, and generateEditSkeleton() can derive a master from it.
@@ -2981,6 +3051,29 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       const inserted = insertRegistryEntry(registryFile, sources, { key, varName, importFrom: relModule(registryFile, file) });
       if (!inserted || !(await writeSource(registryFile, inserted.text))) {
         return { ok: false, message: `Wrote ${file}, but could not register it in ${registryFile}.` };
+      }
+      return finishCreation();
+    }
+    if (request.kind === "custom") {
+      if (!(await writeSource(file, customCompositionScaffold({
+        id: pascal,
+        exportName: varName,
+        file,
+        module,
+        documentFile,
+        schemaFile,
+        kind: request.kind,
+        width: relative.width,
+        height: relative.height,
+        fps: relative.fps,
+        duration: request.durationInFrames,
+      })))) return { ok: false, message: `Could not write ${file}.` };
+      if (!(await writeSource(module, htmlCompositionModule(file, varName)))) {
+        return { ok: false, message: `Wrote ${file}, but could not write ${module}.` };
+      }
+      const inserted = insertRegistryEntry(registryFile, sources, { key, varName, importFrom: relModule(registryFile, module) });
+      if (!inserted || !(await writeSource(registryFile, inserted.text))) {
+        return { ok: false, message: `Wrote ${file} and ${module}, but could not register them in ${registryFile}.` };
       }
       return finishCreation();
     }

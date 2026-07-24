@@ -34,7 +34,7 @@ describe("example composition authoring contracts", () => {
     if (allSource.includes("generative(")) kinds.add("generate");
 
     expect([...kinds].sort()).toEqual([
-      "3d", "audio", "board", "cast", "doc", "edit", "generate", "locations",
+      "3d", "audio", "board", "cast", "custom", "doc", "edit", "generate", "locations",
       "moodboard", "plan", "scene", "script", "storyboard",
     ]);
   });
@@ -54,7 +54,7 @@ describe("example composition authoring contracts", () => {
         version: number;
         items: Array<{ id: string; content?: unknown }>;
       };
-      expect(timeline.version, relative(repositoryRoot, timelineFile)).toBe(1);
+      expect([1, 2], relative(repositoryRoot, timelineFile)).toContain(timeline.version);
       const placementIds = new Set(timeline.items.map((item) => item.id));
 
       const bodyWithoutRoot = source.replace(root, "");
@@ -74,7 +74,7 @@ describe("example composition authoring contracts", () => {
   });
 
   it("keeps every timeline placement typed, stable, and finite", () => {
-    const contentTypes = new Set(["nested", "video", "audio", "layers", "camera", "grade-layer"]);
+    const contentTypes = new Set(["nested", "video", "audio", "shape", "layers", "camera", "grade-layer"]);
     expect(timelineFiles.length).toBeGreaterThan(0);
 
     for (const file of timelineFiles) {
@@ -87,7 +87,7 @@ describe("example composition authoring contracts", () => {
           content?: { type?: string; src?: string; composition?: string; camera?: string };
         }>;
       };
-      expect(timeline.version, relative(repositoryRoot, file)).toBe(1);
+      expect([1, 2], relative(repositoryRoot, file)).toContain(timeline.version);
       expect(Array.isArray(timeline.items), relative(repositoryRoot, file)).toBe(true);
       const ids = new Set<string>();
       for (const item of timeline.items) {
@@ -109,6 +109,22 @@ describe("example composition authoring contracts", () => {
           expect(item.content.camera, `${relative(repositoryRoot, file)}:${item.id} camera`).toBeTruthy();
         }
       }
+    }
+  });
+
+  it("keeps CUSTOM comps source-owned and timeline-less", () => {
+    const customFiles = htmlFiles.filter((file) =>
+      attribute(rootTag(readFileSync(file, "utf8")), "data-fd-kind") === "custom");
+    expect(customFiles.length).toBeGreaterThan(0);
+
+    for (const file of customFiles) {
+      const root = rootTag(readFileSync(file, "utf8"));
+      expect(attribute(root, "data-fd-timeline"), relative(repositoryRoot, file)).toBe("hidden");
+      expect(attribute(root, "data-fd-transport"), relative(repositoryRoot, file)).toBe("always");
+      expect(attribute(root, "data-fd-document"), relative(repositoryRoot, file)).toBeUndefined();
+      expect(attribute(root, "data-fd-schema"), relative(repositoryRoot, file)).toBeUndefined();
+      expect(attribute(root, "data-fd-timeline-source"), relative(repositoryRoot, file)).toBeUndefined();
+      expect(readFileSync(file, "utf8"), relative(repositoryRoot, file)).toContain("onFrame(");
     }
   });
 

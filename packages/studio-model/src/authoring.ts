@@ -36,6 +36,7 @@ export interface ResolvedCompositionAuthoring {
  */
 export const COMPOSITION_KIND_CONTRACTS: readonly CompositionKindContract[] = [
   { kind: "edit", label: "Edit", help: "Timed layers and nested compositions", owns: "assembly", timeline: "always", transport: "always", directManipulation: true, acceptsCompositionDrop: true },
+  { kind: "custom", label: "Custom", help: "Frame-aware HTML, CSS, and JavaScript with no authored timeline", owns: "render", timeline: "hidden", transport: "always", directManipulation: true, acceptsCompositionDrop: false },
   { kind: "scene", label: "Scene", help: "Reusable visual or procedural shot; timeline appears only for authored motion", owns: "render", timeline: "temporal", transport: "always", directManipulation: true, acceptsCompositionDrop: false },
   { kind: "3d", label: "3D", help: "Spatial or procedural scene with cameras and preview transport", owns: "render", timeline: "temporal", transport: "always", directManipulation: true, acceptsCompositionDrop: false },
   { kind: "generate", label: "Generate", help: "Generative recipe with comp or asset inputs and pinned takes", owns: "recipe", timeline: "hidden", transport: "hidden", directManipulation: false, acceptsCompositionDrop: false },
