@@ -145,6 +145,74 @@ test("a composition can be dragged directly onto an edit timeline and undone", a
   await expect(nestedClip).toHaveCount(0);
 });
 
+test("timeline v2 shapes share JSON layout, canvas resize, and stacking authority", async ({ page }) => {
+  const timelineFile = "examples/studio-playground/src/compositions/labs/EditorialLab.timeline.json";
+  const originalTimeline = await readFile(timelineFile, "utf8");
+
+  try {
+    await openComposition(page, "editorial-lab");
+    await expect(page.getByRole("button", { name: "PATH", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "PATH", exact: true }).click();
+
+    await expect.poll(async () => {
+      const document = JSON.parse(await readFile(timelineFile, "utf8"));
+      return { version: document.version, shape: document.items.find((item: { id: string }) => item.id === "path-shape") };
+    }).toMatchObject({
+      version: 2,
+      shape: {
+        layer: 2,
+        content: { type: "shape", shape: "path" },
+        layout: { fit: "fill", cornerRadius: 0, opacity: 1 },
+      },
+    });
+
+    const shapeClip = page.locator('.clip[data-item-id="path-shape"]');
+    const shapeNode = page.locator('[data-fd-id="path-shape"]');
+    await expect(shapeClip).toBeVisible();
+    await expect(shapeNode).toBeVisible();
+    await shapeClip.click();
+    await expect(page.getByRole("heading", { name: "LAYOUT", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "SHAPE", exact: true })).toBeVisible();
+    const shapeBounds = await shapeNode.boundingBox();
+    expect(shapeBounds).not.toBeNull();
+    await page.mouse.click(shapeBounds!.x + shapeBounds!.width / 2, shapeBounds!.y + shapeBounds!.height / 2);
+    await expect(page.locator(".resize-handle")).toHaveCount(8);
+
+    const beforeResize = JSON.parse(await readFile(timelineFile, "utf8")).items
+      .find((item: { id: string }) => item.id === "path-shape").layout.rect as number[];
+    const resizeHandle = page.locator('.resize-handle[data-resize-handle="se"]');
+    const handleBounds = await resizeHandle.boundingBox();
+    expect(handleBounds).not.toBeNull();
+    await page.mouse.move(handleBounds!.x + handleBounds!.width / 2, handleBounds!.y + handleBounds!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handleBounds!.x + handleBounds!.width / 2 + 48, handleBounds!.y + handleBounds!.height / 2 + 28, { steps: 4 });
+    await page.mouse.up();
+    await expect.poll(async () => JSON.parse(await readFile(timelineFile, "utf8")).items
+      .find((item: { id: string }) => item.id === "path-shape").layout.rect[2]).toBeGreaterThan(beforeResize[2]);
+
+    const cornerRadius = page.getByRole("spinbutton", { name: "corner radius number" });
+    await cornerRadius.fill("36");
+    await cornerRadius.press("Tab");
+    await expect.poll(async () => JSON.parse(await readFile(timelineFile, "utf8")).items
+      .find((item: { id: string }) => item.id === "path-shape").layout.cornerRadius).toBe(36);
+
+    const targetLane = page.locator('.lane[data-lane-id="v:1"]');
+    const clipBounds = await shapeClip.boundingBox();
+    const targetBounds = await targetLane.boundingBox();
+    expect(clipBounds).not.toBeNull();
+    expect(targetBounds).not.toBeNull();
+    await page.mouse.move(clipBounds!.x + clipBounds!.width / 2, clipBounds!.y + clipBounds!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(clipBounds!.x + clipBounds!.width / 2, targetBounds!.y + targetBounds!.height / 2, { steps: 5 });
+    await page.mouse.up();
+    await expect.poll(async () => JSON.parse(await readFile(timelineFile, "utf8")).items
+      .find((item: { id: string }) => item.id === "path-shape").layer).toBe(1);
+    await expect(shapeNode).toHaveCSS("z-index", "1");
+  } finally {
+    if (await readFile(timelineFile, "utf8") !== originalTimeline) await writeFile(timelineFile, originalTimeline);
+  }
+});
+
 test("edit clips expose video audio controls and reversible item and layer deletion", async ({ page }) => {
   const timelineFile = "examples/studio-playground/src/compositions/labs/EditorialLab.timeline.json";
   const htmlFile = "examples/studio-playground/src/compositions/labs/EditorialLab.html";

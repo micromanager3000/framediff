@@ -77,6 +77,36 @@ describe("HTML composition source", () => {
     });
   });
 
+  it("projects JSON-authored image and shape layers without HTML placeholders", () => {
+    const comp = defineComposition(HTML, {
+      timeline: {
+        version: 2,
+        items: [
+          {
+            id: "reference",
+            from: 0,
+            durationInFrames: 90,
+            layer: 0,
+            layout: { rect: [40, 40, 800, 450], fit: "contain" },
+            content: { type: "image", src: "asset://reference" },
+          },
+          {
+            id: "accent",
+            from: 12,
+            durationInFrames: 60,
+            layer: 1,
+            layout: { rect: [100, 700, 600, 80], fit: "fill" },
+            content: { type: "shape", shape: "line", stroke: "#ffffff", strokeWidth: 6 },
+          },
+        ],
+      },
+    });
+    expect(timelineFromComposition(comp)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "reference", layer: 0, content: { type: "image", src: "asset://reference" } }),
+      expect.objectContaining({ id: "accent", layer: 1, content: { type: "shape", shape: "line" } }),
+    ]));
+  });
+
   it("rewrites existing values and inserts defaulted placement attributes", () => {
     expect(rewriteHtmlAttribute(HTML, "hero", "data-fd-from", 12)).toContain('data-fd-from="12"');
     const withoutDuration = HTML.replace(' data-fd-duration="30" data-fd-text', " data-fd-text");

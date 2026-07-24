@@ -3,6 +3,8 @@ import type {
   CompositionFrameListener,
   CompositionFrameState,
   CompositionRegistry,
+  CompositionTimelineContent,
+  CompositionTimelineLayout,
 } from "./composition";
 import type { AssetResolver } from "./assets/resolver";
 import { gradeLayerFilter, gradeLayerVignette } from "./effects/gradeLayerCss";
@@ -129,27 +131,99 @@ function allElements(root: HTMLElement): HTMLElement[] {
   return [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))];
 }
 
+function renderTimelineShape(element: HTMLElement, content: Extract<CompositionTimelineContent, { type: "shape" }>): void {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 100 100");
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.setAttribute("aria-hidden", "true");
+  svg.style.cssText = "display:block;width:100%;height:100%;overflow:visible;";
+  const node = document.createElementNS(ns, content.shape === "rect" ? "rect" : content.shape);
+  if (content.shape === "rect") {
+    node.setAttribute("x", "1");
+    node.setAttribute("y", "1");
+    node.setAttribute("width", "98");
+    node.setAttribute("height", "98");
+  } else if (content.shape === "ellipse") {
+    node.setAttribute("cx", "50");
+    node.setAttribute("cy", "50");
+    node.setAttribute("rx", "49");
+    node.setAttribute("ry", "49");
+  } else if (content.shape === "line") {
+    node.setAttribute("x1", "2");
+    node.setAttribute("y1", "50");
+    node.setAttribute("x2", "98");
+    node.setAttribute("y2", "50");
+  } else if (content.shape === "polygon") {
+    node.setAttribute("points", content.points ?? "50,2 98,50 50,98 2,50");
+  } else {
+    node.setAttribute("d", content.d ?? "M 8 50 C 22 8 78 8 92 50 C 78 92 22 92 8 50 Z");
+  }
+  node.setAttribute("fill", content.shape === "line" ? "none" : content.fill ?? "#f0b969");
+  node.setAttribute("stroke", content.stroke ?? (content.shape === "line" ? "#f0b969" : "none"));
+  node.setAttribute("stroke-width", String(content.strokeWidth ?? (content.shape === "line" ? 6 : 0)));
+  node.setAttribute("stroke-linecap", "round");
+  node.setAttribute("stroke-linejoin", "round");
+  node.setAttribute("vector-effect", "non-scaling-stroke");
+  svg.appendChild(node);
+  element.replaceChildren(svg);
+}
+
+function applyTimelineLayout(element: HTMLElement, layout: CompositionTimelineLayout): void {
+  const [x, y, width, height] = layout.rect;
+  element.setAttribute("data-fd-x", String(x));
+  element.setAttribute("data-fd-y", String(y));
+  element.setAttribute("data-fd-width", String(width));
+  element.setAttribute("data-fd-height", String(height));
+  element.setAttribute("data-fd-fit", layout.fit ?? "cover");
+  const focalPoint = layout.focalPoint ?? [0.5, 0.5];
+  element.setAttribute("data-fd-image-position", `${focalPoint[0] * 100}% ${focalPoint[1] * 100}%`);
+  if (layout.cornerRadius == null) element.removeAttribute("data-fd-border-radius");
+  else element.setAttribute("data-fd-border-radius", String(layout.cornerRadius));
+  if (layout.opacity == null) element.removeAttribute("data-fd-opacity");
+  else element.setAttribute("data-fd-opacity", String(layout.opacity));
+  // A materialized JSON rectangle is absolute in composition coordinates. Reset legacy inset
+  // rules so the timeline document, rather than a CSS selector, owns the placement.
+  element.style.position = "absolute";
+  element.style.inset = "auto";
+  element.style.left = "0";
+  element.style.top = "0";
+  element.style.right = "auto";
+  element.style.bottom = "auto";
+  element.style.overflow = "hidden";
+}
+
 function applyTimelineDocument(root: HTMLElement, composition: CompositionConfig): void {
   if (!composition.timeline) return;
   const placementById = new Map(composition.timeline.items.map((item) => [item.id, item]));
   for (const placement of composition.timeline.items) {
-    if (!placement.content) continue;
     let element = Array.from(root.querySelectorAll<HTMLElement>("[data-fd-id]"))
       .find((candidate) => candidate.dataset.fdId === placement.id);
-    if (!element) {
+    if (!element && placement.content) {
       element = document.createElement(placement.content.type === "video" ? "video" : placement.content.type === "audio" ? "audio" : "div");
       element.setAttribute("data-fd-clip", "");
       element.setAttribute("data-fd-id", placement.id);
       element.style.cssText = "position:absolute;inset:0;overflow:hidden;";
       root.appendChild(element);
     }
+    if (!element) continue;
+    const isAudioPlacement = placement.content?.type === "audio"
+      || element.matches("audio,[data-fd-type='audio']");
+    if (isAudioPlacement) element.removeAttribute("data-fd-layout-owner");
+    else element.setAttribute("data-fd-layout-owner", "timeline");
     if (placement.name) element.setAttribute("data-fd-name", placement.name);
+    if (!placement.content) continue;
     element.setAttribute("data-fd-type", placement.content.type);
     if (placement.content.type === "nested") {
       element.setAttribute("data-fd-comp", placement.content.composition);
       if (placement.content.nestedScale != null) element.setAttribute("data-fd-nested-scale", String(placement.content.nestedScale));
     } else if (placement.content.type === "video" || placement.content.type === "audio") {
       element.setAttribute("data-fd-src", placement.content.src);
+    } else if (placement.content.type === "image") {
+      element.setAttribute("data-fd-image", placement.content.src);
+    } else if (placement.content.type === "shape") {
+      element.setAttribute("data-fd-shape", placement.content.shape);
+      renderTimelineShape(element, placement.content);
     } else if (placement.content.type === "camera") element.setAttribute("data-fd-camera", placement.content.camera);
   }
   for (const element of root.querySelectorAll<HTMLElement>("[data-fd-id]")) {
@@ -158,7 +232,10 @@ function applyTimelineDocument(root: HTMLElement, composition: CompositionConfig
     element.setAttribute("data-fd-from", String(placement.from));
     element.setAttribute("data-fd-duration", String(Math.max(1, placement.durationInFrames)));
     if (placement.layer == null) element.removeAttribute("data-fd-layer");
-    else element.setAttribute("data-fd-layer", String(placement.layer));
+    else {
+      element.setAttribute("data-fd-layer", String(placement.layer));
+      element.removeAttribute("data-fd-z-index");
+    }
     if (placement.trimStart == null) element.removeAttribute("data-fd-trim-start");
     else element.setAttribute("data-fd-trim-start", String(placement.trimStart));
     if (placement.playbackRate == null) element.removeAttribute("data-fd-playback-rate");
@@ -167,6 +244,7 @@ function applyTimelineDocument(root: HTMLElement, composition: CompositionConfig
     else element.setAttribute("data-fd-volume", String(Math.max(0, Math.min(1, placement.volume))));
     if (placement.muted == null) element.removeAttribute("data-fd-muted");
     else element.setAttribute("data-fd-muted", String(placement.muted));
+    if (placement.layout) applyTimelineLayout(element, placement.layout);
   }
 }
 
@@ -192,8 +270,8 @@ function localFrameAt(element: Element, frame: number, clips: Map<HTMLElement, C
 }
 
 function applyEditableProperties(element: HTMLElement): void {
-  const x = numeric(element, "data-fd-x", 0);
-  const y = numeric(element, "data-fd-y", 0);
+  const x = numeric(element, "data-fd-layout-local-x", numeric(element, "data-fd-x", 0));
+  const y = numeric(element, "data-fd-layout-local-y", numeric(element, "data-fd-y", 0));
   const scale = numeric(element, "data-fd-scale", 1);
   const rotation = numeric(element, "data-fd-rotation", 0);
   if (["data-fd-x", "data-fd-y", "data-fd-scale", "data-fd-rotation"].some((name) => element.hasAttribute(name))) {
@@ -217,6 +295,7 @@ function applyEditableProperties(element: HTMLElement): void {
   if (element.hasAttribute("data-fd-color")) element.style.color = element.getAttribute("data-fd-color")!;
   if (element.hasAttribute("data-fd-background")) element.style.background = element.getAttribute("data-fd-background")!;
   if (element.hasAttribute("data-fd-fit")) element.style.objectFit = element.getAttribute("data-fd-fit")!;
+  if (element.hasAttribute("data-fd-image-position")) element.style.objectPosition = element.getAttribute("data-fd-image-position")!;
   // data-fd-text is for text leaves; applying it to a container would replace (and
   // silently destroy) every child element, so a stray attribute must never do that.
   if (element.hasAttribute("data-fd-text") && !element.childElementCount) {
@@ -270,9 +349,38 @@ function applyEditableProperties(element: HTMLElement): void {
       : `radial-gradient(circle, ${stops})`;
   }
   if (fill === "image") {
-    element.style.backgroundSize = element.getAttribute("data-fd-fit") ?? "cover";
+    const fit = element.getAttribute("data-fd-fit") ?? "cover";
+    element.style.backgroundSize = fit === "fill" ? "100% 100%" : fit;
     element.style.backgroundRepeat = "no-repeat";
   }
+  if (element.hasAttribute("data-fd-image")) {
+    const fit = element.getAttribute("data-fd-fit") ?? "cover";
+    element.style.backgroundSize = fit === "fill" ? "100% 100%" : fit;
+    element.style.backgroundRepeat = "no-repeat";
+  }
+}
+
+function applyTimelineLocalCoordinates(root: HTMLElement): void {
+  const rootBounds = root.getBoundingClientRect();
+  const scaleX = root.offsetWidth ? rootBounds.width / root.offsetWidth : 1;
+  const scaleY = root.offsetHeight ? rootBounds.height / root.offsetHeight : 1;
+  for (const element of root.querySelectorAll<HTMLElement>('[data-fd-layout-owner="timeline"][data-fd-x][data-fd-y]')) {
+    const offsetParent = element.offsetParent instanceof HTMLElement ? element.offsetParent : root;
+    const parentBounds = offsetParent.getBoundingClientRect();
+    const parentX = offsetParent === root ? 0 : (parentBounds.left - rootBounds.left) / Math.max(0.0001, scaleX);
+    const parentY = offsetParent === root ? 0 : (parentBounds.top - rootBounds.top) / Math.max(0.0001, scaleY);
+    element.setAttribute("data-fd-layout-local-x", String(numeric(element, "data-fd-x", 0) - parentX));
+    element.setAttribute("data-fd-layout-local-y", String(numeric(element, "data-fd-y", 0) - parentY));
+  }
+}
+
+function focalPointOf(element: Element): [number, number] {
+  const parts = (element.getAttribute("data-fd-image-position") ?? "50% 50%").trim().split(/\s+/);
+  const normalized = (part: string | undefined): number => {
+    const value = Number((part ?? "50%").replace("%", ""));
+    return Number.isFinite(value) ? Math.max(0, Math.min(1, value / 100)) : 0.5;
+  };
+  return [normalized(parts[0]), normalized(parts[1] ?? parts[0])];
 }
 
 const DOCUMENT_PROPERTY_ATTRIBUTES: Record<string, string> = {
@@ -406,6 +514,7 @@ export function mountComposition(
   host.replaceChildren(root);
   const styleScope = `fd-${++nextStyleScope}`;
   cleanups.push(isolateCompositionStyles(root, styleScope));
+  applyTimelineLocalCoordinates(root);
 
   const elements = allElements(root);
   const clipMap = new Map<HTMLElement, ClipWindow>();
@@ -488,8 +597,21 @@ export function mountComposition(
     childHost.className = "framediff-nested-host";
     childHost.style.cssText = `position:absolute;inset:0;width:${child.width}px;height:${child.height}px;transform-origin:top left;`;
     const explicitScale = numeric(element, "data-fd-nested-scale", NaN);
-    const sx = Number.isFinite(explicitScale) ? explicitScale : composition.width / child.width;
-    const sy = Number.isFinite(explicitScale) ? explicitScale : composition.height / child.height;
+    const ownsLayout = element.getAttribute("data-fd-layout-owner") === "timeline" && element.hasAttribute("data-fd-width") && element.hasAttribute("data-fd-height");
+    const boxWidth = ownsLayout ? numeric(element, "data-fd-width", element.offsetWidth) : composition.width;
+    const boxHeight = ownsLayout ? numeric(element, "data-fd-height", element.offsetHeight) : composition.height;
+    const fit = element.getAttribute("data-fd-fit") ?? "cover";
+    const fitX = boxWidth / child.width;
+    const fitY = boxHeight / child.height;
+    const uniform = fit === "contain" ? Math.min(fitX, fitY) : Math.max(fitX, fitY);
+    const sx = Number.isFinite(explicitScale) ? explicitScale : ownsLayout ? fit === "fill" ? fitX : uniform : fitX;
+    const sy = Number.isFinite(explicitScale) ? explicitScale : ownsLayout ? fit === "fill" ? fitY : uniform : fitY;
+    if (ownsLayout) {
+      const [focusX, focusY] = focalPointOf(element);
+      childHost.style.inset = "auto";
+      childHost.style.left = `${(boxWidth - child.width * sx) * focusX}px`;
+      childHost.style.top = `${(boxHeight - child.height * sy) * focusY}px`;
+    }
     if (sx !== 1 || sy !== 1) childHost.style.transform = `scale(${sx}, ${sy})`;
     element.appendChild(childHost);
     const handle = mountComposition(childHost, child, { registry, resolver, playing: options.playing, gradeBypass: options.gradeBypass });

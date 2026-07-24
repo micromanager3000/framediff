@@ -15,11 +15,40 @@ export interface CompositionAuthoringMetadata {
   directManipulation?: boolean;
 }
 
+export type CompositionTimelineFit = "cover" | "contain" | "fill";
+export type CompositionTimelineRect = [x: number, y: number, width: number, height: number];
+
+/**
+ * Canvas placement owned by an edit document. The rectangle is in composition pixels and its
+ * origin is the composition's top-left corner. `focalPoint` uses normalized 0..1 coordinates.
+ */
+export interface CompositionTimelineLayout {
+  rect: CompositionTimelineRect;
+  fit?: CompositionTimelineFit;
+  focalPoint?: [x: number, y: number];
+  cornerRadius?: number;
+  opacity?: number;
+}
+
+export type CompositionTimelineShapeKind = "rect" | "ellipse" | "line" | "polygon" | "path";
+
 /** Layer content owned by an edit document. `composition` is the stable registry key. */
 export type CompositionTimelineContent =
   | { type: "nested"; composition: string; nestedScale?: number }
   | { type: "video"; src: string }
+  | { type: "image"; src: string }
   | { type: "audio"; src: string }
+  | {
+      type: "shape";
+      shape: CompositionTimelineShapeKind;
+      fill?: string;
+      stroke?: string;
+      strokeWidth?: number;
+      /** SVG-compatible points for polygon content, in the shape's 0..100 viewBox. */
+      points?: string;
+      /** SVG path data for arbitrary path content, in the shape's 0..100 viewBox. */
+      d?: string;
+    }
   | { type: "layers"; label?: string }
   | { type: "camera"; camera: string }
   | { type: "grade-layer" };
@@ -37,12 +66,14 @@ export interface CompositionTimelinePlacement {
   volume?: number;
   /** Silence this placement without discarding its authored volume. */
   muted?: boolean;
+  /** Version 2 canvas geometry. When present, this is the only spatial placement authority. */
+  layout?: CompositionTimelineLayout;
   /** When present, this is a complete JSON-authored layer. Omitted for legacy HTML-backed layers. */
   content?: CompositionTimelineContent;
 }
 
 export interface CompositionTimelineDocument {
-  version: 1;
+  version: 1 | 2;
   items: CompositionTimelinePlacement[];
 }
 
@@ -50,26 +81,76 @@ export interface CompositionTimelineDocument {
 export function defineTimelineDocument(document: unknown): CompositionTimelineDocument {
   if (!document || typeof document !== "object") throw new Error("A composition timeline must be an object.");
   const candidate = document as { version?: unknown; items?: unknown };
-  if (candidate.version !== 1) throw new Error(`Unsupported composition timeline version: ${String(candidate.version)}`);
+  if (candidate.version !== 1 && candidate.version !== 2) throw new Error(`Unsupported composition timeline version: ${String(candidate.version)}`);
   if (!Array.isArray(candidate.items)) throw new Error("A composition timeline needs an items array.");
+  const ids = new Set<string>();
   for (const item of candidate.items) {
     if (!item || typeof item !== "object") throw new Error("Every composition timeline item must be an object.");
     const value = item as Record<string, unknown>;
     if (typeof value.id !== "string" || !Number.isFinite(value.from) || !Number.isFinite(value.durationInFrames)) {
       throw new Error("Every composition timeline item needs an id, from, and durationInFrames.");
     }
+    if (ids.has(value.id)) throw new Error(`Timeline item id "${value.id}" is duplicated.`);
+    ids.add(value.id);
+    if ((value.durationInFrames as number) <= 0) throw new Error(`Timeline item ${value.id} durationInFrames must be greater than zero.`);
+    if (value.layer != null && (typeof value.layer !== "number" || !Number.isInteger(value.layer) || value.layer < 0)) {
+      throw new Error(`Timeline item ${value.id} layer must be a non-negative integer.`);
+    }
     if (value.content != null) {
       if (typeof value.content !== "object" || typeof (value.content as Record<string, unknown>).type !== "string") {
         throw new Error(`Timeline item ${value.id} has invalid content.`);
       }
       const content = value.content as Record<string, unknown>;
+      const supported = ["nested", "video", "image", "audio", "shape", "layers", "camera", "grade-layer"];
+      if (!supported.includes(String(content.type))) throw new Error(`Timeline item ${value.id} has unsupported content type "${String(content.type)}".`);
       if (content.type === "nested" && typeof content.composition !== "string") throw new Error(`Nested timeline item ${value.id} needs a composition reference.`);
-      if ((content.type === "video" || content.type === "audio") && typeof content.src !== "string") throw new Error(`${content.type} timeline item ${value.id} needs a src.`);
+      if ((content.type === "video" || content.type === "image" || content.type === "audio") && typeof content.src !== "string") {
+        throw new Error(`${content.type} timeline item ${value.id} needs a src.`);
+      }
+      if (content.type === "shape") {
+        if (!["rect", "ellipse", "line", "polygon", "path"].includes(String(content.shape))) {
+          throw new Error(`Shape timeline item ${value.id} needs a supported shape.`);
+        }
+        if (content.strokeWidth != null && (typeof content.strokeWidth !== "number" || !Number.isFinite(content.strokeWidth) || content.strokeWidth < 0)) {
+          throw new Error(`Shape timeline item ${value.id} strokeWidth must be non-negative.`);
+        }
+        if (content.shape === "polygon" && content.points != null && typeof content.points !== "string") {
+          throw new Error(`Polygon timeline item ${value.id} points must be a string.`);
+        }
+        if (content.shape === "path" && content.d != null && typeof content.d !== "string") {
+          throw new Error(`Path timeline item ${value.id} d must be a string.`);
+        }
+      }
     }
     if (value.volume != null && (typeof value.volume !== "number" || !Number.isFinite(value.volume) || value.volume < 0 || value.volume > 1)) {
       throw new Error(`Timeline item ${value.id} volume must be between 0 and 1.`);
     }
     if (value.muted != null && typeof value.muted !== "boolean") throw new Error(`Timeline item ${value.id} muted must be a boolean.`);
+    if (value.layout != null) {
+      if (candidate.version !== 2) throw new Error(`Timeline item ${value.id} layout requires timeline version 2.`);
+      if (typeof value.layout !== "object" || Array.isArray(value.layout)) throw new Error(`Timeline item ${value.id} has invalid layout.`);
+      const layout = value.layout as Record<string, unknown>;
+      if (!Array.isArray(layout.rect) || layout.rect.length !== 4 || layout.rect.some((part) => typeof part !== "number" || !Number.isFinite(part))) {
+        throw new Error(`Timeline item ${value.id} layout.rect must be [x, y, width, height].`);
+      }
+      if ((layout.rect[2] as number) <= 0 || (layout.rect[3] as number) <= 0) {
+        throw new Error(`Timeline item ${value.id} layout width and height must be greater than zero.`);
+      }
+      if (layout.fit != null && !["cover", "contain", "fill"].includes(String(layout.fit))) {
+        throw new Error(`Timeline item ${value.id} layout.fit must be cover, contain, or fill.`);
+      }
+      if (layout.focalPoint != null && (
+        !Array.isArray(layout.focalPoint)
+        || layout.focalPoint.length !== 2
+        || layout.focalPoint.some((part) => typeof part !== "number" || !Number.isFinite(part) || part < 0 || part > 1)
+      )) throw new Error(`Timeline item ${value.id} layout.focalPoint must contain two values between 0 and 1.`);
+      if (layout.cornerRadius != null && (typeof layout.cornerRadius !== "number" || !Number.isFinite(layout.cornerRadius) || layout.cornerRadius < 0)) {
+        throw new Error(`Timeline item ${value.id} layout.cornerRadius must be non-negative.`);
+      }
+      if (layout.opacity != null && (typeof layout.opacity !== "number" || !Number.isFinite(layout.opacity) || layout.opacity < 0 || layout.opacity > 1)) {
+        throw new Error(`Timeline item ${value.id} layout.opacity must be between 0 and 1.`);
+      }
+    }
   }
   return document as CompositionTimelineDocument;
 }

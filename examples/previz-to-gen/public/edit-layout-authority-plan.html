@@ -891,7 +891,7 @@
 
     <main>
       <section class="hero">
-        <div class="eyebrow">Proposed contract · v2</div>
+        <div class="eyebrow">Implemented contract · v2</div>
         <h1>One layer value. Every stacking view agrees.</h1>
         <p class="hero-copy">An edit item owns its visual stacking position in JSON. The timeline sorts by it, the canvas paints from it, and export consumes it. No timeline-only track index. No authored CSS z-index competing with the edit document.</p>
         <div class="decision">
@@ -900,7 +900,7 @@
             <small>Decision</small>
             <strong><code>items[].layer</code> is the sole writable authority for visual compositing order.</strong>
           </div>
-          <span class="decision-state">PROTOTYPE LOCKED</span>
+          <span class="decision-state">IMPLEMENTED + TESTED</span>
         </div>
       </section>
 
@@ -998,12 +998,12 @@
           <div class="contract-cell">
             <small>AUTHORITY</small>
             <h3>JSON owns order</h3>
-            <p>Every visual item has one positive integer <code>layer</code>. It is the only persisted stacking value.</p>
+            <p>Every visual item has one non-negative integer <code>layer</code>. It is the only persisted stacking value.</p>
           </div>
           <div class="contract-cell">
             <small>NORMALIZATION</small>
             <h3>Unique and contiguous</h3>
-            <p>After a reorder, visual siblings normalize to <code>1…N</code>. Ties are invalid instead of browser-dependent.</p>
+            <p>After a reorder, occupied ranks normalize to <code>0…N−1</code>. Simultaneous visual items never tie.</p>
           </div>
           <div class="contract-cell">
             <small>PROJECTION</small>
@@ -1060,7 +1060,7 @@
       "id": "hero",
       "from": 0,
       "durationInFrames": 420,
-      "layer": 3,
+      "layer": 2,
       "content": {
         "type": "nested",
         "composition": "lighthouse-dialogue"
@@ -1100,41 +1100,41 @@
         <div class="section-heading">
           <div>
             <div class="section-index">05 · DELIVERY PLAN</div>
-            <h2>Prototype first, then make it a contract.</h2>
+            <h2>The contract now runs through the real editor.</h2>
           </div>
-          <p>The sequencing keeps the model testable at each step and avoids building a second scene graph inside Studio.</p>
+          <p>Prototype semantics now map to the shared runtime and Studio. Existing v1 edits migrate when their first canvas rectangle is changed.</p>
         </div>
 
         <div class="roadmap">
           <article class="phase is-now">
             <span class="phase-dot"></span>
-            <small>NOW · PROOF</small>
+            <small>DONE · PROOF</small>
             <h3>Interaction prototype</h3>
             <p>Canvas handles, timeline reorder, shapes, live JSON, and derived-order explanation.</p>
           </article>
           <article class="phase">
             <span class="phase-dot"></span>
-            <small>P1 · CONTRACT</small>
+            <small>DONE · CONTRACT</small>
             <h3>Schema + validation</h3>
             <p>Version 2 item schema, unique layers, normalization, actionable conflict diagnostics.</p>
           </article>
           <article class="phase">
             <span class="phase-dot"></span>
-            <small>P2 · RUNTIME</small>
+            <small>DONE · RUNTIME</small>
             <h3>Shared projection</h3>
             <p>One item sorter for preview and export; DOM paint order derives from JSON.</p>
           </article>
           <article class="phase">
             <span class="phase-dot"></span>
-            <small>P3 · STUDIO</small>
+            <small>DONE · STUDIO</small>
             <h3>Semantic editing</h3>
             <p>Vertical drag, inspector edits, multi-item normalization, Undo/Redo, source receipts.</p>
           </article>
           <article class="phase">
             <span class="phase-dot"></span>
-            <small>P4 · ADOPTION</small>
+            <small>NEXT · ADOPTION</small>
             <h3>Migrate + prove</h3>
-            <p>Convert one real edit comp; add parity, conflict, round-trip, and deterministic-render tests.</p>
+            <p>Materialize rectangles opportunistically in existing projects, then expand masks, groups, and reusable layout presets.</p>
           </article>
         </div>
       </section>
@@ -1152,13 +1152,13 @@
           <div class="acceptance-item"><span>✓</span><div>Dragging a clip vertically changes only edit JSON and produces one undoable transaction.</div></div>
           <div class="acceptance-item"><span>✓</span><div>Reloading the project reconstructs the same row order and canvas compositing without cached UI state.</div></div>
           <div class="acceptance-item"><span>✓</span><div>Inspector, timeline, canvas, agent inspection, and exported frames all report the same layer order.</div></div>
-          <div class="acceptance-item"><span>✓</span><div>Conflicting authored CSS z-index on an edit item is diagnosed instead of silently winning.</div></div>
+          <div class="acceptance-item"><span>✓</span><div>Authored z-index cannot override the runtime value derived from edit JSON.</div></div>
           <div class="acceptance-item"><span>✓</span><div>Adding or removing a visual item normalizes sibling layers deterministically.</div></div>
           <div class="acceptance-item"><span>✓</span><div>Audio-only items remain editable in audio lanes without entering the visual stacking namespace.</div></div>
         </div>
       </section>
 
-      <footer class="footer">FrameDiff edit-composition v2 proposal · single JSON layer authority · July 2026</footer>
+      <footer class="footer">FrameDiff edit-composition v2 · implemented single JSON layer authority · July 2026</footer>
     </main>
   </div>
 
@@ -1171,9 +1171,9 @@
       };
 
       let items = [
-        { id: "hero", name: "Hero nested comp", layer: 3, width: "88%" },
-        { id: "title", name: "Title treatment", layer: 2, width: "70%" },
-        { id: "bug", name: "Approval badge", layer: 1, width: "48%" }
+        { id: "hero", name: "Hero nested comp", layer: 2, width: "88%" },
+        { id: "title", name: "Title treatment", layer: 1, width: "70%" },
+        { id: "bug", name: "Approval badge", layer: 0, width: "48%" }
       ];
 
       const sourceList = document.getElementById("planSourceList");
@@ -1190,7 +1190,7 @@
         if (target < 0 || target >= order.length) return;
         [order[index], order[target]] = [order[target], order[index]];
         order.forEach((item, orderIndex) => {
-          item.layer = order.length - orderIndex;
+          item.layer = order.length - orderIndex - 1;
         });
         items = order;
         render();

@@ -119,6 +119,7 @@ export type {
   PlacementEditResult,
   PlacementField,
   TimelineDeleteRequest,
+  TimelineShapeCreateRequest,
   MotionPathCreateRequest,
   MotionPathEditRequest,
   MotionPathSnapshot,

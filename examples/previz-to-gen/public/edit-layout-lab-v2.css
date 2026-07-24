@@ -261,14 +261,6 @@
   background-size: 5% 8.888%;
 }
 
-.fd2-safe-area {
-  position: absolute;
-  inset: 5%;
-  z-index: 901;
-  border: 1px dashed rgba(232, 185, 95, .22);
-  pointer-events: none;
-}
-
 .fd2-stage-node {
   position: absolute;
   min-width: 4px;

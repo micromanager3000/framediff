@@ -132,9 +132,9 @@ Whenever transport is present without the full timeline, Studio renders a compac
 beside play/step controls. A procedural scene therefore remains directly seekable without looking
 like an edit composition or inventing fake clips.
 
-### Planned v2: one visual layer authority
+### Timeline v2: one visual layer authority
 
-The next edit-document contract extends each item with explicit `content` and `layout` while keeping
+The version 2 edit-document contract extends each item with explicit `content` and `layout` while keeping
 `items[].layer` as the sole writable authority for visual compositing order. Timeline row order and DOM
 paint order become projections of that value rather than separately persisted state:
 
@@ -160,9 +160,9 @@ paint order become projections of that value rather than separately persisted st
 }
 ```
 
-The proposed invariants are:
+The implemented invariants are:
 
-- Visual sibling layers are unique positive integers normalized to `1…N`; the highest value is front.
+- Visual layer ranks are non-negative integers normalized to `0…N−1`; simultaneous visual items never tie, and the highest value is front.
 - Timeline rows sort by `layer` descending. Row numbers and track indices are never authored.
 - Preview and export paint from the same item ordering. A DOM `z-index` may be assigned while rendering,
   but it is derived output and never a second source value.
@@ -171,6 +171,12 @@ The proposed invariants are:
 - Audio routing remains outside the visual stacking namespace.
 - A reusable layout may suggest a default layer, but an edit binding materializes the final
   `items[].layer` value.
+
+Studio exposes the same values through canvas move/resize handles and Inspector controls for
+rectangle, fit, focal point, corner radius, and opacity. A v1 edit remains valid; the first canvas
+geometry edit captures the item's current rendered rectangle and upgrades that timeline file to v2.
+New nested drops and JSON-native rectangle, ellipse, line, polygon, or arbitrary SVG path shapes are
+created with v2 layout from the start.
 
 See the [interactive authority plan](../examples/previz-to-gen/public/edit-layout-authority-plan.html)
 and the [working edit-layout prototype](../examples/previz-to-gen/public/edit-layout-lab.html).

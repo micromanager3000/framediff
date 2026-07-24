@@ -31,6 +31,8 @@ import type {
   RenderResult,
   TimelineDeleteRequest,
   TimelineItemSnapshot,
+  TimelineLaneSnapshot,
+  TimelineShapeCreateRequest,
   UnrollGroupRequest,
   VisualAdaptation,
 } from "@framediff/studio-model";
@@ -112,7 +114,12 @@ import {
   type GenerativeComposition,
 } from "../generative";
 import { mountComposition, type CompositionHandle } from "../runtime";
-import { defineComposition, type CompositionTimelineDocument } from "../composition";
+import {
+  defineComposition,
+  defineTimelineDocument,
+  type CompositionTimelineDocument,
+  type CompositionTimelinePlacement,
+} from "../composition";
 import { analyzeGsapSource, analyzeGsapUnrollGroups, ensureGsapTimelineSource, insertGsapTweenSource, rewriteGsapAnimationSource, rewriteGsapMotionPathSource, rewriteGsapUnrollSource } from "../gsap/source";
 import { parseMotionPathSvg } from "@framediff/studio-model";
 import { getGsapRuntimeTraces } from "../gsap";
@@ -159,6 +166,20 @@ function previewText(element: HTMLElement): string | undefined {
   return text || undefined;
 }
 
+function offsetWithinRoot(element: HTMLElement, root: HTMLElement): { x: number; y: number } {
+  let x = 0;
+  let y = 0;
+  let cursor: HTMLElement | null = element;
+  const seen = new Set<HTMLElement>();
+  while (cursor && cursor !== root && !seen.has(cursor)) {
+    seen.add(cursor);
+    x += cursor.offsetLeft;
+    y += cursor.offsetTop;
+    cursor = cursor.offsetParent instanceof HTMLElement ? cursor.offsetParent : cursor.parentElement;
+  }
+  return { x, y };
+}
+
 function previewElement(preview: PreviewRecord, element: HTMLElement): PreviewNodeSnapshot | null {
   const root = preview.handle?.root;
   const objectId = element.getAttribute("data-fd-id");
@@ -186,6 +207,10 @@ function previewElement(preview: PreviewRecord, element: HTMLElement): PreviewNo
   const parent = element.parentElement?.closest<HTMLElement>("[data-fd-id]");
   const compRef = element.getAttribute("data-fd-comp");
   const text = previewText(element);
+  const materializedLayout = element.getAttribute("data-fd-layout-owner") === "timeline"
+    && element.hasAttribute("data-fd-x")
+    && element.hasAttribute("data-fd-y");
+  const offset = offsetWithinRoot(element, root);
   return {
     ref: { compositionKey: preview.compositionKey, objectId, kind: "element" },
     tagName: element.tagName.toLowerCase(),
@@ -194,8 +219,8 @@ function previewElement(preview: PreviewRecord, element: HTMLElement): PreviewNo
     ...(owner?.getAttribute("data-fd-id") ? { ownerItemId: owner.getAttribute("data-fd-id")! } : {}),
     ...(compRef ? { nestedCompositionKey: compRef } : {}),
     bounds: {
-      x: element.offsetLeft + previewNumeric(element, "data-fd-x", 0),
-      y: element.offsetTop + previewNumeric(element, "data-fd-y", 0),
+      x: materializedLayout ? previewNumeric(element, "data-fd-x", 0) : offset.x + previewNumeric(element, "data-fd-x", 0),
+      y: materializedLayout ? previewNumeric(element, "data-fd-y", 0) : offset.y + previewNumeric(element, "data-fd-y", 0),
       width,
       height,
     },
@@ -230,8 +255,8 @@ function previewElement(preview: PreviewRecord, element: HTMLElement): PreviewNo
       scale: elementScale,
     },
     ...(text != null ? { text } : {}),
-    movable: element.hasAttribute("data-fd-x") || element.hasAttribute("data-fd-y"),
-    resizable: element.hasAttribute("data-fd-width") || element.hasAttribute("data-fd-height"),
+    movable: element.getAttribute("data-fd-layout-owner") === "timeline" || element.hasAttribute("data-fd-x") || element.hasAttribute("data-fd-y"),
+    resizable: element.getAttribute("data-fd-layout-owner") === "timeline" || element.hasAttribute("data-fd-width") || element.hasAttribute("data-fd-height"),
   };
 }
 
@@ -262,9 +287,13 @@ function draftPreviewElement(preview: PreviewRecord, objectId: string, patch: Pr
   }
   const x = patch.x ?? previewNumeric(element, "data-fd-x", 0);
   const y = patch.y ?? previewNumeric(element, "data-fd-y", 0);
+  const authoredX = previewNumeric(element, "data-fd-x", 0);
+  const authoredY = previewNumeric(element, "data-fd-y", 0);
+  const localX = previewNumeric(element, "data-fd-layout-local-x", authoredX);
+  const localY = previewNumeric(element, "data-fd-layout-local-y", authoredY);
   const scale = previewNumeric(element, "data-fd-scale", 1);
   const rotation = previewNumeric(element, "data-fd-rotation", 0);
-  element.style.transform = `translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${scale})`;
+  element.style.transform = `translate(${localX + x - authoredX}px, ${localY + y - authoredY}px) rotate(${rotation}deg) scale(${scale})`;
   if (patch.width != null) element.style.width = `${patch.width}px`;
   if (patch.height != null) element.style.height = `${patch.height}px`;
   preview.draftIds.add(objectId);
@@ -286,6 +315,22 @@ function clearPreviewDraft(preview: PreviewRecord, objectId?: string): void {
     preview.draftStyles.delete(id);
   }
   emitPreviewNodes(preview);
+}
+
+function parsedTimelineDocument(text: string): CompositionTimelineDocument {
+  return structuredClone(defineTimelineDocument(JSON.parse(text)));
+}
+
+function timelinePlacementKind(
+  placement: CompositionTimelinePlacement,
+  fallback?: TimelineItemSnapshot,
+): TimelineLaneSnapshot["kind"] {
+  const type = placement.content?.type ?? fallback?.content.type;
+  return type === "audio" ? "audio" : type === "grade-layer" ? "grade" : "video";
+}
+
+function placementsOverlap(left: CompositionTimelinePlacement, right: CompositionTimelinePlacement): boolean {
+  return left.from < right.from + right.durationInFrames && right.from < left.from + left.durationInFrames;
 }
 
 const GRADE_PRESETS: Record<string, { label: string; values: Record<string, number> }> = {
@@ -863,6 +908,7 @@ function describeRegistry(registry: CompRegistry): CompositionDescriptor[] {
     kind: composition.meta?.kind ?? "edit",
     outputKind: composition.meta?.output ?? "video",
     file: composition.meta?.file,
+    timelineDocument: !!composition.meta?.timelineFile,
     sources: compositionSourcePaths(registry, key),
     library: composition.meta?.library,
     render: composition.meta?.render,
@@ -1422,20 +1468,52 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (!revision || revision.text == null) return { ok: false, file, message: `Could not read ${file} through the FrameDiff dev bridge.` };
     let document: NonNullable<StudioComposition["timeline"]>;
     try {
-      const parsed = JSON.parse(revision.text) as NonNullable<StudioComposition["timeline"]>;
-      if (parsed?.version !== 1 || !Array.isArray(parsed.items)) throw new Error("expected { version: 1, items: [] }");
-      document = { version: 1, items: parsed.items.map((item) => ({ ...item })) };
+      document = parsedTimelineDocument(revision.text);
     } catch (error) {
       return { ok: false, file, message: `${file} is not a valid FrameDiff timeline document: ${error instanceof Error ? error.message : String(error)}` };
     }
     const placementById = new Map(document.items.map((item) => [item.id, item]));
-    for (const request of requests) {
+    const projectedById = new Map((this.probed.get(compositionKey) ?? timelineFromComposition(composition)).map((item) => [item.id, item]));
+    for (const request of requests.filter((entry) => entry.field !== "layer")) {
       const placement = placementById.get(request.itemId);
       if (!placement) return { ok: false, file, message: `Timeline document ${file} has no placement named "${request.itemId}".` };
       if (request.field === "from") placement.from = Math.round(request.value);
       else if (request.field === "durationInFrames") placement.durationInFrames = Math.max(1, Math.round(request.value));
-      else if (request.field === "layer") placement.layer = Math.max(0, Math.round(request.value));
       else placement.trimStart = Math.round(request.value * 1_000_000) / 1_000_000;
+    }
+    const touchedKinds = new Set<TimelineLaneSnapshot["kind"]>();
+    for (const request of requests.filter((entry) => entry.field === "layer")) {
+      const placement = placementById.get(request.itemId);
+      if (!placement) return { ok: false, file, message: `Timeline document ${file} has no placement named "${request.itemId}".` };
+      const fallback = projectedById.get(placement.id);
+      const kind = timelinePlacementKind(placement, fallback);
+      const previousLayer = placement.layer ?? fallback?.layer ?? 0;
+      const targetLayer = Math.max(0, Math.round(request.value));
+      // Dropping onto an occupied visual layer swaps only clips that are active at the same time.
+      // Sequential clips may intentionally share a track, while simultaneous clips always retain
+      // one unambiguous stacking rank.
+      for (const other of document.items) {
+        if (other === placement || timelinePlacementKind(other, projectedById.get(other.id)) !== kind) continue;
+        if ((other.layer ?? projectedById.get(other.id)?.layer ?? 0) === targetLayer && placementsOverlap(placement, other)) {
+          other.layer = previousLayer;
+        }
+      }
+      placement.layer = targetLayer;
+      touchedKinds.add(kind);
+    }
+    for (const kind of touchedKinds) {
+      const placements = document.items.filter((placement) => timelinePlacementKind(placement, projectedById.get(placement.id)) === kind);
+      const ranks = [...new Set(placements.map((placement) => placement.layer ?? projectedById.get(placement.id)?.layer ?? 0))].sort((a, b) => a - b);
+      const normalized = new Map(ranks.map((rank, index) => [rank, index]));
+      for (const placement of placements) {
+        const rank = placement.layer ?? projectedById.get(placement.id)?.layer ?? 0;
+        placement.layer = normalized.get(rank) ?? 0;
+      }
+    }
+    try {
+      defineTimelineDocument(document);
+    } catch (error) {
+      return { ok: false, file, message: `The placement edit would make ${file} invalid: ${error instanceof Error ? error.message : String(error)}` };
     }
     const committed = await this.commitSourceText(
       requests.length === 1 ? "Edit timeline document placement" : "Edit timeline document placements",
@@ -1469,9 +1547,8 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       const revision = await readSourceRevision(timelineFile);
       if (!revision || revision.text == null) return { ok: false, file: timelineFile, message: `Could not read ${timelineFile}.` };
       try {
-        const parsed = JSON.parse(revision.text) as CompositionTimelineDocument;
-        if (parsed.version !== 1 || !Array.isArray(parsed.items)) throw new Error("expected { version: 1, items: [] }");
-        nextTimeline = { version: 1, items: parsed.items.filter((item) => !itemIds.includes(item.id)).map((item) => ({ ...item })) };
+        const parsed = parsedTimelineDocument(revision.text);
+        nextTimeline = { ...parsed, items: parsed.items.filter((item) => !itemIds.includes(item.id)) };
       } catch (error) {
         return { ok: false, file: timelineFile, message: `${timelineFile} is not a valid FrameDiff timeline document: ${error instanceof Error ? error.message : String(error)}` };
       }
@@ -1526,6 +1603,68 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (nextHtml !== composition.html) composition.html = nextHtml;
     await this.refreshEditedComposition(request.compositionKey);
     return { ok: true, file: timelineFile ?? htmlFile, receipt: committed.receipt };
+  }
+
+  public async createTimelineShape(request: TimelineShapeCreateRequest): Promise<PlacementEditResult> {
+    const composition = this.registry[request.compositionKey];
+    const file = composition?.meta?.timelineFile;
+    if (!composition || !file || !composition.timeline) {
+      return { ok: false, message: "Shapes require an edit composition with an external timeline document." };
+    }
+    const revision = await readSourceRevision(file);
+    if (!revision || revision.text == null) return { ok: false, file, message: `Could not read ${file}.` };
+    let document: CompositionTimelineDocument;
+    try {
+      document = parsedTimelineDocument(revision.text);
+    } catch (error) {
+      return { ok: false, file, message: `${file} is not a valid FrameDiff timeline document: ${error instanceof Error ? error.message : String(error)}` };
+    }
+    const stem = request.shape === "rect" ? "rectangle" : request.shape;
+    const ids = new Set(document.items.map((item) => item.id));
+    let id = `${stem}-shape`;
+    for (let suffix = 2; ids.has(id); suffix += 1) id = `${stem}-shape-${suffix}`;
+    const projectedById = new Map(timelineFromComposition(composition).map((item) => [item.id, item]));
+    const visualLayers = document.items
+      .filter((placement) => timelinePlacementKind(placement, projectedById.get(placement.id)) === "video")
+      .map((placement) => placement.layer ?? projectedById.get(placement.id)?.layer ?? 0);
+    const layer = visualLayers.length ? Math.max(...visualLayers) + 1 : 0;
+    const width = request.shape === "line" ? composition.width * 0.5 : composition.width * 0.42;
+    const height = request.shape === "line" ? Math.max(24, composition.height * 0.06) : composition.height * 0.38;
+    const x = (composition.width - width) / 2;
+    const y = (composition.height - height) / 2;
+    const from = Math.round(request.from);
+    document.version = 2;
+    document.items.push({
+      id,
+      name: `${stem[0].toUpperCase()}${stem.slice(1)} shape`,
+      from,
+      durationInFrames: Math.max(1, composition.durationInFrames - from),
+      layer,
+      layout: {
+        rect: [Math.round(x), Math.round(y), Math.round(width), Math.round(height)],
+        fit: "fill",
+        cornerRadius: request.shape === "rect" ? 20 : 0,
+        opacity: 1,
+      },
+      content: {
+        type: "shape",
+        shape: request.shape,
+        fill: request.shape === "line" ? "none" : "#f0b969",
+        stroke: "#f0b969",
+        strokeWidth: request.shape === "line" ? 6 : 2,
+        ...(request.shape === "path" ? { d: "M 8 50 C 22 8 78 8 92 50 C 78 92 22 92 8 50 Z" } : {}),
+      },
+    });
+    try {
+      defineTimelineDocument(document);
+    } catch (error) {
+      return { ok: false, file, message: `Could not create the shape: ${error instanceof Error ? error.message : String(error)}` };
+    }
+    const committed = await this.commitSourceText(`Add ${stem} shape`, revision, `${JSON.stringify(document, null, 2)}\n`);
+    if (!committed.ok) return { ok: false, file, message: committed.message, conflicts: committed.conflicts };
+    composition.timeline = document;
+    await this.refreshEditedComposition(request.compositionKey);
+    return { ok: true, file, receipt: committed.receipt };
   }
 
   public async inspectItem(compositionKey: string, itemId: string): Promise<InspectorDetailsSnapshot> {
@@ -1589,6 +1728,149 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const timelinePlacement = composition.meta?.timelineFile
       ? composition.timeline?.items.find((placement) => placement.id === itemId)
       : undefined;
+    const previewNode = [...this.previews]
+      .filter((preview) => preview.compositionKey === compositionKey)
+      .flatMap((preview) => previewNodes(preview))
+      .find((node) => node.ref.objectId === itemId);
+    const timelineType = timelinePlacement?.content?.type ?? item?.content.type;
+    if (timelinePlacement && timelineType !== "audio") {
+      const rect = timelinePlacement.layout?.rect
+        ?? (previewNode
+          ? [previewNode.bounds.x, previewNode.bounds.y, previewNode.bounds.width, previewNode.bounds.height] as const
+          : [0, 0, composition.width, composition.height] as const);
+      const source = composition.meta?.timelineFile;
+      const numberField = (
+        id: string,
+        label: string,
+        value: number,
+        options: { min?: number; max?: number; step?: number; slider?: boolean } = {},
+      ): InspectorFieldSnapshot => ({
+        id,
+        label,
+        value,
+        valueType: "number",
+        editable: true,
+        step: options.step ?? 1,
+        source,
+        control: { type: "number", value, ...options },
+      });
+      const layoutFields: InspectorFieldSnapshot[] = [
+        numberField("timeline:layout:x", "x", rect[0]),
+        numberField("timeline:layout:y", "y", rect[1]),
+        numberField("timeline:layout:width", "width", rect[2], { min: 1 }),
+        numberField("timeline:layout:height", "height", rect[3], { min: 1 }),
+      ];
+      if (timelineType === "nested" || timelineType === "video" || timelineType === "image") {
+        const fit = timelinePlacement.layout?.fit ?? "cover";
+        layoutFields.push({
+          id: "timeline:layout:fit",
+          label: "fit",
+          text: fit,
+          valueType: "text",
+          editable: true,
+          source,
+          control: {
+            type: "select",
+            value: fit,
+            options: [
+              { value: "cover", label: "cover / crop" },
+              { value: "contain", label: "contain / letterbox" },
+              { value: "fill", label: "stretch" },
+            ],
+          },
+        });
+        layoutFields.push(
+          numberField("timeline:layout:focal-x", "focal x", timelinePlacement.layout?.focalPoint?.[0] ?? 0.5, { min: 0, max: 1, step: 0.01, slider: true }),
+          numberField("timeline:layout:focal-y", "focal y", timelinePlacement.layout?.focalPoint?.[1] ?? 0.5, { min: 0, max: 1, step: 0.01, slider: true }),
+        );
+      }
+      layoutFields.push(
+        numberField("timeline:layout:corner-radius", "corner radius", timelinePlacement.layout?.cornerRadius ?? 0, { min: 0 }),
+        numberField("timeline:layout:opacity", "opacity", timelinePlacement.layout?.opacity ?? 1, { min: 0, max: 1, step: 0.01, slider: true }),
+      );
+      sections.push({ id: "timeline-layout", title: "LAYOUT", kind: "data", fields: layoutFields });
+    }
+    if (timelinePlacement?.content?.type === "shape") {
+      const content = timelinePlacement.content;
+      const fields: InspectorFieldSnapshot[] = [
+        {
+          id: "timeline:shape:kind",
+          label: "shape",
+          text: content.shape,
+          valueType: "text",
+          editable: true,
+          source: composition.meta?.timelineFile,
+          control: {
+            type: "select",
+            value: content.shape,
+            options: ["rect", "ellipse", "line", "polygon", "path"].map((value) => ({ value, label: value })),
+          },
+        },
+        {
+          id: "timeline:shape:fill",
+          label: "fill",
+          text: content.fill ?? "#f0b969",
+          valueType: "text",
+          editable: true,
+          source: composition.meta?.timelineFile,
+          control: { type: "color", value: content.fill === "none" ? "#000000" : content.fill ?? "#f0b969" },
+        },
+        {
+          id: "timeline:shape:stroke",
+          label: "stroke",
+          text: content.stroke ?? "#f0b969",
+          valueType: "text",
+          editable: true,
+          source: composition.meta?.timelineFile,
+          control: { type: "color", value: content.stroke === "none" ? "#000000" : content.stroke ?? "#f0b969" },
+        },
+        {
+          id: "timeline:shape:stroke-width",
+          label: "stroke width",
+          value: content.strokeWidth ?? 0,
+          valueType: "number",
+          editable: true,
+          step: 0.5,
+          source: composition.meta?.timelineFile,
+          control: { type: "number", value: content.strokeWidth ?? 0, min: 0, step: 0.5 },
+        },
+      ];
+      if (content.shape === "polygon") fields.push({
+        id: "timeline:shape:points",
+        label: "points",
+        text: content.points ?? "50,2 98,50 50,98 2,50",
+        valueType: "text",
+        editable: true,
+        source: composition.meta?.timelineFile,
+        control: { type: "text", value: content.points ?? "50,2 98,50 50,98 2,50" },
+      });
+      if (content.shape === "path") fields.push({
+        id: "timeline:shape:path",
+        label: "SVG path",
+        text: content.d ?? "",
+        valueType: "text",
+        editable: true,
+        source: composition.meta?.timelineFile,
+        control: { type: "text", value: content.d ?? "", multiline: true },
+      });
+      sections.push({ id: "timeline-shape", title: "SHAPE", kind: "data", fields });
+    }
+    if (timelinePlacement?.content?.type === "image") {
+      sections.push({
+        id: "timeline-content",
+        title: "MEDIA",
+        kind: "data",
+        fields: [{
+          id: "timeline:src",
+          label: "source",
+          text: timelinePlacement.content.src,
+          valueType: "text",
+          editable: true,
+          source: composition.meta?.timelineFile,
+          control: { type: "text", value: timelinePlacement.content.src },
+        }],
+      });
+    }
     const timelineAudioContent = item?.content.type === "nested" || item?.content.type === "video" || item?.content.type === "audio"
       ? item.content
       : undefined;
@@ -1719,6 +2001,15 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         "data-fd-playback-rate",
         "data-fd-volume",
         "data-fd-muted",
+        "data-fd-x",
+        "data-fd-y",
+        "data-fd-width",
+        "data-fd-height",
+        "data-fd-fit",
+        "data-fd-image-position",
+        "data-fd-border-radius",
+        "data-fd-opacity",
+        "data-fd-z-index",
       ]);
       const fields = inspectorFieldsFromHtml(files[file], itemId).filter((field) => {
         const placement = composition.timeline?.items.find((candidate) => candidate.id === field.targetId);
@@ -1730,6 +2021,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         if (placement.content?.type === "video" || placement.content?.type === "audio") {
           return field.attribute !== "data-fd-src";
         }
+        if (placement.content?.type === "image") return field.attribute !== "data-fd-image" && field.attribute !== "data-fd-src";
         return true;
       });
       const grade = fields.filter((field) => htmlGradeAttributes.includes(field.attribute) || ["data-fd-lut", "data-fd-lut-name", "data-fd-lut-intensity"].includes(field.attribute));
@@ -1855,20 +2147,76 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (!revision || revision.text == null) return { ok: false, file, message: `Could not read ${file}.` };
     let document: CompositionTimelineDocument;
     try {
-      const parsed = JSON.parse(revision.text) as CompositionTimelineDocument;
-      if (parsed.version !== 1 || !Array.isArray(parsed.items)) throw new Error("expected { version: 1, items: [] }");
-      document = { version: 1, items: parsed.items.map((item) => ({ ...item })) };
+      document = parsedTimelineDocument(revision.text);
     } catch (error) {
       return { ok: false, file, message: `${file} is not a valid FrameDiff timeline document: ${error instanceof Error ? error.message : String(error)}` };
     }
     const placement = document.items.find((item) => item.id === request.itemId);
     const type = placement?.content?.type
       ?? this.probed.get(request.compositionKey)?.find((item) => item.id === request.itemId)?.content.type;
-    if (!placement || (type !== "nested" && type !== "video" && type !== "audio")) {
-      return { ok: false, file, message: `"${request.itemId}" does not have editable timeline content.` };
-    }
+    if (!placement) return { ok: false, file, message: `"${request.itemId}" does not have editable timeline content.` };
+    const previewNode = [...this.previews]
+      .filter((preview) => preview.compositionKey === request.compositionKey)
+      .flatMap((preview) => previewNodes(preview))
+      .find((node) => node.ref.objectId === request.itemId);
+    const ensureLayout = () => {
+      document.version = 2;
+      placement.layout ??= {
+        rect: previewNode
+          ? [previewNode.bounds.x, previewNode.bounds.y, previewNode.bounds.width, previewNode.bounds.height]
+          : [0, 0, composition.width, composition.height],
+        fit: type === "shape" ? "fill" : "cover",
+        cornerRadius: 0,
+        opacity: 1,
+      };
+      return placement.layout;
+    };
     let label: string;
-    if (request.fieldId === "timeline:volume") {
+    if (request.fieldId.startsWith("timeline:layout:")) {
+      const layout = ensureLayout();
+      const property = request.fieldId.slice("timeline:layout:".length);
+      if (property === "fit") {
+        if (typeof request.value !== "string" || !["cover", "contain", "fill"].includes(request.value)) {
+          return { ok: false, file, message: "Fit must be cover, contain, or fill." };
+        }
+        layout.fit = request.value as "cover" | "contain" | "fill";
+      } else {
+        if (typeof request.value !== "number" || !Number.isFinite(request.value)) return { ok: false, file, message: `${property} must be a number.` };
+        if (property === "x") layout.rect[0] = request.value;
+        else if (property === "y") layout.rect[1] = request.value;
+        else if (property === "width") layout.rect[2] = Math.max(1, request.value);
+        else if (property === "height") layout.rect[3] = Math.max(1, request.value);
+        else if (property === "focal-x") layout.focalPoint = [Math.max(0, Math.min(1, request.value)), layout.focalPoint?.[1] ?? 0.5];
+        else if (property === "focal-y") layout.focalPoint = [layout.focalPoint?.[0] ?? 0.5, Math.max(0, Math.min(1, request.value))];
+        else if (property === "corner-radius") layout.cornerRadius = Math.max(0, request.value);
+        else if (property === "opacity") layout.opacity = Math.max(0, Math.min(1, request.value));
+        else return { ok: false, file, message: `Unknown timeline layout property: ${property}` };
+      }
+      label = "Edit timeline layout";
+    } else if (request.fieldId.startsWith("timeline:shape:")) {
+      if (placement.content?.type !== "shape") return { ok: false, file, message: `"${request.itemId}" is not a shape.` };
+      const property = request.fieldId.slice("timeline:shape:".length);
+      if (property === "kind") {
+        if (typeof request.value !== "string" || !["rect", "ellipse", "line", "polygon", "path"].includes(request.value)) {
+          return { ok: false, file, message: "Choose rect, ellipse, line, polygon, or path." };
+        }
+        placement.content.shape = request.value as "rect" | "ellipse" | "line" | "polygon" | "path";
+      } else if (property === "stroke-width") {
+        if (typeof request.value !== "number" || !Number.isFinite(request.value)) return { ok: false, file, message: "Stroke width must be a number." };
+        placement.content.strokeWidth = Math.max(0, request.value);
+      } else if (property === "fill" || property === "stroke") {
+        if (typeof request.value !== "string" || !request.value.trim()) return { ok: false, file, message: `${property} must be a CSS color.` };
+        placement.content[property] = request.value.trim();
+      } else if (property === "points") {
+        if (typeof request.value !== "string") return { ok: false, file, message: "Polygon points must be text." };
+        placement.content.points = request.value;
+      } else if (property === "path") {
+        if (typeof request.value !== "string") return { ok: false, file, message: "SVG path data must be text." };
+        placement.content.d = request.value;
+      } else return { ok: false, file, message: `Unknown shape property: ${property}` };
+      document.version = 2;
+      label = "Edit timeline shape";
+    } else if (request.fieldId === "timeline:volume") {
       if (typeof request.value !== "number" || !Number.isFinite(request.value)) return { ok: false, file, message: "Volume must be a number." };
       placement.volume = Math.max(0, Math.min(1, request.value));
       label = "Adjust placement volume";
@@ -1899,7 +2247,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       placement.content = { ...placement.content, nestedScale: request.value };
       label = "Adjust nested composition scale";
     } else if (request.fieldId === "timeline:src") {
-      if ((placement.content?.type !== "video" && placement.content?.type !== "audio")
+      if ((placement.content?.type !== "video" && placement.content?.type !== "image" && placement.content?.type !== "audio")
         || typeof request.value !== "string" || !request.value.trim()) {
         return { ok: false, file, message: "Media source must be a non-empty asset or URL." };
       }
@@ -1907,6 +2255,11 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       label = "Change media source";
     } else {
       return { ok: false, file, message: `Unknown timeline property: ${request.fieldId}` };
+    }
+    try {
+      defineTimelineDocument(document);
+    } catch (error) {
+      return { ok: false, file, message: `The Inspector edit would make ${file} invalid: ${error instanceof Error ? error.message : String(error)}` };
     }
     const committed = await this.commitSourceText(
       label,
@@ -2079,6 +2432,62 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (entries.some(([, value]) => !Number.isFinite(value))) return { ok: false, file, message: "Element geometry must use finite numbers." };
     if ((request.patch.width != null && request.patch.width < 1) || (request.patch.height != null && request.patch.height < 1)) {
       return { ok: false, file, message: "Element dimensions must be at least one composition pixel." };
+    }
+    const timelinePlacement = composition.meta?.timelineFile
+      ? composition.timeline?.items.find((placement) => placement.id === request.objectId)
+      : undefined;
+    const projectedType = this.probed.get(request.compositionKey)?.find((item) => item.id === request.objectId)?.content.type;
+    if (timelinePlacement && (timelinePlacement.content?.type ?? projectedType) !== "audio") {
+      const timelineFile = composition.meta!.timelineFile!;
+      const revision = await readSourceRevision(timelineFile);
+      if (!revision || revision.text == null) return { ok: false, file: timelineFile, message: `Could not read ${timelineFile}.` };
+      let document: CompositionTimelineDocument;
+      try {
+        document = parsedTimelineDocument(revision.text);
+      } catch (error) {
+        return { ok: false, file: timelineFile, message: `${timelineFile} is not a valid FrameDiff timeline document: ${error instanceof Error ? error.message : String(error)}` };
+      }
+      const placement = document.items.find((item) => item.id === request.objectId);
+      if (!placement) return { ok: false, file: timelineFile, message: `Timeline document ${timelineFile} has no placement named "${request.objectId}".` };
+      const node = [...this.previews]
+        .filter((preview) => preview.compositionKey === request.compositionKey)
+        .flatMap((preview) => previewNodes(preview))
+        .find((candidate) => candidate.ref.objectId === request.objectId);
+      const currentRect = placement.layout?.rect
+        ?? (node
+          ? [node.bounds.x, node.bounds.y, node.bounds.width, node.bounds.height] as const
+          : [0, 0, composition.width, composition.height] as const);
+      const authoredX = placement.layout ? currentRect[0] : node?.properties.x ?? 0;
+      const authoredY = placement.layout ? currentRect[1] : node?.properties.y ?? 0;
+      const rounded = (value: number) => Math.round(value * 1_000) / 1_000;
+      placement.layout = {
+        ...placement.layout,
+        rect: [
+          rounded(request.patch.x == null ? currentRect[0] : currentRect[0] + request.patch.x - authoredX),
+          rounded(request.patch.y == null ? currentRect[1] : currentRect[1] + request.patch.y - authoredY),
+          rounded(request.patch.width ?? currentRect[2]),
+          rounded(request.patch.height ?? currentRect[3]),
+        ],
+        fit: placement.layout?.fit ?? ((placement.content?.type ?? projectedType) === "shape" ? "fill" : "cover"),
+        cornerRadius: placement.layout?.cornerRadius ?? 0,
+        opacity: placement.layout?.opacity ?? 1,
+      };
+      document.version = 2;
+      try {
+        defineTimelineDocument(document);
+      } catch (error) {
+        return { ok: false, file: timelineFile, message: `The canvas edit would make ${timelineFile} invalid: ${error instanceof Error ? error.message : String(error)}` };
+      }
+      const committed = await this.commitSourceText(
+        request.label ?? `Edit ${request.objectId} layout`,
+        revision,
+        `${JSON.stringify(document, null, 2)}\n`,
+        request.groupId,
+      );
+      if (!committed.ok) return { ok: false, file: timelineFile, message: committed.message, receipt: committed.receipt, conflicts: committed.conflicts };
+      composition.timeline = document;
+      await this.refreshEditedComposition(request.compositionKey);
+      return { ok: true, file: timelineFile, receipt: committed.receipt };
     }
     const binding = this.documentBinding(composition, request.objectId);
     if (binding) {
@@ -2460,19 +2869,23 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
           const timelineRevision = await readSourceRevision(timelineFile);
           if (timelineRevision?.text) {
             try {
-              const currentTimeline = JSON.parse(timelineRevision.text) as CompositionTimelineDocument;
-              if (currentTimeline.version !== 1 || !Array.isArray(currentTimeline.items)) throw new Error("invalid timeline document");
+              const currentTimeline = parsedTimelineDocument(timelineRevision.text);
               const baseId = `nested-${kebabName(pascal)}`;
               const ids = new Set(currentTimeline.items.map((item) => item.id));
               let id = baseId;
               for (let suffix = 2; ids.has(id); suffix += 1) id = `${baseId}-${suffix}`;
+              const layer = Math.max(-1, ...currentTimeline.items
+                .filter((item) => timelinePlacementKind(item) === "video")
+                .map((item) => item.layer ?? 0)) + 1;
               const nextTimeline: CompositionTimelineDocument = {
-                version: 1,
+                version: 2,
                 items: [...currentTimeline.items, {
                   id,
                   name: pascal,
                   from: 0,
                   durationInFrames: request.durationInFrames,
+                  layer,
+                  layout: { rect: [0, 0, selectedParent.width, selectedParent.height], fit: "cover", cornerRadius: 0, opacity: 1 },
                   content: { type: "nested", composition: key },
                 }],
               };
@@ -2795,8 +3208,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       if (!timelineRevision?.text) return { ok: false, message: `Could not read ${timelineFile}.` };
       let timeline: CompositionTimelineDocument;
       try {
-        timeline = JSON.parse(timelineRevision.text) as CompositionTimelineDocument;
-        if (timeline.version !== 1 || !Array.isArray(timeline.items)) throw new Error("expected { version: 1, items: [] }");
+        timeline = parsedTimelineDocument(timelineRevision.text);
       } catch (error) {
         return { ok: false, message: `${timelineFile} is not a valid timeline document: ${error instanceof Error ? error.message : String(error)}` };
       }
@@ -2804,13 +3216,18 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       const ids = new Set(timeline.items.map((item) => item.id));
       let id = baseId;
       for (let suffix = 2; ids.has(id); suffix += 1) id = `${baseId}-${suffix}`;
+      const layer = Math.max(-1, ...timeline.items
+        .filter((item) => timelinePlacementKind(item) === "video")
+        .map((item) => item.layer ?? 0)) + 1;
       timeline = {
-        version: 1,
+        version: 2,
         items: [...timeline.items, {
           id,
           name: source.id,
           from: Math.round(from),
           durationInFrames: source.durationInFrames,
+          layer,
+          layout: { rect: [0, 0, target.width, target.height], fit: "cover", cornerRadius: 0, opacity: 1 },
           content: { type: "nested", composition: sourceKey },
         }],
       };

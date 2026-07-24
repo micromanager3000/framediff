@@ -15,6 +15,7 @@ import type {
   StudioSessionState,
   TimelineDeleteRequest,
   TimelineItemSnapshot,
+  TimelineShapeCreateRequest,
 } from "./types";
 
 function initialState(runtime: CompositionRuntimePort, requestedKey?: string): StudioSessionState {
@@ -586,6 +587,20 @@ export class StudioSession {
         ),
       },
     }));
+    // A layer drop may atomically swap or normalize sibling ranks. Re-read the projected
+    // timeline so the UI never keeps a stale second copy of those derived rows.
+    if (requests.some((request) => request.field === "layer")) {
+      await this.probeAll();
+      this.state.update((current) => ({
+        ...current,
+        timelineByComposition: {
+          ...current.timelineByComposition,
+          [current.currentKey]: (current.timelineByComposition[current.currentKey] ?? []).map((entry) =>
+            entry.id === itemId ? { ...entry, ...patch, ...(trimmedContent ? { content: trimmedContent } : {}) } : entry,
+          ),
+        },
+      }));
+    }
     return result;
   }
 
@@ -672,6 +687,28 @@ export class StudioSession {
       selection: stillExists ? current.selection : null,
       path: stillExists ? current.path.filter((key) => compositions.some((entry) => entry.key === key)) : [currentKey].filter(Boolean),
     });
+  }
+
+  public async createTimelineShape(shape: TimelineShapeCreateRequest["shape"], from = this.state.get().frame): Promise<boolean> {
+    const state = this.state.get();
+    if (!state.currentKey || state.editing || !this.runtime.createTimelineShape) return false;
+    this.state.update((current) => ({ ...current, editing: true, error: null, notice: null }));
+    const result = await this.runtime.createTimelineShape({
+      compositionKey: state.currentKey,
+      shape,
+      from: Math.round(from),
+    });
+    if (!result.ok) {
+      this.state.update((current) => ({ ...current, editing: false, error: result.message ?? "Could not add the shape." }));
+      return false;
+    }
+    this.state.update((current) => ({
+      ...current,
+      editing: false,
+      notice: `Added ${shape === "rect" ? "rectangle" : shape} shape${result.file ? ` in ${result.file}` : ""}.`,
+    }));
+    await this.probeAll();
+    return true;
   }
 
   private async probeAll(): Promise<void> {

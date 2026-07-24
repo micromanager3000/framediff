@@ -22,6 +22,7 @@ export interface TimelineSnapshot {
   animationDiagnostics: AnimationDiagnosticSnapshot[];
   unrollGroups: UnrollGroupSnapshot[];
   loading: boolean;
+  canAddShapes: boolean;
   /** The render window: output t0 = from, output end = to. */
   render: { from: number; to: number };
   /** Per item: how many frames of actual source material it has (nested comps only) —
@@ -62,6 +63,7 @@ export class TimelineViewModel {
         animationDiagnostics: state.animationDiagnosticsByComposition[state.currentKey] ?? [],
         unrollGroups: state.unrollGroupsByComposition[state.currentKey] ?? [],
         loading: state.loading,
+        canAddShapes: composition?.kind === "edit" && !!composition.timelineDocument,
         render: composition?.render ?? { from: 0, to: composition?.durationInFrames ?? 1 },
         sourceLimits,
       };
@@ -104,6 +106,10 @@ export class TimelineViewModel {
   public deleteLane(lane: TimelineLaneSnapshot): Promise<boolean> {
     if (lane.layer == null || !lane.items.length || lane.items.some((item) => !item.editable?.delete)) return Promise.resolve(false);
     return this.session.deleteTimelineItems(lane.items.map((item) => item.id), { kind: lane.kind, layer: lane.layer });
+  }
+
+  public addShape(shape: "rect" | "ellipse" | "line" | "path"): Promise<boolean> {
+    return this.session.createTimelineShape(shape);
   }
 
   public commitRenderWindow(from: number, to: number): Promise<boolean> {
