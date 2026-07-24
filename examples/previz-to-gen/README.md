@@ -127,6 +127,7 @@ takes keep their media kind for correct preview and download behavior.
 | `src/compositions/HarborPreviz.ts` | the previz comp — package factory configured with camera cuts (`kind: "3d"`) |
 | `src/gen/harborShot.gen.ts` | the Seedance recipe — this file IS the generator (`kind: "generate"`) |
 | `src/compositions/Main.html` | synchronized A/B, cut map, pipeline explainer, and music (`kind: "edit"`) |
+| `src/compositions/LighthouseWorkflowSteps.html` | timeline-less frame-aware workflow UI nested into the Lighthouse edit (`kind: "custom"`) |
 | `framediff.assets.json` | asset manifest — the previz bake's id + generated takes land here |
 | `framediff.generations.json` | tracked attempt ledger — numbered successes and failures with recipes, input hashes, provider IDs, and errors |
 | `framediff.config.json` | selects the project-local, Git LFS-backed `assets/` store |
