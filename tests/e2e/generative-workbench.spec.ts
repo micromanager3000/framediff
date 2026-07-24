@@ -77,6 +77,12 @@ test("a CUSTOM comp owns frame logic without owning a timeline", async ({ page }
   await expect(customPreview.locator('[data-fd-id="workflow-stage-1"]')).not.toHaveClass(/active/);
 
   await openComposition(page, "lighthouse-workflow", "http://127.0.0.1:4175/");
+  const sharedVisualLayer = page.locator('.lane[data-lane-id="v:2"]');
+  await expect(sharedVisualLayer).toHaveAttribute("data-visual-rows", "4");
+  const visualTops = await sharedVisualLayer.locator(".clip").evaluateAll((clips) =>
+    clips.map((clip) => Math.round(clip.getBoundingClientRect().top)));
+  expect(new Set(visualTops).size).toBe(4);
+
   const editPreview = page.locator(
     '.workspace:not(.generate-workspace) > .preview-panel > .preview-surface > .preview-host > .preview-runtime-host',
   );

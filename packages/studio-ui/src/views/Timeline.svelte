@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from "svelte";
-  import { timelineItemLabel, type TimelineItemSnapshot, type TimelineLaneSnapshot } from "@framediff/studio-model";
+  import { packTimelineVisualRows, timelineItemLabel, type TimelineItemSnapshot, type TimelineLaneSnapshot } from "@framediff/studio-model";
   import type { TimelineViewModel } from "../viewmodels/Timeline.ViewModel";
 
   export let viewModel: TimelineViewModel;
@@ -11,6 +11,7 @@
 
   const LABEL_W = 54;
   const MAX_PPF = 40;
+  const CLIP_ROW_H = 32;
 
   let scroller: HTMLElement | null = null;
   let viewportW = 0;
@@ -563,15 +564,18 @@
       {/if}
 
       {#each $store.lanes as lane (lane.id)}
+        {@const visualRows = packTimelineVisualRows(lane.items)}
         <div
           class="lane"
           class:drop-target={drag?.targetLaneId === lane.id && drag.targetLaneId !== drag.originalLaneId}
           data-lane-id={lane.id}
           data-lane-kind={lane.kind}
           data-layer={lane.layer ?? 0}
+          data-visual-rows={visualRows.length}
+          style:min-height={`${Math.max(38, visualRows.length * CLIP_ROW_H + 6)}px`}
         >
-          <div class="lane-label" title={lane.authority === "explicit" ? `Source-backed layer ${lane.layer}` : "Legacy overlap packing — vertical drag materializes source layers"}>
-            <span>{lane.label}{lane.authority === "legacy" ? "·" : ""}</span>
+          <div class="lane-label" title={lane.authority === "explicit" ? `Source-backed layer ${lane.layer} · ${lane.items.length} clip${lane.items.length === 1 ? "" : "s"} · subrows are visual only` : "Legacy overlap packing — vertical drag materializes source layers"}>
+            <span class="lane-name">{lane.label}{lane.authority === "legacy" ? "·" : ""}{#if lane.items.length > 1}<small>{lane.items.length}</small>{/if}</span>
             {#if lane.items.length && lane.items.every((item) => item.editable?.delete)}
               <button
                 class="delete-lane"
@@ -592,16 +596,20 @@
             role="presentation"
           >
             {#if drag && drag.moved && lane.items.some((item) => item.id === drag?.itemId)}
-              <div class="clip-ghost" style:left={`${(drag.originalFrom - axisStart) * ppf}px`} style:width={`${drag.originalDuration * ppf}px`}></div>
+              {@const draggedRow = Math.max(0, visualRows.findIndex((row) => row.some((item) => item.id === drag?.itemId)))}
+              <div class="clip-ghost" style:top={`${4 + draggedRow * CLIP_ROW_H}px`} style:left={`${(drag.originalFrom - axisStart) * ppf}px`} style:width={`${drag.originalDuration * ppf}px`}></div>
             {/if}
             {#each lane.items as item (item.id)}
               {@const shownDur = drag?.itemId === item.id ? drag.duration : Number.isFinite(item.durationInFrames) ? item.durationInFrames : Math.max(1, duration - item.from)}
               {@const sourceLimit = $store.sourceLimits[item.id]}
+              {@const visualRow = Math.max(0, visualRows.findIndex((row) => row.some((candidate) => candidate.id === item.id)))}
               <button
                 class="clip clip-{lane.kind}"
                 data-item-id={item.id}
+                data-visual-row={visualRow}
                 class:selected={item.id === $store.selectedItemId}
                 class:dragging={drag?.itemId === item.id && drag.moved}
+                style:top={`${4 + visualRow * CLIP_ROW_H}px`}
                 style:left={`${((drag?.itemId === item.id ? drag.from : item.from) - axisStart) * ppf}px`}
                 style:width={`${(drag?.itemId === item.id ? drag.duration : Number.isFinite(item.durationInFrames) ? item.durationInFrames : Math.max(1, duration - item.from)) * ppf}px`}
                 onpointerdown={(event) => beginDrag(event, item, "move", lane)}

@@ -4,7 +4,11 @@ function overlaps(a: TimelineItemSnapshot, b: TimelineItemSnapshot): boolean {
   return a.from < b.from + b.durationInFrames && b.from < a.from + a.durationInFrames;
 }
 
-function pack(items: TimelineItemSnapshot[]): TimelineItemSnapshot[][] {
+/**
+ * Presentation-only packing inside one authored layer. Overlapping clips get separate visual
+ * subrows; non-overlapping clips reuse a subrow. This never creates or changes stacking authority.
+ */
+export function packTimelineVisualRows(items: TimelineItemSnapshot[]): TimelineItemSnapshot[][] {
   const stacks: TimelineItemSnapshot[][] = [];
   for (const item of items) {
     const available = stacks.find((stack) => !stack.some((other) => overlaps(item, other)));
@@ -28,7 +32,7 @@ function lanesOf(
   }
   const occupied = new Set(explicit.keys());
   const derived: Array<{ layer: number; items: TimelineItemSnapshot[] }> = [];
-  for (const stack of pack(legacy)) {
+  for (const stack of packTimelineVisualRows(legacy)) {
     let layer = 0;
     while (occupied.has(layer)) layer += 1;
     occupied.add(layer);

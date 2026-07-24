@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { artifactStatusFromInputs, buildTimelineLanes, frontTrimPlacement } from "./timeline";
+import { artifactStatusFromInputs, buildTimelineLanes, frontTrimPlacement, packTimelineVisualRows } from "./timeline";
 import type { TimelineItemSnapshot } from "./types";
 
 const item = (id: string, from: number, layer?: number): TimelineItemSnapshot => ({
@@ -29,6 +29,25 @@ describe("persistent editorial lanes", () => {
       { authority: "legacy", items: ["b"] },
       { authority: "legacy", items: ["a", "c"] },
     ]);
+  });
+
+  it("packs overlaps into visual subrows without inventing new layer values", () => {
+    const items = [
+      item("full-a", 0, 2),
+      item("full-b", 0, 2),
+      item("early", 0, 2),
+      item("late", 30, 2),
+    ];
+    const lanes = buildTimelineLanes(items);
+
+    expect(lanes).toHaveLength(1);
+    expect(lanes[0]).toMatchObject({ id: "v:2", layer: 2, authority: "explicit" });
+    expect(packTimelineVisualRows(lanes[0].items).map((row) => row.map((entry) => entry.id))).toEqual([
+      ["full-a", "late"],
+      ["full-b"],
+      ["early"],
+    ]);
+    expect(items.every((entry) => entry.layer === 2)).toBe(true);
   });
 
   it("front-trims in source seconds with playback rate", () => {
