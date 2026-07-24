@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "assets": {
+    "reel-s03": {
+      "name": "s03.mp4",
+      "contentHash": "sha256:698764c82e9794714ad36738558735830323fa7bc7430bf459beff13d805c3fb",
+      "mime": "video/mp4",
+      "bytes": 1046910,
+      "sources": [
+        "/__framediff-cache/sha256%3A698764c82e9794714ad36738558735830323fa7bc7430bf459beff13d805c3fb"
+      ]
+    },
+    "reel-s04a": {
+      "name": "s04a.mp4",
+      "contentHash": "sha256:ddd29fae4fd9cf924c38683c50673a9ba994b454ee346a0ae25d96563e593697",
+      "mime": "video/mp4",
+      "bytes": 4377851,
+      "sources": [
+        "/__framediff-cache/sha256%3Addd29fae4fd9cf924c38683c50673a9ba994b454ee346a0ae25d96563e593697"
+      ]
+    },
+    "reel-s04b": {
+      "name": "s04b.mp4",
+      "contentHash": "sha256:a79b426759a1f5bc0aaa375f0805bcde888f9bf38226832a1496a541c8a03d3f",
+      "mime": "video/mp4",
+      "bytes": 1485670,
+      "sources": [
+        "/__framediff-cache/sha256%3Aa79b426759a1f5bc0aaa375f0805bcde888f9bf38226832a1496a541c8a03d3f"
+      ]
+    },
+    "reel-s04c": {
+      "name": "s04c.mp4",
+      "contentHash": "sha256:90558ae2886e685c7d95259e9e0303e60f9593de49efe175c55875b9fc245d37",
+      "mime": "video/mp4",
+      "bytes": 2067618,
+      "sources": [
+        "/__framediff-cache/sha256%3A90558ae2886e685c7d95259e9e0303e60f9593de49efe175c55875b9fc245d37"
+      ]
+    },
+    "reel-s14": {
+      "name": "s14.mp4",
+      "contentHash": "sha256:f91e3d817184cd306acded10727eee6eaa0fa2f1fc424870875c8124ff6af520",
+      "mime": "video/mp4",
+      "bytes": 3120734,
+      "sources": [
+        "/__framediff-cache/sha256%3Af91e3d817184cd306acded10727eee6eaa0fa2f1fc424870875c8124ff6af520"
+      ]
+    },
+    "reel-music": {
+      "name": "music.m4a",
+      "contentHash": "sha256:f251e648e1b12b42985cf40ff8d0bc89b571decce43ac892fb7fb80ee54e67cf",
+      "mime": "audio/mp4",
+      "bytes": 1036159,
+      "sources": [
+        "/__framediff-cache/sha256%3Af251e648e1b12b42985cf40ff8d0bc89b571decce43ac892fb7fb80ee54e67cf"
+      ]
+    },
+    "reel-shine": {
+      "name": "shine.wav",
+      "contentHash": "sha256:4851813c68c701e79edf2e2761a656fe9df163559ee7e236c0e6b69eaaf234c7",
+      "mime": "audio/wav",
+      "bytes": 882044,
+      "sources": [
+        "/__framediff-cache/sha256%3A4851813c68c701e79edf2e2761a656fe9df163559ee7e236c0e6b69eaaf234c7"
+      ]
+    }
+  }
+}

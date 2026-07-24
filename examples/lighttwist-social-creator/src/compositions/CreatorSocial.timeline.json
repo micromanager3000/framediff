@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "bad-call",
+      "name": "Before · remote-call grid",
+      "from": 0,
+      "durationInFrames": 66,
+      "layer": 1,
+      "trimStart": 0.22,
+      "playbackRate": 0.9,
+      "content": {
+        "type": "video",
+        "src": "asset://reel-s03"
+      }
+    },
+    {
+      "id": "hook-copy",
+      "name": "Hook · podcast looks like a call",
+      "from": 0,
+      "durationInFrames": 66,
+      "layer": 3,
+      "content": {
+        "type": "layers",
+        "label": "Hook copy"
+      }
+    },
+    {
+      "id": "news-wide",
+      "name": "After · LightTwist newsroom wide",
+      "from": 56,
+      "durationInFrames": 70,
+      "layer": 1,
+      "trimStart": 0.25,
+      "playbackRate": 0.9,
+      "content": {
+        "type": "video",
+        "src": "asset://reel-s04a"
+      }
+    },
+    {
+      "id": "reveal-copy",
+      "name": "Transformation · make it a show",
+      "from": 58,
+      "durationInFrames": 158,
+      "layer": 3,
+      "content": {
+        "type": "layers",
+        "label": "Transformation copy"
+      }
+    },
+    {
+      "id": "news-mid",
+      "name": "After · LightTwist newsroom medium",
+      "from": 120,
+      "durationInFrames": 46,
+      "layer": 1,
+      "trimStart": 0.12,
+      "playbackRate": 0.95,
+      "content": {
+        "type": "video",
+        "src": "asset://reel-s04b"
+      }
+    },
+    {
+      "id": "news-angle",
+      "name": "After · LightTwist newsroom angle",
+      "from": 160,
+      "durationInFrames": 62,
+      "layer": 1,
+      "trimStart": 0.1,
+      "playbackRate": 0.95,
+      "content": {
+        "type": "video",
+        "src": "asset://reel-s04c"
+      }
+    },
+    {
+      "id": "proof-chips",
+      "name": "Proof · remote guests and branded studio",
+      "from": 114,
+      "durationInFrames": 108,
+      "layer": 3,
+      "content": {
+        "type": "layers",
+        "label": "Proof chips"
+      }
+    },
+    {
+      "id": "transition-flash",
+      "name": "Before/after flash",
+      "from": 52,
+      "durationInFrames": 18,
+      "layer": 5,
+      "content": {
+        "type": "layers",
+        "label": "Transition flash"
+      }
+    },
+    {
+      "id": "end-visual",
+      "name": "End card atmosphere",
+      "from": 216,
+      "durationInFrames": 69,
+      "layer": 1,
+      "trimStart": 0.08,
+      "playbackRate": 0.7,
+      "content": {
+        "type": "video",
+        "src": "asset://reel-s14"
+      }
+    },
+    {
+      "id": "end-card",
+      "name": "LightTwist end card",
+      "from": 216,
+      "durationInFrames": 69,
+      "layer": 3,
+      "content": {
+        "type": "layers",
+        "label": "LightTwist end card"
+      }
+    },
+    {
+      "id": "music-bed",
+      "name": "LightTwist music bed",
+      "from": 0,
+      "durationInFrames": 285,
+      "content": {
+        "type": "audio",
+        "src": "asset://reel-music"
+      }
+    },
+    {
+      "id": "reveal-shine",
+      "name": "Transformation shine",
+      "from": 54,
+      "durationInFrames": 78,
+      "content": {
+        "type": "audio",
+        "src": "asset://reel-shine"
+      }
+    }
+  ]
+}
