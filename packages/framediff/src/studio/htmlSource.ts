@@ -247,6 +247,19 @@ function contentOf(element: HtmlSourceElement): TimelineItemSnapshot["content"] 
       effects,
     };
   }
+  if (type === "image" || content.tagName === "img" || has(content, "data-fd-image")) {
+    return {
+      type: "image",
+      src: value(element, "data-fd-image") ?? value(content, "data-fd-image") ?? value(content, "data-fd-src") ?? value(content, "src") ?? "",
+    };
+  }
+  if (type === "shape" || has(content, "data-fd-shape")) {
+    const shape = value(content, "data-fd-shape");
+    return {
+      type: "shape",
+      shape: shape === "ellipse" || shape === "line" || shape === "polygon" || shape === "path" ? shape : "rect",
+    };
+  }
   if (type === "grade" || has(content, "data-fd-grade-layer")) return { type: "grade-layer", effects };
   if (type === "camera" || has(content, "data-fd-camera")) return { type: "camera", camera: value(content, "data-fd-camera") ?? value(content, "data-fd-name") ?? "", effects };
   return { type: "layers", label: value(element, "data-fd-name") ?? value(element, "data-fd-id") ?? "layers", effects };
@@ -299,6 +312,7 @@ function timelineDocumentContent(placement: CompositionTimelinePlacement): Timel
     volume: placement.volume ?? 1,
     muted: placement.muted ?? false,
   };
+  if (content.type === "image") return { type: "image", src: content.src };
   if (content.type === "audio") return {
     type: "audio",
     src: content.src,
@@ -307,6 +321,7 @@ function timelineDocumentContent(placement: CompositionTimelinePlacement): Timel
     volume: placement.volume ?? 1,
     muted: placement.muted ?? false,
   };
+  if (content.type === "shape") return { type: "shape", shape: content.shape };
   if (content.type === "camera") return { type: "camera", camera: content.camera };
   if (content.type === "grade-layer") return { type: "grade-layer" };
   return { type: "layers", label: content.label ?? placement.name ?? placement.id };

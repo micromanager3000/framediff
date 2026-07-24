@@ -107,6 +107,8 @@ export interface CompositionDescriptor {
   kind: CompositionKind;
   outputKind: CompositionOutputKind;
   file?: string;
+  /** True when this composition has an external JSON timeline that can own layout and shapes. */
+  timelineDocument?: boolean;
   /** Complete source/dependency set used for revision guards and artifact fingerprints. */
   sources?: string[];
   library?: boolean;
@@ -129,7 +131,9 @@ export interface ColorGradeEffectSnapshot {
 export type TimelineContentSnapshot =
   | { type: "nested"; compId: string; nestedScale?: number; trimStart: number; playbackRate?: number; volume?: number; muted?: boolean; effects?: ColorGradeEffectSnapshot[] }
   | { type: "video"; src: string; trimStart?: number; playbackRate?: number; volume?: number; muted?: boolean; effects?: ColorGradeEffectSnapshot[] }
+  | { type: "image"; src: string }
   | { type: "audio"; src: string; trimStart?: number; playbackRate?: number; volume?: number; muted?: boolean }
+  | { type: "shape"; shape: "rect" | "ellipse" | "line" | "polygon" | "path" }
   | { type: "layers"; label: string; effects?: ColorGradeEffectSnapshot[] }
   | { type: "camera"; camera: string; effects?: ColorGradeEffectSnapshot[] }
   | { type: "grade-layer"; effects?: ColorGradeEffectSnapshot[] };
@@ -480,6 +484,12 @@ export interface TimelineDeleteRequest {
   };
 }
 
+export interface TimelineShapeCreateRequest {
+  compositionKey: string;
+  shape: "rect" | "ellipse" | "line" | "path";
+  from: number;
+}
+
 export interface InspectorOptionSnapshot {
   value: string;
   label: string;
@@ -567,6 +577,8 @@ export interface CompositionRuntimePort {
   editPlacements(requests: PlacementEditRequest[]): Promise<PlacementEditResult>;
   /** Remove source-backed timeline objects as one reversible source transaction. */
   deleteTimelineItems?(request: TimelineDeleteRequest): Promise<PlacementEditResult>;
+  /** Add a JSON-authored vector shape to an edit timeline. */
+  createTimelineShape?(request: TimelineShapeCreateRequest): Promise<PlacementEditResult>;
   /** Persist the render window (output t0 = from, output end = to); the full range clears it. */
   setRenderWindow(compositionKey: string, from: number, to: number): Promise<ProjectOperationResult>;
   inspectItem(compositionKey: string, itemId: string): Promise<InspectorDetailsSnapshot>;

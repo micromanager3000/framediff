@@ -461,16 +461,6 @@
       background-size: 5% 8.888%;
     }
 
-    .safe-area {
-      position: absolute;
-      inset: 5%;
-      z-index: 101;
-      border: 1px dashed rgba(232, 185, 95, .23);
-      pointer-events: none;
-    }
-
-    .safe-area[hidden] { display: none; }
-
     .stage-node {
       position: absolute;
       z-index: var(--layer);
@@ -940,13 +930,11 @@
           <span class="toolbar-spacer"></span>
           <label class="toolbar-toggle slot-only"><input id="templateToggle" type="checkbox"> Template only</label>
           <label class="toolbar-toggle"><input id="gridToggle" type="checkbox"> Grid</label>
-          <label class="toolbar-toggle"><input id="safeToggle" type="checkbox" checked> Safe area</label>
           <span class="zoom">FIT · 16:9</span>
         </div>
         <div class="stage-wrap">
           <div class="stage-shell" id="stageShell">
             <div class="stage" id="stage" aria-label="Interactive 1280 by 720 composition canvas">
-              <div class="safe-area" id="safeArea"></div>
             </div>
           </div>
         </div>
@@ -1541,9 +1529,6 @@
 
       document.getElementById("gridToggle").addEventListener("change", (event) => {
         stage.classList.toggle("show-grid", event.target.checked);
-      });
-      document.getElementById("safeToggle").addEventListener("change", (event) => {
-        document.getElementById("safeArea").hidden = !event.target.checked;
       });
       document.getElementById("templateToggle").addEventListener("change", (event) => {
         templateOnly = event.target.checked;

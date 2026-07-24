@@ -222,6 +222,107 @@ describe("HtmlStudioRuntime external timeline documents", () => {
     expect(runtime.getCompositions()[0].sources).toContain("src/Camera.timeline.json");
   });
 
+  it("migrates canvas geometry into v2 JSON, edits layout, adds shapes, and swaps stacking ranks", async () => {
+    let timelineText = JSON.stringify({
+      version: 1,
+      items: [{
+        id: "shot",
+        name: "Hero",
+        from: 0,
+        durationInFrames: 48,
+        layer: 0,
+        content: { type: "video", src: "asset://hero" },
+      }],
+    });
+    const htmlText = `<!doctype html><main data-fd-composition data-fd-id="Edit" data-fd-width="1920" data-fd-height="1080" data-fd-fps="24" data-fd-duration="48" data-fd-kind="edit">
+  <video data-fd-clip data-fd-id="shot" data-fd-x="0" data-fd-y="0"></video>
+</main>`;
+    const comp = {
+      ...composition,
+      id: "Edit",
+      html: htmlText,
+      timeline: JSON.parse(timelineText),
+      meta: { kind: "edit" as const, file: "src/Edit.html", sourceFormat: "html" as const, timelineFile: "src/Edit.timeline.json" },
+    } satisfies StudioComposition;
+    const transactions: Array<{ label: string; groupId?: string; files: Array<{ file: string; text: string }> }> = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/__framediff/assets") return new Response("missing", { status: 404 });
+      if (url.startsWith("/__framediff/src?")) {
+        const file = new URL(url, "http://local").searchParams.get("file")!;
+        if (file === "src/Edit.timeline.json") return Response.json({ file, text: timelineText, hash: `timeline:${transactions.length}` });
+        if (file === "src/Edit.html") return Response.json({ file, text: htmlText, hash: "html:1" });
+        return new Response("missing", { status: 404 });
+      }
+      if (url === "/__framediff/edit" && init?.method === "POST") {
+        const transaction = JSON.parse(String(init.body));
+        transactions.push(transaction);
+        timelineText = transaction.files.find((entry: { file: string }) => entry.file === "src/Edit.timeline.json")?.text ?? timelineText;
+        return Response.json({ ok: true, receipt: { id: `edit-${transactions.length}`, label: transaction.label, before: [], after: [] } });
+      }
+      return new Response("not found", { status: 404 });
+    }));
+    const runtime = createStudioRuntime({ main: comp } as CompRegistry);
+    await runtime.probe("main");
+
+    const initialDetails = await runtime.inspectItem("main", "shot");
+    expect(initialDetails.sections.find((section) => section.id === "timeline-layout")?.fields).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "timeline:layout:x", value: 0 }),
+      expect.objectContaining({ id: "timeline:layout:width", value: 1920 }),
+      expect.objectContaining({ id: "timeline:layout:fit", text: "cover" }),
+      expect.objectContaining({ id: "timeline:layout:corner-radius", value: 0 }),
+    ]));
+
+    expect((await runtime.editElementProperties({
+      compositionKey: "main",
+      objectId: "shot",
+      patch: { x: 120, y: 48, width: 960, height: 540 },
+      label: "Resize hero",
+      groupId: "layout-gesture",
+    })).ok).toBe(true);
+    expect(transactions.at(-1)).toMatchObject({ label: "Resize hero", groupId: "layout-gesture" });
+    expect(JSON.parse(timelineText)).toMatchObject({
+      version: 2,
+      items: [{
+        id: "shot",
+        layout: {
+          rect: [120, 48, 960, 540],
+          fit: "cover",
+          cornerRadius: 0,
+          opacity: 1,
+        },
+      }],
+    });
+
+    expect((await runtime.editInspectorField({
+      compositionKey: "main",
+      itemId: "shot",
+      fieldId: "timeline:layout:corner-radius",
+      value: 28,
+    })).ok).toBe(true);
+    expect((await runtime.createTimelineShape({ compositionKey: "main", shape: "path", from: 12 })).ok).toBe(true);
+    let document = JSON.parse(timelineText);
+    expect(document.items).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "shot", layer: 0, layout: expect.objectContaining({ cornerRadius: 28 }) }),
+      expect.objectContaining({
+        id: "path-shape",
+        from: 12,
+        layer: 1,
+        layout: expect.objectContaining({ fit: "fill" }),
+        content: expect.objectContaining({ type: "shape", shape: "path", d: expect.any(String) }),
+      }),
+    ]));
+
+    expect((await runtime.editPlacements([
+      { compositionKey: "main", itemId: "shot", field: "layer", value: 1 },
+    ])).ok).toBe(true);
+    document = JSON.parse(timelineText);
+    expect(document.items.find((item: { id: string }) => item.id === "shot").layer).toBe(1);
+    expect(document.items.find((item: { id: string }) => item.id === "path-shape").layer).toBe(0);
+    expect(transactions.every((transaction) => transaction.files.every((entry) => entry.file === "src/Edit.timeline.json"))).toBe(true);
+    expect(runtime.getCompositions()[0]).toMatchObject({ timelineDocument: true });
+  });
+
   it("edits media or nested audio and deletes clips or whole lanes as undoable source transactions", async () => {
     let timelineText = JSON.stringify({
       version: 1,
@@ -394,12 +495,14 @@ describe("HtmlStudioRuntime external timeline documents", () => {
     expect(result.ok).toBe(true);
     expect(transaction?.files.map((file) => file.file)).toEqual(["src/Main.timeline.json"]);
     expect(JSON.parse(transaction?.files[0].text ?? "{}")).toEqual({
-      version: 1,
+      version: 2,
       items: [{
         id: "nested-title",
         name: "Title",
         from: 36,
         durationInFrames: 48,
+        layer: 0,
+        layout: { rect: [0, 0, 1920, 1080], fit: "cover", cornerRadius: 0, opacity: 1 },
         content: { type: "nested", composition: "title" },
       }],
     });

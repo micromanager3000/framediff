@@ -15,40 +15,40 @@
     stroke: type === "line" ? "#e8b95f" : "#f7e4bd",
     strokeWidth: type === "line" ? 6 : 1,
     angle: type === "line" ? -18 : 0,
-    points: "50% 0%, 61% 35%, 100% 35%, 68% 57%, 80% 100%, 50% 73%, 20% 100%, 32% 57%, 0% 35%, 39% 35%"
+    points: "50,0 61,35 100,35 68,57 80,100 50,73 20,100 32,57 0,35 39,35"
   });
 
   const initialNodes = [
     {
       id: "workflow-final", name: "Final dialogue video", kind: "comp", comp: "lighthouse-dialogue",
       rect: { x: 430, y: 31, width: 348, height: 658 }, fit: "cover", focal: { x: 50, y: 34 },
-      radius: 28, opacity: 1, layer: 4, from: 0, durationInFrames: 420, trimStart: 0, src: media.dialogue
+      radius: 28, opacity: 1, layer: 3, from: 0, durationInFrames: 420, trimStart: 0, src: media.dialogue
     },
     {
       id: "workflow-mara", name: "Mara portrait", kind: "image",
       rect: { x: 822, y: 84, width: 205, height: 260 }, fit: "cover", focal: { x: 50, y: 36 },
-      radius: 12, opacity: 1, layer: 5, from: 0, durationInFrames: 330, src: media.mara
+      radius: 12, opacity: 1, layer: 4, from: 0, durationInFrames: 330, src: media.mara
     },
     {
       id: "workflow-elias", name: "Elias portrait", kind: "image",
       rect: { x: 1037, y: 84, width: 209, height: 260 }, fit: "cover", focal: { x: 50, y: 38 },
-      radius: 12, opacity: 1, layer: 6, from: 0, durationInFrames: 390, src: media.elias
+      radius: 12, opacity: 1, layer: 5, from: 0, durationInFrames: 390, src: media.elias
     },
     {
       id: "workflow-concept", name: "Reference board", kind: "image",
       rect: { x: 822, y: 354, width: 424, height: 214 }, fit: "cover", focal: { x: 50, y: 50 },
-      radius: 12, opacity: 1, layer: 3, from: 0, durationInFrames: 300, src: media.concept
+      radius: 12, opacity: 1, layer: 2, from: 0, durationInFrames: 300, src: media.concept
     },
     {
       id: "headline", name: "The light went dark.", kind: "text", text: "The light went dark.",
       rect: { x: 34, y: 42, width: 350, height: 46 }, fit: "none", focal: { x: 50, y: 50 },
-      radius: 0, opacity: 1, layer: 2, from: 0, durationInFrames: 360
+      radius: 0, opacity: 1, layer: 1, from: 0, durationInFrames: 360
     },
     {
       id: "workflow-audio", name: "Approval gate", kind: "note",
       text: "<b>@Audio1 · approval gate:</b>&nbsp; pin the performance before spending video credits.",
       rect: { x: 34, y: 610, width: 330, height: 76 }, fit: "none", focal: { x: 50, y: 50 },
-      radius: 0, opacity: 1, layer: 1, from: 0, durationInFrames: 420
+      radius: 0, opacity: 1, layer: 0, from: 0, durationInFrames: 420
     }
   ];
 
@@ -106,13 +106,11 @@
         <small>8-point resize handles · drag inside to move</small>
         <span class="fd2-toolbar-spacer"></span>
         <label class="fd2-toolbar-toggle"><input id="fd2Grid" type="checkbox"> Grid</label>
-        <label class="fd2-toolbar-toggle"><input id="fd2Safe" type="checkbox" checked> Safe area</label>
         <span class="zoom">1280 × 720</span>
       </div>
       <div class="fd2-stage-wrap">
         <div class="fd2-stage-shell" id="fd2StageShell">
           <div class="fd2-stage" id="fd2Stage" aria-label="Editable 1280 by 720 composition canvas">
-            <div class="fd2-safe-area" id="fd2SafeArea"></div>
           </div>
         </div>
       </div>
@@ -186,7 +184,7 @@
         <div class="fd2-form-grid">
           <div class="fd2-field"><label for="fd2From">From · frame</label><input id="fd2From" type="number" min="0" max="419" step="1"></div>
           <div class="fd2-field"><label for="fd2Duration">Duration · frames</label><input id="fd2Duration" type="number" min="1" max="420" step="1"></div>
-          <div class="fd2-field"><label for="fd2Layer">Layer</label><input id="fd2Layer" type="number" min="1" step="1"></div>
+          <div class="fd2-field"><label for="fd2Layer">Layer</label><input id="fd2Layer" type="number" min="0" step="1"></div>
           <div class="fd2-field"><label>Stack rule</label><input value="higher = front" disabled></div>
         </div>
       </section>
@@ -260,26 +258,23 @@
 
   function normalizeLayers(ids) {
     const orderedIds = ids || layerOrder().map((node) => node.id);
-    const total = orderedIds.length;
     orderedIds.forEach((id, index) => {
       const node = nodes.find((candidate) => candidate.id === id);
-      if (node) node.layer = total - index;
+      if (node) node.layer = orderedIds.length - index - 1;
     });
   }
 
   function contentFor(node) {
-    if (node.kind === "comp") return { type: "nested", composition: node.comp, trimStart: node.trimStart || 0 };
+    if (node.kind === "comp") return { type: "nested", composition: node.comp };
     if (node.kind === "image") return { type: "image", src: `asset://${node.id}` };
-    if (node.kind === "text") return { type: "text", text: node.text };
-    if (node.kind === "note") return { type: "shape", primitive: "roundRect", text: "Approval gate" };
+    if (node.kind === "text" || node.kind === "note") return undefined;
     return {
       type: "shape",
-      primitive: node.shape.type,
+      shape: node.shape.type,
       fill: node.shape.fill,
       stroke: node.shape.stroke,
       strokeWidth: node.shape.strokeWidth,
-      ...(node.shape.type === "polygon" ? { points: node.shape.points } : {}),
-      ...(node.shape.type === "line" ? { angle: node.shape.angle } : {})
+      ...(node.shape.type === "polygon" ? { points: node.shape.points } : {})
     };
   }
 
@@ -292,6 +287,7 @@
         from: node.from,
         durationInFrames: node.durationInFrames,
         layer: node.layer,
+        ...(node.trimStart ? { trimStart: node.trimStart } : {}),
         content: contentFor(node),
         layout: {
           rect: [node.rect.x, node.rect.y, node.rect.width, node.rect.height],
@@ -747,10 +743,6 @@
   document.getElementById("fd2AddRect").addEventListener("click", () => addShape("rect"));
 
   document.getElementById("fd2Grid").addEventListener("change", (event) => stage.classList.toggle("show-grid", event.target.checked));
-  document.getElementById("fd2Safe").addEventListener("change", (event) => {
-    document.getElementById("fd2SafeArea").hidden = !event.target.checked;
-  });
-
   document.getElementById("fd2Start").addEventListener("click", () => {
     currentFrame = 0;
     applyFrame();

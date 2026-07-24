@@ -482,6 +482,15 @@
 <section class="timeline" aria-label="Timeline">
   <header class="timeline-header">
     <span>TIMELINE</span>
+    {#if $store.canAddShapes}
+      <div class="tl-shapes" aria-label="Add vector shape">
+        <span>ADD</span>
+        <button onclick={() => void viewModel.addShape("rect")} title="Add a resizable rectangle at the playhead">RECT</button>
+        <button onclick={() => void viewModel.addShape("ellipse")} title="Add a resizable ellipse at the playhead">OVAL</button>
+        <button onclick={() => void viewModel.addShape("line")} title="Add a resizable line at the playhead">LINE</button>
+        <button onclick={() => void viewModel.addShape("path")} title="Add an editable arbitrary SVG path at the playhead">PATH</button>
+      </div>
+    {/if}
     <div class="tl-zoom">
       <button onclick={() => setZoom(ppf / 1.4)} title="Zoom out (or ⌘/Ctrl + scroll on the timeline)">−</button>
       <button onclick={zoomFit} title="Fit everything">FIT</button>

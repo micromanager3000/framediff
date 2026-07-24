@@ -98,7 +98,9 @@ export function timelineItemLabel(item: TimelineItemSnapshot): string {
   switch (item.content.type) {
     case "nested": return item.content.compId;
     case "video":
+    case "image":
     case "audio": return item.content.src.split("/").pop() || item.content.type;
+    case "shape": return `${item.content.shape} shape`;
     case "camera": return item.content.camera;
     case "layers": return item.content.label;
     case "grade-layer": return "Color grade";
