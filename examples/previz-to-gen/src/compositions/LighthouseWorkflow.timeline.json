@@ -10,7 +10,8 @@
         "type": "nested",
         "composition": "lighthouse-dialogue",
         "nestedScale": 0.503125
-      }
+      },
+      "volume": 0
     },
     {
       "id": "workflow-mara",
@@ -38,7 +39,7 @@
       "id": "workflow-audio",
       "from": 0,
       "durationInFrames": 420,
-      "volume": 0,
+      "volume": 1,
       "name": "Locked dialogue performance",
       "content": {
         "type": "nested",
