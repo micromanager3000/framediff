@@ -980,7 +980,7 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
               endpoint?: string;
               recipeHash?: string;
               input?: Record<string, unknown>;
-              refs?: { kind: GenRefKind; src: string; authoredSrc: string; mime?: string; name?: string; field?: string; many?: boolean }[];
+              refs?: { kind: GenRefKind; src: string; authoredSrc: string; mime?: string; name?: string; field?: string; many?: boolean; adapt?: GenInputProvenance["adapt"] }[];
               recipe?: GenRecipeSnapshot;
             };
             const { gen, endpoint, recipeHash } = body;
@@ -1037,7 +1037,12 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
               } else if (ref.src.startsWith("/__framediff-cache/")) {
                 contentHash = decodeURIComponent(ref.src.slice("/__framediff-cache/".length));
               }
-              return { kind: ref.kind, src: ref.authoredSrc, ...(contentHash ? { contentHash } : {}) };
+              return {
+                kind: ref.kind,
+                src: ref.authoredSrc,
+                ...(contentHash ? { contentHash } : {}),
+                ...(ref.adapt ? { adapt: ref.adapt } : {}),
+              };
             });
             const jobs = readJobs(root);
             normalizeJobTakes(jobs);

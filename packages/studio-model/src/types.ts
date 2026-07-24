@@ -1,4 +1,5 @@
 import type { CanonicalTweenKind, NormalizedTweenOperation, ParamBinding } from "./animation";
+import type { VisualAdaptation, VisualGeometryClassification } from "./generativeGeometry";
 import type { CubicMotionSegment, GestureSample } from "./motionPath";
 
 export type CompositionKind = "edit" | "3d" | "generate" | "audio" | "doc" | "plan" | "scene" | "board" | "moodboard" | "script" | "storyboard" | "locations" | "cast";
@@ -629,6 +630,8 @@ export interface NewCompositionRequest {
   name: string;
   kind: NewCompositionKind;
   durationInFrames: number;
+  /** Required by the runtime when kind is generate. It becomes the composition's locked contract. */
+  outputKind?: CompositionOutputKind;
 }
 
 export interface ProjectOperationResult {
@@ -656,6 +659,12 @@ export interface GenerativeRefSnapshot {
   src: string;
   label: string;
   contentHash?: string;
+  sourceWidth?: number;
+  sourceHeight?: number;
+  targetWidth?: number;
+  targetHeight?: number;
+  adaptation?: VisualAdaptation;
+  geometry?: VisualGeometryClassification;
 }
 export interface GenerativeTakeSettingsSnapshot {
   model: string;
@@ -674,6 +683,8 @@ export interface GenerativeCompositionInputSnapshot {
   key: string;
   id: string;
   outputKind: CompositionOutputKind;
+  width: number;
+  height: number;
 }
 export interface GenerativeTakeSnapshot {
   take: number;
@@ -704,6 +715,16 @@ export interface GenerativeWorkspaceSnapshot {
   model: string;
   modelName: string;
   outputKind: CompositionOutputKind;
+  /** The selected model's native output dimensions. Visual outputs only. */
+  nativeWidth?: number;
+  nativeHeight?: number;
+  /** Optional composition-level visual output contract and fitting rule. */
+  desiredOutput?: {
+    width: number;
+    height: number;
+    adaptation: VisualAdaptation;
+    geometry: VisualGeometryClassification;
+  };
   models: { id: string; name: string; vendor: string; baseline: string }[];
   prompt: string;
   negativePrompt: string;

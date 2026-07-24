@@ -6,6 +6,7 @@
 // Seedance pricing is exact (fal token pricing); the others are estimates (`est: true`)
 // until we've paid a real invoice — the UI says "est." wherever that's true.
 
+import type { CompositionOutputKind } from "@framediff/studio-model";
 import type { GenProvider, GenRecipe, GenRef, GenRefKind } from "./generative";
 
 export type GenParamValue = string | number | boolean;
@@ -583,9 +584,22 @@ export const GEN_MODELS: Record<string, GenModelDef> = {
   [seedAudio10.id]: seedAudio10,
 };
 
-/** Def for a recipe's model — unknown ids fall back to Seedance (the original default). */
-export function genModelOf(recipe: Pick<GenRecipe, "model">): GenModelDef {
-  return GEN_MODELS[recipe.model ?? "seedance-2.0"] ?? GEN_MODELS["seedance-2.0"];
+export const DEFAULT_GEN_MODEL_BY_OUTPUT: Record<CompositionOutputKind, string> = {
+  video: "seedance-2.0",
+  image: "seedream-5.0-pro",
+  audio: "seed-audio-1.0",
+};
+
+export function genModelsForOutput(output: CompositionOutputKind): GenModelDef[] {
+  return Object.values(GEN_MODELS).filter((definition) => definition.output === output);
+}
+
+/** Def for a recipe's model. Explicit output chooses the type-safe fallback for unknown ids. */
+export function genModelOf(recipe: Pick<GenRecipe, "model" | "output">): GenModelDef {
+  const fallback = DEFAULT_GEN_MODEL_BY_OUTPUT[recipe.output ?? "video"];
+  const candidate = GEN_MODELS[recipe.model ?? fallback];
+  if (!candidate || (recipe.output && candidate.output !== recipe.output)) return GEN_MODELS[fallback];
+  return candidate;
 }
 
 /** Effective param value: recipe field if set, else the model default. */

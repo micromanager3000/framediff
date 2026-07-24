@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { genModelOf, genRefAccept } from "./genModels";
+import { genModelOf, genModelsForOutput, genRefAccept } from "./genModels";
 import { recipeCanonical, type GenRecipe } from "./generative";
 
 const recipe = (patch: Partial<GenRecipe>): GenRecipe => ({
@@ -41,6 +41,19 @@ describe("multi-media generative models", () => {
 
   it("keeps existing video models explicitly typed as video output", () => {
     expect(genModelOf(recipe({ model: "seedance-2.0" })).output).toBe("video");
+  });
+
+  it("filters models only by locked media type, never by dimensions", () => {
+    const videoModels = genModelsForOutput("video");
+    expect(videoModels.length).toBeGreaterThan(3);
+    expect(videoModels.every((model) => model.output === "video")).toBe(true);
+    expect(genModelsForOutput("image").map((model) => model.id)).toContain("seedream-5.0-pro");
+    expect(genModelsForOutput("audio").map((model) => model.id)).toContain("seed-audio-1.0");
+  });
+
+  it("uses the locked output's safe default when a stored model is incompatible", () => {
+    expect(genModelOf({ output: "image", model: "seedance-2.0" }).id).toBe("seedream-5.0-pro");
+    expect(genModelOf({ output: "audio", model: "seedance-2.0" }).id).toBe("seed-audio-1.0");
   });
 
   it("maps direct Seedance to the official BytePlus multimodal task", () => {

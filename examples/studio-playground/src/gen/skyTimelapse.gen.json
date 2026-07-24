@@ -1,5 +1,6 @@
 {
   "provider": "fal",
+  "output": "video",
   "model": "seedance-2.0",
   "tier": "fast",
   "prompt": "Timelapse of dusk clouds rolling over a city skyline, warm sodium glow rising from the streets below; locked-off wide shot, gentle film grain.",

@@ -87,6 +87,21 @@ describe("remapRecipeForModel", () => {
     expect(next.duration).toBe(4); // veo allows 4
     expect(next.seed).toBe(0); // veo default
     expect(next.tier).toBeUndefined();
+    expect(next.output).toBe("video");
+  });
+
+  it("preserves the locked output, desired shape, and supported ref adaptation", () => {
+    const { next } = remapRecipeForModel({
+      ...sky,
+      output: "video",
+      desiredOutput: { width: 1080, height: 1920, fit: "cover" },
+      refs: [{ kind: "image", src: "comp://portrait", adapt: { fit: "resize" } }],
+    }, "veo-3.1-fast");
+    expect(next).toMatchObject({
+      output: "video",
+      desiredOutput: { width: 1080, height: 1920, fit: "cover" },
+      refs: [{ kind: "image", src: "comp://portrait", adapt: { fit: "resize" } }],
+    });
   });
 
   it("snaps carried values the new model's options refuse", () => {

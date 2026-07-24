@@ -1,7 +1,7 @@
 // Legacy recipe → TypeScript source support. New recipes keep mutable values in `.gen.json`;
 // these literal helpers remain for projects that have not migrated yet.
 
-import type { GenRecipe } from "../generative";
+import { genOutputKindOf, type GenRecipe } from "../generative";
 import { genModelOf, genParamValue } from "../genModels";
 
 const q = (s: string) =>
@@ -9,6 +9,8 @@ const q = (s: string) =>
 
 const lit = (v: unknown): string =>
   typeof v === "string" ? q(v) : typeof v === "number" || typeof v === "boolean" ? String(v) : JSON.stringify(v);
+const refLit = (ref: NonNullable<GenRecipe["refs"]>[number]): string =>
+  `{ kind: ${q(ref.kind)}, src: ${q(ref.src)}${ref.adapt ? `, adapt: ${lit(ref.adapt)}` : ""} }`;
 
 /** The object body for `generative({ ... })` — canonical field order, def-driven params.
  *  Params the model doesn't know are dropped on purpose (switching models prunes the
@@ -19,16 +21,17 @@ export function serializeRecipeBody(recipe: GenRecipe): string {
   lines.push(`  id: ${q(recipe.id)},`);
   if (recipe.file) lines.push(`  file: ${q(recipe.file)},`);
   lines.push(`  provider: ${q(recipe.provider ?? "fal")},`);
+  lines.push(`  output: ${q(genOutputKindOf(recipe))},`);
   lines.push(`  model: ${q(recipe.model ?? def.id)},`);
   lines.push(`  prompt: ${q(recipe.prompt)},`);
   if (def.negativePrompt && recipe.negativePrompt != null)
     lines.push(`  negativePrompt: ${q(recipe.negativePrompt)},`);
   const refs = recipe.refs ?? [];
   if (refs.length === 1) {
-    lines.push(`  refs: [{ kind: ${q(refs[0].kind)}, src: ${q(refs[0].src)} }],`);
+    lines.push(`  refs: [${refLit(refs[0])}],`);
   } else if (refs.length > 1) {
     lines.push(`  refs: [`);
-    for (const r of refs) lines.push(`    { kind: ${q(r.kind)}, src: ${q(r.src)} },`);
+    for (const r of refs) lines.push(`    ${refLit(r)},`);
     lines.push(`  ],`);
   }
   for (const p of def.params) {
@@ -36,6 +39,7 @@ export function serializeRecipeBody(recipe: GenRecipe): string {
     lines.push(`  ${p.key}: ${lit(v ?? p.def)},`);
   }
   if (recipe.fps != null) lines.push(`  fps: ${recipe.fps},`);
+  if (recipe.desiredOutput) lines.push(`  desiredOutput: ${lit(recipe.desiredOutput)},`);
   lines.push(`  take: ${recipe.take ?? 0},`);
   return lines.join("\n");
 }
@@ -85,10 +89,12 @@ export function remapRecipeForModel(recipe: GenRecipe, modelId: string): { next:
     file: recipe.file,
     dataFile: recipe.dataFile,
     provider: nextDef.provider ?? "fal",
+    output: genOutputKindOf(recipe),
     model: modelId,
     prompt: recipe.prompt,
     take: recipe.take ?? 0,
     fps: recipe.fps,
+    desiredOutput: recipe.desiredOutput,
   };
   if (nextDef.negativePrompt && recipe.negativePrompt) next.negativePrompt = recipe.negativePrompt;
   for (const p of nextDef.params) {
