@@ -183,7 +183,14 @@ function offsetWithinRoot(element: HTMLElement, root: HTMLElement): { x: number;
 function previewElement(preview: PreviewRecord, element: HTMLElement): PreviewNodeSnapshot | null {
   const root = preview.handle?.root;
   const objectId = element.getAttribute("data-fd-id");
-  if (!root || !objectId || element === root || element.closest("[data-fd-composition]") !== root) return null;
+  if (
+    !root
+    || !objectId
+    || element === root
+    || element instanceof HTMLAudioElement
+    || element.getAttribute("data-fd-output-kind") === "audio"
+    || element.closest("[data-fd-composition]") !== root
+  ) return null;
   const hostBounds = preview.host.getBoundingClientRect();
   const rootBounds = root.getBoundingClientRect();
   const scaleX = root.offsetWidth ? rootBounds.width / root.offsetWidth : 1;
@@ -324,8 +331,16 @@ function parsedTimelineDocument(text: string): CompositionTimelineDocument {
 function timelinePlacementKind(
   placement: CompositionTimelinePlacement,
   fallback?: TimelineItemSnapshot,
+  registry?: CompRegistry,
 ): TimelineLaneSnapshot["kind"] {
   const type = placement.content?.type ?? fallback?.content.type;
+  const compositionRef = placement.content?.type === "nested"
+    ? placement.content.composition
+    : fallback?.content.type === "nested"
+      ? fallback.content.compId
+      : undefined;
+  const nestedKey = compositionRef && registry ? resolveCompositionKey(registry, compositionRef) : undefined;
+  if (nestedKey && registry?.[nestedKey]?.meta?.output === "audio") return "audio";
   return type === "audio" ? "audio" : type === "grade-layer" ? "grade" : "video";
 }
 
@@ -1044,6 +1059,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   private editListeners = new Set<ProjectEditListener>();
   private bakeInputListeners = new Set<() => void>();
   private cacheProbe: Promise<CacheEntry[]> | null = null;
+  private outputResolutions = new Map<string, Promise<string>>();
 
   public constructor(registry: CompRegistry) {
     this.registry = registry;
@@ -1234,7 +1250,13 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     let runtimeGroups = getGsapRuntimeTraces(composition.id);
     if (sourceGroups.length && !runtimeGroups.length) {
       const host = document.createElement("div");
-      const handle = mountComposition(host, composition, { registry: this.registry, resolver: this.resolver, frame: 0, playing: false });
+      const handle = mountComposition(host, composition, {
+        registry: this.registry,
+        resolver: this.resolver,
+        resolveCompositionOutput: this.resolveCompositionOutput,
+        frame: 0,
+        playing: false,
+      });
       try {
         await handle.ready;
         runtimeGroups = getGsapRuntimeTraces(composition.id);
@@ -1501,9 +1523,20 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const layerRequests = requests.filter((entry) => entry.field === "layer");
     if (layerRequests.length) {
       const snapshot = timelineFromHtml({ ...composition, html: nextText });
-      const laneByItem = new Map(buildTimelineLanes(snapshot).flatMap((lane) => lane.items.map((item) => [item.id, lane.layer ?? 0] as const)));
+      const nestedOutputKind = (reference: string) => {
+        const key = resolveCompositionKey(this.registry, reference);
+        return key ? this.registry[key]?.meta?.output : undefined;
+      };
+      const laneByItem = new Map(buildTimelineLanes(snapshot, nestedOutputKind)
+        .flatMap((lane) => lane.items.map((item) => [item.id, lane.layer ?? 0] as const)));
       const requestedLayer = new Map(layerRequests.map((request) => [request.itemId, Math.round(request.value)]));
-      const category = (item: TimelineItemSnapshot) => item.content.type === "audio" ? "audio" : item.content.type === "grade-layer" ? "grade" : "video";
+      const category = (item: TimelineItemSnapshot) =>
+        item.content.type === "audio"
+        || (item.content.type === "nested" && nestedOutputKind(item.content.compId) === "audio")
+          ? "audio"
+          : item.content.type === "grade-layer"
+            ? "grade"
+            : "video";
       const touchedCategories = new Set(snapshot.filter((item) => requestedLayer.has(item.id)).map(category));
       for (const group of touchedCategories) {
         const groupItems = snapshot.filter((item) => category(item) === group && !item.id.startsWith("clip:"));
@@ -1556,14 +1589,14 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       const placement = placementById.get(request.itemId);
       if (!placement) return { ok: false, file, message: `Timeline document ${file} has no placement named "${request.itemId}".` };
       const fallback = projectedById.get(placement.id);
-      const kind = timelinePlacementKind(placement, fallback);
+      const kind = timelinePlacementKind(placement, fallback, this.registry);
       const previousLayer = placement.layer ?? fallback?.layer ?? 0;
       const targetLayer = Math.max(0, Math.round(request.value));
       // Dropping onto an occupied visual layer swaps only clips that are active at the same time.
       // Sequential clips may intentionally share a track, while simultaneous clips always retain
       // one unambiguous stacking rank.
       for (const other of document.items) {
-        if (other === placement || timelinePlacementKind(other, projectedById.get(other.id)) !== kind) continue;
+        if (other === placement || timelinePlacementKind(other, projectedById.get(other.id), this.registry) !== kind) continue;
         if ((other.layer ?? projectedById.get(other.id)?.layer ?? 0) === targetLayer && placementsOverlap(placement, other)) {
           other.layer = previousLayer;
         }
@@ -1572,7 +1605,8 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       touchedKinds.add(kind);
     }
     for (const kind of touchedKinds) {
-      const placements = document.items.filter((placement) => timelinePlacementKind(placement, projectedById.get(placement.id)) === kind);
+      const placements = document.items.filter((placement) =>
+        timelinePlacementKind(placement, projectedById.get(placement.id), this.registry) === kind);
       const ranks = [...new Set(placements.map((placement) => placement.layer ?? projectedById.get(placement.id)?.layer ?? 0))].sort((a, b) => a - b);
       const normalized = new Map(ranks.map((rank, index) => [rank, index]));
       for (const placement of placements) {
@@ -1695,7 +1729,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     for (let suffix = 2; ids.has(id); suffix += 1) id = `${stem}-shape-${suffix}`;
     const projectedById = new Map(timelineFromComposition(composition).map((item) => [item.id, item]));
     const visualLayers = document.items
-      .filter((placement) => timelinePlacementKind(placement, projectedById.get(placement.id)) === "video")
+      .filter((placement) => timelinePlacementKind(placement, projectedById.get(placement.id), this.registry) === "video")
       .map((placement) => placement.layer ?? projectedById.get(placement.id)?.layer ?? 0);
     const layer = visualLayers.length ? Math.max(...visualLayers) + 1 : 0;
     const width = request.shape === "line" ? composition.width * 0.5 : composition.width * 0.42;
@@ -2759,6 +2793,50 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     return { inputs, missing: [...new Set(missing)] };
   }
 
+  private readonly resolveCompositionOutput = (
+    compositionRef: string,
+    outputKind: CompositionOutputKind,
+  ): Promise<string> => {
+    const compositionKey = resolveCompositionKey(this.registry, compositionRef);
+    if (!compositionKey) return Promise.reject(new Error(`Unknown composition output: ${compositionRef}`));
+    const requestKey = `${compositionKey}:${outputKind}`;
+    const existing = this.outputResolutions.get(requestKey);
+    if (existing) return existing;
+    const pending = this.resolveCompositionOutputNow(compositionKey, outputKind)
+      .finally(() => {
+        if (this.outputResolutions.get(requestKey) === pending) this.outputResolutions.delete(requestKey);
+      });
+    this.outputResolutions.set(requestKey, pending);
+    return pending;
+  };
+
+  private async resolveCompositionOutputNow(
+    compositionKey: string,
+    outputKind: CompositionOutputKind,
+  ): Promise<string> {
+    const composition = this.registry[compositionKey];
+    if (!composition) throw new Error(`Unknown composition output: ${compositionKey}`);
+    const declared = composition.meta?.output ?? "video";
+    if (declared !== outputKind) {
+      throw new Error(`${composition.id} declares ${declared} output, not ${outputKind}.`);
+    }
+    const fingerprint = await this.getCompositionBakeInputs(compositionKey, outputKind);
+    if (fingerprint.missing.length) {
+      throw new Error(`Cannot materialize ${composition.id}: ${fingerprint.missing.join(", ")}.`);
+    }
+    const hashes = new Map<string, string | null>(Object.entries(fingerprint.inputs));
+    const current = (await listCache())
+      .filter((entry) =>
+        entry.meta?.compId === composition.id
+        && artifactStatusFromInputs(entry.meta.inputs, hashes) === "current")
+      .sort((left, right) => right.mtimeMs - left.mtimeMs)[0];
+    const cachedName = current?.contentHash ?? current?.name;
+    if (cachedName) return `/__framediff-cache/${encodeURIComponent(cachedName)}`;
+    const baked = await this.bakeComposition(compositionKey, () => undefined, outputKind);
+    this.cacheProbe = null;
+    return `/__framediff-cache/${encodeURIComponent(baked.filename)}`;
+  }
+
   public async bakeComposition(
     compositionKey: string,
     onProgress: (progress: RenderProgressSnapshot) => void,
@@ -2792,6 +2870,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         height: composition.height,
         resolver: this.resolver,
         registry: this.registry,
+        resolveCompositionOutput: this.resolveCompositionOutput,
       });
       onProgress({ phase: "render", completed: 1, total: 1 });
       blob = await new Promise<Blob>((resolve, reject) => {
@@ -2807,6 +2886,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         bitrate: Math.round(composition.width * composition.height * composition.fps * 0.2),
         resolver: this.resolver,
         registry: this.registry,
+        resolveCompositionOutput: this.resolveCompositionOutput,
         onProgress: (progress) => onProgress({
           phase: progress.phase,
           completed: progress.phase === "audio" ? progress.audioFramesScanned : progress.phase === "render" ? progress.framesEncoded : progress.phase === "finalize" ? progress.totalFrames : 0,
@@ -2944,8 +3024,14 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
               const ids = new Set(currentTimeline.items.map((item) => item.id));
               let id = baseId;
               for (let suffix = 2; ids.has(id); suffix += 1) id = `${baseId}-${suffix}`;
+              const outputKind: CompositionOutputKind = isGenerative
+                ? request.outputKind!
+                : isMoodboard
+                  ? "image"
+                  : "video";
+              const placementKind = outputKind === "audio" ? "audio" : "video";
               const layer = Math.max(-1, ...currentTimeline.items
-                .filter((item) => timelinePlacementKind(item) === "video")
+                .filter((item) => timelinePlacementKind(item, undefined, this.registry) === placementKind)
                 .map((item) => item.layer ?? 0)) + 1;
               const nextTimeline: CompositionTimelineDocument = {
                 version: 2,
@@ -2955,7 +3041,9 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
                   from: 0,
                   durationInFrames: request.durationInFrames,
                   layer,
-                  layout: { rect: [0, 0, selectedParent.width, selectedParent.height], fit: "cover", cornerRadius: 0, opacity: 1 },
+                  ...(outputKind === "audio"
+                    ? { volume: 1 }
+                    : { layout: { rect: [0, 0, selectedParent.width, selectedParent.height] as [number, number, number, number], fit: "cover" as const, cornerRadius: 0, opacity: 1 } }),
                   content: { type: "nested", composition: key },
                 }],
               };
@@ -3310,7 +3398,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       let id = baseId;
       for (let suffix = 2; ids.has(id); suffix += 1) id = `${baseId}-${suffix}`;
       const layer = Math.max(-1, ...timeline.items
-        .filter((item) => timelinePlacementKind(item) === "video")
+        .filter((item) => timelinePlacementKind(item, undefined, this.registry) === "video")
         .map((item) => item.layer ?? 0)) + 1;
       timeline = {
         version: 2,
@@ -4047,6 +4135,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const nextHandle = mountComposition(staging, composition, {
       registry: this.registry,
       resolver: this.resolver,
+      resolveCompositionOutput: this.resolveCompositionOutput,
       ...preview.options,
       contentDomain: this.contentDomainOf(preview.compositionKey, composition),
     });
@@ -4131,6 +4220,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     preview.handle = mountComposition(stage, composition, {
       registry: this.registry,
       resolver: this.resolver,
+      resolveCompositionOutput: this.resolveCompositionOutput,
       ...preview.options,
       contentDomain: this.contentDomainOf(preview.compositionKey, composition),
     });

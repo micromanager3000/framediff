@@ -101,7 +101,49 @@ test("a CUSTOM comp owns frame logic without owning a timeline", async ({ page }
   await expect(page.getByRole("spinbutton", { name: "corner radius number" })).toHaveValue("0");
 });
 
-test("a JSON-authored nested volume controls preview and export gain", async ({ page }) => {
+test("image and audio composition outputs embed as media instead of authoring UI", async ({ page }) => {
+  await openComposition(page, "lighthouse-workflow", "http://127.0.0.1:4175/");
+
+  const editPreview = page.locator(
+    '.workspace:not(.generate-workspace) > .preview-panel > .preview-surface > .preview-host > .preview-runtime-host',
+  );
+  const referenceBoard = editPreview.locator('[data-fd-id="workflow-concept"]');
+  await expect(referenceBoard).toHaveAttribute("data-fd-output-kind", "image");
+  await expect(referenceBoard.locator('[data-fd-id="LighthouseConcept"]')).toHaveCount(0);
+  await expect.poll(() => referenceBoard.evaluate((element) =>
+    getComputedStyle(element).backgroundImage)).toContain("/__framediff-cache/");
+  await expect.poll(() => referenceBoard.evaluate(async (element) => {
+    const outputUrl = getComputedStyle(element).backgroundImage.match(/^url\(["']?(.*?)["']?\)$/)?.[1];
+    if (!outputUrl) return null;
+    return (await fetch(outputUrl)).headers.get("content-type");
+  })).toContain("image/png");
+
+  const audioLane = page.locator('.lane[data-lane-id="a:0"]');
+  await expect(audioLane.locator('.clip[data-item-id="workflow-audio"]')).toHaveCount(1);
+  const lockedAudio = editPreview.locator('audio[data-fd-id="workflow-audio"]');
+  await expect(lockedAudio).toHaveAttribute("data-fd-output-kind", "audio");
+  await expect(lockedAudio.locator(".gen-slate")).toHaveCount(0);
+  await expect(lockedAudio.locator(".framediff-nested-host")).toHaveCount(0);
+  await expect.poll(() => lockedAudio.evaluate((audio: HTMLAudioElement) =>
+    audio.currentSrc)).toContain("/__framediff-cache/");
+
+  await audioLane.locator('.clip[data-item-id="workflow-audio"]').click();
+  await expect(page.locator(".canvas-selection")).toHaveCount(0);
+
+  const approvalCard = page.locator('.clip[data-item-id="workflow-audio-card"]');
+  await expect(approvalCard).toBeVisible();
+  const approvalCardNode = editPreview.locator('[data-fd-id="workflow-audio-card"]');
+  const approvalCardBounds = await approvalCardNode.boundingBox();
+  expect(approvalCardBounds).not.toBeNull();
+  await page.mouse.click(
+    approvalCardBounds!.x + approvalCardBounds!.width / 2,
+    approvalCardBounds!.y + approvalCardBounds!.height / 2,
+  );
+  await expect(page.getByLabel("Selected Audio approval card")).toBeVisible();
+  await expect(page.locator(".resize-handle")).toHaveCount(8);
+});
+
+test("a JSON-authored audio-output composition controls preview and export gain", async ({ page }) => {
   const timelineFile = "examples/previz-to-gen/src/compositions/LighthouseWorkflow.timeline.json";
   const htmlFile = "examples/previz-to-gen/src/compositions/LighthouseWorkflow.html";
   const originalTimeline = await readFile(timelineFile, "utf8");
@@ -110,29 +152,29 @@ test("a JSON-authored nested volume controls preview and export gain", async ({ 
     await openComposition(page, "lighthouse-workflow", "http://127.0.0.1:4175/");
 
     const timeline = JSON.parse(originalTimeline) as { items: Array<{ id: string; volume?: number }> };
-    expect(timeline.items.find((item) => item.id === "workflow-audio")?.volume).toBe(0);
+    expect(timeline.items.find((item) => item.id === "workflow-audio")?.volume).toBe(1);
     expect(originalHtml).not.toContain("data-fd-volume");
 
     await page.locator('.clip[data-item-id="workflow-audio"]').evaluate((element) =>
       (element as HTMLButtonElement).click());
     await expect(page.getByRole("heading", { name: "COMPOSITION AUDIO" })).toBeVisible();
     const volume = page.getByRole("spinbutton", { name: "volume number" });
-    await expect(volume).toHaveValue("0");
+    await expect(volume).toHaveValue("1");
 
     const editPreview = page.locator(
       '.workspace:not(.generate-workspace) > .preview-panel > .preview-surface > .preview-host > .preview-runtime-host',
     );
     await expect(editPreview).toHaveCount(1);
-    const approvalAudio = editPreview.locator('[data-fd-id="workflow-audio"] audio[data-framediff-audio]');
+    const approvalAudio = editPreview.locator('audio[data-fd-id="workflow-audio"][data-framediff-audio]');
     await expect(approvalAudio).toHaveCount(1);
     await expect.poll(() => approvalAudio.evaluate((audio: HTMLAudioElement) => ({
-      clipVolume: audio.closest<HTMLElement>("[data-fd-comp]")?.dataset.fdVolume,
+      clipVolume: audio.dataset.fdVolume,
       previewVolume: audio.volume,
       exportVolume: audio.dataset.framediffVolume,
     }))).toEqual({
-      clipVolume: "0",
-      previewVolume: 0,
-      exportVolume: "0",
+      clipVolume: "1",
+      previewVolume: 1,
+      exportVolume: "1",
     });
 
     await volume.fill("0.25");
@@ -149,20 +191,19 @@ test("a JSON-authored nested volume controls preview and export gain", async ({ 
 
     await page.getByRole("button", { name: "Undo", exact: true }).click();
     await expect.poll(async () => readFile(timelineFile, "utf8")).toBe(originalTimeline);
-    await expect(approvalAudio).toHaveCount(1);
-    await expect.poll(() => approvalAudio.evaluate((audio: HTMLAudioElement) =>
-      audio.dataset.framediffVolume)).toBe("0");
+    await expect.poll(() => approvalAudio.evaluateAll((audio) =>
+      audio.map((element) => (element as HTMLAudioElement).dataset.framediffVolume))).toEqual(["1"]);
 
-    // The final generated video is a separate audible layer. Silencing the approval reference
-    // must not accidentally mute that sibling.
+    // The final generated video supplies picture only. The locked audio composition is the sole
+    // audio authority in the edit, so the two outputs cannot double up.
     const finalVideo = editPreview.locator('[data-fd-id="workflow-final"] video[data-framediff-video]');
     await expect(finalVideo).toHaveCount(1);
     await expect.poll(() => finalVideo.evaluate((video: HTMLVideoElement) => ({
       previewVolume: video.volume,
       exportVolume: video.dataset.framediffVolume,
     }))).toEqual({
-      previewVolume: 1,
-      exportVolume: "1",
+      previewVolume: 0,
+      exportVolume: "0",
     });
 
     await page.locator('.clip[data-item-id="workflow-audio"]').evaluate((element) =>
@@ -179,6 +220,7 @@ test("a JSON-authored nested volume controls preview and export gain", async ({ 
       return document.items.some((item) => item.id === "workflow-audio");
     }).toBe(false);
     await expect(page.locator('.clip[data-item-id="workflow-audio"]')).toHaveCount(0);
+    await expect(page.locator('.clip[data-item-id="workflow-audio-card"]')).toHaveCount(1);
     await expect(finalVideo).toHaveCount(1);
     await expect.poll(() => finalVideo.evaluate((video: HTMLVideoElement) => ({
       display: getComputedStyle(video).display,
