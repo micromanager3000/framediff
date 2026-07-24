@@ -1259,6 +1259,13 @@ html&gt;body{padding:0}&lt;/style&gt;
       on-demand &lt;code&gt;g6.2xlarge&lt;/code&gt; for a few users; add sharding and more capacity only
       after the vertical slice is reliable. Keep the S3 job-spec/result protocol provider-neutral.
     &lt;/div&gt;
+    &lt;div class=&quot;plan-note text-small&quot;&gt;
+      The deployed job protocol also accepts &lt;code&gt;depth-map&lt;/code&gt; and
+      &lt;code&gt;segmentation&lt;/code&gt; kinds. They use the same private S3 input, Batch queue,
+      L4 Chrome worker, status/report objects, and scale-to-zero lifecycle as rendering. Pinned
+      Depth Anything V2 Small and SegFormer B0 ONNX weights are baked into the worker image, so
+      inference runs on our GPU through WebGPU without a hosted third-party inference call.
+    &lt;/div&gt;
   &lt;/section&gt;
 
   &lt;section class=&quot;plan-section&quot; aria-labelledby=&quot;latency-heading&quot;&gt;
@@ -1926,6 +1933,8 @@ html&gt;body{padding:0}&lt;/style&gt;
       &lt;li&gt;&lt;a href=&quot;https://aws.amazon.com/ec2/pricing/on-demand/&quot;&gt;Amazon EC2 On-Demand pricing&lt;/a&gt; — the AWS Price List API returned $0.9776/hour for Linux &lt;code&gt;g6.2xlarge&lt;/code&gt; in us-west-2 on July 23, 2026; Linux billing is per second with a 60-second minimum.&lt;/li&gt;
       &lt;li&gt;&lt;a href=&quot;https://aws.amazon.com/batch/pricing/&quot;&gt;AWS Batch pricing&lt;/a&gt; — no additional Batch charge; pay for the underlying AWS resources.&lt;/li&gt;
       &lt;li&gt;&lt;a href=&quot;https://aws.amazon.com/s3/pricing/&quot;&gt;Amazon S3 pricing&lt;/a&gt; — storage, request, and transfer charges are separate from GPU compute.&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://huggingface.co/docs/transformers.js/en/guides/webgpu&quot;&gt;Transformers.js on WebGPU&lt;/a&gt; — vision pipelines can select &lt;code&gt;device: &amp;quot;webgpu&amp;quot;&lt;/code&gt; and run through ONNX Runtime Web in Chrome.&lt;/li&gt;
+      &lt;li&gt;&lt;a href=&quot;https://huggingface.co/onnx-community/depth-anything-v2-small&quot;&gt;Depth Anything V2 Small ONNX&lt;/a&gt; and &lt;a href=&quot;https://huggingface.co/Xenova/segformer-b0-finetuned-ade-512-512&quot;&gt;SegFormer B0 ONNX&lt;/a&gt; — pinned model revisions used by the depth and semantic-segmentation jobs.&lt;/li&gt;
     &lt;/ol&gt;
   &lt;/section&gt;
 &lt;/main&gt;

@@ -1,4 +1,4 @@
-# FrameDiff AWS GPU render pilot
+# FrameDiff AWS GPU render and vision pilot
 
 This deploys a real NVIDIA L4 worker on AWS Batch. The Batch compute environment uses
 `g6.2xlarge`, has `minvCpus: 0`, and therefore scales EC2 compute to zero when no job is queued.
@@ -11,6 +11,15 @@ The first job type is a representative FrameDiff capability suite:
 - WebGPU 3D capture and export
 - deterministic WebGPU cloth capture
 - repeat-capture SHA-256 parity
+
+The same versioned Batch/S3 job protocol also supports:
+
+- relative monocular depth maps with Depth Anything V2 Small
+- ADE20K semantic segmentation with SegFormer B0
+
+Both model revisions and their ONNX weights are pinned into the worker image. Inference therefore
+runs inside the FrameDiff AWS worker over hardware WebGPU and does not call a hosted inference API
+at job runtime.
 
 The stack is deliberately a pilot, not a multi-tenant sandbox. The image contains trusted
 FrameDiff source and synthetic media only.
@@ -38,6 +47,20 @@ job_id="$(cloud/aws-render/scripts/submit-capability.sh | head -n1)"
 cloud/aws-render/scripts/watch.sh "$job_id"
 ```
 
+Depth and segmentation use a built-in synthetic test scene when no image is supplied:
+
+```bash
+job_id="$(cloud/aws-render/scripts/submit-depth.sh | head -n1)"
+cloud/aws-render/scripts/watch.sh "$job_id"
+
+job_id="$(cloud/aws-render/scripts/submit-segmentation.sh ./input.png | head -n1)"
+cloud/aws-render/scripts/watch.sh "$job_id"
+```
+
+`watch.sh` prints the report and downloads the full result beneath
+`out/aws-render/cloud-<job-id>/`. Image inputs must be JPEG, PNG, or WebP and no larger than
+25 MiB. Submitted inputs, specs, and outputs expire after 30 days.
+
 `build-and-push.sh` refuses dirty changes under `cloud/aws-render` and creates its Docker build
 context from `git archive HEAD`. Uncommitted workspace edits and local media are therefore never
 published to ECR.
@@ -63,6 +86,14 @@ cloud/aws-render/scripts/test-local.sh
 
 Local preflight permits a missing NVIDIA device but still requires WebGPU, WebCodecs, exact
 video decode, deterministic captures, audio muxing, and MP4 export.
+
+The two inference jobs have matching local preflights:
+
+```bash
+node cloud/aws-render/scripts/cache-models.mjs
+cloud/aws-render/scripts/test-local.sh depth-map
+cloud/aws-render/scripts/test-local.sh segmentation
+```
 
 ## Cost and scaling behavior
 

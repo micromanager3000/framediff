@@ -26,6 +26,16 @@ type CapabilityResult = {
   detail?: Record<string, unknown>;
 };
 
+type InferenceKind = "depth-map" | "segmentation";
+
+const DEPTH_MODEL = {
+  id: "onnx-community/depth-anything-v2-small",
+  revision: "4472b7362082ad9968fee890ca0f1e5aca36b93d",
+};
+const SEGMENTATION_MODEL = {
+  id: "Xenova/segformer-b0-finetuned-ade-512-512",
+  revision: "d3e5499fa8701ff0453ca940a8dfeae39b2f1504",
+};
 const artifacts = new Map<string, Artifact>();
 
 const domSource = `<!doctype html>
@@ -234,14 +244,221 @@ async function browserCapabilities() {
   };
 }
 
-async function runSuite() {
-  const startedAt = new Date().toISOString();
-  const browser = await browserCapabilities();
+function assertHardwareWebGpu(browser: Awaited<ReturnType<typeof browserCapabilities>>) {
   if (!browser.gpuApi || !browser.adapterInfo) throw new Error("Hardware WebGPU is unavailable.");
   const adapterText = JSON.stringify(browser.adapterInfo).toLowerCase();
   if (adapterText.includes("swiftshader") || adapterText.includes("software")) {
     throw new Error(`Software WebGPU fallback detected: ${JSON.stringify(browser.adapterInfo)}`);
   }
+}
+
+async function blobBytes(blob: Blob): Promise<Uint8Array> {
+  return new Uint8Array(await blob.arrayBuffer());
+}
+
+async function blobDataUrl(blob: Blob): Promise<string> {
+  const bytes = await blobBytes(blob);
+  return `data:${blob.type || "application/octet-stream"};base64,${bytesToBase64(bytes)}`;
+}
+
+async function defaultInferenceInput(): Promise<string> {
+  const canvas = document.createElement("canvas");
+  canvas.width = 640;
+  canvas.height = 384;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Canvas 2D is unavailable for the inference fixture.");
+
+  const sky = context.createLinearGradient(0, 0, 0, 384);
+  sky.addColorStop(0, "#79c9ff");
+  sky.addColorStop(0.58, "#dff3ff");
+  sky.addColorStop(1, "#e8c798");
+  context.fillStyle = sky;
+  context.fillRect(0, 0, 640, 384);
+
+  context.fillStyle = "#70816f";
+  context.fillRect(0, 218, 640, 166);
+  context.fillStyle = "#32353b";
+  context.beginPath();
+  context.moveTo(242, 384);
+  context.lineTo(330, 218);
+  context.lineTo(408, 218);
+  context.lineTo(570, 384);
+  context.fill();
+  context.strokeStyle = "#f5e89a";
+  context.lineWidth = 6;
+  context.setLineDash([24, 20]);
+  context.beginPath();
+  context.moveTo(395, 384);
+  context.lineTo(367, 230);
+  context.stroke();
+  context.setLineDash([]);
+
+  context.fillStyle = "#f0ddc4";
+  context.fillRect(66, 120, 218, 134);
+  context.fillStyle = "#9e4d3d";
+  context.beginPath();
+  context.moveTo(42, 126);
+  context.lineTo(175, 48);
+  context.lineTo(306, 126);
+  context.closePath();
+  context.fill();
+  context.fillStyle = "#704532";
+  context.fillRect(150, 184, 48, 70);
+  context.fillStyle = "#72bfea";
+  context.fillRect(88, 150, 48, 42);
+  context.fillRect(218, 150, 42, 42);
+
+  context.fillStyle = "#3c7139";
+  for (const [x, y, radius] of [[500, 132, 62], [545, 168, 52], [470, 184, 50]] as const) {
+    context.beginPath();
+    context.arc(x, y, radius, 0, Math.PI * 2);
+    context.fill();
+  }
+  context.fillStyle = "#69432b";
+  context.fillRect(500, 184, 25, 78);
+
+  const blob = await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob((value) => value ? resolve(value) : reject(new Error("Inference fixture encoding failed.")), "image/png"),
+  );
+  return blobDataUrl(blob);
+}
+
+async function normalizeInferenceInput(inputDataUrl?: string): Promise<string> {
+  const source = inputDataUrl || await defaultInferenceInput();
+  const image = new Image();
+  image.src = source;
+  await image.decode();
+  if (image.naturalWidth > 4096 || image.naturalHeight > 4096) {
+    throw new Error(`Inference input is too large: ${image.naturalWidth}×${image.naturalHeight}; maximum is 4096×4096.`);
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Canvas 2D is unavailable for inference input normalization.");
+  context.drawImage(image, 0, 0);
+  const blob = await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob((value) => value ? resolve(value) : reject(new Error("Inference input encoding failed.")), "image/png"),
+  );
+  const bytes = await blobBytes(blob);
+  artifacts.set("input.png", { contentType: "image/png", bytes });
+  return blobDataUrl(blob);
+}
+
+function colorForIndex(index: number): [number, number, number] {
+  const palette: Array<[number, number, number]> = [
+    [46, 196, 182], [255, 107, 107], [255, 209, 102], [76, 201, 240],
+    [155, 93, 229], [87, 204, 153], [244, 162, 97], [72, 149, 239],
+    [247, 37, 133], [181, 228, 140], [255, 159, 28], [0, 187, 249],
+  ];
+  return palette[index % palette.length]!;
+}
+
+async function runInference(kind: InferenceKind, inputDataUrl?: string) {
+  artifacts.clear();
+  const startedAt = new Date().toISOString();
+  const started = performance.now();
+  const browser = await browserCapabilities();
+  assertHardwareWebGpu(browser);
+  const source = await normalizeInferenceInput(inputDataUrl);
+  const { env, pipeline } = await import("@huggingface/transformers");
+  env.allowLocalModels = true;
+  env.allowRemoteModels = false;
+  env.localModelPath = "/models/";
+
+  if (kind === "depth-map") {
+    const estimator = await pipeline("depth-estimation", DEPTH_MODEL.id, {
+      device: "webgpu",
+      dtype: "fp32",
+      revision: DEPTH_MODEL.revision,
+    }) as any;
+    try {
+      const output = await estimator(source);
+      const depthBlob = await output.depth.toBlob("image/png");
+      const depthBytes = await blobBytes(depthBlob);
+      artifacts.set("depth-map.png", { contentType: "image/png", bytes: depthBytes });
+      const raw = output.predicted_depth;
+      return {
+        version: 1,
+        kind,
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        durationMs: Math.round(performance.now() - started),
+        browser,
+        model: DEPTH_MODEL,
+        result: {
+          width: output.depth.width,
+          height: output.depth.height,
+          rawDepthMin: Number(raw.min().item()),
+          rawDepthMax: Number(raw.max().item()),
+        },
+        artifactNames: Array.from(artifacts.keys()),
+      };
+    } finally {
+      await estimator.dispose();
+    }
+  }
+
+  const segmenter = await pipeline("image-segmentation", SEGMENTATION_MODEL.id, {
+    device: "webgpu",
+    dtype: "fp32",
+    revision: SEGMENTATION_MODEL.revision,
+  }) as any;
+  try {
+    const segments = await segmenter(source);
+    if (!segments.length) throw new Error("The segmentation model returned no masks.");
+    const width = segments[0].mask.width;
+    const height = segments[0].mask.height;
+    const visualization = document.createElement("canvas");
+    visualization.width = width;
+    visualization.height = height;
+    const context = visualization.getContext("2d");
+    if (!context) throw new Error("Canvas 2D is unavailable for segmentation visualization.");
+    const imageData = context.createImageData(width, height);
+    const labels = segments.map((segment: any, index: number) => {
+      const [red, green, blue] = colorForIndex(index);
+      let pixels = 0;
+      for (let offset = 0; offset < segment.mask.data.length; offset += 1) {
+        if (segment.mask.data[offset] === 0) continue;
+        pixels += 1;
+        const target = offset * 4;
+        imageData.data[target] = red;
+        imageData.data[target + 1] = green;
+        imageData.data[target + 2] = blue;
+        imageData.data[target + 3] = 255;
+      }
+      return { label: segment.label, score: segment.score, pixels, color: [red, green, blue] };
+    });
+    context.putImageData(imageData, 0, 0);
+    const visualizationBlob = await new Promise<Blob>((resolve, reject) =>
+      visualization.toBlob((value) => value ? resolve(value) : reject(new Error("Segmentation encoding failed.")), "image/png"),
+    );
+    artifacts.set("segmentation.png", { contentType: "image/png", bytes: await blobBytes(visualizationBlob) });
+    artifacts.set("labels.json", {
+      contentType: "application/json",
+      bytes: new TextEncoder().encode(JSON.stringify(labels, null, 2)),
+    });
+    return {
+      version: 1,
+      kind,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      durationMs: Math.round(performance.now() - started),
+      browser,
+      model: SEGMENTATION_MODEL,
+      result: { width, height, segmentCount: labels.length, labels },
+      artifactNames: Array.from(artifacts.keys()),
+    };
+  } finally {
+    await segmenter.dispose();
+  }
+}
+
+async function runSuite() {
+  artifacts.clear();
+  const startedAt = new Date().toISOString();
+  const browser = await browserCapabilities();
+  assertHardwareWebGpu(browser);
   if (!browser.h264Supported) throw new Error("Chrome does not expose H.264 VideoEncoder support.");
   if (!browser.videoDecoder) throw new Error("Chrome does not expose VideoDecoder.");
 
@@ -276,11 +493,13 @@ function bytesToBase64(bytes: Uint8Array): string {
 declare global {
   interface Window {
     __runFrameDiffCloudSuite: typeof runSuite;
+    __runFrameDiffInference: typeof runInference;
     __readFrameDiffCloudArtifact: (name: string) => { contentType: string; base64: string };
   }
 }
 
 window.__runFrameDiffCloudSuite = runSuite;
+window.__runFrameDiffInference = runInference;
 window.__readFrameDiffCloudArtifact = (name) => {
   const artifact = artifacts.get(name);
   if (!artifact) throw new Error(`Unknown cloud harness artifact: ${name}`);

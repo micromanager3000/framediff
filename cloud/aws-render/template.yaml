@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: FrameDiff scale-to-zero NVIDIA L4 render worker on AWS Batch
+Description: FrameDiff scale-to-zero NVIDIA L4 render and vision worker on AWS Batch
 
 Parameters:
   ImageTag:
@@ -43,6 +43,10 @@ Resources:
           - Id: ExpireSubmittedSpecs
             Status: Enabled
             Prefix: specs/
+            ExpirationInDays: 30
+          - Id: ExpireInferenceInputs
+            Status: Enabled
+            Prefix: inputs/
             ExpirationInDays: 30
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
@@ -212,7 +216,7 @@ Resources:
   CapabilityJobDefinition:
     Type: AWS::Batch::JobDefinition
     Properties:
-      JobDefinitionName: framediff-cloud-capability
+      JobDefinitionName: framediff-cloud-workload
       Type: container
       PlatformCapabilities:
         - EC2

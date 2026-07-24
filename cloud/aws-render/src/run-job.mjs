@@ -23,6 +23,10 @@ async function streamToString(stream) {
   return stream.transformToString();
 }
 
+async function streamToBytes(stream) {
+  return Buffer.from(await stream.transformToByteArray());
+}
+
 async function loadSpec() {
   if (process.env.FD_JOB_SPEC_JSON) {
     return validateJobSpec(JSON.parse(process.env.FD_JOB_SPEC_JSON));
@@ -79,6 +83,21 @@ async function commandDiagnostic(command, args) {
   }
 }
 
+async function loadInputDataUrl(spec) {
+  if (!spec.inputS3Key) return undefined;
+  if (!s3 || !bucket) throw new Error("FD_ARTIFACT_BUCKET is required with inputS3Key.");
+  const object = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: spec.inputS3Key }));
+  const bytes = await streamToBytes(object.Body);
+  if (bytes.byteLength > 25 * 1024 * 1024) {
+    throw new Error(`Inference input exceeds the 25 MiB limit: ${bytes.byteLength} bytes.`);
+  }
+  const contentType = spec.inputContentType || object.ContentType;
+  if (!["image/jpeg", "image/png", "image/webp"].includes(contentType)) {
+    throw new Error(`Unsupported inference input content type: ${String(contentType)}.`);
+  }
+  return `data:${contentType};base64,${bytes.toString("base64")}`;
+}
+
 async function waitForUrl(url, timeoutMs = 120_000) {
   const started = Date.now();
   let lastError;
@@ -114,34 +133,41 @@ function chromeLaunchOptions() {
   };
 }
 
-async function evaluateCapabilitySuite(page) {
+async function evaluateWorkload(page, spec, inputDataUrl) {
   let lastError;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     await page.waitForLoadState("networkidle");
-    await page.waitForFunction(() => typeof window.__runFrameDiffCloudSuite === "function");
+    await page.waitForFunction(() =>
+      typeof window.__runFrameDiffCloudSuite === "function"
+      && typeof window.__runFrameDiffInference === "function");
     await page.waitForTimeout(1_500);
     try {
-      return await page.evaluate(() => window.__runFrameDiffCloudSuite());
+      return await page.evaluate(
+        ({ kind, input }) => kind === "capability-suite"
+          ? window.__runFrameDiffCloudSuite()
+          : window.__runFrameDiffInference(kind, input),
+        { kind: spec.kind, input: inputDataUrl },
+      );
     } catch (error) {
       lastError = error;
       const message = error instanceof Error ? error.message : String(error);
       if (!message.includes("Execution context was destroyed") || attempt === 3) throw error;
-      log("harness reloaded during dependency optimization; retrying", { attempt });
+      log("harness reloaded during dependency optimization; retrying workload", { attempt, kind: spec.kind });
     }
   }
   throw lastError;
 }
 
-async function runCapabilitySuite(prefix) {
+async function runCloudWorkload(spec, prefix) {
   const diagnostics = {
     nvidiaSmi: await commandDiagnostic("nvidia-smi", [
       "--query-gpu=name,uuid,driver_version,memory.total",
       "--format=csv,noheader",
     ]),
-    ffmpeg: await commandDiagnostic("ffmpeg", ["-version"]),
     chrome: await commandDiagnostic(process.env.FD_CHROME_PATH || "google-chrome", ["--version"]),
     node: process.version,
     platform: `${process.platform}/${process.arch}`,
+    mediaPipeline: "FrameDiff WebCodecs + mp4-muxer",
   };
   log("diagnostics", diagnostics);
   if (!diagnostics.nvidiaSmi.ok && process.env.FD_REQUIRE_NVIDIA !== "0") {
@@ -176,16 +202,23 @@ async function runCapabilitySuite(prefix) {
       }
     });
     page.on("response", (response) => {
-      if (response.status() >= 400 && !response.url().endsWith("/favicon.ico")) {
+      const url = new URL(response.url());
+      const optionalModelProbe = response.status() === 404 && (
+        url.hostname.endsWith("huggingface.co")
+        || url.pathname.startsWith("/models/")
+      );
+      if (response.status() >= 400 && !response.url().endsWith("/favicon.ico") && !optionalModelProbe) {
         browserErrors.push(`http ${response.status()}: ${response.url()}`);
       }
     });
     await page.goto(url, { waitUntil: "networkidle" });
-    const report = await evaluateCapabilitySuite(page);
+    const inputDataUrl = await loadInputDataUrl(spec);
+    const report = await evaluateWorkload(page, spec, inputDataUrl);
     report.worker = {
       batchJobId,
       region,
       imageRevision: process.env.FD_IMAGE_REVISION || "unknown",
+      jobKind: spec.kind,
       diagnostics,
       browserErrors,
     };
@@ -219,13 +252,15 @@ async function main() {
   const prefix = spec.outputPrefix || jobPrefixDefault;
   await writeStatus(prefix, "RUNNING", { spec });
   try {
-    const report = await runCapabilitySuite(prefix);
+    const report = await runCloudWorkload(spec, prefix);
+    const resultCount = Array.isArray(report.results) ? report.results.length : 1;
     await writeStatus(prefix, "SUCCEEDED", {
       reportKey: `${prefix}/report.json`,
       artifactsPrefix: `${prefix}/artifacts/`,
-      resultCount: report.results.length,
+      kind: spec.kind,
+      resultCount,
     });
-    log("job succeeded", { prefix, resultCount: report.results.length });
+    log("job succeeded", { prefix, kind: spec.kind, resultCount });
   } catch (error) {
     const message = error instanceof Error ? error.stack || error.message : String(error);
     await writeStatus(prefix, "FAILED", { error: message }).catch((statusError) => {
