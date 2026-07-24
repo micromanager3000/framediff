@@ -16,7 +16,7 @@ export { GenerativeManager, type GenerativeManagerState } from "./managers/Gener
 export { CredentialsManager, type CredentialsManagerState } from "./managers/CredentialsManager";
 export { ProjectOperationsManager, type ProjectOperationsState } from "./managers/ProjectOperationsManager";
 export { HistoryManager, mergeGroupedReceipts, type HistoryState } from "./managers/HistoryManager";
-export { artifactStatusFromInputs, buildTimelineLanes, frontTrimPlacement, timelineItemLabel, type FrontTrimResult } from "./timeline";
+export { artifactStatusFromInputs, buildTimelineLanes, frontTrimPlacement, packTimelineVisualRows, timelineItemLabel, type FrontTrimResult } from "./timeline";
 export { canNestComposition, type NestVerdict } from "./nesting";
 export { compositionByReference } from "./compositionRef";
 export { renderTargetCompositions, selectedRenderTarget } from "./renderTargets";

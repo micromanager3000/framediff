@@ -376,6 +376,8 @@ html, body, #svelte { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .composition-drop-guide span { position: absolute; top: 5px; left: 6px; padding: 3px 5px; white-space: nowrap; color: #17130d; background: var(--accent); font: 800 8px/1 var(--mono); letter-spacing: .08em; }
 .lane-label { position: sticky; left: 0; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 2px; padding-left: 6px; border-right: 1px solid var(--line); background: #0c0b09; color: var(--faint); font-family: var(--mono); font-size: 9px; }
 .lane-label > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lane-name { display: flex; align-items: center; gap: 4px; }
+.lane-name small { min-width: 13px; height: 13px; display: inline-grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 999px; color: var(--muted); font: 700 7px/1 var(--mono); }
 .delete-lane { width: 18px; height: 22px; flex: none; padding: 0; border: 0; border-left: 1px solid transparent; background: transparent; color: var(--faint); cursor: pointer; font: 11px/1 var(--mono); }
 .delete-lane:hover { color: var(--red); background: rgb(224 101 95 / 8%); }
 .delete-lane.armed { border-left-color: rgb(224 101 95 / 35%); background: rgb(224 101 95 / 15%); color: var(--red); }
@@ -390,7 +392,7 @@ html, body, #svelte { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .unroll-lane .lane-label { color: #efafcc; }
 .unroll-span { border-color: rgba(233, 119, 172, .42); background: repeating-linear-gradient(135deg, rgba(168, 65, 120, .2) 0 8px, rgba(111, 61, 151, .25) 8px 16px); color: #f1bad3; }
 .unroll-span.unsafe { border-style: dashed; color: #b88b9f; filter: saturate(.55); }
-.clip { position: absolute; top: 5px; min-width: 3px; height: 27px; overflow: hidden; padding: 0 7px; border: 1px solid rgb(143 180 209 / 34%); border-radius: 5px; background: rgb(143 180 209 / 16%); color: #b8d2e8; cursor: pointer; text-align: left; }
+.clip { position: absolute; min-width: 3px; height: 27px; overflow: hidden; padding: 0 7px; border: 1px solid rgb(143 180 209 / 34%); border-radius: 5px; background: rgb(143 180 209 / 16%); color: #b8d2e8; cursor: pointer; text-align: left; }
 .clip span { display: block; overflow: hidden; font-family: var(--mono); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .production-badge { position: relative; z-index: 2; float: right; margin-left: 4px; color: var(--faint); font: 700 7px/1 var(--mono); }
 .production-badge.local { color: var(--green); }.production-badge.remote { color: var(--blue); }.production-badge.missing { color: var(--red); }.production-badge.effects { color: var(--pink); }
