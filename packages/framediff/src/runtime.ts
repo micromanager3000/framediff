@@ -171,6 +171,7 @@ function renderTimelineShape(element: HTMLElement, content: Extract<CompositionT
 
 function applyTimelineLayout(element: HTMLElement, layout: CompositionTimelineLayout): void {
   const [x, y, width, height] = layout.rect;
+  element.setAttribute("data-fd-layout-space", "composition");
   element.setAttribute("data-fd-x", String(x));
   element.setAttribute("data-fd-y", String(y));
   element.setAttribute("data-fd-width", String(width));
@@ -245,6 +246,11 @@ function applyTimelineDocument(root: HTMLElement, composition: CompositionConfig
     if (placement.muted == null) element.removeAttribute("data-fd-muted");
     else element.setAttribute("data-fd-muted", String(placement.muted));
     if (placement.layout) applyTimelineLayout(element, placement.layout);
+    else {
+      element.removeAttribute("data-fd-layout-space");
+      element.removeAttribute("data-fd-layout-local-x");
+      element.removeAttribute("data-fd-layout-local-y");
+    }
   }
 }
 
@@ -364,7 +370,7 @@ function applyTimelineLocalCoordinates(root: HTMLElement): void {
   const rootBounds = root.getBoundingClientRect();
   const scaleX = root.offsetWidth ? rootBounds.width / root.offsetWidth : 1;
   const scaleY = root.offsetHeight ? rootBounds.height / root.offsetHeight : 1;
-  for (const element of root.querySelectorAll<HTMLElement>('[data-fd-layout-owner="timeline"][data-fd-x][data-fd-y]')) {
+  for (const element of root.querySelectorAll<HTMLElement>('[data-fd-layout-space="composition"][data-fd-x][data-fd-y]')) {
     const offsetParent = element.offsetParent instanceof HTMLElement ? element.offsetParent : root;
     const parentBounds = offsetParent.getBoundingClientRect();
     const parentX = offsetParent === root ? 0 : (parentBounds.left - rootBounds.left) / Math.max(0.0001, scaleX);
@@ -597,7 +603,9 @@ export function mountComposition(
     childHost.className = "framediff-nested-host";
     childHost.style.cssText = `position:absolute;inset:0;width:${child.width}px;height:${child.height}px;transform-origin:top left;`;
     const explicitScale = numeric(element, "data-fd-nested-scale", NaN);
-    const ownsLayout = element.getAttribute("data-fd-layout-owner") === "timeline" && element.hasAttribute("data-fd-width") && element.hasAttribute("data-fd-height");
+    const ownsLayout = element.getAttribute("data-fd-layout-space") === "composition"
+      && element.hasAttribute("data-fd-width")
+      && element.hasAttribute("data-fd-height");
     const boxWidth = ownsLayout ? numeric(element, "data-fd-width", element.offsetWidth) : composition.width;
     const boxHeight = ownsLayout ? numeric(element, "data-fd-height", element.offsetHeight) : composition.height;
     const fit = element.getAttribute("data-fd-fit") ?? "cover";
