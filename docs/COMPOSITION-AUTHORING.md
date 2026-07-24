@@ -132,6 +132,49 @@ Whenever transport is present without the full timeline, Studio renders a compac
 beside play/step controls. A procedural scene therefore remains directly seekable without looking
 like an edit composition or inventing fake clips.
 
+### Planned v2: one visual layer authority
+
+The next edit-document contract extends each item with explicit `content` and `layout` while keeping
+`items[].layer` as the sole writable authority for visual compositing order. Timeline row order and DOM
+paint order become projections of that value rather than separately persisted state:
+
+```json
+{
+  "version": 2,
+  "items": [
+    {
+      "id": "hero",
+      "from": 0,
+      "durationInFrames": 120,
+      "layer": 2,
+      "content": { "type": "nested", "composition": "LaunchHero" },
+      "layout": {
+        "rect": [120, 48, 960, 540],
+        "fit": "cover",
+        "focalPoint": [0.5, 0.5],
+        "cornerRadius": 24,
+        "opacity": 1
+      }
+    }
+  ]
+}
+```
+
+The proposed invariants are:
+
+- Visual sibling layers are unique positive integers normalized to `1…N`; the highest value is front.
+- Timeline rows sort by `layer` descending. Row numbers and track indices are never authored.
+- Preview and export paint from the same item ordering. A DOM `z-index` may be assigned while rendering,
+  but it is derived output and never a second source value.
+- Vertical timeline moves and Inspector layer edits rewrite every affected sibling layer in one atomic,
+  undoable source transaction.
+- Audio routing remains outside the visual stacking namespace.
+- A reusable layout may suggest a default layer, but an edit binding materializes the final
+  `items[].layer` value.
+
+See the [interactive authority plan](../examples/previz-to-gen/public/edit-layout-authority-plan.html)
+and the [working edit-layout prototype](../examples/previz-to-gen/public/edit-layout-lab.html).
+
 With nothing selected, the Inspector resolves the composition root. Unbound, scene-wide JSON
 settings appear as composition properties, while canvas-bound object fields stay on their clickable
 elements; composition width/height remain separately identified as format controls. Selecting an

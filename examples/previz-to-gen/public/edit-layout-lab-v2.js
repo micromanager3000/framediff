@@ -68,10 +68,11 @@
     <p>Move and resize on canvas, scrub time below, or drag clips between timeline rows. The visually top timeline row is always the front-most compositing layer.</p>
   `;
   document.querySelector(".recommendation").innerHTML = `
-    <b>Borrowed from HyperFrames</b>
-    Make top-row-is-front explicit, persist every gesture to source, and only expose transforms the runtime can represent truthfully.
+    <b>Decision in this prototype</b>
+    <code>items[].layer</code> is the only writable stacking value. Timeline rows and canvas paint order are derived views.
   `;
   document.querySelector(".top-actions").innerHTML = `
+    <a class="quiet-button fd2-plan-link" href="/edit-layout-authority-plan.html">Authority plan ↗</a>
     <button class="quiet-button" id="fd2Reset" type="button">Reset prototype</button>
     <button class="add-button" id="fd2AddRect" type="button">+ Rectangle</button>
   `;
@@ -125,8 +126,8 @@
           <button class="fd2-transport-button" id="fd2Play" type="button" aria-label="Play timeline">▶</button>
           <button class="fd2-transport-button" id="fd2End" type="button" aria-label="Go to last frame">▶|</button>
           <span class="fd2-timecode" id="fd2Timecode">000f · 00:00.00</span>
-          <span class="fd2-timeline-hint">Drag clips horizontally for time · vertically for layer order</span>
-          <span class="fd2-front-rule">TOP ROW RENDERS ON TOP</span>
+          <span class="fd2-timeline-hint">Vertical drag rewrites <code>item.layer</code></span>
+          <span class="fd2-front-rule">DERIVED VIEW · TOP = FRONT</span>
         </div>
         <div class="fd2-timeline-scroll">
           <div class="fd2-timeline-grid" id="fd2TimelineGrid"></div>
@@ -188,6 +189,32 @@
           <div class="fd2-field"><label for="fd2Layer">Layer</label><input id="fd2Layer" type="number" min="1" step="1"></div>
           <div class="fd2-field"><label>Stack rule</label><input value="higher = front" disabled></div>
         </div>
+      </section>
+      <section class="fd2-section fd2-authority-section" id="fd2AuthoritySection">
+        <div class="fd2-authority-heading">
+          <h2>Single stacking authority</h2>
+          <span>no dual state</span>
+        </div>
+        <div class="fd2-authority-flow" aria-label="Layer authority projection">
+          <div class="fd2-authority-node is-source">
+            <small>WRITABLE SOURCE</small>
+            <code>items[].layer</code>
+            <strong id="fd2AuthorityJson">L4</strong>
+          </div>
+          <span class="fd2-authority-arrow" aria-hidden="true">→</span>
+          <div class="fd2-authority-node">
+            <small>DERIVED VIEW</small>
+            <span>Timeline row</span>
+            <strong id="fd2AuthorityRow">Row 3</strong>
+          </div>
+          <span class="fd2-authority-arrow" aria-hidden="true">→</span>
+          <div class="fd2-authority-node">
+            <small>DERIVED VIEW</small>
+            <span>Canvas paint</span>
+            <strong id="fd2AuthorityPaint">z ← L4</strong>
+          </div>
+        </div>
+        <p>Timeline drag writes JSON once. The row and renderer order are recalculated; neither is stored separately.</p>
       </section>
       <section class="json-section">
         <div class="fd2-json-toolbar"><strong>EDIT JSON · LIVE</strong><button id="fd2Copy" type="button">Copy</button></div>
@@ -375,7 +402,7 @@
       <div class="fd2-ruler">${rulerMarkup()}</div>
       ${ordered.map((node, index) => `
         <div class="fd2-lane" data-fd2-lane="${index}">
-          <div class="fd2-lane-label"><strong>V${ordered.length - index}</strong><span>L${node.layer}</span></div>
+          <div class="fd2-lane-label"><strong>ROW ${index + 1}</strong><span>← L${node.layer}</span></div>
           <div class="fd2-lane-track">
             <button
               class="fd2-clip kind-${node.kind}${node.id === selectedId ? " is-selected" : ""}"
@@ -399,6 +426,7 @@
 
   function renderInspector() {
     const node = selectedNode();
+    const row = layerOrder().findIndex((candidate) => candidate.id === node.id) + 1;
     document.getElementById("fd2SelectionKind").textContent = kindLabel(node.kind);
     document.getElementById("fd2SelectionIcon").textContent = kindIcon(node.kind);
     document.getElementById("fd2SelectionName").textContent = node.name;
@@ -412,6 +440,9 @@
     fields.from.value = node.from;
     fields.durationInFrames.value = node.durationInFrames;
     fields.layer.value = node.layer;
+    document.getElementById("fd2AuthorityJson").textContent = `L${node.layer}`;
+    document.getElementById("fd2AuthorityRow").textContent = `Row ${row}`;
+    document.getElementById("fd2AuthorityPaint").textContent = `z ← L${node.layer}`;
 
     const fitSection = document.getElementById("fd2FitSection");
     fitSection.hidden = !isMedia(node);
@@ -580,6 +611,7 @@
         timelineDrag.order.splice(currentIndex, 1);
         timelineDrag.order.splice(targetIndex, 0, node.id);
         normalizeLayers(timelineDrag.order);
+        statusHint.textContent = `${node.name}: items[].layer → L${node.layer}. Timeline row and canvas paint order were re-derived.`;
       }
     }
 
@@ -666,6 +698,7 @@
         const targetFromTop = Math.max(0, Math.min(order.length, nodes.length - Math.round(value)));
         order.splice(targetFromTop, 0, node.id);
         normalizeLayers(order);
+        statusHint.textContent = `${node.name}: items[].layer → L${node.layer}. Timeline row and canvas paint order were re-derived.`;
       }
       renderAll();
     });
