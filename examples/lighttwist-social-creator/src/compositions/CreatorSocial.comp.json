@@ -1,0 +1,46 @@
+{
+  "hook-kicker": {
+    "text": "FOR VIDEO PODCASTERS"
+  },
+  "hook-line-one": {
+    "text": "YOUR PODCAST"
+  },
+  "hook-line-two": {
+    "text": "STILL LOOKS LIKE A CALL?"
+  },
+  "reveal-line-one": {
+    "text": "MAKE IT"
+  },
+  "reveal-line-two": {
+    "text": "A SHOW."
+  },
+  "proof-chip-one": {
+    "text": "REMOTE GUESTS"
+  },
+  "proof-chip-two": {
+    "text": "ONE BRANDED STUDIO"
+  },
+  "end-brand": {
+    "text": "LightTwist"
+  },
+  "end-line-one": {
+    "text": "YOUR STUDIO."
+  },
+  "end-line-two": {
+    "text": "ANYWHERE."
+  },
+  "end-cta": {
+    "text": "BUILD YOUR STUDIO"
+  },
+  "end-url": {
+    "text": "lighttwist.com"
+  },
+  "music-bed": {
+    "volume": 0.48,
+    "muted": false
+  },
+  "reveal-shine": {
+    "volume": 0.72,
+    "muted": false
+  }
+}
