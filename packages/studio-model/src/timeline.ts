@@ -1,4 +1,4 @@
-import type { TimelineItemSnapshot, TimelineLaneSnapshot } from "./types";
+import type { CompositionOutputKind, TimelineItemSnapshot, TimelineLaneSnapshot } from "./types";
 
 function overlaps(a: TimelineItemSnapshot, b: TimelineItemSnapshot): boolean {
   return a.from < b.from + b.durationInFrames && b.from < a.from + a.durationInFrames;
@@ -52,10 +52,16 @@ function lanesOf(
   }));
 }
 
-export function buildTimelineLanes(items: TimelineItemSnapshot[]): TimelineLaneSnapshot[] {
+export function buildTimelineLanes(
+  items: TimelineItemSnapshot[],
+  nestedOutputKind: (compositionRef: string) => CompositionOutputKind | undefined = () => undefined,
+): TimelineLaneSnapshot[] {
+  const isAudio = (item: TimelineItemSnapshot) =>
+    item.content.type === "audio"
+    || (item.content.type === "nested" && nestedOutputKind(item.content.compId) === "audio");
   const grade = items.filter((item) => item.content.type === "grade-layer");
-  const audio = items.filter((item) => item.content.type === "audio");
-  const video = items.filter((item) => item.content.type !== "grade-layer" && item.content.type !== "audio");
+  const audio = items.filter(isAudio);
+  const video = items.filter((item) => item.content.type !== "grade-layer" && !isAudio(item));
   return [
     ...lanesOf(grade, "grade", "grade", true),
     ...lanesOf(video, "video", "v", true),

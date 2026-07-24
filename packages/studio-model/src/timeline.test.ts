@@ -50,6 +50,21 @@ describe("persistent editorial lanes", () => {
     expect(items.every((entry) => entry.layer === 2)).toBe(true);
   });
 
+  it("places nested audio outputs on audio lanes without changing their nested content", () => {
+    const audio = {
+      ...item("dialogue", 0, 0),
+      content: { type: "nested" as const, compId: "DialogueAudio", trimStart: 0 },
+    };
+    const lanes = buildTimelineLanes([audio, item("picture", 0, 0)], (reference) =>
+      reference === "DialogueAudio" ? "audio" : "video");
+
+    expect(lanes.map((lane) => ({ id: lane.id, kind: lane.kind, items: lane.items.map((entry) => entry.id) }))).toEqual([
+      { id: "v:0", kind: "video", items: ["picture"] },
+      { id: "a:0", kind: "audio", items: ["dialogue"] },
+    ]);
+    expect(audio.content).toEqual({ type: "nested", compId: "DialogueAudio", trimStart: 0 });
+  });
+
   it("front-trims in source seconds with playback rate", () => {
     expect(frontTrimPlacement(item("video", 10, 0), 22, 30)).toEqual({
       from: 22,

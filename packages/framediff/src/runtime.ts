@@ -2,6 +2,7 @@ import type {
   CompositionConfig,
   CompositionFrameListener,
   CompositionFrameState,
+  CompositionOutputKind,
   CompositionRegistry,
   CompositionTimelineContent,
   CompositionTimelineLayout,
@@ -23,6 +24,8 @@ let nextStyleScope = 0;
 export interface MountCompositionOptions {
   registry?: CompositionRegistry;
   resolver?: AssetResolver;
+  /** Materialize a composition's declared image/audio output for downstream nesting. */
+  resolveCompositionOutput?: (compositionRef: string, outputKind: CompositionOutputKind) => Promise<string>;
   frame?: number;
   playing?: boolean;
   gradeBypass?: boolean;
@@ -194,21 +197,44 @@ function applyTimelineLayout(element: HTMLElement, layout: CompositionTimelineLa
   element.style.overflow = "hidden";
 }
 
-function applyTimelineDocument(root: HTMLElement, composition: CompositionConfig): void {
+function applyTimelineDocument(
+  root: HTMLElement,
+  composition: CompositionConfig,
+  registry: CompositionRegistry,
+  materializeOutputs: boolean,
+): void {
   if (!composition.timeline) return;
   const placementById = new Map(composition.timeline.items.map((item) => [item.id, item]));
   for (const placement of composition.timeline.items) {
+    const outputComposition = placement.content?.type === "nested"
+      ? resolveNested(registry, placement.content.composition)
+      : undefined;
+    const outputKind = materializeOutputs ? outputComposition?.meta?.output : undefined;
     let element = Array.from(root.querySelectorAll<HTMLElement>("[data-fd-id]"))
       .find((candidate) => candidate.dataset.fdId === placement.id);
+    if (outputKind === "audio" && element && !(element instanceof HTMLAudioElement)) {
+      const replacement = document.createElement("audio");
+      replacement.setAttribute("data-fd-clip", "");
+      replacement.setAttribute("data-fd-id", placement.id);
+      element.replaceWith(replacement);
+      element = replacement;
+    }
     if (!element && placement.content) {
-      element = document.createElement(placement.content.type === "video" ? "video" : placement.content.type === "audio" ? "audio" : "div");
+      element = document.createElement(
+        outputKind === "audio" || placement.content.type === "audio"
+          ? "audio"
+          : placement.content.type === "video"
+            ? "video"
+            : "div",
+      );
       element.setAttribute("data-fd-clip", "");
       element.setAttribute("data-fd-id", placement.id);
       element.style.cssText = "position:absolute;inset:0;overflow:hidden;";
       root.appendChild(element);
     }
     if (!element) continue;
-    const isAudioPlacement = placement.content?.type === "audio"
+    const isAudioPlacement = outputKind === "audio"
+      || placement.content?.type === "audio"
       || element.matches("audio,[data-fd-type='audio']");
     if (isAudioPlacement) element.removeAttribute("data-fd-layout-owner");
     else element.setAttribute("data-fd-layout-owner", "timeline");
@@ -218,6 +244,21 @@ function applyTimelineDocument(root: HTMLElement, composition: CompositionConfig
     if (placement.content.type === "nested") {
       element.setAttribute("data-fd-comp", placement.content.composition);
       if (placement.content.nestedScale != null) element.setAttribute("data-fd-nested-scale", String(placement.content.nestedScale));
+      if (outputKind === "audio" || outputKind === "image") {
+        element.replaceChildren();
+        element.setAttribute("data-fd-output-kind", outputKind);
+        const outputRef = `comp://${placement.content.composition}`;
+        if (outputKind === "audio") {
+          element.setAttribute("data-fd-type", "audio");
+          element.setAttribute("data-fd-src", outputRef);
+          element.style.cssText = "position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;";
+        } else {
+          element.setAttribute("data-fd-type", "image");
+          element.setAttribute("data-fd-image", outputRef);
+        }
+      } else {
+        element.removeAttribute("data-fd-output-kind");
+      }
     } else if (placement.content.type === "video" || placement.content.type === "audio") {
       element.setAttribute("data-fd-src", placement.content.src);
     } else if (placement.content.type === "image") {
@@ -245,7 +286,8 @@ function applyTimelineDocument(root: HTMLElement, composition: CompositionConfig
     else element.setAttribute("data-fd-volume", String(Math.max(0, Math.min(1, placement.volume))));
     if (placement.muted == null) element.removeAttribute("data-fd-muted");
     else element.setAttribute("data-fd-muted", String(placement.muted));
-    if (placement.layout) applyTimelineLayout(element, placement.layout);
+    const outputKind = element.getAttribute("data-fd-output-kind");
+    if (placement.layout && outputKind !== "audio") applyTimelineLayout(element, placement.layout);
     else {
       element.removeAttribute("data-fd-layout-space");
       element.removeAttribute("data-fd-layout-local-x");
@@ -256,6 +298,51 @@ function applyTimelineDocument(root: HTMLElement, composition: CompositionConfig
 
 function resolveNested(registry: CompositionRegistry, value: string): CompositionConfig | undefined {
   return registry[value] ?? Object.values(registry).find((candidate) => candidate.id === value);
+}
+
+function applyNestedOutputBindings(
+  root: HTMLElement,
+  registry: CompositionRegistry,
+  materializeOutputs: boolean,
+): void {
+  if (!materializeOutputs) return;
+  for (const authored of Array.from(root.querySelectorAll<HTMLElement>("[data-fd-comp]"))) {
+    if (authored.hasAttribute("data-fd-output-kind")) continue;
+    const compositionRef = authored.getAttribute("data-fd-comp") ?? "";
+    const outputKind = resolveNested(registry, compositionRef)?.meta?.output;
+    if (outputKind !== "audio" && outputKind !== "image") continue;
+    let element = authored;
+    if (outputKind === "audio" && !(element instanceof HTMLAudioElement)) {
+      const replacement = document.createElement("audio");
+      for (const attribute of Array.from(element.attributes)) {
+        if (
+          attribute.name === "data-fd-clip"
+          || attribute.name === "data-fd-id"
+          || attribute.name === "data-fd-name"
+          || attribute.name === "data-fd-comp"
+          || attribute.name === "data-fd-from"
+          || attribute.name === "data-fd-duration"
+          || attribute.name === "data-fd-layer"
+          || attribute.name === "data-fd-trim-start"
+          || attribute.name === "data-fd-playback-rate"
+          || attribute.name === "data-fd-volume"
+          || attribute.name === "data-fd-muted"
+        ) replacement.setAttribute(attribute.name, attribute.value);
+      }
+      element.replaceWith(replacement);
+      element = replacement;
+    }
+    element.replaceChildren();
+    element.setAttribute("data-fd-output-kind", outputKind);
+    element.setAttribute("data-fd-type", outputKind);
+    if (outputKind === "audio") {
+      element.setAttribute("data-fd-src", `comp://${compositionRef}`);
+      element.removeAttribute("data-fd-layout-owner");
+      element.style.cssText = "position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;";
+    } else {
+      element.setAttribute("data-fd-image", `comp://${compositionRef}`);
+    }
+  }
 }
 
 function localFrameAt(element: Element, frame: number, clips: Map<HTMLElement, ClipWindow>): { frame: number; active: boolean } {
@@ -510,7 +597,8 @@ export function mountComposition(
   const nested: NestedMount[] = [];
   const parsed = parseDocument(composition.html);
   const root = parsed.root;
-  applyTimelineDocument(root, composition);
+  applyTimelineDocument(root, composition, registry, !!options.resolveCompositionOutput);
+  applyNestedOutputBindings(root, registry, !!options.resolveCompositionOutput);
   applyCompositionDocument(root, composition, currentDocument);
   root.style.position ||= "relative";
   root.style.width ||= `${composition.width}px`;
@@ -531,6 +619,13 @@ export function mountComposition(
   }
 
   const resolveAsset = async (ref: string): Promise<string> => {
+    if (ref.startsWith("comp://") && options.resolveCompositionOutput) {
+      const compositionRef = ref.slice("comp://".length);
+      const outputKind = resolveNested(registry, compositionRef)?.meta?.output;
+      if (outputKind === "image" || outputKind === "audio") {
+        return options.resolveCompositionOutput(compositionRef, outputKind);
+      }
+    }
     if (!resolver) return ref;
     return (await resolver.resolve(ref)).url;
   };
@@ -593,6 +688,7 @@ export function mountComposition(
   for (const element of elements) {
     const type = element.getAttribute("data-fd-type");
     const childId = element.getAttribute("data-fd-comp");
+    if (element.hasAttribute("data-fd-output-kind")) continue;
     if (type !== "nested" && !childId) continue;
     const child = childId ? resolveNested(registry, childId) : undefined;
     if (!child) {
@@ -622,7 +718,13 @@ export function mountComposition(
     }
     if (sx !== 1 || sy !== 1) childHost.style.transform = `scale(${sx}, ${sy})`;
     element.appendChild(childHost);
-    const handle = mountComposition(childHost, child, { registry, resolver, playing: options.playing, gradeBypass: options.gradeBypass });
+    const handle = mountComposition(childHost, child, {
+      registry,
+      resolver,
+      resolveCompositionOutput: options.resolveCompositionOutput,
+      playing: options.playing,
+      gradeBypass: options.gradeBypass,
+    });
     nested.push({
       element,
       clip: clipMap.get(element),

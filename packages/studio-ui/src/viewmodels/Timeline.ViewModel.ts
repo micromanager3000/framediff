@@ -58,7 +58,10 @@ export class TimelineViewModel {
         frame: state.frame,
         selectedItemId: state.selectedItemId,
         selectedAnimationId: state.selection?.kind === "animation" ? state.selection.objectId : null,
-        lanes: buildTimelineLanes(items),
+        lanes: buildTimelineLanes(
+          items,
+          (reference) => compositionByReference(state.compositions, reference)?.outputKind,
+        ),
         animations: state.animationsByComposition[state.currentKey] ?? [],
         animationDiagnostics: state.animationDiagnosticsByComposition[state.currentKey] ?? [],
         unrollGroups: state.unrollGroupsByComposition[state.currentKey] ?? [],

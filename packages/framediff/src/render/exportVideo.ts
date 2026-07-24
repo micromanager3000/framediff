@@ -15,7 +15,7 @@ import { waitForWebGpuCapture } from "./webgpuCapture";
 import { isAudioElementActive, isVisualElementActive } from "./activeElement";
 import { videoFrameSource } from "./videoSource";
 import { createAppendWritableSink, createFileSystemWritableSink, type ExportChunkSink } from "./exportSinks";
-import type { CompositionConfig, CompositionRegistry } from "../composition";
+import type { CompositionConfig, CompositionOutputKind, CompositionRegistry } from "../composition";
 import { mountComposition } from "../runtime";
 
 const SAMPLE_RATE = 48000;
@@ -49,6 +49,8 @@ export interface ExportOptions {
   resolver?: AssetResolver;
   /** Registry used to resolve `data-fd-comp` nested compositions. */
   registry?: CompositionRegistry;
+  /** Resolve image/audio composition outputs instead of mounting their authoring DOM. */
+  resolveCompositionOutput?: (compositionRef: string, outputKind: CompositionOutputKind) => Promise<string>;
   /** render only [startFrame, endFrame) — a window of the composition (timestamps restart at 0). */
   startFrame?: number;
   endFrame?: number;
@@ -192,7 +194,14 @@ async function exportVideoInternal(
   wrapper.appendChild(host);
   document.body.appendChild(wrapper);
   const contentDomain = opts.contentDomain ?? { from: 0, to: comp.durationInFrames };
-  const handle = mountComposition(host, comp, { resolver, registry, frame: 0, playing: false, contentDomain });
+  const handle = mountComposition(host, comp, {
+    resolver,
+    registry,
+    resolveCompositionOutput: opts.resolveCompositionOutput,
+    frame: 0,
+    playing: false,
+    contentDomain,
+  });
   const renderSync = (n: number) => handle.update({ frame: n, playing: false });
   const frameSource = new VideoFrameSource();
   const captureFlag = window as unknown as { __FRAMEDIFF_CAPTURE_MODE__?: boolean };

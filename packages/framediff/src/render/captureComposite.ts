@@ -12,7 +12,7 @@ import { insertStandIn, settleStandIn } from "./standIn";
 import { waitForWebGpuCapture } from "./webgpuCapture";
 import { isVisualElementActive } from "./activeElement";
 import { videoFrameSource } from "./videoSource";
-import type { CompositionConfig, CompositionRegistry } from "../composition";
+import type { CompositionConfig, CompositionOutputKind, CompositionRegistry } from "../composition";
 import { mountComposition } from "../runtime";
 
 const errorMessage = (e: unknown) => (e instanceof Error ? e.message : e == null ? "" : String(e));
@@ -22,11 +22,12 @@ export interface CaptureFrameOptions {
   height: number;
   resolver?: AssetResolver;
   registry?: CompositionRegistry;
+  resolveCompositionOutput?: (compositionRef: string, outputKind: CompositionOutputKind) => Promise<string>;
 }
 
 /** Render `comp` at `frame` and return the composited frame as a canvas at the requested resolution. */
 export async function captureCompositeFrame(comp: CompositionConfig, frame: number, opts: CaptureFrameOptions): Promise<HTMLCanvasElement> {
-  const { width: outW, height: outH, resolver, registry } = opts;
+  const { width: outW, height: outH, resolver, registry, resolveCompositionOutput } = opts;
   const { width: cw, height: ch } = comp;
   const pixelRatio = outW / cw;
 
@@ -36,7 +37,13 @@ export async function captureCompositeFrame(comp: CompositionConfig, frame: numb
   host.style.cssText = `position:relative;width:${cw}px;height:${ch}px;overflow:hidden;`;
   wrapper.appendChild(host);
   document.body.appendChild(wrapper);
-  const handle = mountComposition(host, comp, { resolver, registry, frame, playing: false });
+  const handle = mountComposition(host, comp, {
+    resolver,
+    registry,
+    resolveCompositionOutput,
+    frame,
+    playing: false,
+  });
   const renderSync = (n: number) => handle.update({ frame: n, playing: false });
   const frameSource = new VideoFrameSource();
   const captureFlag = window as unknown as { __FRAMEDIFF_CAPTURE_MODE__?: boolean };
