@@ -26,7 +26,11 @@ while true; do
     SUCCEEDED)
       PREFIX="$(jq -r '.tags.OutputPrefix // empty' <<<"$JOB_JSON")"
       if [[ -n "$PREFIX" ]]; then
-        aws_fd s3 cp "s3://$BUCKET/$PREFIX/report.json" -
+        OUTPUT_DIR="${FD_DOWNLOAD_DIR:-$(repo_root)/out/aws-render/cloud-$JOB_ID}"
+        mkdir -p "$OUTPUT_DIR"
+        aws_fd s3 sync "s3://$BUCKET/$PREFIX/" "$OUTPUT_DIR/" --only-show-errors
+        cat "$OUTPUT_DIR/report.json"
+        echo "Downloaded job results to $OUTPUT_DIR." >&2
       fi
       exit 0
       ;;

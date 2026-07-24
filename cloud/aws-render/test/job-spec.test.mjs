@@ -11,13 +11,45 @@ test("accepts the versioned capability-suite job", () => {
     version: 1,
     kind: "capability-suite",
     outputPrefix: "jobs/manual-1",
+    inputS3Key: undefined,
+    inputContentType: undefined,
   });
 });
 
-test("rejects unsafe output prefixes", () => {
+test("accepts depth and segmentation image jobs", () => {
+  for (const kind of ["depth-map", "segmentation"]) {
+    assert.deepEqual(validateJobSpec({
+      version: 1,
+      kind,
+      outputPrefix: `jobs/${kind}-1`,
+      inputS3Key: `inputs/${kind}-1.png`,
+      inputContentType: "image/png",
+    }), {
+      version: 1,
+      kind,
+      outputPrefix: `jobs/${kind}-1`,
+      inputS3Key: `inputs/${kind}-1.png`,
+      inputContentType: "image/png",
+    });
+  }
+});
+
+test("rejects unsafe object keys and invalid input types", () => {
   assert.throws(
     () => validateJobSpec({ version: 1, kind: "capability-suite", outputPrefix: "../other" }),
-    /safe relative S3 prefix/,
+    /safe relative S3 key/,
+  );
+  assert.throws(
+    () => validateJobSpec({ version: 1, kind: "depth-map", inputS3Key: "/other.png" }),
+    /safe relative S3 key/,
+  );
+  assert.throws(
+    () => validateJobSpec({ version: 1, kind: "segmentation", inputS3Key: "input.gif", inputContentType: "image/gif" }),
+    /inputContentType/,
+  );
+  assert.throws(
+    () => validateJobSpec({ version: 1, kind: "capability-suite", inputS3Key: "input.png" }),
+    /do not accept/,
   );
 });
 
