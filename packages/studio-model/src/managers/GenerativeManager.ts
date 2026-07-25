@@ -26,6 +26,8 @@ export class GenerativeManager {
   private lastKey = "";
   private lastCompositions: StudioSessionState["compositions"] | null = null;
   private generation = 0;
+  private readonly autoPinning = new Set<string>();
+  private readonly autoPinned = new Set<string>();
 
   public constructor(private readonly session: StudioSession, private readonly workspacePort: ProjectWorkspacePort) {}
 
@@ -81,6 +83,7 @@ export class GenerativeManager {
           ? null
           : state.message,
       }));
+      await this.autoPinCompletedTake(key, workspace);
     } catch (error) {
       if (generation !== this.generation) return;
       this.state.update((state) => ({ ...state, workspace: null, loading: false, error: error instanceof Error ? error.message : String(error) }));
@@ -125,6 +128,49 @@ export class GenerativeManager {
       message: null,
     }));
     return Promise.resolve(false);
+  }
+
+  private async autoPinCompletedTake(
+    compositionKey: string,
+    workspace: GenerativeWorkspaceSnapshot | null,
+  ): Promise<void> {
+    if (!workspace || workspace.pinnedTake !== 0) return;
+    const completed = [...workspace.jobs].reverse().find((job) =>
+      job.autoPinIfEmpty &&
+      job.status === "done" &&
+      job.take != null &&
+      workspace.takes.some((take) => take.take === job.take),
+    );
+    if (!completed?.take) return;
+    const operationKey = `${workspace.recipeId}:${completed.id}`;
+    if (this.autoPinning.has(operationKey) || this.autoPinned.has(operationKey)) return;
+
+    this.autoPinning.add(operationKey);
+    this.state.update((state) => ({ ...state, busy: true, error: null }));
+    try {
+      const result = await this.workspacePort.pinGenerationTake(compositionKey, completed.take);
+      if (result.ok) {
+        this.autoPinned.add(operationKey);
+        this.state.update((state) => ({
+          ...state,
+          busy: false,
+          error: null,
+          message: `Pinned take ${completed.take} by default.`,
+        }));
+        await this.refresh();
+      } else {
+        this.state.update((state) => ({ ...state, busy: false, message: null, error: result.message }));
+      }
+    } catch (error) {
+      this.state.update((state) => ({
+        ...state,
+        busy: false,
+        message: null,
+        error: error instanceof Error ? error.message : String(error),
+      }));
+    } finally {
+      this.autoPinning.delete(operationKey);
+    }
   }
 
   private async run(

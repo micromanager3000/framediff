@@ -435,6 +435,8 @@ interface GenJobRecord {
   /** Missing on legacy records, which were all submitted through fal. */
   provider?: GenProvider;
   providerJobId?: string;
+  /** New takes should become the default output only while the composition is still unpinned. */
+  autoPinIfEmpty?: boolean;
   gen: string;
   endpoint: string;
   recipeHash: string;
@@ -1049,6 +1051,7 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
             attempt = {
               id: crypto.randomUUID(),
               provider,
+              autoPinIfEmpty: true,
               gen,
               endpoint,
               recipeHash,

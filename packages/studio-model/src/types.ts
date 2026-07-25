@@ -713,6 +713,8 @@ export interface GenerativeTakeSnapshot {
 export interface GenerativeJobSnapshot {
   id: string;
   providerJobId?: string;
+  /** Pin the completed take only if the composition still has no pinned take. */
+  autoPinIfEmpty?: boolean;
   status: "queued" | "running" | "done" | "failed";
   error?: string;
   take?: number;
