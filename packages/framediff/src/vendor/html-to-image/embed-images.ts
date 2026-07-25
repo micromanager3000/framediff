@@ -40,6 +40,13 @@ async function embedImageNode<T extends HTMLElement | SVGImageElement>(
 ) {
   const isImageElement = isInstanceOfElement(clonedNode, HTMLImageElement)
 
+  // A mounted-but-sourceless <img> paints nothing (e.g. a generative comp keeps its output
+  // element behind the slate until a take is pinned). Without a src attribute the property
+  // reflects the page URL, so embedding would inline the app shell HTML and fail decode.
+  if (isImageElement && !clonedNode.getAttribute('src') && !clonedNode.srcset) {
+    return
+  }
+
   if (
     !(isImageElement && !isDataUrl(clonedNode.src)) &&
     !(
