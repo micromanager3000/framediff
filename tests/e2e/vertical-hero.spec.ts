@@ -9,6 +9,7 @@ const backdropModuleFile = "examples/vertical-hero/src/compositions/VerticalBack
 const mainTimelineFile = "examples/vertical-hero/src/compositions/VerticalMain.timeline.json";
 const mainHtmlFile = "examples/vertical-hero/src/compositions/VerticalMain.html";
 const generatorFile = "examples/vertical-hero/src/gen/VerticalAtmosphere.gen.ts";
+const generatorDataFile = "examples/vertical-hero/src/gen/VerticalAtmosphere.gen.json";
 
 async function readOptionalFile(file: string): Promise<string | null> {
   try {
@@ -39,7 +40,7 @@ test("the from-scratch portrait comp edits JSON without rebuilding Studio", asyn
     await page.mouse.click(nameBounds!.x + nameBounds!.width / 2, nameBounds!.y + nameBounds!.height / 2);
     await expect(page.getByText("composition JSON", { exact: true })).toBeVisible();
     await page.getByRole("textbox", { name: "Copy text" }).fill(editedName);
-    await page.getByRole("button", { name: "PROPS", exact: true }).click();
+    await page.getByRole("button", { name: "INSPECT", exact: true }).click();
 
     await expect.poll(async () => JSON.parse(await readFile(lowerDocumentFile, "utf8")).name.text).toBe(editedName);
     await expect(page.locator('[data-fd-id="lower-name"]')).toHaveText(editedName);
@@ -68,13 +69,16 @@ test("the first recorded gesture bootstraps motion source and commits without an
     await expect(page.getByText("Drift", { exact: true })).toBeVisible();
     await expect(page.getByText("Select a clip for timing, trim, layers, grade and production state.", { exact: true })).toHaveCount(0);
     const orbBounds = await page.locator('[data-fd-id="backdrop-orb-a"]').boundingBox();
-    const overlayBounds = await page.getByRole("application", { name: "Canvas selection and direct manipulation" }).boundingBox();
+    const compositionBounds = await page.locator('[data-fd-id="VerticalBackdrop"]').boundingBox();
     expect(orbBounds).not.toBeNull();
-    expect(overlayBounds).not.toBeNull();
-    await page.mouse.click(orbBounds!.x + orbBounds!.width / 2, orbBounds!.y + orbBounds!.height / 2);
-    await page.getByRole("button", { name: "● Record gesture path" }).click();
+    expect(compositionBounds).not.toBeNull();
+    // Orb B overlaps most of Orb A at this frame; use A's exposed right edge so the
+    // canvas hit test selects the intended layer instead of the topmost sibling.
+    const start = { x: compositionBounds!.x + compositionBounds!.width - 16, y: orbBounds!.y + orbBounds!.height / 2 };
+    await page.mouse.click(start.x, start.y);
+    await expect(page.locator(".inspector > header strong")).toHaveText("backdrop-orb-a");
+    await page.getByRole("button", { name: "Draw movement" }).click();
 
-    const start = { x: orbBounds!.x + orbBounds!.width / 2, y: orbBounds!.y + orbBounds!.height / 2 };
     await page.mouse.move(start.x, start.y);
     await page.mouse.down();
     for (let index = 1; index <= 14; index += 1) {
@@ -82,8 +86,8 @@ test("the first recorded gesture bootstraps motion source and commits without an
       await page.waitForTimeout(38);
     }
     await page.mouse.up();
-    await expect(page.getByRole("button", { name: "Commit path" })).toBeEnabled();
-    await page.getByRole("button", { name: "Commit path" }).click();
+    await expect(page.getByRole("button", { name: "Save motion path" })).toBeEnabled();
+    await page.getByRole("button", { name: "Save motion path" }).click();
 
     await expect.poll(async () => readOptionalFile(backdropModuleFile)).toContain("defineGsapTimeline");
     const committed = await readFile(backdropModuleFile, "utf8");
@@ -106,7 +110,7 @@ test("the first recorded gesture bootstraps motion source and commits without an
   }
 });
 
-test("a library comp drags into the portrait edit's external timeline atomically", async ({ page }) => {
+test("a library comp writes only to the portrait edit's external timeline and undoes atomically", async ({ page }) => {
   const originalTimeline = await readFile(mainTimelineFile, "utf8");
   const originalHtml = await readFile(mainHtmlFile, "utf8");
   const originalItems = JSON.parse(originalTimeline).items.length as number;
@@ -121,7 +125,7 @@ test("a library comp drags into the portrait edit's external timeline atomically
     await expect.poll(async () => JSON.parse(await readFile(mainTimelineFile, "utf8")).items.length).toBe(originalItems + 1);
     await expect(timeline.locator(".clip")).toHaveCount(originalItems + 1);
     await expect(timeline.locator(".clip").filter({ hasText: "VerticalLowerThird" })).toHaveCount(1);
-    expect(await readFile(mainHtmlFile, "utf8")).not.toBe(originalHtml);
+    expect(await readFile(mainHtmlFile, "utf8")).toBe(originalHtml);
 
     await page.getByRole("button", { name: "Undo", exact: true }).click();
     await expect.poll(async () => readFile(mainTimelineFile, "utf8")).toBe(originalTimeline);
@@ -134,6 +138,7 @@ test("a library comp drags into the portrait edit's external timeline atomically
 
 test("a comp drags into the portrait generative recipe as a comp reference", async ({ page }) => {
   const originalGenerator = await readFile(generatorFile, "utf8");
+  const originalGeneratorData = await readFile(generatorDataFile, "utf8");
 
   try {
     await openComposition(page, "vertical-atmosphere", verticalBase);
@@ -143,12 +148,18 @@ test("a comp drags into the portrait generative recipe as a comp reference", asy
 
     await main.dragTo(references);
     await expect(page.getByRole("button", { name: "Remove video reference VerticalMain", exact: true })).toBeVisible();
-    await expect.poll(async () => readFile(generatorFile, "utf8")).toContain('src: "comp://vertical-main"');
+    await expect.poll(async () => {
+      const recipe = JSON.parse(await readFile(generatorDataFile, "utf8")) as { refs: Array<{ src: string }> };
+      return recipe.refs.some((ref) => ref.src === "comp://vertical-main");
+    }).toBe(true);
+    expect(await readFile(generatorFile, "utf8")).toBe(originalGenerator);
 
     await page.getByRole("button", { name: "Undo", exact: true }).click();
-    await expect.poll(async () => readFile(generatorFile, "utf8")).toBe(originalGenerator);
+    await expect.poll(async () => readFile(generatorDataFile, "utf8")).toBe(originalGeneratorData);
+    expect(await readFile(generatorFile, "utf8")).toBe(originalGenerator);
   } finally {
     if (await readFile(generatorFile, "utf8") !== originalGenerator) await writeFile(generatorFile, originalGenerator);
+    if (await readFile(generatorDataFile, "utf8") !== originalGeneratorData) await writeFile(generatorDataFile, originalGeneratorData);
   }
 });
 

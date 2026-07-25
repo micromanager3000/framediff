@@ -68,12 +68,12 @@ test("compact desktop windows keep every major panel reachable without horizonta
 
   await page.getByRole("button", { name: "Open side panel" }).click();
   await expect(page.locator(".right-panel")).toBeVisible();
-  await expect(page.getByRole("button", { name: "PROPS", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "INSPECT", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "CODE", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "GUIDE", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Close side panel" }).click();
   await expect(page.locator(".right-panel")).toBeHidden();
-  await expect(page.getByRole("button", { name: "Render MP4" })).toBeInViewport();
+  await expect(page.locator(".topbar .render-primary")).toBeInViewport();
 });
 
 test("the studio stays inside a desktop, tablet, phone, and short-landscape viewport matrix", async ({ page }) => {
@@ -144,7 +144,7 @@ test("mobile uses a canvas-first shell with reachable drawers and project action
 
   await page.getByRole("button", { name: "Open side panel" }).click();
   await expect(page.locator(".right-panel")).toBeVisible();
-  await expect(page.getByRole("button", { name: "PROPS", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "INSPECT", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "CODE", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Close side panel" }).click();
 
@@ -153,7 +153,7 @@ test("mobile uses a canvas-first shell with reachable drawers and project action
   await expect(actions).toBeVisible();
   await expect(actions.getByRole("button", { name: /Agent API/i })).toHaveCount(0);
   await expect(actions.getByRole("button", { name: "Cache" })).toBeVisible();
-  await expect(actions.getByRole("button", { name: "Render MP4" })).toBeInViewport();
+  await expect(actions.locator(".render-primary")).toBeInViewport();
   await actions.getByRole("button", { name: "Cache" }).click();
   await expect(page.locator(".cache-drawer")).toBeVisible();
   await page.getByRole("button", { name: "Close cache" }).click();

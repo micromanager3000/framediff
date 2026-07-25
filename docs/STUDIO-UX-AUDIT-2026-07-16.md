@@ -16,18 +16,18 @@ than hard-coding tutorial behavior into the Studio:
 - **Project Guide.** Seventeen persistent workflows have a plain-language action, observable success
   condition, exact target composition/frame/object and requested panel.
 - **Persistent guided task.** Starting a step keeps the instruction above the preview even when the
-  user switches to Properties, Code, Media, Cache or the agent check.
+  user switches to Inspector, Code, Media, Cache or the agent check.
 - **Composition discovery.** Search now matches composition name, key, kind and source file; a START
   badge identifies the project entry point.
-- **Selection continuity.** Clicking canvas or timeline content opens Properties automatically instead
+- **Selection continuity.** Clicking canvas or timeline content opens Inspector automatically instead
   of leaving a tutorial or code panel stranded beside a new selection.
 - **Nested navigation.** A selected nested clip exposes a clear **Open nested composition** action and
   preserves breadcrumb/up navigation.
-- **Production provenance.** Properties now labels original/proxy availability, stable asset identity,
+- **Production provenance.** Inspector now labels original/proxy availability, stable asset identity,
   content/proxy hashes, take pin, effects, nested composition and bake state in readable terms.
 - **Finishing comparison.** A visible **Grade on / Grade bypassed** control documents the B shortcut and
   makes local LUT/grade comparison discoverable.
-- **First-selection onboarding.** Empty Properties explains how canvas, timeline, motion and media
+- **First-selection onboarding.** Empty Inspector explains how canvas, timeline, motion and media
   selections map to editable source.
 - **3D shot direction.** Imported camera rows now open as a purpose-built rig instead of 34 raw
   camelCase fields: top-view path, lens/FOV guide, A/B endpoints, pose/target, focus/DOF, shot-key
@@ -41,9 +41,9 @@ IDs connect every surface; edits are guarded source transactions; preview/export
 | Workflow | UI status after this pass | Remaining friction |
 | --- | --- | --- |
 | Find the starting point | Strong — default Production Lab, START badge, search, Guide | Large projects still need folders/tags/favorites |
-| Select and transform | Strong for one element — canvas handles, constraints, typed Properties, materialize | No multi-select, group transform, alignment/distribution or safe-area overlays |
+| Select and transform | Strong for one element — canvas handles, constraints, typed Inspector controls, materialize | No multi-select, group transform, alignment/distribution or safe-area overlays |
 | Text and visual properties | Strong for the supported typed ABI | No design-token/style browser, eyedropper, gradient-on-canvas handles or reusable presets |
-| Media identity/proxies | Understandable — Media plus provenance in Properties | Import/choose/apply is still split; no source monitor, waveform or proxy-generation task state |
+| Media identity/proxies | Understandable — Media plus provenance in Inspector | Import/choose/apply is still split; no source monitor, waveform or proxy-generation task state |
 | Timeline edit/stack/trim | Functional and source-backed | Track headers need mute/solo/lock; no marquee/ripple/slip/roll tools or waveform thumbnails |
 | Undo/Redo | Strong — grouped source receipts and conflict guards | History needs a visible transaction list and before/after source diff preview |
 | GSAP/keys/paths | Functional and exact, with curves/auto-key/gesture/unroll | Curve editing needs direct Bezier handles, multi-key selection, dope-sheet filters and value readouts |
@@ -81,7 +81,7 @@ IDs connect every surface; edits are guarded source transactions; preview/export
    values, copy/paste, frame snapping and lane filters. Keep GSAP as an adapter to absolute frames.
 3. **Asset application workflow.** Search/filter media, preview renditions, and apply an `asset://` ref
    to the selected image/video/fill from the same panel. Surface proxy generation progress and errors.
-4. **Source target and rewrite review.** When Properties or Unroll changes source, Code should reveal
+4. **Source target and rewrite review.** When Inspector or Unroll changes source, Code should reveal
    and highlight the exact span, show the proposed diff, and make revision conflicts actionable.
 5. **Automatic Guide success checks.** Extend guide metadata with optional machine-readable assertions
    (selection, property, frame/hash, history receipt, artifact state). Keep manual completion available

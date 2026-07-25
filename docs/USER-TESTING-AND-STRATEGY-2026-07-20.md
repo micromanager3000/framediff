@@ -58,7 +58,7 @@ suites in `tests/e2e`, including the holistic Playground and generative-workbenc
 4. Search for a nonexistent term and recover without reloading.
 5. Start the Guide, complete a step, and confirm the next step navigates to the declared composition,
    frame, stable selection, and panel.
-6. Switch among Properties, Code, Media, and Guide; the active guided task must remain in context.
+6. Switch among Inspector, Code, Media, and Guide; the active guided task must remain in context.
 
 Pass condition: a new user can explain what they are editing and how to get back to the starting
 composition without opening source code.
@@ -125,7 +125,7 @@ Pass condition: GUI, code author, and agent can alternate without last-writer-wi
 ### S15–S18: compact layout, project operations, delivery, and recovery
 
 1. At 900×700, verify the document and top bar do not overflow horizontally; Render remains in the
-   viewport; Properties/Code/Guide open in a dismissible side panel.
+   viewport; Inspector/Code/Guide open in a dismissible side panel.
 2. Open New Composition. Confirm focus enters the name field, Escape/click-outside/Cancel close it,
    focus returns to the trigger, and Enter creates only when the request is valid.
 3. In an isolated fixture, create each supported kind, duplicate it, nest it, copy it to the library,
@@ -143,7 +143,7 @@ silently changing source.
 
 | Finding | User impact | Resolution and regression |
 | --- | --- | --- |
-| Compact windows hid the entire right panel and expanded the header beyond the viewport | Properties/Code/Guide and Render became unreachable | Dismissible compact side panel, bounded grid/header CSS, 900×700 E2E |
+| Compact windows hid the entire right panel and expanded the header beyond the viewport | Inspector/Code/Guide and Render became unreachable | Dismissible compact side panel, bounded grid/header CSS, 900×700 E2E |
 | Refresh stored only a timeline item ID | An element selection reopened as a broad owner clip; animation identity was lost | Versioned stable-selection storage with legacy migration; unit + refresh E2E |
 | Media and cache collections had no search/filter | Large production projects required scanning dozens of rows | Media text/type filter and cache text filter; helper unit tests + E2E |
 | New Composition ignored Escape and did not restore focus | Keyboard users were trapped in a modal-like sheet | Modal keyboard handler, `aria-modal`, named close action, focus return; E2E |

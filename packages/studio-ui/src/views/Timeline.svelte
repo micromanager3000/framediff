@@ -560,7 +560,13 @@
       {#if $store.loading && !$store.lanes.length}
         <div class="timeline-empty">Reading the composition…</div>
       {:else if !$store.lanes.length}
-        <div class="timeline-empty">No timeline items were discovered in this composition.</div>
+        <div class="timeline-empty">
+          {#if $store.animations.length}
+            No clips in this scene — the motion lanes below drive the composition.
+          {:else}
+            This composition has no timeline clips.
+          {/if}
+        </div>
       {/if}
 
       {#each $store.lanes as lane (lane.id)}

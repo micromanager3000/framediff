@@ -258,32 +258,63 @@
       </section>
 
       <section class="inspector-section path-editor">
-        <h3>SPATIAL PATH</h3>
+        <div class="path-heading">
+          <h3>MOTION PATH</h3>
+          <span class:active={!!animation.motionPath}>{animation.motionPath ? "CURVE ACTIVE" : "OPTIONAL"}</span>
+        </div>
+        <div class="path-explainer">
+          <svg viewBox="0 0 74 42" aria-hidden="true">
+            <path d="M8 31 C25 4 48 38 66 11"></path>
+            <path class="guide" d="M8 31 L23 8 M66 11 L49 35"></path>
+            <circle class="anchor" cx="8" cy="31" r="3.5"></circle>
+            <circle class="anchor" cx="66" cy="11" r="3.5"></circle>
+            <circle class="tangent" cx="23" cy="8" r="3"></circle>
+            <circle class="tangent" cx="49" cy="35" r="3"></circle>
+          </svg>
+          <div>
+            <strong>Control where this layer travels</strong>
+            <p>Solid points set the stops. Hollow handles bend the route. Drag either directly on the canvas.</p>
+          </div>
+        </div>
         {#if canMakeArc()}
           <label><span>Curvature</span><input type="range" min="-0.8" max="0.8" step="0.02" bind:value={arcCurvature} /><output>{Number(arcCurvature).toFixed(2)}</output></label>
-          <label><span>Direction</span><select bind:value={arcDirection}><option value="clockwise">clockwise</option><option value="counterclockwise">counter</option></select><small></small></label>
-          <button class="path-action" disabled={!animation.editable || $store.editing} onclick={() => void viewModel.makeArc(animation.id, Number(arcCurvature), arcDirection)}>⌒ Make arc</button>
+          <label><span>Direction</span><select bind:value={arcDirection}><option value="clockwise">clockwise arc</option><option value="counterclockwise">counter-clockwise</option></select><small></small></label>
         {/if}
-        <button class="path-action record" disabled={$store.editing || $store.gestureDraft?.status === "recording"} onclick={() => viewModel.armGesture()}>● Record gesture</button>
-        {#if $store.gestureDraft?.status === "armed"}<div class="gesture-note">Drag in the canvas to begin. Playback starts from {$store.gestureDraft.startFrame}f.</div>{/if}
-        {#if $store.gestureDraft?.status === "recording"}<div class="gesture-note live">● recording · {$store.gestureDraft.samples.length} frame samples</div>{/if}
+        <div class="path-action-grid">
+          {#if canMakeArc()}
+            <button class="path-action" disabled={!animation.editable || $store.editing} onclick={() => void viewModel.makeArc(animation.id, Number(arcCurvature), arcDirection)} title="Bend the existing X and Y keys into an editable curve">
+              <span>⌒</span><strong>Curve between keys</strong><small>Uses the current X + Y timing</small>
+            </button>
+          {/if}
+          <button class="path-action record" disabled={$store.editing || $store.gestureDraft?.status === "recording"} onclick={() => viewModel.armGesture()} title="Play from the current frame while you draw the layer's movement on the canvas">
+            <span>●</span><strong>Draw movement</strong><small>Drag a route while time advances</small>
+          </button>
+        </div>
+        {#if $store.gestureDraft?.status === "armed"}<div class="gesture-note">Ready to draw from {$store.gestureDraft.startFrame}f. Drag on the canvas to record movement; press Escape to cancel.</div>{/if}
+        {#if $store.gestureDraft?.status === "recording"}<div class="gesture-note live">● Recording movement · {$store.gestureDraft.samples.length} frame samples · release to preview</div>{/if}
         {#if $store.gestureDraft?.status === "preview"}
-          <div class="gesture-note">Preview · {$store.gestureDraft.samples.length} samples · commit is one undo entry</div>
-          <div class="gesture-actions"><button onclick={() => void viewModel.commitGesture()} disabled={!$store.gestureDraft.path}>Commit path</button><button onclick={() => viewModel.cancelGesture()}>Cancel</button></div>
+          <div class="gesture-note ready">Movement ready · {$store.gestureDraft.samples.length} samples. Review the violet route on canvas, then save it as one undoable edit.</div>
+          <div class="gesture-actions"><button class="primary" onclick={() => void viewModel.commitGesture()} disabled={!$store.gestureDraft.path}>Save motion path</button><button onclick={() => viewModel.cancelGesture()}>Discard</button></div>
         {/if}
       </section>
 
       {#if animation.motionPath}
-        <section class="inspector-section path-points">
-          <h3>ANCHORS + TANGENTS</h3>
-          {#each animation.motionPath.segments as segment, index (index)}
-            {#each [["from", segment.from], ["control1", segment.control1], ["control2", segment.control2], ["to", segment.to]] as entry (`${index}:${entry[0]}`)}
-              {@const handle = entry[0] as keyof CubicMotionSegment}
-              {@const value = entry[1] as CubicMotionSegment[typeof handle]}
-              <div class="path-point-row"><span>{index + 1}.{handle}</span><input aria-label={`${handle} x`} type="number" step="1" value={value.x} onchange={(event) => editPathPoint(index, handle, "x", Number(event.currentTarget.value))} /><input aria-label={`${handle} y`} type="number" step="1" value={value.y} onchange={(event) => editPathPoint(index, handle, "y", Number(event.currentTarget.value))} /></div>
+        <details class="inspector-section path-points">
+          <summary>
+            <span><strong>Precise path points</strong><small>Numeric anchors + Bézier handles</small></span>
+            <b>{animation.motionPath.segments.length} segment{animation.motionPath.segments.length === 1 ? "" : "s"}</b>
+          </summary>
+          <div class="path-points-body">
+            <div class="path-column-head"><span>POINT</span><b>X</b><b>Y</b></div>
+            {#each animation.motionPath.segments as segment, index (index)}
+              {#each [["from", segment.from], ["control1", segment.control1], ["control2", segment.control2], ["to", segment.to]] as entry (`${index}:${entry[0]}`)}
+                {@const handle = entry[0] as keyof CubicMotionSegment}
+                {@const value = entry[1] as CubicMotionSegment[typeof handle]}
+                <div class="path-point-row"><span>{index + 1}.{handle}</span><input aria-label={`${handle} x`} type="number" step="1" value={value.x} onchange={(event) => editPathPoint(index, handle, "x", Number(event.currentTarget.value))} /><input aria-label={`${handle} y`} type="number" step="1" value={value.y} onchange={(event) => editPathPoint(index, handle, "y", Number(event.currentTarget.value))} /></div>
+              {/each}
             {/each}
-          {/each}
-        </section>
+          </div>
+        </details>
       {/if}
 
       {#each Object.entries(animation.bindings) as [property, binding] (property)}
@@ -322,7 +353,11 @@
             <div><dt>Stable ID</dt><dd>{$store.elementId}</dd></div>
             <div><dt>Authority</dt><dd>{documentBacked ? "composition JSON" : "source-backed HTML"}</dd></div>
           </dl>
-          {#if $store.canRecordGesture}<button class="path-action record" onclick={() => viewModel.armGesture()} disabled={$store.editing}>● Record gesture path</button>{/if}
+          {#if $store.canRecordGesture}
+            <button class="element-motion-action" onclick={() => viewModel.armGesture()} disabled={$store.editing}>
+              <span>●</span><strong>Draw movement</strong><small>Record a timed route on the canvas</small>
+            </button>
+          {/if}
         </section>
       {/if}
       <section class="inspector-section">
@@ -391,9 +426,13 @@
           <div><dt>Stable ID</dt><dd>{$store.elementId}</dd></div>
           <div><dt>Authority</dt><dd>{documentBacked ? "composition JSON" : "source-backed HTML"}</dd></div>
         </dl>
-        {#if $store.canRecordGesture}<button class="path-action record" onclick={() => viewModel.armGesture()} disabled={$store.editing}>● Record gesture path</button>{/if}
+        {#if $store.canRecordGesture}
+          <button class="element-motion-action" onclick={() => viewModel.armGesture()} disabled={$store.editing}>
+            <span>●</span><strong>Draw movement</strong><small>Record a timed route on the canvas</small>
+          </button>
+        {/if}
         {#if $store.gestureDraft?.status === "preview"}
-          <div class="gesture-actions"><button onclick={() => void viewModel.commitGesture()} disabled={!$store.gestureDraft.path}>Commit path</button><button onclick={() => viewModel.cancelGesture()}>Cancel</button></div>
+          <div class="gesture-actions"><button class="primary" onclick={() => void viewModel.commitGesture()} disabled={!$store.gestureDraft.path}>Save motion path</button><button onclick={() => viewModel.cancelGesture()}>Discard</button></div>
         {/if}
       </section>
     {/if}
