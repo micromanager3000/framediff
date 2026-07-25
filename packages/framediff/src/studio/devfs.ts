@@ -259,6 +259,8 @@ export interface GenJob {
   id: string;
   provider?: GenProvider;
   providerJobId?: string;
+  /** Pin the completed take only if the composition still has no pinned take. */
+  autoPinIfEmpty?: boolean;
   gen: string;
   endpoint: string;
   recipeHash: string;

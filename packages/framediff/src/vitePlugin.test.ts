@@ -144,7 +144,13 @@ describe("framediffDev local cache folder", () => {
     });
 
     const jobs = JSON.parse((await request("/__framediff/gen/jobs?gen=dialogue")).body);
-    expect(jobs.jobs[0]).toMatchObject({ provider: "byteplus", status: "done", take: 1, seed: 12 });
+    expect(jobs.jobs[0]).toMatchObject({
+      provider: "byteplus",
+      autoPinIfEmpty: true,
+      status: "done",
+      take: 1,
+      seed: 12,
+    });
     expect(jobs.takes[0]).toMatchObject({ mime: "video/mp4", generator: { endpoint: "dreamina-seedance-2-0-fast-260128" } });
   });
 

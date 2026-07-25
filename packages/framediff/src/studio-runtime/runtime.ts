@@ -3635,6 +3635,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       jobs: data.jobs.map((job) => ({
         id: job.id,
         providerJobId: job.providerJobId,
+        autoPinIfEmpty: job.autoPinIfEmpty,
         status: job.status,
         error: job.error,
         take: job.take,

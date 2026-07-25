@@ -112,4 +112,75 @@ describe("GenerativeManager", () => {
     expect(manager.state.get().workspace).toBe(failedWorkspace);
     expect(manager.state.get().error).toBe("Provider rejected the request.");
   });
+
+  it("pins a completed generated take by default when the composition is still unpinned", async () => {
+    const composition = { key: "generate" } as CompositionDescriptor;
+    const state = new ObservableValue({ currentKey: composition.key, compositions: [composition] } as StudioSessionState);
+    const session = { state } as StudioSession;
+    const unpinned = {
+      recipeId: "generated",
+      pinnedTake: 0,
+      jobs: [{ id: "job-1", status: "done", take: 1, autoPinIfEmpty: true }],
+      takes: [{ take: 1 }],
+    } as unknown as GenerativeWorkspaceSnapshot;
+    const pinned = { ...unpinned, pinnedTake: 1 };
+    const getGenerativeWorkspace = vi.fn()
+      .mockResolvedValueOnce(unpinned)
+      .mockResolvedValue(pinned);
+    const pinGenerationTake = vi.fn(async () => ({ ok: true, message: "Pinned take 1." }));
+    const manager = new GenerativeManager(session, {
+      getGenerativeWorkspace,
+      pinGenerationTake,
+    } as unknown as ProjectWorkspacePort);
+
+    await manager.refresh();
+
+    expect(pinGenerationTake).toHaveBeenCalledOnce();
+    expect(pinGenerationTake).toHaveBeenCalledWith("generate", 1);
+    expect(manager.state.get().workspace?.pinnedTake).toBe(1);
+    expect(manager.state.get().message).toBe("Pinned take 1 by default.");
+  });
+
+  it("does not replace an existing pin when a generated take completes", async () => {
+    const composition = { key: "generate" } as CompositionDescriptor;
+    const state = new ObservableValue({ currentKey: composition.key, compositions: [composition] } as StudioSessionState);
+    const session = { state } as StudioSession;
+    const workspace = {
+      recipeId: "generated",
+      pinnedTake: 1,
+      jobs: [{ id: "job-2", status: "done", take: 2, autoPinIfEmpty: true }],
+      takes: [{ take: 1 }, { take: 2 }],
+    } as unknown as GenerativeWorkspaceSnapshot;
+    const pinGenerationTake = vi.fn();
+    const manager = new GenerativeManager(session, {
+      getGenerativeWorkspace: vi.fn(async () => workspace),
+      pinGenerationTake,
+    } as unknown as ProjectWorkspacePort);
+
+    await manager.refresh();
+
+    expect(pinGenerationTake).not.toHaveBeenCalled();
+    expect(manager.state.get().workspace).toBe(workspace);
+  });
+
+  it("does not auto-pin historical jobs that predate the default-pin intent", async () => {
+    const composition = { key: "generate" } as CompositionDescriptor;
+    const state = new ObservableValue({ currentKey: composition.key, compositions: [composition] } as StudioSessionState);
+    const session = { state } as StudioSession;
+    const workspace = {
+      recipeId: "generated",
+      pinnedTake: 0,
+      jobs: [{ id: "legacy-job", status: "done", take: 1 }],
+      takes: [{ take: 1 }],
+    } as unknown as GenerativeWorkspaceSnapshot;
+    const pinGenerationTake = vi.fn();
+    const manager = new GenerativeManager(session, {
+      getGenerativeWorkspace: vi.fn(async () => workspace),
+      pinGenerationTake,
+    } as unknown as ProjectWorkspacePort);
+
+    await manager.refresh();
+
+    expect(pinGenerationTake).not.toHaveBeenCalled();
+  });
 });
