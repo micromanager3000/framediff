@@ -348,7 +348,7 @@
         <span>GUIDE</span><small>{guideCompletedIds.length}/{$store.guide.steps.length}</small>
       </button>
     {/if}
-    <button class="compact-panel-button" onclick={() => chrome.openRight()} aria-label="Open side panel" title="Open Properties, Code or Guide" aria-expanded={$chromeStore.rightOpen}>
+    <button class="compact-panel-button" onclick={() => chrome.openRight()} aria-label="Open side panel" title="Open Inspector, Code or Guide" aria-expanded={$chromeStore.rightOpen}>
       PANEL
     </button>
     <button class="mobile-actions-button" class:active={mobileActionsOpen} onclick={() => mobileActionsOpen = !mobileActionsOpen} aria-label="Open project actions" aria-expanded={mobileActionsOpen}>
@@ -537,7 +537,7 @@
 
     <section class="right-panel" class:compact-open={$chromeStore.rightOpen}>
       <nav class="panel-tabs" aria-label="Right panel">
-        <button class:active={$chromeStore.right === "inspector"} onclick={() => chrome.showRight("inspector")}>PROPS</button>
+        <button class:active={$chromeStore.right === "inspector"} onclick={() => chrome.showRight("inspector")}>INSPECT</button>
         <button class:active={$chromeStore.right === "code"} onclick={() => chrome.showRight("code")}>CODE</button>
         {#if $store.guide}<button class:active={$chromeStore.right === "guide"} onclick={() => chrome.showRight("guide")}>GUIDE</button>{/if}
         <button class="panel-close" onclick={() => chrome.closeRight()} aria-label="Close side panel">×</button>

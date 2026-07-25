@@ -337,13 +337,22 @@
 
   function onKeyDown(event: KeyboardEvent): void {
     if (textEditing) return;
-    if (!interactive || !directManipulation || !selected || event.defaultPrevented) return;
     const target = event.target as HTMLElement | null;
     if (target?.matches("input, textarea, select, [contenteditable=true]")) return;
+    if (event.key === "Escape" && $store.gestureDraft) {
+      const pointer = gesturePointer;
+      gesturePointer = null;
+      if (pointer != null && overlay?.hasPointerCapture(pointer)) overlay.releasePointerCapture(pointer);
+      session.cancelGesture();
+      event.preventDefault();
+      return;
+    }
+    if (!interactive || !directManipulation || !selected || event.defaultPrevented) return;
     if (event.key === "Escape" && drag) {
       handle?.clearDraft?.(drag.node.ref.objectId);
       drag = null;
       guides = [];
+      event.preventDefault();
       return;
     }
     if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
@@ -412,6 +421,7 @@
     <div
       class="canvas-overlay"
       class:dragging={!!drag}
+      class:gesture-active={$store.gestureDraft?.status === "armed" || $store.gestureDraft?.status === "recording"}
       bind:this={overlay}
       aria-label="Canvas selection and direct manipulation"
       role="application"
@@ -424,6 +434,30 @@
       {#each guides as guide}
         <span class="snap-guide {guide.axis}" style={guide.axis === "x" ? `left:${guide.position}px` : `top:${guide.position}px`}></span>
       {/each}
+      {#if $store.gestureDraft}
+        <div class="gesture-mode-hud {$store.gestureDraft.status}" role="status" aria-live="polite">
+          <span class="gesture-status-dot"></span>
+          <div>
+            <strong>{$store.gestureDraft.status === "armed" ? "Draw movement" : $store.gestureDraft.status === "recording" ? "Recording movement" : "Motion path ready"}</strong>
+            <small>
+              {$store.gestureDraft.status === "armed"
+                ? "Drag anywhere on the canvas to begin"
+                : $store.gestureDraft.status === "recording"
+                  ? `${$store.gestureDraft.samples.length} samples · release to preview`
+                  : "Review the route, then save or discard in the Inspector"}
+            </small>
+          </div>
+          <kbd>ESC</kbd>
+        </div>
+      {:else if selectedAnimation?.motionPath}
+        <div class="canvas-context-hud motion">
+          <strong>MOTION PATH</strong><span>solid stops move the route · hollow handles bend it · arrows nudge</span>
+        </div>
+      {:else if selected && directManipulation}
+        <div class="canvas-context-hud">
+          <strong>CANVAS</strong><span>drag to move · handles resize · ⇧ constrain · ⌥ bypass snap</span>
+        </div>
+      {/if}
       {#if pathSegments?.length && (pathNode || nodes[0])}
         {@const matrix = (pathNode ?? nodes[0]).compositionToPreview}
         <svg class="motion-path-overlay" aria-label="Editable motion path">

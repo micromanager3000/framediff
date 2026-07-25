@@ -127,6 +127,30 @@ test("direct manipulation is immediate and writes bound geometry to composition 
   }
 });
 
+test("motion paths explain their canvas controls and make drawing mode unmistakable", async ({ page }) => {
+  await openComposition(page, "gsap-motion-lab");
+
+  const productFlight = page.locator('.lane[data-animation-id="product-flight"] .animation-span');
+  await expect(productFlight).toHaveCount(1);
+  await productFlight.click();
+
+  await expect(page.getByRole("heading", { name: "MOTION PATH", exact: true })).toBeVisible();
+  await expect(page.getByText("Control where this layer travels", { exact: true })).toBeVisible();
+  await expect(page.getByText("Solid points set the stops. Hollow handles bend the route. Drag either directly on the canvas.", { exact: true })).toBeVisible();
+  await expect(page.locator(".path-points")).not.toHaveAttribute("open", "");
+  await expect(page.locator(".canvas-context-hud.motion")).toContainText("solid stops move the route");
+  await expect(page.locator(".timeline-empty")).toHaveText("No clips in this scene — the motion lanes below drive the composition.");
+
+  await page.getByRole("button", { name: "Draw movement" }).click();
+  await expect(page.locator(".canvas-overlay")).toHaveClass(/gesture-active/);
+  await expect(page.locator(".gesture-mode-hud")).toContainText("Drag anywhere on the canvas to begin");
+
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".gesture-mode-hud")).toHaveCount(0);
+  await expect(page.locator(".canvas-overlay")).not.toHaveClass(/gesture-active/);
+  await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeDisabled();
+});
+
 test("a composition can be dragged directly onto an edit timeline and undone", async ({ page }) => {
   await openComposition(page, "editorial-lab");
 
@@ -309,19 +333,19 @@ test("a JSON-only property edit hot-patches the comp without reloading Studio", 
     await expect(page.locator(".transport")).toBeVisible();
     await expect(page.getByRole("slider", { name: "Preview frame" })).toBeVisible();
     await expect(page.getByRole("group", { name: /Timeline/ })).toHaveCount(0);
-    await page.getByRole("button", { name: "PROPS", exact: true }).click();
+    await page.getByRole("button", { name: "INSPECT", exact: true }).click();
     const gravity = page.locator('label[title$="/simulation/gravityY"] input[type="number"]');
     await expect(gravity).toHaveValue(String(originalGravity));
     const timeOrigin = await page.evaluate(() => performance.timeOrigin);
     await page.locator('[data-fd-id="ClothLab"]').evaluate((root) => { root.setAttribute("data-hot-patch-probe", "same-root"); });
 
     await gravity.fill(String(editedGravity));
-    await page.getByRole("button", { name: "PROPS", exact: true }).click();
+    await page.getByRole("button", { name: "INSPECT", exact: true }).click();
     await expect.poll(async () => JSON.parse(await readFile(documentFile, "utf8")).simulation.gravityY).toBe(editedGravity);
     expect(await page.evaluate(() => performance.timeOrigin)).toBe(timeOrigin);
     await expect(page.locator('[data-fd-id="ClothLab"]')).toHaveAttribute("data-hot-patch-probe", "same-root");
 
-    await page.getByRole("button", { name: "PROPS", exact: true }).click();
+    await page.getByRole("button", { name: "INSPECT", exact: true }).click();
     await expect(gravity).toHaveValue(String(editedGravity));
     await page.getByRole("button", { name: "Undo", exact: true }).click();
     await expect.poll(async () => JSON.parse(await readFile(documentFile, "utf8")).simulation.gravityY).toBe(originalGravity);
