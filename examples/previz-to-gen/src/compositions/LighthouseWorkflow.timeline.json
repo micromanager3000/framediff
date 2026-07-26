@@ -39,27 +39,29 @@
     },
     {
       "id": "workflow-mara",
-      "from": 0,
-      "durationInFrames": 420,
+      "from": 56,
+      "durationInFrames": 364,
       "layer": 2,
       "name": "Mara portrait",
       "content": {
         "type": "nested",
         "composition": "lighthouse-visitor",
         "nestedScale": 0.280556
-      }
+      },
+      "trimStart": 1.866667
     },
     {
       "id": "workflow-elias",
-      "from": 0,
-      "durationInFrames": 420,
+      "from": 56,
+      "durationInFrames": 364,
       "layer": 2,
       "name": "Elias portrait",
       "content": {
         "type": "nested",
         "composition": "lighthouse-keeper",
         "nestedScale": 0.280556
-      }
+      },
+      "trimStart": 1.866667
     },
     {
       "id": "workflow-audio",
@@ -105,7 +107,8 @@
         "type": "nested",
         "composition": "lighthouse-concept",
         "nestedScale": 0.323438
-      }
+      },
+      "trimStart": 0
     },
     {
       "id": "rectangle-shape",
