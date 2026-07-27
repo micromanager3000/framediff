@@ -129,8 +129,10 @@ async function mixAudio(clips: AudioClip[], durationSec: number, fps: number): P
       gain.gain.value = c.volume;
       node.connect(gain).connect(octx.destination);
       node.start(c.startFrame / fps, c.trimStart, (c.endFrame - c.startFrame) / fps);
-    } catch {
-      /* skip undecodable audio */
+    } catch (err) {
+      // Skip undecodable audio rather than failing the export — but say so. A swallowed
+      // failure here is indistinguishable from an intentionally silent mix.
+      console.warn(`[framediff] audio clip skipped (${c.src}):`, err);
     }
   }
   return octx.startRendering();
@@ -231,10 +233,14 @@ async function exportVideoInternal(
       host.querySelectorAll<HTMLElement>("audio[data-framediff-audio]").forEach((a) => {
         if (!isAudioElementActive(a, host)) return;
         const volume = parseFloat(a.dataset.framediffVolume || "1");
-        if (!(volume > 0)) return;
+        // An element whose source has not resolved yet contributes nothing. Without this guard
+        // it samples as src "", which groups into a clip whose fetch resolves to the host page
+        // and fails to decode — turning a whole export silent instead of simply audioless.
+        const src = a.getAttribute("src") || "";
+        if (!(volume > 0) || !src) return;
         samples.push({
           n: n - startFrame, // clip-local frame — the exported window's timeline starts at 0
-          src: a.getAttribute("src") || "",
+          src,
           time: parseFloat(a.dataset.framediffTime || "0"),
           volume,
         });
