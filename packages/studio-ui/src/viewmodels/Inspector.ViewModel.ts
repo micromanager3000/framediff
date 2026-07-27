@@ -173,13 +173,34 @@ export class InspectorViewModel {
 
   public armGesture(): void {
     const state = this.session.state.get();
-    const animation = state.selection?.kind === "animation"
+    const selectedAnimation = state.selection?.kind === "animation"
       ? (state.animationsByComposition[state.currentKey] ?? []).find((entry) => entry.id === state.selection?.objectId)
       : undefined;
+    const elementAnimation = state.selection?.kind === "element"
+      ? [...(state.animationsByComposition[state.currentKey] ?? [])]
+        .filter((entry) =>
+          entry.editable
+          && entry.bindings.x
+          && entry.bindings.y
+          && (entry.target.includes(`data-fd-id="${state.selection?.objectId}"`) || entry.target.includes(`data-fd-id='${state.selection?.objectId}'`)),
+        )
+        .sort((left, right) =>
+          Number(!!right.motionPath) - Number(!!left.motionPath)
+          || Number(state.frame >= right.startFrame && state.frame <= right.startFrame + right.durationInFrames)
+            - Number(state.frame >= left.startFrame && state.frame <= left.startFrame + left.durationInFrames),
+        )[0]
+      : undefined;
+    const animation = selectedAnimation ?? elementAnimation;
     const objectId = state.selection?.kind === "element"
       ? state.selection.objectId
       : animation?.target.match(/data-fd-id=(?:"([^"]+)"|'([^']+)')/)?.slice(1).find(Boolean);
-    if (objectId) this.session.armGesture(objectId, animation?.id);
+    if (objectId) {
+      if (animation && state.frame !== animation.startFrame) {
+        this.session.pause();
+        this.session.setFrame(animation.startFrame);
+      }
+      this.session.armGesture(objectId, animation?.id);
+    }
   }
 
   public commitGesture(): Promise<boolean> {

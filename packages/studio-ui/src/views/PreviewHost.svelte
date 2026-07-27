@@ -47,7 +47,13 @@
   let textEditing: PreviewNodeSnapshot | null = null;
   let textDraft = "";
   let textEditor: HTMLTextAreaElement;
-  let gesturePointer: number | null = null;
+  type GesturePointerState = {
+    pointerId: number;
+    node: PreviewNodeSnapshot;
+    offset: { x: number; y: number };
+  };
+  let gesturePointer: GesturePointerState | null = null;
+  let gestureTargetMiss = false;
   let pathDraft = "";
   type PathHandle = "from" | "control1" | "control2" | "to";
   let pathDrag: { animationId: string; segment: number; handle: PathHandle; startX: number; startY: number; segments: CubicMotionSegment[] } | null = null;
@@ -124,11 +130,26 @@
     // pointerdown prevents the default focus change, so blur alone can't be trusted.
     if (textEditing) void commitTextEdit();
     if ($store.gestureDraft && $store.gestureDraft.status !== "preview") {
+      const target = pathNode;
+      const hit = handle?.hitTest?.(event.clientX, event.clientY) ?? null;
       const value = clientToComposition(event.clientX, event.clientY);
-      if (!value) return;
-      gesturePointer = event.pointerId;
+      if (!target || !value || !nodeBelongsTo(hit, target.ref.objectId)) {
+        gestureTargetMiss = true;
+        event.preventDefault();
+        return;
+      }
+      gestureTargetMiss = false;
+      gesturePointer = {
+        pointerId: event.pointerId,
+        node: target,
+        offset: {
+          x: value.x - target.properties.x,
+          y: value.y - target.properties.y,
+        },
+      };
       overlay.setPointerCapture(event.pointerId);
-      session.recordGesturePoint(value);
+      session.recordGesturePoint({ x: target.properties.x, y: target.properties.y });
+      handle?.applyDraft?.(target.ref.objectId, { x: target.properties.x, y: target.properties.y });
       event.preventDefault();
       return;
     }
@@ -209,9 +230,16 @@
   }
 
   function onPointerMove(event: PointerEvent): void {
-    if (gesturePointer === event.pointerId) {
+    if (gesturePointer?.pointerId === event.pointerId) {
       const value = clientToComposition(event.clientX, event.clientY);
-      if (value) session.recordGesturePoint(value);
+      if (value) {
+        const point = {
+          x: Math.round(value.x - gesturePointer.offset.x),
+          y: Math.round(value.y - gesturePointer.offset.y),
+        };
+        session.recordGesturePoint(point);
+        handle?.applyDraft?.(gesturePointer.node.ref.objectId, point);
+      }
       return;
     }
     if (pathDrag) {
@@ -274,10 +302,16 @@
   }
 
   async function finishDrag(event: PointerEvent, cancel = false): Promise<void> {
-    if (gesturePointer === event.pointerId) {
+    if (gesturePointer?.pointerId === event.pointerId) {
+      const completed = gesturePointer;
       gesturePointer = null;
       if (overlay.hasPointerCapture(event.pointerId)) overlay.releasePointerCapture(event.pointerId);
-      session.previewGesture();
+      if (cancel) {
+        handle?.clearDraft?.(completed.node.ref.objectId);
+        session.cancelGesture();
+      } else {
+        session.previewGesture();
+      }
       return;
     }
     if (pathDrag) {
@@ -308,6 +342,40 @@
     if (!matrix) return null;
     const hostBounds = overlay.getBoundingClientRect();
     return previewDeltaToComposition(matrix, { x: clientX - hostBounds.left - matrix.e, y: clientY - hostBounds.top - matrix.f });
+  }
+
+  function nodeBelongsTo(node: PreviewNodeSnapshot | null, objectId: string): boolean {
+    let current = node ?? undefined;
+    while (current) {
+      if (current.ref.objectId === objectId) return true;
+      const parentId = current.parentId;
+      current = parentId ? nodes.find((candidate) => candidate.ref.objectId === parentId) : undefined;
+    }
+    return false;
+  }
+
+  function cancelGesture(): void {
+    const objectId = $store.gestureDraft?.objectId;
+    gesturePointer = null;
+    gestureTargetMiss = false;
+    if (objectId) handle?.clearDraft?.(objectId);
+    session.cancelGesture();
+  }
+
+  function recordGestureAgain(): void {
+    const draft = $store.gestureDraft;
+    if (!draft) return;
+    handle?.clearDraft?.(draft.objectId);
+    gestureTargetMiss = false;
+    session.armGesture(draft.objectId, draft.animationId);
+  }
+
+  async function commitGesture(): Promise<void> {
+    const objectId = $store.gestureDraft?.objectId;
+    if (await session.commitGesture()) {
+      if (objectId) handle?.clearDraft?.(objectId);
+      gestureTargetMiss = false;
+    }
   }
 
   function beginPathDrag(event: PointerEvent, segment: number, handle: PathHandle): void {
@@ -342,8 +410,8 @@
     if (event.key === "Escape" && $store.gestureDraft) {
       const pointer = gesturePointer;
       gesturePointer = null;
-      if (pointer != null && overlay?.hasPointerCapture(pointer)) overlay.releasePointerCapture(pointer);
-      session.cancelGesture();
+      if (pointer && overlay?.hasPointerCapture(pointer.pointerId)) overlay.releasePointerCapture(pointer.pointerId);
+      cancelGesture();
       event.preventDefault();
       return;
     }
@@ -382,16 +450,20 @@
   $: currentComposition = $store.compositions.find((composition) => composition.key === $store.currentKey);
   $: syncPreviewMode(cachedUrl, $store.currentKey, $store.frame, $store.playing, $store.gradeBypass);
   $: syncCachedVideo($store.frame, $store.playing, currentComposition?.fps ?? 24);
-  $: selected = $store.selection?.kind === "element"
-    ? nodes.find((node) => node.ref.compositionKey === $store.selection?.compositionKey && node.ref.objectId === $store.selection?.objectId)
-    : undefined;
   $: selectedAnimation = $store.selection?.kind === "animation"
     ? ($store.animationsByComposition[$store.currentKey] ?? []).find((animation) => animation.id === $store.selection?.objectId)
     : undefined;
-  $: pathSource = pathDraft || $store.gestureDraft?.path || selectedAnimation?.motionPath?.path || "";
+  $: animationObjectId = selectedAnimation?.target.match(/data-fd-id=(?:"([^"]+)"|'([^']+)')/)?.slice(1).find(Boolean);
+  $: selected = $store.selection?.kind === "element"
+    ? nodes.find((node) => node.ref.compositionKey === $store.selection?.compositionKey && node.ref.objectId === $store.selection?.objectId)
+    : animationObjectId
+      ? nodes.find((node) => node.ref.objectId === animationObjectId)
+      : undefined;
+  $: pathSource = pathDraft || $store.gestureDraft?.path || ($store.gestureDraft ? "" : selectedAnimation?.motionPath?.path) || "";
   $: pathSegments = pathSource ? parseMotionPathSvg(pathSource) : null;
-  $: pathObjectId = $store.gestureDraft?.objectId ?? selectedAnimation?.target.match(/data-fd-id=(?:"([^"]+)"|'([^']+)')/)?.slice(1).find(Boolean);
+  $: pathObjectId = $store.gestureDraft?.objectId ?? animationObjectId;
   $: pathNode = pathObjectId ? nodes.find((node) => node.ref.objectId === pathObjectId) : undefined;
+  $: gestureSamples = $store.gestureDraft?.samples ?? [];
 </script>
 
 <svelte:window onkeydown={onKeyDown} />
@@ -422,6 +494,8 @@
       class="canvas-overlay"
       class:dragging={!!drag}
       class:gesture-active={$store.gestureDraft?.status === "armed" || $store.gestureDraft?.status === "recording"}
+      class:gesture-preview={$store.gestureDraft?.status === "preview"}
+      class:animation-selection={!!selectedAnimation}
       bind:this={overlay}
       aria-label="Canvas selection and direct manipulation"
       role="application"
@@ -435,41 +509,66 @@
         <span class="snap-guide {guide.axis}" style={guide.axis === "x" ? `left:${guide.position}px` : `top:${guide.position}px`}></span>
       {/each}
       {#if $store.gestureDraft}
-        <div class="gesture-mode-hud {$store.gestureDraft.status}" role="status" aria-live="polite">
+        <div class="gesture-mode-hud {$store.gestureDraft.status}" class:target-miss={gestureTargetMiss} role="status" aria-live="polite" onpointerdown={(event) => event.stopPropagation()}>
           <span class="gesture-status-dot"></span>
           <div>
-            <strong>{$store.gestureDraft.status === "armed" ? "Draw movement" : $store.gestureDraft.status === "recording" ? "Recording movement" : "Motion path ready"}</strong>
+            <strong>{$store.gestureDraft.status === "armed" ? `Grab ${pathNode?.label ?? $store.gestureDraft.objectId} to record` : $store.gestureDraft.status === "recording" ? `Recording ${pathNode?.label ?? "move"}` : $store.error ? "Couldn’t save this take" : $store.gestureDraft.path ? "Take ready to review" : "Move was too short"}</strong>
             <small>
               {$store.gestureDraft.status === "armed"
-                ? "Drag anywhere on the canvas to begin"
+                ? gestureTargetMiss
+                  ? `Start the take by dragging ${pathNode?.label ?? "the selected object"} — clicks elsewhere are ignored`
+                  : `Playback starts when you drag the selected object · starts at ${$store.gestureDraft.startFrame}f`
                 : $store.gestureDraft.status === "recording"
-                  ? `${$store.gestureDraft.samples.length} samples · release to preview`
-                  : "Review the route, then save or discard in the Inspector"}
+                  ? `${$store.gestureDraft.samples.length} frames captured · release to finish the take`
+                  : $store.error
+                    ? $store.error
+                    : $store.gestureDraft.path
+                    ? `${$store.gestureDraft.samples.length} frames · save, record again, or cancel`
+                    : "Hold and move the object for at least two frames, then release"}
             </small>
           </div>
-          <kbd>ESC</kbd>
+          {#if $store.gestureDraft.status === "preview"}
+            <div class="gesture-mode-actions">
+              <button class="save" disabled={!$store.gestureDraft.path} onclick={() => void commitGesture()}>{$store.error ? "Try save again" : "Save move"}</button>
+              <button onclick={recordGestureAgain}>Record again</button>
+              <button onclick={cancelGesture}>Cancel</button>
+            </div>
+          {:else}
+            <kbd>ESC</kbd>
+          {/if}
         </div>
       {:else if selectedAnimation?.motionPath}
         <div class="canvas-context-hud motion">
-          <strong>MOTION PATH</strong><span>solid stops move the route · hollow handles bend it · arrows nudge</span>
+          <strong>EDIT ROUTE</strong><span>solid stops set positions · hollow handles shape the curve · scrub to inspect timing</span>
         </div>
       {:else if selected && directManipulation}
         <div class="canvas-context-hud">
           <strong>CANVAS</strong><span>drag to move · handles resize · ⇧ constrain · ⌥ bypass snap</span>
         </div>
       {/if}
-      {#if pathSegments?.length && (pathNode || nodes[0])}
+      {#if (pathSegments?.length || gestureSamples.length > 1) && (pathNode || nodes[0])}
         {@const matrix = (pathNode ?? nodes[0]).compositionToPreview}
         <svg class="motion-path-overlay" aria-label="Editable motion path">
           <g transform={`matrix(${matrix.a} ${matrix.b} ${matrix.c} ${matrix.d} ${matrix.e} ${matrix.f})`}>
-            <path class="motion-path-line" d={motionPathToSvg(pathSegments)}></path>
-            {#each pathSegments as segment, index (`${index}:${segment.from.x}:${segment.to.x}`)}
-              <path class="motion-tangent" d={`M${segment.from.x},${segment.from.y} L${segment.control1.x},${segment.control1.y} M${segment.to.x},${segment.to.y} L${segment.control2.x},${segment.control2.y}`}></path>
-              <circle role="button" tabindex="0" aria-label={`Control 1 for path segment ${index + 1}`} data-motion-handle="control1" class="motion-handle tangent" cx={segment.control1.x} cy={segment.control1.y} r="7" onpointerdown={(event) => beginPathDrag(event, index, "control1")} onkeydown={(event) => nudgePathHandle(event, index, "control1")}></circle>
-              <circle role="button" tabindex="0" aria-label={`Control 2 for path segment ${index + 1}`} data-motion-handle="control2" class="motion-handle tangent" cx={segment.control2.x} cy={segment.control2.y} r="7" onpointerdown={(event) => beginPathDrag(event, index, "control2")} onkeydown={(event) => nudgePathHandle(event, index, "control2")}></circle>
-              <circle role="button" tabindex="0" aria-label={`Start anchor for path segment ${index + 1}`} data-motion-handle="from" class="motion-handle anchor" cx={segment.from.x} cy={segment.from.y} r="8" onpointerdown={(event) => beginPathDrag(event, index, "from")} onkeydown={(event) => nudgePathHandle(event, index, "from")}></circle>
-              {#if index === pathSegments.length - 1}<circle role="button" tabindex="0" aria-label="End anchor for motion path" data-motion-handle="to" class="motion-handle anchor" cx={segment.to.x} cy={segment.to.y} r="8" onpointerdown={(event) => beginPathDrag(event, index, "to")} onkeydown={(event) => nudgePathHandle(event, index, "to")}></circle>{/if}
-            {/each}
+            {#if gestureSamples.length > 1}
+              <polyline class="motion-gesture-trace" points={gestureSamples.map((sample) => `${sample.x},${sample.y}`).join(" ")}></polyline>
+            {/if}
+            {#if pathSegments?.length}
+              <path class="motion-path-line" d={motionPathToSvg(pathSegments)}></path>
+              {#each pathSegments as segment, index (`${index}:${segment.from.x}:${segment.to.x}`)}
+                <path class="motion-tangent" d={`M${segment.from.x},${segment.from.y} L${segment.control1.x},${segment.control1.y} M${segment.to.x},${segment.to.y} L${segment.control2.x},${segment.control2.y}`}></path>
+                <circle role="button" tabindex="0" aria-label={`Control 1 for path segment ${index + 1}`} data-motion-handle="control1" class="motion-handle tangent" cx={segment.control1.x} cy={segment.control1.y} r="7" onpointerdown={(event) => beginPathDrag(event, index, "control1")} onkeydown={(event) => nudgePathHandle(event, index, "control1")}></circle>
+                <circle role="button" tabindex="0" aria-label={`Control 2 for path segment ${index + 1}`} data-motion-handle="control2" class="motion-handle tangent" cx={segment.control2.x} cy={segment.control2.y} r="7" onpointerdown={(event) => beginPathDrag(event, index, "control2")} onkeydown={(event) => nudgePathHandle(event, index, "control2")}></circle>
+                <circle role="button" tabindex="0" aria-label={`Start anchor for path segment ${index + 1}`} data-motion-handle="from" class="motion-handle anchor" cx={segment.from.x} cy={segment.from.y} r="8" onpointerdown={(event) => beginPathDrag(event, index, "from")} onkeydown={(event) => nudgePathHandle(event, index, "from")}></circle>
+                {#if index === pathSegments.length - 1}<circle role="button" tabindex="0" aria-label="End anchor for motion path" data-motion-handle="to" class="motion-handle anchor" cx={segment.to.x} cy={segment.to.y} r="8" onpointerdown={(event) => beginPathDrag(event, index, "to")} onkeydown={(event) => nudgePathHandle(event, index, "to")}></circle>{/if}
+              {/each}
+            {/if}
+            {#if gestureSamples.length}
+              {@const firstSample = gestureSamples[0]}
+              {@const lastSample = gestureSamples[gestureSamples.length - 1]}
+              <circle class="motion-take-point start" cx={firstSample.x} cy={firstSample.y} r="10"></circle>
+              <circle class="motion-take-point end" cx={lastSample.x} cy={lastSample.y} r="10"></circle>
+            {/if}
           </g>
         </svg>
       {/if}
@@ -480,8 +579,8 @@
           style={`left:${selected.previewBounds.x}px;top:${selected.previewBounds.y}px;width:${selected.previewBounds.width}px;height:${selected.previewBounds.height}px;transform:rotate(${selected.properties.rotation}deg)`}
           aria-label={`Selected ${selected.label}`}
         >
-          <span class="selection-label">{selected.label}</span>
-          {#if directManipulation}
+          <span class="selection-label" class:motion={!!selectedAnimation || !!$store.gestureDraft}>{$store.gestureDraft?.status === "preview" ? `TAKE · ${selected.label}` : $store.gestureDraft ? `RECORD · ${selected.label}` : selectedAnimation ? `MOTION · ${selected.label}` : selected.label}</span>
+          {#if directManipulation && !selectedAnimation && !$store.gestureDraft}
             {#each ["nw", "n", "ne", "e", "se", "s", "sw", "w"] as resizeHandle}
               <button
                 class="resize-handle {resizeHandle}"

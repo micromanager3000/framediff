@@ -115,6 +115,10 @@
     }
     return [...byFrame].sort(([left], [right]) => left - right).map(([frame, properties]) => ({ frame, properties }));
   };
+  const animationTargetId = (animation: (typeof $store.animations)[number]) =>
+    animation.target.match(/data-fd-id=(?:"([^"]+)"|'([^']+)')/)?.slice(1).find(Boolean) ?? animation.target;
+  const animationSummary = (animation: (typeof $store.animations)[number]) =>
+    animation.motionPath ? "route" : Object.keys(animation.bindings).join(" · ");
 
   type AnimationKeyDrag = { animationId: string; properties: string[]; frame: number; toFrame: number; startX: number; moved: boolean };
   let animationKeyDrag: AnimationKeyDrag | null = null;
@@ -660,7 +664,7 @@
           <div
             class="lane-label"
             title={`${animation.target} · ${animation.authority} · ${animation.source.file ?? "source"}`}
-          >◆ {animation.id}</div>
+          ><span class="motion-lane-target">◆ {animationTargetId(animation)}</span><small title={animation.id}>{animation.motionPath ? "⌁" : "◆"}</small></div>
           <div class="lane-track" style:width={`${axisLen * ppf}px`} role="presentation">
             <button
               class="animation-span"
@@ -671,7 +675,7 @@
               title={`${animation.kind} · ${animation.startFrame}–${animation.startFrame + animation.durationInFrames}f · ${animation.ease ?? "default ease"} · ${animation.editable ? "frame-authored and editable" : `${animation.authority} / inspect only`}`}
               onclick={(event) => { event.stopPropagation(); viewModel.selectAnimation(animation.id); onselect(); }}
             >
-              <span>{animation.kind} · {Object.keys(animation.bindings).join(", ")}</span>
+              <span>{animation.id} · {animationSummary(animation)}</span>
             </button>
             {#each animationKeys(animation) as key (`${animation.id}:${key.frame}`)}
               {@const shownFrame = animationKeyDrag?.animationId === animation.id && animationKeyDrag.frame === key.frame ? animationKeyDrag.toFrame : key.frame}
