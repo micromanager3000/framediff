@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { motionPathToSvg, type AnimationLiteral, type CubicMotionSegment, type InspectorFieldSnapshot, type ParamBinding } from "@framediff/studio-model";
+  import { motionPathToSvg, type AnimationLiteral, type AnimationSnapshot, type CubicMotionSegment, type InspectorFieldSnapshot, type ParamBinding } from "@framediff/studio-model";
   import type { InspectorViewModel } from "../viewmodels/Inspector.ViewModel";
   import type { MediaViewModel } from "../viewmodels/Media.ViewModel";
   import CameraInspector from "./CameraInspector.svelte";
+  import ElementMotion from "./ElementMotion.svelte";
   import EffectEditorModal from "./EffectEditorModal.svelte";
   import InspectorField from "./InspectorField.svelte";
 
@@ -119,6 +120,8 @@
   const animationEase = () => $store.animation?.ease ?? ($store.animation
     ? Object.values($store.animation.bindings).flatMap((binding) => binding.kind === "keyframes" ? binding.keys.map((key) => key.ease) : []).find(Boolean)
     : undefined);
+  const animationTargetId = (animation: AnimationSnapshot): string =>
+    animation.target.match(/data-fd-id=(?:"([^"]+)"|'([^']+)')/)?.slice(1).find(Boolean) ?? animation.target;
   const canMakeArc = () => $store.animation?.bindings.x?.kind === "keyframes"
     && $store.animation.bindings.y?.kind === "keyframes"
     && $store.animation.bindings.x.keys.length >= 2
@@ -230,22 +233,32 @@
     {:else if $store.animation}
       {@const animation = $store.animation}
       <section class="inspector-section motion-editor">
-        <h3>MOTION · {animation.kind.toUpperCase()}</h3>
+        <div class="motion-identity">
+          <div>
+            <span>ANIMATION</span>
+            <strong>{animationTargetId(animation)}</strong>
+          </div>
+          <b>GSAP · FRAME AUTHORED</b>
+        </div>
+        <p class="motion-identity-copy"><strong>{animation.id}</strong> controls {Object.keys(animation.bindings).join(", ")}. Canvas, timeline keys, and source all edit this same motion.</p>
         <div class="motion-transport">
-          <button onclick={() => goKey(-1)} title="Previous key">◀◆</button>
-          <button onclick={() => goKey(1)} title="Next key">◆▶</button>
+          <button onclick={() => goKey(-1)} title="Previous key">◀ <span>PREV KEY</span></button>
+          <button onclick={() => goKey(1)} title="Next key"><span>NEXT KEY</span> ▶</button>
           <label class="auto-key"><input type="checkbox" checked={$store.autoKey} onchange={(event) => viewModel.setAutoKey(event.currentTarget.checked)} /> AUTO-KEY</label>
         </div>
-        <label>
-          <span>Start</span>
-          <input type="number" value={animation.startFrame} disabled={!animation.editable || $store.editing} onchange={(event) => void viewModel.editAnimation(animation.id, { type: "timing", startFrame: Number(event.currentTarget.value) }, "Move animation")} />
-          <small>frames</small>
-        </label>
-        <label>
-          <span>Duration</span>
-          <input type="number" min="0" value={animation.durationInFrames} disabled={!animation.editable || $store.editing} onchange={(event) => void viewModel.editAnimation(animation.id, { type: "timing", durationInFrames: Number(event.currentTarget.value) }, "Retiming animation")} />
-          <small>frames</small>
-        </label>
+        <div class="motion-timing">
+          <label>
+            <span>START</span>
+            <input type="number" value={animation.startFrame} disabled={!animation.editable || $store.editing} onchange={(event) => void viewModel.editAnimation(animation.id, { type: "timing", startFrame: Number(event.currentTarget.value) }, "Move animation")} />
+            <small>f</small>
+          </label>
+          <label>
+            <span>DURATION</span>
+            <input type="number" min="0" value={animation.durationInFrames} disabled={!animation.editable || $store.editing} onchange={(event) => void viewModel.editAnimation(animation.id, { type: "timing", durationInFrames: Number(event.currentTarget.value) }, "Retiming animation")} />
+            <small>f</small>
+          </label>
+          <div><span>END</span><strong>{animation.startFrame + animation.durationInFrames}f</strong></div>
+        </div>
         <div class="authority">
           <span class:literal={animation.editable}>{animation.editable ? "literal frame source" : `${animation.authority} · inspect only`}</span>
           <span>{animation.source.file ?? "runtime"}</span>
@@ -259,8 +272,8 @@
 
       <section class="inspector-section path-editor">
         <div class="path-heading">
-          <h3>MOTION PATH</h3>
-          <span class:active={!!animation.motionPath}>{animation.motionPath ? "CURVE ACTIVE" : "OPTIONAL"}</span>
+          <h3>ROUTE</h3>
+          <span class:active={!!animation.motionPath}>{animation.motionPath ? "EDITABLE PATH" : "STRAIGHT KEYS"}</span>
         </div>
         <div class="path-explainer">
           <svg viewBox="0 0 74 42" aria-hidden="true">
@@ -272,8 +285,8 @@
             <circle class="tangent" cx="49" cy="35" r="3"></circle>
           </svg>
           <div>
-            <strong>Control where this layer travels</strong>
-            <p>Solid points set the stops. Hollow handles bend the route. Drag either directly on the canvas.</p>
+            <strong>{animation.motionPath ? "Shape the object’s route on canvas" : "Choose how this object changes position"}</strong>
+            <p>{animation.motionPath ? "Solid stops set positions; hollow handles shape the curve. Timing stays in the keys below." : "Keep precise X/Y keys, make a clean arc, or perform the move by dragging the object in real time."}</p>
           </div>
         </div>
         {#if canMakeArc()}
@@ -283,18 +296,17 @@
         <div class="path-action-grid">
           {#if canMakeArc()}
             <button class="path-action" disabled={!animation.editable || $store.editing} onclick={() => void viewModel.makeArc(animation.id, Number(arcCurvature), arcDirection)} title="Bend the existing X and Y keys into an editable curve">
-              <span>⌒</span><strong>Curve between keys</strong><small>Uses the current X + Y timing</small>
+              <span>⌒</span><strong>{animation.motionPath ? "Reset to a clean arc" : "Make a clean arc"}</strong><small>Preserves the current X + Y timing</small>
             </button>
           {/if}
-          <button class="path-action record" disabled={$store.editing || $store.gestureDraft?.status === "recording"} onclick={() => viewModel.armGesture()} title="Play from the current frame while you draw the layer's movement on the canvas">
-            <span>●</span><strong>Draw movement</strong><small>Drag a route while time advances</small>
+          <button class="path-action record" disabled={$store.editing || $store.gestureDraft?.status === "recording"} onclick={() => viewModel.armGesture()} title="Record the selected object's movement in real time from the current frame">
+            <span>●</span><strong>Record a move</strong><small>Grab the object; release to finish</small>
           </button>
         </div>
-        {#if $store.gestureDraft?.status === "armed"}<div class="gesture-note">Ready to draw from {$store.gestureDraft.startFrame}f. Drag on the canvas to record movement; press Escape to cancel.</div>{/if}
-        {#if $store.gestureDraft?.status === "recording"}<div class="gesture-note live">● Recording movement · {$store.gestureDraft.samples.length} frame samples · release to preview</div>{/if}
+        {#if $store.gestureDraft?.status === "armed"}<div class="gesture-note">Ready at {$store.gestureDraft.startFrame}f. Grab {animationTargetId(animation)} on the canvas; playback starts automatically.</div>{/if}
+        {#if $store.gestureDraft?.status === "recording"}<div class="gesture-note live">● Recording {$store.gestureDraft.samples.length} frames · release the object to finish the take</div>{/if}
         {#if $store.gestureDraft?.status === "preview"}
-          <div class="gesture-note ready">Movement ready · {$store.gestureDraft.samples.length} samples. Review the violet route on canvas, then save it as one undoable edit.</div>
-          <div class="gesture-actions"><button class="primary" onclick={() => void viewModel.commitGesture()} disabled={!$store.gestureDraft.path}>Save motion path</button><button onclick={() => viewModel.cancelGesture()}>Discard</button></div>
+          <div class="gesture-note ready">Take ready · {$store.gestureDraft.samples.length} frames. Review the route and use the canvas controls to save, retry, or cancel.</div>
         {/if}
       </section>
 
@@ -353,12 +365,15 @@
             <div><dt>Stable ID</dt><dd>{$store.elementId}</dd></div>
             <div><dt>Authority</dt><dd>{documentBacked ? "composition JSON" : "source-backed HTML"}</dd></div>
           </dl>
-          {#if $store.canRecordGesture}
-            <button class="element-motion-action" onclick={() => viewModel.armGesture()} disabled={$store.editing}>
-              <span>●</span><strong>Draw movement</strong><small>Record a timed route on the canvas</small>
-            </button>
-          {/if}
         </section>
+        <ElementMotion
+          {viewModel}
+          elementId={$store.elementId}
+          animations={$store.elementAnimations}
+          gestureDraft={$store.gestureDraft}
+          canRecord={$store.canRecordGesture}
+          editing={$store.editing}
+        />
       {/if}
       <section class="inspector-section">
         <h3>PLACEMENT</h3>
@@ -426,15 +441,15 @@
           <div><dt>Stable ID</dt><dd>{$store.elementId}</dd></div>
           <div><dt>Authority</dt><dd>{documentBacked ? "composition JSON" : "source-backed HTML"}</dd></div>
         </dl>
-        {#if $store.canRecordGesture}
-          <button class="element-motion-action" onclick={() => viewModel.armGesture()} disabled={$store.editing}>
-            <span>●</span><strong>Draw movement</strong><small>Record a timed route on the canvas</small>
-          </button>
-        {/if}
-        {#if $store.gestureDraft?.status === "preview"}
-          <div class="gesture-actions"><button class="primary" onclick={() => void viewModel.commitGesture()} disabled={!$store.gestureDraft.path}>Save motion path</button><button onclick={() => viewModel.cancelGesture()}>Discard</button></div>
-        {/if}
       </section>
+      <ElementMotion
+        {viewModel}
+        elementId={$store.elementId}
+        animations={$store.elementAnimations}
+        gestureDraft={$store.gestureDraft}
+        canRecord={$store.canRecordGesture}
+        editing={$store.editing}
+      />
     {/if}
 
     {#if $store.detailsLoading}<div class="panel-empty">Resolving authored controls…</div>{/if}

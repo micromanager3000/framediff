@@ -311,7 +311,8 @@ export class StudioSession {
     this.state.update((current) => ({
       ...current,
       gestureDraft: { objectId, ...(animationId ? { animationId } : {}), status: "armed", startFrame: state.frame, samples: [] },
-      notice: "Drag the object path in the canvas; FrameDiff will sample at most once per frame.",
+      error: null,
+      notice: `Grab ${objectId} on the canvas to begin. Playback starts on grab and release ends the take.`,
     }));
   }
 
@@ -341,7 +342,7 @@ export class StudioSession {
 
   public cancelGesture(): void {
     this.pause();
-    this.state.update((state) => ({ ...state, gestureDraft: null, notice: null }));
+    this.state.update((state) => ({ ...state, gestureDraft: null, error: null, notice: null }));
   }
 
   public async commitGesture(): Promise<boolean> {
@@ -366,7 +367,15 @@ export class StudioSession {
       this.state.update((current) => ({ ...current, editing: false, error: result.ok ? null : result.message ?? "Could not commit gesture." }));
       if (ok) await this.probeAll();
     }
-    this.state.update((current) => ({ ...current, gestureDraft: ok ? null : current.gestureDraft, notice: ok ? "Gesture committed as one source edit." : current.notice }));
+    this.state.update((current) => ({
+      ...current,
+      gestureDraft: ok ? null : current.gestureDraft,
+      notice: ok ? "Move saved as editable frame-based motion." : current.notice,
+    }));
+    if (ok && !draft.animationId) {
+      const createdId = `${draft.objectId}-motion-path`.replace(/[^A-Za-z0-9_-]+/g, "-");
+      if (this.currentAnimations.some((animation) => animation.id === createdId)) this.selectAnimation(createdId);
+    }
     return ok;
   }
 
