@@ -2699,6 +2699,11 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       bitrate: 8_000_000,
       resolver: this.resolver,
       registry: this.registry,
+      // Render must materialize nested image/audio outputs exactly as preview and bake do.
+      // Without this the export mounts them as ordinary nested comps whose pinned take is
+      // fetched by an unawaited setup(), while the audio scan is one synchronous pass — so
+      // the media never arrives in time and the render silently disagrees with the preview.
+      resolveCompositionOutput: this.resolveCompositionOutput,
       contentDomain: this.contentDomainOf(compositionKey, composition),
       ...(window ? { startFrame: window.from, endFrame: window.to } : {}),
       onProgress: (progress) => {
