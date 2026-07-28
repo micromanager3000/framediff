@@ -37,7 +37,7 @@
       <button id="zIn" title="Zoom in (⌘/Ctrl + scroll)">＋</button>
     </div>
 
-    <button class="chip ideas-toggle on" id="chipIdeas" title="The twenty-one ideas, annotated">IDEAS</button>
+    <button class="chip ideas-toggle on" id="chipIdeas" title="The twenty-two ideas, annotated">IDEAS</button>
     <button class="chip" id="chipKeys" title="Keyboard map (?)">?</button>
   </header>
 
@@ -72,8 +72,8 @@
       </footer>
     </div>
 
-    <aside class="ideas" id="ideasDrawer" aria-label="The twenty-one ideas">
-      <header>TWENTY-ONE IDEAS<button id="ideasClose" title="Close">×</button></header>
+    <aside class="ideas" id="ideasDrawer" aria-label="The twenty-two ideas">
+      <header>TWENTY-TWO IDEAS<button id="ideasClose" title="Close">×</button></header>
       <div class="ideas-scroll">
 
         <div class="ig">PRECISION</div>
@@ -111,6 +111,10 @@
         <div class="ig">BONUS · GENERATIVE</div>
         <div class="idea" data-flash="21"><b>21 · Take stacks</b><i>FCPX auditions × FrameDiff takes</i><span>A generative clip holds its alternate takes in one slot. Cycle the pinned take in place — different durations ripple the storyline automatically. Auditioning is an edit, not a detour.</span><em>try: click the t2 badge on HERO</em></div>
 
+        <div class="ig">BONUS · ORDER</div>
+        <div class="idea" data-flash="22"><b>22 · Layers &amp; stacking</b><i>linked lists all the way down</i><span>Every element has an explicit order: layers form a draggable list (upper covers lower), and within a layer clips keep their own stacking order. Overlaps stack into rows — the top row wins in the monitor. Drops land on top; ⌘] brings forward, ⌘[ sends back.</span><em>try: drag a clip onto its neighbor · ⌘[ · drag a layer label ↑↓</em></div>
+
+
       </div>
     </aside>
   </main>
@@ -132,6 +136,7 @@
       <b>← →</b><span>step 1 frame · ⇧ 10</span>
       <b>, .</b><span>nudge selection ±1f · ⇧ ±10f</span>
       <b>[ ]</b><span>trim selection to playhead (in / out)</span>
+      <b data-need="layers">⌘[ ⌘]</b><span>send backward / bring forward within the layer</span>
       <b data-need="blade">B</b><span>blade mode · click cuts</span>
       <b data-need="wedge">R</b><span>＋time mode · drag opens / removes time</span>
       <b data-need="blade wedge">V / Esc</b><span>back to select</span>

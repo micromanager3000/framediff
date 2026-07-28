@@ -119,6 +119,10 @@ canvas { display: block; }
 .lane-label .lane-kindname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: .06em; }
 .lane-chip { flex: none; width: 15px; height: 15px; display: inline-grid; place-items: center; margin-left: auto; padding: 0; border: 1px solid var(--line-strong); border-radius: 4px; background: transparent; color: var(--faint); cursor: pointer; font: 800 8px/1 var(--mono); }
 .lane-chip:hover { border-color: var(--accent); color: var(--text); }
+.lane-label.layer-grab { cursor: grab; }
+.lane-label.layer-grab:active, .lane-label.lifting { cursor: grabbing; background: var(--panel-hover); }
+.lane-label.lifting b { color: var(--focus); }
+.layer-caret { position: absolute; left: 0; right: 0; z-index: 12; height: 2px; background: var(--focus); box-shadow: 0 0 10px rgb(143 216 255 / 60%); pointer-events: none; }
 .lane-chip.on { border-color: rgb(240 180 95 / 55%); background: rgb(240 180 95 / 12%); color: var(--accent); }
 .lane-chip.lock.on { border-color: rgb(240 116 112 / 55%); background: rgb(240 116 112 / 10%); color: var(--red); }
 .lane-track { position: relative; min-width: 0; }

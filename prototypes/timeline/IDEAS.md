@@ -1,4 +1,4 @@
-# Timeline Lab — twenty-one ideas, one system
+# Timeline Lab — twenty-two ideas, one system
 
 An interactive prototype of the next FrameDiff Studio timeline. Everything below is **built and working** in [index.html](./index.html) unless marked *proposed*.
 
@@ -97,6 +97,9 @@ Commits settle with a ~260ms spring (WAAPI, velocity-safe); snaps tick, breakawa
 FCPX's most under-copied idea, and the one FrameDiff is uniquely positioned to own: a generative clip holds its takes **in one timeline slot**. Click the `t2` badge to cycle takes in place; a take with a different duration ripples the storyline automatically (auditions did exactly this). Auditioning becomes an edit, not a workbench detour. *(Prototype cycles three fake takes; the real version reads `GenerativeTakeSnapshot`.)*
 
 ---
+
+**22 · Layers & stacking** — *After Effects / Photoshop ⌘[ ⌘] · first principles*
+Every visual element has an explicit place in the composite, kept as doubly-linked lists (`prevId/nextId` on layers, `zPrevId/zNextId` on clips — id-based so undo snapshots stay plain JSON). Layers are a draggable ordered list: grab a lane label, drag ↑↓, upper layers cover lower ones. Within a layer, overlapping clips are allowed and keep their own stacking order — the timeline packs them into as many rows as the overlaps need (top of stack = top row; non-overlapping layers stay one row tall), while the monitor composites topmost-wins. Drops that land on other clips go to the top of the stack; `⌘]` brings forward, `⌘[` sends back, all undoable.
 
 ## What we deliberately did *not* copy
 

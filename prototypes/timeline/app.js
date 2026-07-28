@@ -1,4 +1,4 @@
-/* FrameDiff · Timeline Lab — twenty timeline-editing ideas, holistically integrated.
+/* FrameDiff · Timeline Lab — twenty-two timeline-editing ideas, holistically integrated.
    Vanilla JS, no deps. Frames-based like the studio (ppf = pixels per frame). */
 "use strict";
 
@@ -23,7 +23,7 @@ const fmtD = (f) => `${f >= 0 ? "+" : "−"}${Math.abs(Math.round(f))}f · ${f >
    chrome down to a plain baseline timeline plus exactly one idea. */
 const PAGES = {
   lab:      { label: null, ideas: null, markers: true, connected: true, tracks: null, v1Magnetic: true,
-              caps: ["loupe", "fine", "hold", "snapEnds", "snapBeats", "beatDots", "wedge", "gaps", "magnetic", "blade", "takes", "stems", "skim", "minimap", "roll", "slip", "motion"] },
+              caps: ["loupe", "fine", "hold", "snapEnds", "snapBeats", "beatDots", "wedge", "gaps", "magnetic", "blade", "takes", "stems", "skim", "minimap", "roll", "slip", "motion", "layers"] },
   loupe:    { label: "PRECISION LOUPE",    ideas: [1, 2, 3], caps: ["loupe", "fine", "hold"],         tracks: ["ov", "v1", "mx"],        v1Magnetic: false },
   snap:     { label: "STICKY SNAP",        ideas: [4, 5],    caps: ["fine", "snapEnds"],              tracks: ["ov", "v1", "sfx", "mx"], v1Magnetic: false, markers: true },
   beats:    { label: "BEAT GRID",          ideas: [6],       caps: ["snapBeats", "beatDots"],         tracks: ["v1", "sfx", "mx"],       v1Magnetic: false },
@@ -31,6 +31,7 @@ const PAGES = {
   magnetic: { label: "MAGNETIC STORYLINE", ideas: [12],      caps: ["magnetic"],                      tracks: ["v1", "mx"],              v1Magnetic: true },
   blade:    { label: "BLADE",              ideas: [14],      caps: ["blade"],                         tracks: ["ov", "v1", "mx"],        v1Magnetic: false },
   takes:    { label: "TAKE STACKS",        ideas: [21],      caps: ["takes"],                         tracks: ["ov", "v1", "mx"],        v1Magnetic: true, connected: true },
+  layers:   { label: "LAYERS & STACKING",  ideas: [22],      caps: ["layers"],                        tracks: ["ov", "v1", "sfx", "mx"], v1Magnetic: false, seedOverlap: true },
 };
 const FEATURE = (() => { const f = new URLSearchParams(location.search).get("feature"); return PAGES[f] ? f : "lab"; })();
 const PAGE = PAGES[FEATURE];
@@ -57,6 +58,64 @@ let tracks = [
   { id: "mx",  label: "A2", name: "MUSIC",   kind: "music",   h: 50, clipH: 40, clipTop: 5, lockable: true, locked: false },
 ];
 const trackById = (id) => tracks.find((t) => t.id === id);
+const byId = (id) => clips.find((c) => c.id === id);
+
+/* ============ ordering: doubly-linked lists (idea 22) ============
+   Every visual element has an explicit order. Layers form a linked list
+   (prevId/nextId — first = topmost in the composite); within each layer the
+   clips form a z linked list (zPrevId/zNextId — tail = topmost). All links
+   are by id so state stays JSON-serializable for undo. */
+function layerOrder() {
+  const out = [];
+  let t = tracks.find((x) => !x.prevId);
+  while (t) { out.push(t); t = tracks.find((x) => x.id === t.nextId); }
+  return out.length === tracks.length ? out : tracks;      // fallback if links are cold
+}
+function zBottomToTop(trackId) {
+  const out = [];
+  let c = clips.find((x) => x.trackId === trackId && !x.zPrevId);
+  while (c) { out.push(c); c = c.zNextId ? byId(c.zNextId) : null; }
+  const all = clips.filter((x) => x.trackId === trackId);
+  return out.length === all.length ? out : all;
+}
+const zTopToBottom = (trackId) => zBottomToTop(trackId).slice().reverse();
+function zUnlink(c) {
+  const p = c.zPrevId && byId(c.zPrevId), n = c.zNextId && byId(c.zNextId);
+  if (p) p.zNextId = c.zNextId ?? null;
+  if (n) n.zPrevId = c.zPrevId ?? null;
+  c.zPrevId = c.zNextId = null;
+}
+function zPushTop(c) {
+  const tail = clips.find((x) => x.trackId === c.trackId && x.id !== c.id && !x.zNextId);
+  c.zPrevId = tail?.id ?? null; c.zNextId = null;
+  if (tail) tail.zNextId = c.id;
+}
+function zInsertAbove(c, ref) {                             // c becomes ref's zNext
+  c.zPrevId = ref.id; c.zNextId = ref.zNextId ?? null;
+  if (ref.zNextId) byId(ref.zNextId).zPrevId = c.id;
+  ref.zNextId = c.id;
+}
+function zSwap(c, up) {                                     // one step toward top (up) or bottom
+  const other = up ? (c.zNextId && byId(c.zNextId)) : (c.zPrevId && byId(c.zPrevId));
+  if (!other) return null;
+  zUnlink(c);
+  if (up) zInsertAbove(c, other);
+  else { const below = other.zPrevId && byId(other.zPrevId); if (below) zInsertAbove(c, below); else { c.zNextId = other.id; c.zPrevId = null; other.zPrevId = c.id; } }
+  return other;
+}
+/* rebuild all links from current array order — used at seed/prune time */
+function chainOrders() {
+  tracks.forEach((t, i) => { t.prevId = tracks[i - 1]?.id ?? null; t.nextId = tracks[i + 1]?.id ?? null; });
+  for (const t of tracks) {
+    const cs = clips.filter((c) => c.trackId === t.id);
+    cs.forEach((c, i) => { c.zPrevId = cs[i - 1]?.id ?? null; c.zNextId = cs[i + 1]?.id ?? null; });
+  }
+}
+function overlapsInLayer(c) {
+  const l = liveClip(c);
+  return clips.some((o) => o.trackId === c.trackId && o.id !== c.id && !o.gap &&
+    l.from < o.from + o.dur - 0.01 && l.from + l.dur > o.from + 0.01);
+}
 
 let clips = [];
 function C(trackId, name, from, dur, tone, extra = {}) {
@@ -93,6 +152,7 @@ function seedProject() {
   markers = [{ id: uid("m"), frame: social.from, label: "beat drop" }];
   motionKeys = [75, 96, 135, 168].map((f) => ({ id: uid("k"), frame: f }));
   motionTarget = "hero-title";
+  chainOrders();
 }
 let render = { from: 0, to: 690 };
 let markers = [];
@@ -115,6 +175,11 @@ function applyPageConfig() {
   }
   if (!PAGE.markers) markers = [];
   if (!has("motion")) motionKeys = [];
+  if (PAGE.seedOverlap) {                       // start the layers page with a real overlap
+    const sync = clips.find((c) => c.name === "feature-sync");
+    if (sync) sync.from -= 45;
+  }
+  chainOrders();
 }
 
 /* selection + tools + toggles */
@@ -126,10 +191,11 @@ let playhead = 0;
 
 /* ============ undo ============ */
 const undoStack = [], redoStack = [];
-const snapState = () => JSON.stringify({ clips, render, markers, motionKeys });
+const snapState = () => JSON.stringify({ clips, render, markers, motionKeys, tracks });
 function loadState(s) {
   const o = JSON.parse(s);
   clips = o.clips; render = o.render; markers = o.markers; motionKeys = o.motionKeys;
+  if (o.tracks) tracks = o.tracks;
   selection = new Set([...selection].filter((id) => clips.some((c) => c.id === id)));
 }
 function pushUndo() { undoStack.push(snapState()); if (undoStack.length > 100) undoStack.shift(); redoStack.length = 0; }
@@ -176,6 +242,7 @@ function commit(label, sub, fn) {
   }
   if (label) toast(label, sub);
   updateProj();
+  updateMonitor();                 // stacking/layer edits change what's visible without moving time
 }
 
 /* ============ axis / zoom ============ */
@@ -325,6 +392,25 @@ function quietSnap(raw, targets, e, px = 8, force = false) {
 const clipEls = new Map(), markerEls = new Map(), keyEls = new Map();
 let rulerBody = null, rzBar = null, playheadEl = null, skimEl = null, guideEl = null;
 let laneTracks = new Map();
+let rowMaps = new Map();          // trackId → { at: Map(clipId → row), count }
+const ROW_GAP = 4;
+
+/* rows: overlapping clips in a layer stack into extra rows; topmost z gets
+   the top row, so vertical position reads as stacking order (idea 22) */
+function computeRows(trackId) {
+  const rows = [], at = new Map();
+  for (const c of zTopToBottom(trackId)) {
+    const l = liveClip(c);
+    const f0 = l.from, f1 = l.from + l.dur;
+    let r = 0;
+    while ((rows[r] ?? []).some(([a, b]) => f0 < b - 0.01 && f1 > a + 0.01)) r++;
+    (rows[r] ??= []).push([f0, f1]);
+    at.set(c.id, r);
+  }
+  return { at, count: Math.max(1, rows.length) };
+}
+const laneHeight = (tr, count) => tr.h + (count - 1) * (tr.clipH + ROW_GAP);
+const clipTopIn = (tr, trackId, id) => tr.clipTop + (rowMaps.get(trackId)?.at.get(id) ?? 0) * (tr.clipH + ROW_GAP);
 
 function el(tag, cls, parent) { const e = document.createElement(tag); if (cls) e.className = cls; if (parent) parent.appendChild(e); return e; }
 
@@ -384,12 +470,19 @@ function rebuild() {
   offR.style.left = `${LABEL_W + xOf(render.to)}px`; offR.style.width = `${Math.max(0, (axisEnd - render.to) * ppf)}px`;
   rz.style.left = `${LABEL_W + xOf(render.from)}px`; rz.style.width = `${(render.to - render.from) * ppf}px`;
 
-  /* --- lanes --- */
-  for (const tr of tracks) {
+  /* --- lanes (layers, in linked-list order — first = top of the composite) --- */
+  rowMaps = new Map();
+  for (const tr of layerOrder()) rowMaps.set(tr.id, computeRows(tr.id));
+  for (const tr of layerOrder()) {
     const lane = el("div", `lane${tr.magnetic ? " is-magnetic" : ""}`, tlCanvas);
-    lane.style.height = `${tr.h}px`;
+    lane.style.height = `${laneHeight(tr, rowMaps.get(tr.id).count)}px`;
     const label = el("div", "lane-label", lane);
     label.innerHTML = `<b>${tr.label}</b><span class="lane-kindname">${tr.name}</span>`;
+    if (has("layers")) {
+      label.dataset.gesture = "layer"; label.dataset.layer = tr.id;
+      label.classList.add("layer-grab");
+      label.title = "Layer — drag ↑↓ to reorder the composite; upper layers cover lower ones";
+    }
     if (tr.kind === "scenes" && has("magnetic")) {
       const b = el("button", `lane-chip${tr.magnetic ? " on" : ""}`, label);
       b.textContent = "⌁"; b.dataset.idea = "12";
@@ -405,7 +498,12 @@ function rebuild() {
     const trackEl = el("div", "lane-track", lane);
     trackEl.dataset.gesture = "track"; trackEl.dataset.track = tr.id;
     laneTracks.set(tr.id, trackEl);
-    for (const c of clips) if (c.trackId === tr.id) trackEl.appendChild(buildClip(c, tr));
+    zBottomToTop(tr.id).forEach((c, zi) => {                 // DOM + z-index follow stacking order
+      const b = buildClip(c, tr);
+      b.style.top = `${clipTopIn(tr, tr.id, c.id)}px`;
+      b.style.zIndex = 1 + zi;
+      trackEl.appendChild(b);
+    });
   }
 
   /* --- motion lane (GSAP keys, studio-style) --- */
@@ -502,12 +600,23 @@ function updateOverruns(elc, live) {
     }
   }
   elc.querySelectorAll(".clip-overrun").forEach((o) => o.remove());
+  const t = TONES[live.tone] ?? TONES.blue;
+  const film = trackById(live.trackId)?.kind === "scenes";
   for (const [kind, at, len, title] of zones) {
     const o = el("i", `clip-overrun ${kind}`, elc);
     o.dataset.idea = "3";
     o.style.left = `${at * ppf}px`;
     o.style.width = `${len * ppf}px`;
     o.title = title;
+    if (film) {
+      // the frozen frame, literally repeated: dense identical film cells
+      // (the live filmstrip advances at 46px/cell; the hold repeats one 12px cell)
+      o.style.background = [
+        "repeating-linear-gradient(90deg, rgb(0 0 0 / 55%) 0 1.5px, transparent 1.5px 12px)",
+        "linear-gradient(rgb(143 201 236 / 9%), rgb(143 201 236 / 9%))",
+        `linear-gradient(180deg, hsl(${t.hue} 30% 21%), hsl(${t.hue} 34% 13%))`,
+      ].join(", ");
+    }
     const px = len * ppf;
     o.dataset.hold = px > 46 ? `❚❚ ${Math.round(len)}f` : px > 18 ? "❚❚" : "";
   }
@@ -533,15 +642,20 @@ function drawWave(canvas, c, t) {
 
 function connectStems() {
   for (const c of clips) {
-    if (!c.parentId || c.trackId !== "ov") continue;
-    const parent = clips.find((p) => p.id === c.parentId);
+    if (!c.parentId || trackById(c.trackId)?.kind !== "overlay") continue;
+    const parent = byId(c.parentId);
     if (!parent) continue;
+    const cTr = trackById(c.trackId), pTr = trackById(parent.trackId);
+    const cLane = laneTracks.get(c.trackId)?.parentElement, pLane = laneTracks.get(parent.trackId)?.parentElement;
+    if (!pTr || !cLane || !pLane) continue;
+    const top = cLane.offsetTop + clipTopIn(cTr, c.trackId, c.id) + cTr.clipH;
+    const bottom = pLane.offsetTop + clipTopIn(pTr, parent.trackId, parent.id);
+    if (bottom - top < 3) continue;                   // parent sits above the child after a layer reorder
     const s = el("div", "stem", tlCanvas);
     s.dataset.idea = "13";
-    const ovTop = RULER_H + 7 + 26;
     s.style.left = `${LABEL_W + xOf(c.from) + 3}px`;
-    s.style.top = `${ovTop}px`;
-    s.style.height = `${RULER_H + 40 + 6 - ovTop + 0}px`;
+    s.style.top = `${top}px`;
+    s.style.height = `${bottom - top}px`;
     s.dataset.stemFor = c.id;
   }
 }
@@ -724,6 +838,7 @@ tlCanvas.addEventListener("pointerdown", (e) => {
   if (!t) return;
   const kind = t.dataset.gesture;
   activateAudio();
+  if (kind === "layer") { if (e.target.closest(".lane-chip")) return; return startLayerDrag(e, t.dataset.layer); }
   if (kind === "ruler") return tool === "wedge" ? startWedge(e) : startScrub(e);
   if (kind === "marker") return startMarkerDrag(e, t.dataset.id);
   if (kind === "key") return startKeyDrag(e, t.dataset.id);
@@ -754,6 +869,7 @@ function onGestureMove(e) {
   ({
     scrub: moveScrub, marker: moveMarker, key: moveKey, rw: moveRw, move: moveMove,
     trim: moveTrim, roll: moveRoll, slip: moveSlip, wedge: moveWedge, marquee: moveMarquee,
+    layerdrag: moveLayerDrag,
   })[G.kind]?.(e);
   drawMinimap();
 }
@@ -763,6 +879,7 @@ function onGestureEnd(e) {
   ({
     scrub: endScrub, marker: endMarker, key: endKey, rw: endRw, move: endMove,
     trim: endTrim, roll: endRoll, slip: endSlip, wedge: endWedge, marquee: endMarquee,
+    layerdrag: endLayerDrag,
   })[g.kind]?.(e, g);
   G = null;
   hideHud(); hideLoupe(); hideGuide();
@@ -902,6 +1019,7 @@ function moveMove(e) {
     G.live.set(id, { from: nf });
     const el = clipEls.get(id);
     el.classList.add("dragging");
+    el.style.zIndex = 99;                       // ride above the stack while in hand
     el.style.left = `${xOf(nf)}px`;
   }
   for (const id of G.childIds) {
@@ -925,8 +1043,8 @@ function moveStems() {
 }
 function endMove(e, g) {
   if (g.moveMagnetic) return endMagneticMove(e, g);
-  for (const id of g.ids) clipEls.get(id)?.classList.remove("dragging");
-  if (!g.moved) return;
+  for (const id of g.ids) { const el = clipEls.get(id); el?.classList.remove("dragging"); if (el) el.style.zIndex = ""; }
+  if (!g.moved) { rebuild(); return; }
   const applied = (g.live.get(g.clip.id)?.from ?? g.clip.from) - g.base.get(g.clip.id);
   const d = Math.round(applied);
   if (!d) { rebuild(); return; }
@@ -934,8 +1052,14 @@ function endMove(e, g) {
   const idSet = new Set(g.ids);
   const roots = g.ids.filter((id) => !idSet.has(clips.find((c) => c.id === id)?.parentId));
   const n = g.ids.length > 1 ? `${g.ids.length} clips` : g.clip.gap ? "gap" : g.clip.name;
-  commit(`Moved ${n} ${fmtD(d)}`, "⌘Z to undo", () => {
+  // a drop that lands on other clips goes to the top of the stack (idea 22)
+  const finalFrom = g.base.get(g.clip.id) + d;
+  const willStack = has("layers") && g.ids.length === 1 && !g.clip.gap && !trackById(g.clip.trackId).magnetic &&
+    clips.some((o) => o.trackId === g.clip.trackId && o.id !== g.clip.id && !o.gap &&
+      finalFrom < o.from + o.dur - 0.01 && finalFrom + g.clip.dur > o.from + 0.01);
+  commit(`Moved ${n} ${fmtD(d)}`, willStack ? "on top of the stack · ⌘[ slides it under" : "⌘Z to undo", () => {
     for (const id of roots) { const c = clips.find((c) => c.id === id); c.from = g.base.get(id) + d; }
+    if (willStack) { zUnlink(g.clip); zPushTop(g.clip); }
   });
 }
 
@@ -946,7 +1070,7 @@ function startMagneticMove(e, clip, tr) {
   G.origin = Math.min(...clips.filter((c) => c.trackId === tr.id).map((c) => c.from));
   G.caret = el("div", "caret", tlCanvas);
   const laneEl = laneTracks.get(tr.id).parentElement;
-  G.caret.style.top = `${laneEl.offsetTop}px`; G.caret.style.height = `${tr.h}px`;
+  G.caret.style.top = `${laneEl.offsetTop}px`; G.caret.style.height = `${laneEl.offsetHeight}px`;
   G.moveMagnetic = true;
 }
 function magneticPreview(pointerFrame) {
@@ -985,6 +1109,7 @@ function moveMagneticMove(e) {
   G.live.set(G.clip.id, { from });
   const el = clipEls.get(G.clip.id);
   el.classList.add("lifted");
+  el.style.zIndex = 99;
   el.style.left = `${xOf(from)}px`;
   const caretF = magneticPreview(from + G.clip.dur / 2);
   for (const id of G.childIds) {
@@ -1103,7 +1228,7 @@ function endTrim(e, g) {
     g.clip.from = Math.round(live.from); g.clip.dur = Math.max(1, Math.round(live.dur)); g.clip.srcIn = Math.round(live.srcIn);
     // ripple: downstream shifts by the duration change, both edges (junction-fixed head trims included)
     if (g.ripple) for (const id of g.downstream) { const c = clips.find((c) => c.id === id); if (c) c.from += dDur; }
-    if (g.clip.gap && g.clip.dur < 1) clips = clips.filter((c) => c.id !== g.clip.id);
+    if (g.clip.gap && g.clip.dur < 1) { zUnlink(g.clip); clips = clips.filter((c) => c.id !== g.clip.id); }
   });
 }
 
@@ -1121,9 +1246,9 @@ function updateRollHandles(e) {
     if (Math.abs(a.from + a.dur - b.from) < 0.51 && Math.abs(f - b.from) * ppf < 7) {
       if (!rollHandleEl) rollHandleEl = el("div", "roll-handle", tlCanvas);
       const tr = trackById(trId);
-      const laneTop = tlCanvas.querySelectorAll(".lane")[tracks.indexOf(tr) + 1].offsetTop;
+      const laneTop = laneTracks.get(trId).parentElement.offsetTop;
       rollHandleEl.style.left = `${LABEL_W + xOf(b.from)}px`;
-      rollHandleEl.style.top = `${laneTop + tr.clipTop}px`;
+      rollHandleEl.style.top = `${laneTop + clipTopIn(tr, trId, b.id)}px`;
       rollHandleEl.style.height = `${tr.clipH}px`;
       rollHandleEl.textContent = "⟷";
       rollHandleEl.title = `Roll ${a.name} / ${b.name} — moves the boundary, downstream stays put`;
@@ -1263,12 +1388,13 @@ function endWedge(e, g) {
           if (!before.length && firstMover.from >= g.t0 - 1e-6 && g.t0 < firstMover.from) {
             for (const c of tcs) c.from += delta;            // whole storyline slides
           } else {
-            clips.push({ id: uid(), trackId: tr.id, name: "gap", gap: true, from: firstMover.from - 0.25, dur: delta, srcIn: 0, srcLen: 1e9, tone: "amber" });
+            const gp = { id: uid(), trackId: tr.id, name: "gap", gap: true, from: firstMover.from - 0.25, dur: delta, srcIn: 0, srcLen: 1e9, tone: "amber", zPrevId: null, zNextId: null };
+            clips.push(gp); zPushTop(gp);
             for (const c of tcs) if (g.plan.movers.has(c.id)) c.from += delta;
           }
         } else {
           const prev = tcs.filter((c) => !g.plan.movers.has(c.id)).pop();
-          if (prev?.gap) { prev.dur += delta; if (prev.dur < 1) clips = clips.filter((c) => c.id !== prev.id); }
+          if (prev?.gap) { prev.dur += delta; if (prev.dur < 1) { zUnlink(prev); clips = clips.filter((c) => c.id !== prev.id); } }
           for (const c of tcs) if (g.plan.movers.has(c.id)) c.from += delta;
         }
       } else {
@@ -1311,9 +1437,49 @@ function doBlade(e, clip) {
   commit(`Cut ${targets.length > 1 ? `${targets.length} clips` : targets[0].name} at ${fmtT(f)}`, "B again to keep cutting", () => {
     for (const c of targets) {
       const off = f - c.from;
-      clips.push({ ...c, id: uid(), from: f, dur: c.dur - off, srcIn: c.srcIn + off, parentId: c.parentId, badges: undefined });
+      const nc = { ...c, id: uid(), from: f, dur: c.dur - off, srcIn: c.srcIn + off, parentId: c.parentId, badges: undefined, zPrevId: null, zNextId: null };
+      clips.push(nc);
+      zInsertAbove(nc, c);                       // the new right half sits just above its source
       c.dur = off;
     }
+  });
+}
+
+/* ---- layer reorder (idea 22): drag a lane label ↑↓ ---- */
+function startLayerDrag(e, trId) {
+  e.stopPropagation();
+  beginGesture(e, "layerdrag", { trId });
+  G.label = e.target.closest(".lane-label");
+  G.label?.classList.add("lifting");
+  G.lanes = layerOrder().map((t) => {
+    const laneEl = laneTracks.get(t.id).parentElement;
+    return { id: t.id, top: laneEl.offsetTop, height: laneEl.offsetHeight };
+  });
+  G.caret = el("div", "layer-caret", tlCanvas);
+  moveLayerDrag(e);
+}
+function moveLayerDrag(e) {
+  if (Math.abs(e.clientY - G.startY) > 4) G.moved = true;
+  const y = e.clientY - tlCanvas.getBoundingClientRect().top;
+  const others = G.lanes.filter((l) => l.id !== G.trId);
+  let idx = others.length;
+  for (let i = 0; i < others.length; i++) if (y < others[i].top + others[i].height / 2) { idx = i; break; }
+  G.index = idx;
+  const caretY = idx < others.length ? others[idx].top : others[others.length - 1].top + others[others.length - 1].height;
+  G.caret.style.top = `${caretY - 1}px`;
+  showHud(e.clientX, e.clientY, `layer <b>${trackById(G.trId).name}</b> → ${idx === 0 ? "top of the composite" : `below ${trackById(others[idx - 1].id).name}`}`);
+}
+function endLayerDrag(e, g) {
+  g.caret?.remove();
+  g.label?.classList.remove("lifting");
+  if (!g.moved || g.index === undefined) return;
+  const others = layerOrder().filter((t) => t.id !== g.trId);
+  const cur = layerOrder().findIndex((t) => t.id === g.trId);
+  const next = [...others.slice(0, g.index), trackById(g.trId), ...others.slice(g.index)];
+  if (next.findIndex((t) => t.id === g.trId) === cur) return;
+  sndDrop();
+  commit(`Layer ${trackById(g.trId).name} → ${g.index === 0 ? "top" : `below ${others[g.index - 1].name}`}`, "upper layers cover lower", () => {
+    next.forEach((t, i) => { t.prevId = next[i - 1]?.id ?? null; t.nextId = next[i + 1]?.id ?? null; });
   });
 }
 
@@ -1380,7 +1546,7 @@ function showGapChip(trId, f0, f1, e) {
   const tr = trackById(trId);
   const laneEl = laneTracks.get(trId).parentElement;
   gapChipEl.style.left = `${LABEL_W + xOf((f0 + f1) / 2)}px`;
-  gapChipEl.style.top = `${laneEl.offsetTop + tr.h / 2}px`;
+  gapChipEl.style.top = `${laneEl.offsetTop + laneEl.offsetHeight / 2}px`;
 }
 function removeGapChip() { gapChipEl?.remove(); gapChipEl = null; gapHover = null; }
 function closeGap() {
@@ -1427,20 +1593,21 @@ function setPlaying(rate) {
   document.getElementById("tPlay").textContent = rate ? "⏸" : "▶";
   if (rate) { hideLoupe(); hideHud(); }
 }
-function sceneAt(f) {
-  for (const c of clips) if (c.trackId === "v1" && !c.gap) {
-    const l = liveClip(c);
-    if (f >= l.from && f < l.from + l.dur) return c;
+/* the composite is ordered: layers top→bottom, then z top→bottom within each —
+   the topmost clip under the playhead is what's visible (idea 22) */
+function topAt(f, kind) {
+  for (const tr of layerOrder()) {
+    if (tr.kind !== kind) continue;
+    for (const c of zTopToBottom(tr.id)) {
+      if (c.gap) continue;
+      const l = liveClip(c);
+      if (f >= l.from && f < l.from + l.dur) return c;
+    }
   }
   return null;
 }
-function overlayAt(f) {
-  for (const c of clips) if (c.trackId === "ov") {
-    const l = liveClip(c);
-    if (f >= l.from && f < l.from + l.dur) return c;
-  }
-  return null;
-}
+const sceneAt = (f) => topAt(f, "scenes");
+const overlayAt = (f) => topAt(f, "overlay");
 function updateMonitor(previewFrame = null) {
   const f = previewFrame ?? (skimFrame ?? playhead);
   const sc = sceneAt(f);
@@ -1493,6 +1660,7 @@ function defaultHint() {
   if (has("roll")) bits.push("hover junctions to roll");
   if (has("wedge")) bits.push("R opens time");
   if (has("blade")) bits.push("B cuts");
+  if (has("layers")) bits.push("⌘[ ⌘] restack");
   if (has("fine")) bits.push("hold ⇧ for fine control");
   bits.push(", . nudge", "[ ] trim to playhead");
   return bits.join(" · ");
@@ -1510,9 +1678,11 @@ function updateHint(e) {
     const c = clips.find((c) => c.id === e.target.closest(".clip").dataset.id);
     const tr = c && trackById(c.trackId);
     const slipBit = has("slip") ? " · ⌥-drag slips" : "";
+    const stackBit = has("layers") && tr && !tr.magnetic ? " · overlaps stack (⌘[ ⌘])" : "";
     h = tr?.magnetic ? `Drag to reorder the storyline · edges ripple-trim${slipBit}${fineBit}`
-      : `Drag to move${fineBit}${snapBit}${slipBit} · edges trim · ⌘-edge ripple-trims`;
+      : `Drag to move${fineBit}${snapBit}${slipBit}${stackBit} · edges trim · ⌘-edge ripple-trims`;
   }
+  else if (e.target.closest(".lane-label")?.dataset.layer) h = "Layer — drag ↑↓ to reorder the composite · upper layers cover lower";
   else if (e.target.closest(".ruler")) h = `Click / drag to scrub${has("skim") ? " · hover skims" : ""}${has("fine") ? " · ⇧-scrub for fine + loupe" : ""}${PAGE.markers ? " · markers drag, dbl-click deletes" : ""}`;
   else if (e.target.closest(".minimap")) h = "Minimap — drag the window to pan · drag its edges to zoom · click to jump";
   else h = defaultHint();
@@ -1533,12 +1703,14 @@ function drawMinimap() {
   const mx = (f) => ((f - axisStart) / axisLen()) * w;
   ctx.fillStyle = "rgb(240 180 95 / 7%)";
   ctx.fillRect(mx(render.from), 0, mx(render.to) - mx(render.from), h);
-  const rows = { ov: 5, v1: 12, sfx: 21, mx: 27 };
+  const order = layerOrder();
+  const step = order.length > 1 ? Math.min(8, 22 / (order.length - 1)) : 0;
+  const yFor = new Map(order.map((t, i) => [t.id, 4 + i * step]));
   for (const c of clips) {
     const live = liveClip(c);
     const t = TONES[c.tone];
     ctx.fillStyle = c.gap ? "rgb(240 180 95 / 25%)" : `hsl(${t.hue} 55% 55% / .75)`;
-    ctx.fillRect(mx(live.from), rows[c.trackId] ?? 16, Math.max(1.5, (live.dur / axisLen()) * w), c.trackId === "v1" ? 6 : 3);
+    ctx.fillRect(mx(live.from), yFor.get(c.trackId) ?? 16, Math.max(1.5, (live.dur / axisLen()) * w), trackById(c.trackId)?.kind === "scenes" ? 6 : 3);
   }
   for (const m of markers) { ctx.fillStyle = "#d5a9e8"; ctx.fillRect(mx(m.frame), 2, 1.5, 6); }
   ctx.fillStyle = "#f0b45f";
@@ -1614,6 +1786,7 @@ function toggleMagnet(tr) {
   commit("SCENES magnetic — storyline repacked", "no gaps, no overlaps", () => {
     tr.magnetic = true;
     const tcs = clips.filter((c) => c.trackId === tr.id && !c.gap).sort((a, b) => a.from - b.from);
+    for (const gcl of clips) if (gcl.trackId === tr.id && gcl.gap) zUnlink(gcl);
     clips = clips.filter((c) => !(c.trackId === tr.id && c.gap));
     let at = Math.min(...tcs.map((c) => c.from));
     for (const c of tcs) { c.from = at; at += c.dur; }
@@ -1655,6 +1828,7 @@ function deleteSelection() {
   commit(`Deleted ${sel.length > 1 ? `${sel.length} clips` : sel[0].gap ? "gap" : sel[0].name}`, "magnetic tracks close up", () => {
     for (const c of sel) {
       const tr = trackById(c.trackId);
+      zUnlink(c);
       clips = clips.filter((x) => x.id !== c.id);
       if (tr.magnetic) for (const o of clips) if (o.trackId === c.trackId && o.from > c.from) o.from -= c.dur;
       for (const o of clips) if (o.parentId === c.id) o.parentId = null;
@@ -1668,6 +1842,18 @@ window.addEventListener("keydown", (e) => {
   const cmd = e.metaKey || e.ctrlKey;
   if (cmd && k.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if (cmd && k.toLowerCase() === "a") { e.preventDefault(); selection = new Set(clips.filter((c) => !c.gap).map((c) => c.id)); refreshSelection(); return; }
+  if (cmd && (k === "[" || k === "]") && has("layers")) {           // idea 22: restack within the layer
+    e.preventDefault();
+    const sel = clips.filter((c) => selection.has(c.id));
+    if (sel.length !== 1) { toast("Select one clip to restack", "⌘[ sends back · ⌘] brings forward"); return; }
+    const c = sel[0], up = k === "]";
+    const neighborId = up ? c.zNextId : c.zPrevId;
+    if (!neighborId) { toast(`${c.name} is already at the ${up ? "top" : "bottom"} of its layer`); return; }
+    const nb = byId(neighborId);
+    sndTick();
+    commit(`${c.name} ${up ? "over" : "under"} ${nb.name}`, "stacking order", () => zSwap(c, up));
+    return;
+  }
   if (cmd) return;
   switch (k) {
     case " ": e.preventDefault(); setPlaying(playing ? 0 : 1); break;
@@ -1786,7 +1972,7 @@ function applyPageChrome() {
     if (!live) g.remove();
   });
   const more = el("div", "ideas-more", scrollEl);
-  more.innerHTML = `<a href="./">the full lab — all 21 ideas together</a><a href="../">all single-feature prototypes</a>`;
+  more.innerHTML = `<a href="./">the full lab — all 22 ideas together</a><a href="../">all single-feature prototypes</a>`;
   document.getElementById("hint").textContent = defaultHint();
 }
 

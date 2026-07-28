@@ -1,6 +1,6 @@
 # Timeline Lab
 
-Interactive prototype of the next FrameDiff Studio timeline: 21 editing ideas (precision loupe, sticky snap with breakaway, ripple-insert ＋TIME wedge, magnetic storyline, connected clips, beat grid, blade, minimap, take stacks, …) integrated into one system on the studio's design tokens.
+Interactive prototype of the next FrameDiff Studio timeline: 22 editing ideas (precision loupe, sticky snap with breakaway, ripple-insert ＋TIME wedge, magnetic storyline, connected clips, beat grid, blade, minimap, take stacks, …) integrated into one system on the studio's design tokens.
 
 **Run:**
 
@@ -21,6 +21,7 @@ python3 -m http.server 4179 --bind 0.0.0.0 --directory prototypes
 | `/timeline/?feature=magnetic` | Magnetic storyline |
 | `/timeline/?feature=blade` | Blade with preview |
 | `/timeline/?feature=takes` | Generative take stacks |
+| `/timeline/?feature=layers` | Layers & stacking — linked-list order, overlap rows, ⌘[ ⌘] |
 
 Page definitions live in the `PAGES` table at the top of [app.js](./app.js) — adding a page is one entry plus a card in [../index.html](../index.html).
 
