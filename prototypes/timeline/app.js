@@ -294,7 +294,7 @@ function rebuild() {
 
   const ruler = el("div", "ruler", rulerBody);
   ruler.dataset.gesture = "ruler";
-  ruler.dataset.idea = "5 17";
+  ruler.dataset.idea = "6 17";
   const steps = [1, 2, 5, 10, 15, 30, 60, 150, 300, 900, 1800];
   const step = steps.find((s) => s * ppf >= 64) ?? 3600;
   for (let rel = Math.ceil((axisStart - render.from) / step) * step; rel <= axisEnd - render.from; rel += step) {
@@ -307,7 +307,7 @@ function rebuild() {
   }
   for (const b of beatFrames()) {
     const d = el("i", `beat${b.down ? " down" : ""}`, ruler);
-    d.dataset.idea = "5";
+    d.dataset.idea = "6";
     d.style.left = `${xOf(b.f)}px`;
   }
   for (const m of markers) {
@@ -334,7 +334,7 @@ function rebuild() {
     label.innerHTML = `<b>${tr.label}</b><span class="lane-kindname">${tr.name}</span>`;
     if (tr.kind === "scenes") {
       const b = el("button", `lane-chip${tr.magnetic ? " on" : ""}`, label);
-      b.textContent = "⌁"; b.dataset.idea = "8";
+      b.textContent = "⌁"; b.dataset.idea = "12";
       b.title = tr.magnetic ? "Magnetic storyline ON — no gaps, drag to reorder (click to free)" : "Magnetic storyline OFF — free staging (click to repack)";
       b.onclick = (ev) => { ev.stopPropagation(); toggleMagnet(tr); };
     }
