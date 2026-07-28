@@ -18,6 +18,26 @@ const secs = (f) => (f / FPS).toFixed(2);
 const fmtT = (f) => `${secs(f)}s`;
 const fmtD = (f) => `${f >= 0 ? "+" : "−"}${Math.abs(Math.round(f))}f · ${f >= 0 ? "+" : "−"}${(Math.abs(f) / FPS).toFixed(2)}s`;
 
+/* ============ single-feature pages (?feature=…) ============
+   The lab shows everything; each feature page strips the project and the
+   chrome down to a plain baseline timeline plus exactly one idea. */
+const PAGES = {
+  lab:      { label: null, ideas: null, markers: true, connected: true, tracks: null, v1Magnetic: true,
+              caps: ["loupe", "fine", "snapEnds", "snapBeats", "beatDots", "wedge", "gaps", "magnetic", "blade", "takes", "stems", "skim", "minimap", "roll", "slip", "motion"] },
+  loupe:    { label: "PRECISION LOUPE",    ideas: [1, 2, 3], caps: ["loupe", "fine"],                 tracks: ["ov", "v1", "mx"],        v1Magnetic: false },
+  snap:     { label: "STICKY SNAP",        ideas: [4, 5],    caps: ["fine", "snapEnds"],              tracks: ["ov", "v1", "sfx", "mx"], v1Magnetic: false, markers: true },
+  beats:    { label: "BEAT GRID",          ideas: [6],       caps: ["snapBeats", "beatDots"],         tracks: ["v1", "sfx", "mx"],       v1Magnetic: false },
+  ripple:   { label: "RIPPLE INSERT",      ideas: [7, 8],    caps: ["wedge", "gaps", "snapEnds"],     tracks: ["ov", "v1", "sfx", "mx"], v1Magnetic: true, connected: true },
+  magnetic: { label: "MAGNETIC STORYLINE", ideas: [12],      caps: ["magnetic"],                      tracks: ["v1", "mx"],              v1Magnetic: true },
+  blade:    { label: "BLADE",              ideas: [14],      caps: ["blade"],                         tracks: ["ov", "v1", "mx"],        v1Magnetic: false },
+  takes:    { label: "TAKE STACKS",        ideas: [21],      caps: ["takes"],                         tracks: ["ov", "v1", "mx"],        v1Magnetic: true, connected: true },
+};
+const FEATURE = (() => { const f = new URLSearchParams(location.search).get("feature"); return PAGES[f] ? f : "lab"; })();
+const PAGE = PAGES[FEATURE];
+const CAPS = new Set(PAGE.caps);
+const has = (c) => CAPS.has(c);
+const anySnap = () => has("snapEnds") || has("snapBeats");
+
 /* tones: studio palette families */
 const TONES = {
   amber:  { line: "rgb(240 180 95 / 40%)",  bg: "rgb(240 180 95 / 14%)",  text: "#ecd3ac", hue: 36 },
@@ -30,7 +50,7 @@ const TONES = {
 };
 
 /* ============ model ============ */
-const tracks = [
+let tracks = [
   { id: "ov",  label: "V2", name: "OVERLAY", kind: "overlay", h: 40, clipH: 26, clipTop: 7 },
   { id: "v1",  label: "V1", name: "SCENES",  kind: "scenes",  h: 62, clipH: 50, clipTop: 6, magnetic: true },
   { id: "sfx", label: "A1", name: "SFX",     kind: "sfx",     h: 34, clipH: 22, clipTop: 6 },
@@ -78,6 +98,24 @@ let render = { from: 0, to: 690 };
 let markers = [];
 let motionKeys = [];
 let motionTarget = "hero-title";
+
+/* prune the seeded project down to what this page demonstrates */
+function applyPageConfig() {
+  if (PAGE.tracks) {
+    const keep = new Set(PAGE.tracks);
+    tracks = tracks.filter((t) => keep.has(t.id));
+    clips = clips.filter((c) => keep.has(c.trackId));
+  }
+  const v1 = trackById("v1");
+  if (v1) v1.magnetic = PAGE.v1Magnetic !== false;
+  if (!PAGE.connected) for (const c of clips) c.parentId = null;
+  if (!has("takes")) for (const c of clips) {
+    delete c.takes;
+    if (c.badges) { c.badges = c.badges.filter(([k]) => k !== "pinned"); if (!c.badges.length) delete c.badges; }
+  }
+  if (!PAGE.markers) markers = [];
+  if (!has("motion")) motionKeys = [];
+}
 
 /* selection + tools + toggles */
 let selection = new Set();
@@ -226,18 +264,20 @@ function snapTargets(excludeIds = new Set(), { beats = true, self = true } = {})
   const T = [];
   T.push({ f: render.from, label: "output start", w: 1 }, { f: render.to, label: "output end", w: 1 });
   T.push({ f: Math.round(playhead), label: "playhead", w: 1.1 });
-  for (const m of markers) T.push({ f: m.frame, label: `marker ${m.label}`, w: 1 });
-  for (const k of motionKeys) T.push({ f: k.frame, label: "motion key", w: 0.9 });
-  if (self) for (const c of clips) {
-    if (excludeIds.has(c.id) || c.gap) continue;
-    T.push({ f: c.from, label: `${c.name} in`, w: 1 }, { f: c.from + c.dur, label: `${c.name} out`, w: 1 });
+  if (has("snapEnds")) {
+    for (const m of markers) T.push({ f: m.frame, label: `marker ${m.label}`, w: 1 });
+    for (const k of motionKeys) T.push({ f: k.frame, label: "motion key", w: 0.9 });
+    if (self) for (const c of clips) {
+      if (excludeIds.has(c.id) || c.gap) continue;
+      T.push({ f: c.from, label: `${c.name} in`, w: 1 }, { f: c.from + c.dur, label: `${c.name} out`, w: 1 });
+    }
   }
-  if (beats) for (const b of beatFrames()) T.push({ f: b.f, label: b.down ? "downbeat" : "beat", w: b.down ? 0.85 : 0.7, beat: true });
+  if (beats && has("snapBeats")) for (const b of beatFrames()) T.push({ f: b.f, label: b.down ? "downbeat" : "beat", w: b.down ? 0.85 : 0.7, beat: true });
   return T;
 }
 /* sticky snap: engages inside ENTER px, holds until EXIT px — the user's "sticky ends" */
 function stickySnap(g, raw, targets, e) {
-  if (!snapOn || e.altKey) { if (g.stuck) { g.stuck = null; hideGuide(); } return raw; }
+  if (!anySnap() || !snapOn || e.altKey) { if (g.stuck) { g.stuck = null; hideGuide(); } return raw; }
   const enter = (e.shiftKey ? SNAP_ENTER * 0.6 : SNAP_ENTER) / ppf;
   const exit = (e.shiftKey ? SNAP_EXIT * 0.4 : SNAP_EXIT) / ppf;
   if (g.stuck) {
@@ -253,8 +293,8 @@ function stickySnap(g, raw, targets, e) {
   return raw;
 }
 /* one-shot snap without sounds/guides — for hover previews and gesture starts */
-function quietSnap(raw, targets, e, px = 8) {
-  if (!snapOn || e.altKey) return raw;
+function quietSnap(raw, targets, e, px = 8, force = false) {
+  if ((!force && !anySnap()) || !snapOn || e.altKey) return raw;
   let best = raw, bestD = px / ppf;
   for (const t of targets) {
     const d = Math.abs(raw - t.f);
@@ -305,7 +345,7 @@ function rebuild() {
     const abs = Math.abs(rel);
     t.textContent = `${rel < 0 ? "-" : ""}${abs < FPS ? `${abs}f` : `${(abs / FPS).toFixed(abs % FPS ? 1 : 0)}s`}`;
   }
-  for (const b of beatFrames()) {
+  if (has("beatDots")) for (const b of beatFrames()) {
     const d = el("i", `beat${b.down ? " down" : ""}`, ruler);
     d.dataset.idea = "6";
     d.style.left = `${xOf(b.f)}px`;
@@ -332,7 +372,7 @@ function rebuild() {
     lane.style.height = `${tr.h}px`;
     const label = el("div", "lane-label", lane);
     label.innerHTML = `<b>${tr.label}</b><span class="lane-kindname">${tr.name}</span>`;
-    if (tr.kind === "scenes") {
+    if (tr.kind === "scenes" && has("magnetic")) {
       const b = el("button", `lane-chip${tr.magnetic ? " on" : ""}`, label);
       b.textContent = "⌁"; b.dataset.idea = "12";
       b.title = tr.magnetic ? "Magnetic storyline ON — no gaps, drag to reorder (click to free)" : "Magnetic storyline OFF — free staging (click to repack)";
@@ -351,6 +391,7 @@ function rebuild() {
   }
 
   /* --- motion lane (GSAP keys, studio-style) --- */
+  if (has("motion")) {
   const mlane = el("div", "lane motion", tlCanvas);
   mlane.style.height = "30px";
   const mlabel = el("div", "lane-label", mlane);
@@ -371,9 +412,10 @@ function rebuild() {
       keyEls.set(k.id, d);
     }
   }
+  }
 
   /* --- overlay furniture --- */
-  connectStems();
+  if (has("stems")) connectStems();
   playheadEl = el("div", "playhead", tlCanvas);
   skimEl = el("div", "skim-ghost", tlCanvas); skimEl.hidden = true;
   el("div", "skim-tc", skimEl).className = "skim-tc";
@@ -499,6 +541,7 @@ const hudTarget = (g) => (g.stuck ? ` · <span class="hud-target">⇢ ${g.stuck.
 /* the precision loupe (idea 1): a zoomed bubble over the edit point */
 const LW = 300, LH = 92;
 function showLoupe(fCenter, g, e, opts = {}) {
+  if (!has("loupe")) return;
   const dpr = Math.min(2, devicePixelRatio || 1);
   if (loupeEl.width !== LW * dpr) { loupeEl.width = LW * dpr; loupeEl.height = LH * dpr; loupeEl.style.width = `${LW}px`; loupeEl.style.height = `${LH}px`; }
   loupeEl.hidden = false; loupeEl.classList.add("show");
@@ -615,7 +658,7 @@ function beginGesture(e, kind, extra = {}) {
 }
 function gestureDelta(e) {
   autoPan(e);
-  const gain = e.shiftKey ? FINE_GAIN : 1;               // idea 2: ⇧ = fine gearing
+  const gain = e.shiftKey && has("fine") ? FINE_GAIN : 1; // idea 2: ⇧ = fine gearing
   G.acc += ((e.clientX - G.lastX) * gain + (scroller.scrollLeft - G.lastSL)) / ppf;
   G.lastX = e.clientX; G.lastSL = scroller.scrollLeft;
   if (!G.moved && Math.hypot(e.clientX - G.startX, e.clientY - G.startY) > 3) G.moved = true;
@@ -648,7 +691,7 @@ tlCanvas.addEventListener("pointerdown", (e) => {
     const clip = clips.find((c) => c.id === t.dataset.id);
     if (tool === "blade") return doBlade(e, clip);
     if (tool === "wedge") return startWedge(e);
-    if (e.altKey && !clip.gap) return startSlip(e, clip);
+    if (e.altKey && !clip.gap && has("slip")) return startSlip(e, clip);
     return startMove(e, clip);
   }
   if (kind === "track") {
@@ -687,7 +730,7 @@ function startScrub(e) {
 }
 function moveScrub(e) {
   let f;
-  if (e.shiftKey) {                                     // fine gearing applies to scrubbing too
+  if (e.shiftKey && has("fine")) {                      // fine gearing applies to scrubbing too
     f = playhead + (e.clientX - G.lastX) * FINE_GAIN / ppf;
   } else {
     f = frameAt(e.clientX);
@@ -855,7 +898,8 @@ function startMagneticMove(e, clip, tr) {
   G.order = clips.filter((c) => c.trackId === tr.id && c.id !== clip.id).sort((a, b) => a.from - b.from);
   G.origin = Math.min(...clips.filter((c) => c.trackId === tr.id).map((c) => c.from));
   G.caret = el("div", "caret", tlCanvas);
-  G.caret.style.top = `${RULER_H + 40}px`; G.caret.style.height = `${trackById("v1").h}px`;
+  const laneEl = laneTracks.get(tr.id).parentElement;
+  G.caret.style.top = `${laneEl.offsetTop}px`; G.caret.style.height = `${tr.h}px`;
   G.moveMagnetic = true;
 }
 function magneticPreview(pointerFrame) {
@@ -1003,7 +1047,7 @@ function endTrim(e, g) {
 /* ---- roll at junctions (idea 10) ---- */
 let rollHandleEl = null;
 function updateRollHandles(e) {
-  if (G || tool !== "select") { rollHandleEl?.remove(); rollHandleEl = null; return; }
+  if (!has("roll") || G || tool !== "select") { rollHandleEl?.remove(); rollHandleEl = null; return; }
   const trEl = e.target.closest?.(".lane-track");
   const trId = trEl?.dataset.track;
   if (!trId || trId === "motion") { rollHandleEl?.remove(); rollHandleEl = null; return; }
@@ -1180,7 +1224,7 @@ let cutLineEl = null;
 function updateCutLine(e) {
   if (tool !== "blade" || G) { cutLineEl?.remove(); cutLineEl = null; clearCutTints(); return; }
   const overClip = e.target.closest?.(".clip");
-  const f = Math.round(quietSnap(frameAt(e.clientX), snapTargets(new Set(), { self: false }), e));
+  const f = Math.round(quietSnap(frameAt(e.clientX), snapTargets(new Set(), { self: false }), e, 8, true));
   if (!cutLineEl) { cutLineEl = el("div", "cut-line", tlCanvas); el("span", "cut-tc", cutLineEl); }
   cutLineEl.style.left = `${LABEL_W + xOf(f)}px`;
   cutLineEl.querySelector(".cut-tc").textContent = `✂ ${fmtT(f)}${e.shiftKey ? " · all tracks" : ""}`;
@@ -1196,7 +1240,7 @@ function updateCutLine(e) {
 }
 function clearCutTints() { document.querySelectorAll(".cut-tint").forEach((t) => t.remove()); }
 function doBlade(e, clip) {
-  const f = Math.round(quietSnap(frameAt(e.clientX), snapTargets(new Set(), { self: false }), e));
+  const f = Math.round(quietSnap(frameAt(e.clientX), snapTargets(new Set(), { self: false }), e, 8, true));
   const targets = e.shiftKey ? clips.filter((c) => !c.gap && f > c.from + 1 && f < c.from + c.dur - 1)
     : clip && !clip.gap && f > clip.from + 1 && f < clip.from + clip.dur - 1 ? [clip] : [];
   if (!targets.length) return toast("Nothing to cut there");
@@ -1242,7 +1286,7 @@ function refreshSelection() {
 /* ---- gap chips (idea 8) ---- */
 let gapChipEl = null, gapHover = null;
 function updateGapChip(e) {
-  if (G || tool !== "select") { removeGapChip(); return; }
+  if (!has("gaps") || G || tool !== "select") { removeGapChip(); return; }
   const trEl = e.target.closest?.(".lane-track");
   const trId = trEl?.dataset.track;
   if (!trId || trId === "motion" || e.target.closest(".clip")) { removeGapChip(); return; }
@@ -1361,7 +1405,7 @@ scroller.addEventListener("pointermove", (e) => {
   updateGapChip(e);
   updateCutLine(e);
   updateHint(e);
-  if (!skimOn || G || playing || !e.target.closest(".ruler")) {
+  if (!has("skim") || !skimOn || G || playing || !e.target.closest(".ruler")) {
     if (skimFrame != null && !G) { skimFrame = null; skimEl.hidden = true; updateMonitor(); }
     return;
   }
@@ -1375,28 +1419,41 @@ scroller.addEventListener("pointerleave", () => { if (skimFrame != null) { skimF
 
 /* ---- contextual hints (statusbar) ---- */
 const hintEl = document.getElementById("hint");
+function defaultHint() {
+  const bits = ["Drag clips", "edges trim"];
+  if (has("roll")) bits.push("hover junctions to roll");
+  if (has("wedge")) bits.push("R opens time");
+  if (has("blade")) bits.push("B cuts");
+  if (has("fine")) bits.push("hold ⇧ for fine control");
+  bits.push(", . nudge", "[ ] trim to playhead");
+  return bits.join(" · ");
+}
 function updateHint(e) {
   let h = "";
-  if (tool === "blade") h = "BLADE — click a clip to cut · ⇧-click cuts every track · snaps to beats & playhead · Esc to exit";
+  const fineBit = has("fine") ? " · ⇧ fine" : "";
+  const snapBit = anySnap() ? " · ⌥ no snap" : "";
+  if (tool === "blade") h = "BLADE — click a clip to cut · ⇧-click cuts every track · snaps to the playhead · Esc to exit";
   else if (tool === "wedge") h = "＋TIME — drag right anywhere to insert time, left to remove · locked tracks stay · Esc to exit";
-  else if (e.target.closest(".trim-handle")) h = "Drag to trim · magnetic track ripples downstream · ⌘-drag ripples on free tracks · ⇧ fine · ⌥ no snap";
+  else if (e.target.closest(".trim-handle")) h = `Drag to trim · magnetic track ripples downstream · ⌘-drag ripples on free tracks${fineBit}${snapBit}`;
   else if (e.target.closest(".roll-handle")) h = "Roll the junction — one clip grows, the neighbor shrinks, downstream stays put";
   else if (e.target.closest(".clip.gap-clip")) h = "Gap clip — trim its edges or ⌫ to close it (storyline repacks)";
   else if (e.target.closest(".clip")) {
     const c = clips.find((c) => c.id === e.target.closest(".clip").dataset.id);
     const tr = c && trackById(c.trackId);
-    h = tr?.magnetic ? "Drag to reorder the storyline · edges ripple-trim · ⌥-drag slips the source · ⇧ fine"
-      : "Drag to move (⇧ fine, ⌥ no snap) · ⌥-drag slips · edges trim · ⌘-edge ripple-trims";
+    const slipBit = has("slip") ? " · ⌥-drag slips" : "";
+    h = tr?.magnetic ? `Drag to reorder the storyline · edges ripple-trim${slipBit}${fineBit}`
+      : `Drag to move${fineBit}${snapBit}${slipBit} · edges trim · ⌘-edge ripple-trims`;
   }
-  else if (e.target.closest(".ruler")) h = "Click / drag to scrub · hover skims · ⇧-scrub for fine + loupe · markers drag, dbl-click deletes";
+  else if (e.target.closest(".ruler")) h = `Click / drag to scrub${has("skim") ? " · hover skims" : ""}${has("fine") ? " · ⇧-scrub for fine + loupe" : ""}${PAGE.markers ? " · markers drag, dbl-click deletes" : ""}`;
   else if (e.target.closest(".minimap")) h = "Minimap — drag the window to pan · drag its edges to zoom · click to jump";
-  else h = "Drag clips · edges trim · hover junctions to roll · R opens time · B cuts · , . nudge · [ ] trim to playhead";
+  else h = defaultHint();
   if (hintEl.textContent !== h) hintEl.textContent = h;
 }
 
 /* ============ minimap (idea 15) ============ */
 const mmCanvas = document.getElementById("mmCanvas");
 function drawMinimap() {
+  if (!has("minimap")) return;
   const w = mmCanvas.clientWidth || mmCanvas.parentElement.clientWidth;
   const h = 33;
   const dpr = Math.min(2, devicePixelRatio || 1);
@@ -1472,9 +1529,9 @@ function updateProj() {
 /* ============ tools / chips / magnet ============ */
 function setTool(next) {
   tool = tool === next ? "select" : next;
-  document.getElementById("toolSelect").classList.toggle("active", tool === "select");
-  document.getElementById("toolBlade").classList.toggle("active", tool === "blade");
-  document.getElementById("toolWedge").classList.toggle("active", tool === "wedge");
+  document.getElementById("toolSelect")?.classList.toggle("active", tool === "select");
+  document.getElementById("toolBlade")?.classList.toggle("active", tool === "blade");
+  document.getElementById("toolWedge")?.classList.toggle("active", tool === "wedge");
   document.body.classList.toggle("mode-blade", tool === "blade");
   document.body.classList.toggle("mode-wedge", tool === "wedge");
   const banner = document.getElementById("banner");
@@ -1558,11 +1615,11 @@ window.addEventListener("keydown", (e) => {
     case ">": nudge(10); break;
     case "[": trimToPlayhead("l"); break;
     case "]": trimToPlayhead("r"); break;
-    case "b": case "B": setTool("blade"); break;
-    case "r": case "R": setTool("wedge"); break;
+    case "b": case "B": if (has("blade")) setTool("blade"); break;
+    case "r": case "R": if (has("wedge")) setTool("wedge"); break;
     case "v": case "V": setTool("select"); break;
-    case "m": case "M": commit(`Marker at ${fmtT(Math.round(playhead))}`, null, () => markers.push({ id: uid("m"), frame: Math.round(playhead), label: `m${markers.length + 1}` })); break;
-    case "s": case "S": skimOn = !skimOn; document.getElementById("chipSkim").classList.toggle("on", skimOn); toast(skimOn ? "Skimming on — hover the ruler" : "Skimming off"); break;
+    case "m": case "M": if (!PAGE.markers) break; commit(`Marker at ${fmtT(Math.round(playhead))}`, null, () => markers.push({ id: uid("m"), frame: Math.round(playhead), label: `m${markers.length + 1}` })); break;
+    case "s": case "S": if (!has("skim")) break; skimOn = !skimOn; document.getElementById("chipSkim")?.classList.toggle("on", skimOn); toast(skimOn ? "Skimming on — hover the ruler" : "Skimming off"); break;
     case "z": case "Z": zoomSelection(); break;
     case "f": case "F": zoomFit(); break;
     case "i": case "I": commit(`Output starts at ${fmtT(Math.round(playhead))}`, null, () => { render.from = Math.min(Math.round(playhead), render.to - 1); }); break;
@@ -1599,6 +1656,11 @@ document.getElementById("tHome").onclick = () => { playhead = render.from; posit
 document.getElementById("toolSelect").onclick = () => setTool("select");
 document.getElementById("toolBlade").onclick = () => setTool("blade");
 document.getElementById("toolWedge").onclick = () => setTool("wedge");
+document.getElementById("toolSelect").dataset.need = "blade wedge";
+document.getElementById("toolBlade").dataset.need = "blade";
+document.getElementById("toolWedge").dataset.need = "wedge";
+document.getElementById("chipSnap").dataset.need = "snapEnds snapBeats";
+document.getElementById("chipSkim").dataset.need = "skim";
 document.getElementById("zIn").onclick = () => setZoom(ppf * 2);
 document.getElementById("zOut").onclick = () => setZoom(ppf / 2);
 document.getElementById("zFit").onclick = zoomFit;
@@ -1625,6 +1687,40 @@ for (const idea of drawer.querySelectorAll(".idea")) {
   idea.addEventListener("mouseleave", () => document.querySelectorAll(".flash").forEach((el) => el.classList.remove("flash")));
 }
 
+/* ============ single-feature page chrome ============ */
+function applyPageChrome() {
+  if (FEATURE === "lab") return;
+  document.title = `FrameDiff · ${PAGE.label.charAt(0) + PAGE.label.slice(1).toLowerCase()}`;
+  document.querySelector(".edition").textContent = `${PAGE.label} · PROTOTYPE`;
+  if (!anySnap()) snapOn = false;
+  if (!has("skim")) skimOn = false;
+  // strip chrome whose capability is off (tools, chips, minimap, keys rows)
+  document.querySelectorAll("[data-need]").forEach((n) => {
+    if (n.dataset.need.split(" ").some((c) => (c === "markers" ? PAGE.markers : has(c)))) return;
+    if (n.closest(".keys-grid")) n.nextElementSibling?.remove();
+    n.remove();
+  });
+  if (!has("blade") && !has("wedge")) document.querySelector(".tools")?.remove();
+  if (!has("minimap")) {
+    document.querySelector(".minimap")?.remove();
+    document.querySelector(".timeline").style.gridTemplateRows = "minmax(0, 1fr)";
+  }
+  // drawer: only this page's idea cards, plus routes back out
+  const want = new Set(PAGE.ideas.map(String));
+  const head = drawer.querySelector("header");
+  head.childNodes[0].nodeValue = PAGE.ideas.length > 1 ? "THE IDEAS" : "THE IDEA";
+  const scrollEl = drawer.querySelector(".ideas-scroll");
+  scrollEl.querySelectorAll(".idea").forEach((n) => { if (!want.has(n.dataset.flash)) n.remove(); });
+  scrollEl.querySelectorAll(".ig").forEach((g) => {
+    let sib = g.nextElementSibling, live = false;
+    while (sib && !sib.classList.contains("ig")) { if (sib.classList.contains("idea")) live = true; sib = sib.nextElementSibling; }
+    if (!live) g.remove();
+  });
+  const more = el("div", "ideas-more", scrollEl);
+  more.innerHTML = `<a href="./">the full lab — all 21 ideas together</a><a href="../">all single-feature prototypes</a>`;
+  document.getElementById("hint").textContent = defaultHint();
+}
+
 /* idea 21: cycle generative takes in place — different durations ripple the storyline */
 function cycleTake(c) {
   const next = (c.takes.cur + 1) % c.takes.list.length;
@@ -1644,6 +1740,8 @@ function cycleTake(c) {
 
 /* ============ init ============ */
 seedProject();
+applyPageConfig();
+applyPageChrome();
 recomputeAxis();
 resolvePpf();
 rebuild();

@@ -28,7 +28,7 @@
         "--bind",
         "0.0.0.0",
         "--directory",
-        "prototypes/timeline"
+        "prototypes"
       ],
       "port": 4179
     },

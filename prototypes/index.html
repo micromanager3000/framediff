@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FrameDiff · Timeline Prototypes</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%3E%3Crect%20width='16'%20height='16'%20rx='3.5'%20fill='%230b0d10'/%3E%3Ccircle%20cx='8'%20cy='8'%20r='5'%20fill='none'%20stroke='%23e8ebf2'%20stroke-opacity='.22'%20stroke-width='1.5'/%3E%3Cpath%20d='M8,8L8,3A5,5,0,0,1,13,8Z'%20fill='%23f0b45f'/%3E%3C/svg%3E" />
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    --bg: #0b0d10; --panel: #12151a; --panel-raised: #1a1e25;
+    --line: rgb(232 235 242 / 8%); --line-strong: rgb(232 235 242 / 16%);
+    --text: #f4f2ec; --muted: #c6c8cd; --faint: #969ba7;
+    --accent: #f0b45f; --focus: #8fd8ff; --green: #72d39c;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    margin: 0; min-height: 100vh; padding: 40px 20px 64px;
+    background: var(--bg); color: var(--text);
+    font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; letter-spacing: .12em; font-size: 13px; font-weight: 600; }
+  .mark { width: 22px; height: 22px; border-radius: 50%; background: conic-gradient(from 0deg, var(--accent) 0 25%, rgb(232 235 242 / 10%) 25% 100%); box-shadow: inset 0 0 0 1.5px rgb(232 235 242 / 22%); }
+  .sub { margin: 0 0 30px; color: var(--faint); font: 400 12px/1.6 var(--mono); }
+  .lab-card { display: block; margin-bottom: 26px; padding: 18px 20px; border: 1px solid rgb(240 180 95 / 35%); border-radius: 12px; background: linear-gradient(135deg, rgb(240 180 95 / 9%), rgb(240 180 95 / 3%)); text-decoration: none; color: inherit; }
+  .lab-card:hover { border-color: var(--accent); }
+  .lab-card b { display: block; margin-bottom: 4px; color: var(--accent); font-size: 15px; }
+  .lab-card span { color: var(--muted); font-size: 12.5px; line-height: 1.55; }
+  .gh { margin: 0 0 10px; color: var(--faint); font: 800 9px/1 var(--mono); letter-spacing: .16em; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(255px, 1fr)); gap: 12px; }
+  .card { display: flex; flex-direction: column; gap: 6px; padding: 15px 16px 13px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--panel); text-decoration: none; color: inherit; transition: border-color 120ms ease, transform 120ms ease; }
+  .card:hover { border-color: var(--focus); transform: translateY(-1px); }
+  .card b { color: var(--text); font-size: 13.5px; }
+  .card i { color: var(--faint); font: 400 9px/1.4 var(--mono); font-style: normal; }
+  .card span { color: var(--muted); font-size: 11.5px; line-height: 1.5; }
+  .card em { margin-top: auto; padding-top: 6px; color: var(--accent); font: 700 9px/1.4 var(--mono); font-style: normal; }
+  footer { margin-top: 34px; color: var(--faint); font: 400 10px/1.7 var(--mono); }
+  footer a { color: var(--focus); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><span class="mark"></span>FRAMEDIFF · TIMELINE PROTOTYPES</div>
+  <p class="sub">next-generation timeline editing, explored one interaction at a time</p>
+
+  <a class="lab-card" href="timeline/">
+    <b>Timeline Lab — the full system</b>
+    <span>All twenty-one ideas integrated in one timeline: precision, magnetism, elastic time, structure, navigation, feedback. The single-feature pages below isolate one idea each on a plain baseline timeline, so you can feel exactly what it adds.</span>
+  </a>
+
+  <p class="gh">SINGLE-FEATURE PROTOTYPES</p>
+  <div class="grid">
+    <a class="card" href="timeline/?feature=loupe">
+      <b>Precision loupe</b><i>iOS magnifier · Resolve dual timeline</i>
+      <span>A zoom bubble opens over every edge drag — frame ticks, media limits, hold-frame overrun — plus ⇧ fine gearing at 1/7 pointer gain.</span>
+      <em>try: drag any clip edge · hold ⇧</em>
+    </a>
+    <a class="card" href="timeline/?feature=snap">
+      <b>Sticky snap</b><i>Keynote haptic guides</i>
+      <span>Edges lock on with hysteresis, hold through wobbles, pop free past escape distance — and the HUD names what you snapped to.</span>
+      <em>try: drag a clip slowly across another's end</em>
+    </a>
+    <a class="card" href="timeline/?feature=beats">
+      <b>Beat grid</b><i>CapCut auto-beat · Ableton grid</i>
+      <span>The music track publishes its beats to the ruler; every edit can land on the pulse. Downbeats weigh more.</span>
+      <em>try: drag an SFX near the beat dots</em>
+    </a>
+    <a class="card" href="timeline/?feature=ripple">
+      <b>Ripple insert (＋TIME)</b><i>Logic Insert Silence · Pro Tools shuffle</i>
+      <span>Drag open a wedge of time — everything downstream shifts live and the render window grows. Gaps become objects you can close with one click.</span>
+      <em>try: press R, drag right on the timeline</em>
+    </a>
+    <a class="card" href="timeline/?feature=magnetic">
+      <b>Magnetic storyline</b><i>FCPX magnetic timeline, opt-in</i>
+      <span>No gaps, no overlaps: drag to reorder and neighbors part, then repack with a spring. Toggle ⌁ to feel the difference against free staging.</span>
+      <em>try: drag a scene left or right</em>
+    </a>
+    <a class="card" href="timeline/?feature=blade">
+      <b>Blade with preview</b><i>CapCut split · FCPX blade</i>
+      <span>The cut line and tinted halves show exactly what a cut will do before you commit. ⇧-click cuts every track at once.</span>
+      <em>try: press B, hover a clip, click</em>
+    </a>
+    <a class="card" href="timeline/?feature=takes">
+      <b>Take stacks</b><i>FCPX auditions × FrameDiff takes</i>
+      <span>A generative clip holds its alternate takes in one slot; cycle the pinned take in place and different durations ripple the storyline automatically.</span>
+      <em>try: click the t2 badge on HERO</em>
+    </a>
+  </div>
+
+  <footer>
+    serve with <a href="#">python3 -m http.server 4179 --bind 0.0.0.0 --directory prototypes</a> · research &amp; rationale in <a href="timeline/IDEAS.md">timeline/IDEAS.md</a>
+  </footer>
+</div>
+</body>
+</html>
