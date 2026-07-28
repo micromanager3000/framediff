@@ -22,13 +22,8 @@
       "name": "timeline-lab",
       "runtimeExecutable": "python3",
       "runtimeArgs": [
-        "-m",
-        "http.server",
-        "4179",
-        "--bind",
-        "127.0.0.1",
-        "--directory",
-        "prototypes/timeline"
+        "prototypes/timeline/server.py",
+        "4179"
       ],
       "port": 4179
     },
