@@ -1,5 +1,11 @@
 # Codex Instructions
 
+## Dev servers & previews
+
+- Always bind dev/preview servers to `0.0.0.0` so they are reachable from other devices on the local network — Vikas frequently views work from a different machine than the one running the server.
+- Whenever you start a server, hand back the LAN URL, not just localhost. Prefer the mDNS hostname: `http://$(scutil --get LocalHostName).local:<port>` — on the Mac mini that is `http://reddy2macmini.local:<port>`. Include the IP fallback from `ipconfig getifaddr en0` (currently `192.168.7.33` on the Mac mini; DHCP can change it).
+- `.claude/launch.json` configs follow this rule (`--bind 0.0.0.0` / `--host 0.0.0.0`); keep new launch configs consistent.
+
 ## Git workflow
 
 - Work directly on the `main` branch by default.

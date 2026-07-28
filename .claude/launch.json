@@ -11,7 +11,7 @@
         "examples/previz-to-gen",
         "--",
         "--host",
-        "127.0.0.1",
+        "0.0.0.0",
         "--port",
         "4176",
         "--strictPort"
@@ -26,7 +26,7 @@
         "http.server",
         "4179",
         "--bind",
-        "127.0.0.1",
+        "0.0.0.0",
         "--directory",
         "prototypes/timeline"
       ],
@@ -41,6 +41,8 @@
         "--prefix",
         "/Users/vikasreddy/code/nostalgia-short-film",
         "--",
+        "--host",
+        "0.0.0.0",
         "--port",
         "5237",
         "--strictPort"
