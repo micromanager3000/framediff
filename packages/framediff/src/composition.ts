@@ -60,6 +60,9 @@ export interface CompositionTimelinePlacement {
   from: number;
   durationInFrames: number;
   layer?: number;
+  /** SECONDS trimmed from the head of the source media — unlike `from`/`durationInFrames`,
+   *  which are frames. (nested.ts maps it as trimStartSec; a frame count here silently
+   *  seeks past short clips and freezes them on their last frame.) */
   trimStart?: number;
   playbackRate?: number;
   /** Linear gain for media clips or media rendered by a nested composition. */

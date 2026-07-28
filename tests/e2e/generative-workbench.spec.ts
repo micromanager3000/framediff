@@ -29,6 +29,22 @@ test("a draft take is an obvious, repeatable path back to editing", async ({ pag
   await expect(prompt).toBeFocused();
 });
 
+test("generative rows advertise their output kind and input comps link to their source", async ({ page }) => {
+  await openComposition(page, "harborShot", "http://127.0.0.1:4175/");
+
+  // The rail marks every generative comp with its locked output kind.
+  await expect(page.locator('.composition-row[data-composition-key="harborShot"] .out-badge').first()).toHaveText("video");
+  await expect(page.locator('.composition-row[data-composition-key="lighthouse-dialogue-audio"] .out-badge').first()).toHaveText("audio");
+  await expect(page.locator('.composition-row[data-composition-key="lighthouse-keeper"] .out-badge').first()).toHaveText("image");
+  await expect(page.locator('.composition-row[data-composition-key="lighthouse-workflow"] .out-badge')).toHaveCount(0);
+
+  // A comp-backed input reference is a link into its source composition; the geometry
+  // line stays behind as the input-handling toggle.
+  await expect(page.getByRole("button", { name: "Adjust how HarborPreviz is adapted for the model", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Open composition HarborPreviz", exact: true }).click();
+  await expect(page.locator('.composition-row[data-composition-key="harbor-previz"]').first()).toHaveClass(/active/);
+});
+
 test("legacy phone-local geometry keeps the pinned Lighthouse take visible", async ({ page }) => {
   await openComposition(page, "lighthouse-workflow", "http://127.0.0.1:4175/");
 

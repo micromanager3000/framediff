@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FrameDiff · Timeline Lab</title>
+<link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+<div class="proto">
+
+  <header class="topbar">
+    <div class="brand"><span class="mark"></span><span class="brand-name">FRAMEDIFF</span><span class="edition">TIMELINE LAB · PROTOTYPE</span></div>
+
+    <div class="transport">
+      <button id="tHome" title="Rewind to output start (Home)">⏮</button>
+      <button id="tPlay" title="Play / pause (Space)">▶</button>
+      <span class="tc" id="tc">0.00s · 0f</span>
+    </div>
+
+    <div class="tools" role="group" aria-label="Tools">
+      <button class="tool active" id="toolSelect" title="Select (V)">SELECT</button>
+      <button class="tool" id="toolBlade" data-idea="14" title="Blade — click a clip to cut (B)">BLADE</button>
+      <button class="tool" id="toolWedge" data-idea="6 7" title="Ripple insert — drag to open time, everything downstream shifts (R)">＋TIME</button>
+    </div>
+
+    <div class="chips">
+      <button class="chip on" id="chipSnap" title="Magnetic snapping — hold ⌥ to bypass while dragging">SNAP</button>
+      <button class="chip on" id="chipSkim" title="Skim the ruler without moving the playhead (S)">SKIM</button>
+      <button class="chip on" id="chipSound" data-idea="20" title="Tiny audio ticks on snap, drop, cut — auto-muted during playback">SOUND</button>
+    </div>
+
+    <div class="tl-zoom" data-idea="16">
+      <button id="zOut" title="Zoom out (⌘/Ctrl + scroll)">−</button>
+      <button id="zFit" title="Fit everything (F)">FIT</button>
+      <button id="zIn" title="Zoom in (⌘/Ctrl + scroll)">＋</button>
+    </div>
+
+    <button class="chip ideas-toggle on" id="chipIdeas" title="The twenty ideas, annotated">IDEAS</button>
+    <button class="chip" id="chipKeys" title="Keyboard map (?)">?</button>
+  </header>
+
+  <main class="stage">
+    <div class="work">
+      <section class="preview" aria-label="Program monitor">
+        <div class="monitor" id="monitor">
+          <div class="mon-fill" id="monFill"></div>
+          <div class="mon-tag" id="monTag"></div>
+          <div class="mon-name" id="monName">—</div>
+          <div class="mon-caption" id="monCaption"></div>
+        </div>
+        <div class="mon-side">
+          <div class="mon-tc" id="monTc">0.00<small>s</small></div>
+          <div class="mon-sub" id="monSub">frame 0 · 30fps</div>
+          <div class="mon-beat"><i id="beatDot"></i><span>pulse-120 · 120 bpm</span></div>
+        </div>
+      </section>
+
+      <section class="timeline" aria-label="Timeline">
+        <div class="minimap" data-idea="16" title="Overview — drag the window to pan, drag its edges to zoom, click to jump">
+          <canvas id="mmCanvas"></canvas>
+        </div>
+        <div class="tl-scroll" id="scroller">
+          <div class="tl-canvas" id="tlCanvas"></div>
+        </div>
+      </section>
+
+      <footer class="statusbar">
+        <span class="hint" id="hint">Drag clips · edges trim · hover a junction to roll · R opens time · B cuts · hold ⇧ for fine control</span>
+        <span class="proj" id="proj"></span>
+      </footer>
+    </div>
+
+    <aside class="ideas" id="ideasDrawer" aria-label="The twenty ideas">
+      <header>TWENTY-ONE IDEAS<button id="ideasClose" title="Close">×</button></header>
+      <div class="ideas-scroll">
+
+        <div class="ig">PRECISION</div>
+        <div class="idea" data-flash="1"><b>1 · Precision loupe</b><i>iOS magnifier · Resolve dual timeline</i><span>A zoom bubble opens over any edge drag — frame ticks, snap targets, media limits — so you never zoom the whole timeline to land one frame.</span><em>try: drag any clip edge</em></div>
+        <div class="idea" data-flash="2"><b>2 · Fine drag ⇧</b><i>DAW fine-adjust</i><span>Hold ⇧ mid-drag: pointer gain drops to ~1/7, the loupe opens, sub-frame movement accumulates. Precision is a modifier, not a mode.</span><em>try: hold ⇧ while trimming</em></div>
+        <div class="idea" data-flash="12"><b>3 · Headroom &amp; hold-frame</b><i>studio's overrun, evolved</i><span>Trims past the source hold the last frame and hatch the overrun; the loupe shows the media bracket so you see real footage vs. freeze.</span><em>try: trim a scene's right edge far out</em></div>
+
+        <div class="ig">MAGNETISM</div>
+        <div class="idea" data-flash="3"><b>4 · Sticky ends + breakaway</b><i>Keynote haptic guides</i><span>Snap has hysteresis: edges lock on, hold through small wobbles, then release with a pop past escape distance. Sticky, never grabby.</span><em>try: drag a clip slowly across another's end</em></div>
+        <div class="idea" data-flash="4"><b>5 · Named snap targets</b><i>first principles</i><span>The HUD names what you snapped to — «hero out», «beat 29», «playhead» — so alignment is a fact, not a guess.</span><em>try: watch the HUD while snapped</em></div>
+        <div class="idea" data-flash="5"><b>6 · Beat grid</b><i>CapCut auto-beat · Ableton grid</i><span>The music track publishes its beats to the ruler; every edit can land on the pulse. Downbeats weigh more.</span><em>try: drag an SFX near the beat dots</em></div>
+
+        <div class="ig">ELASTIC TIME</div>
+        <div class="idea" data-flash="6"><b>7 · Ripple insert (＋TIME)</b><i>Logic Insert Silence · Pro Tools shuffle</i><span>Drag open a wedge of time; everything downstream shifts live, connected clips ride along, the render window grows. Drag left to remove time.</span><em>try: press R, drag right on the timeline</em></div>
+        <div class="idea" data-flash="7"><b>8 · Gaps are objects</b><i>FCPX gap clips</i><span>Hover a gap → duration chip + one-click close (ripple delete). On magnetic tracks inserted time becomes a dashed gap clip you can trim or delete.</span><em>try: hover a gap on SFX, or R-insert into SCENES</em></div>
+        <div class="idea" data-flash="9"><b>9 · Ripple trim</b><i>FCPX · Premiere</i><span>On magnetic tracks edge trims ripple automatically — downstream follows live. On free tracks, ⌘-drag an edge to ripple.</span><em>try: trim a scene edge and watch downstream</em></div>
+        <div class="idea" data-flash="10"><b>10 · Roll at junctions</b><i>Premiere · Avid rollers</i><span>Hover where two clips meet: a roll handle appears; drag moves the boundary — one grows, one shrinks, nothing downstream moves.</span><em>try: hover a junction between scenes</em></div>
+        <div class="idea" data-flash="11"><b>11 · Slip in place</b><i>Premiere slip tool</i><span>⌥-drag inside a clip slides its source under fixed in/out — the filmstrip moves, the loupe flips to source view.</span><em>try: ⌥-drag inside a scene's filmstrip</em></div>
+
+        <div class="ig">STRUCTURE</div>
+        <div class="idea" data-flash="8"><b>12 · Magnetic storyline, per track</b><i>FCPX magnetic timeline</i><span>MAGNET on a track means no gaps, no overlaps — drag to reorder, neighbors part and repack with a spring. Off = free staging, like today.</span><em>try: drag a scene left/right to reorder · toggle MAGNET</em></div>
+        <div class="idea" data-flash="14"><b>13 · Connected clips</b><i>FCPX connections</i><span>Captions, lower-thirds and SFX connect to the scene they annotate (stem at their left edge). Move or ripple the scene — they ride along. Sync survives editing.</span><em>try: drag HERO and watch its lower-third</em></div>
+        <div class="idea" data-flash="13"><b>14 · Blade with preview</b><i>CapCut split · FCPX blade</i><span>Blade mode shows the cut line and tints the two halves before you commit; cuts snap to beats and the playhead. ⇧-click cuts every track.</span><em>try: press B, hover a clip, click</em></div>
+
+        <div class="ig">NAVIGATION</div>
+        <div class="idea" data-flash="16"><b>15 · Minimap</b><i>Resolve cut-page upper timeline</i><span>A constant overview strip: drag the window to pan, drag its edges to zoom, click to jump. You always know where you are.</span><em>try: the strip above the ruler</em></div>
+        <div class="idea" data-flash="17"><b>16 · Zoom that never loses you</b><i>Ableton Z</i><span>⌘-scroll zooms around the cursor; Z fits the selection, F fits everything; playback page-follows. Position is never the cost of precision.</span><em>try: ⌘-scroll, then Z on a selected clip</em></div>
+        <div class="idea" data-flash="18"><b>17 · Skimming</b><i>FCPX skimmer</i><span>With SKIM on, hovering the ruler previews that frame in the monitor without moving the playhead. Looking is free; the playhead is a decision.</span><em>try: hover the ruler slowly</em></div>
+
+        <div class="ig">FEEDBACK &amp; FLOW</div>
+        <div class="idea" data-flash="15"><b>18 · One delta HUD</b><i>Premiere's numbers, unified</i><span>Every temporal op speaks one grammar: Δ frames + seconds, new in/out/duration, snap target name. Move, trim, slip, ripple — same voice.</span><em>try: any drag</em></div>
+        <div class="idea" data-flash="19"><b>19 · Keyboard time grammar</b><i>Resolve top/tail · NLE nudge</i><span>, and . nudge ±1f (⇧ ±10f) · [ and ] trim to the playhead · M drops a marker · arrows step frames. Hands stay on the keys between drags.</span><em>try: select a clip, tap , and . then [ ]</em></div>
+        <div class="idea" data-flash="20"><b>20 · Physics, sound, named undo</b><i>Apple polish everywhere</i><span>Clips settle with a spring, snaps tick, cuts click, ripples whoosh — and every commit posts a named toast («Rippled +0.8s») with ⌘Z always one step away.</span><em>try: drop anything · ⌘Z</em></div>
+
+        <div class="ig">BONUS · GENERATIVE</div>
+        <div class="idea" data-flash="21"><b>21 · Take stacks</b><i>FCPX auditions × FrameDiff takes</i><span>A generative clip holds its alternate takes in one slot. Cycle the pinned take in place — different durations ripple the storyline automatically. Auditioning is an edit, not a detour.</span><em>try: click the t2 badge on HERO</em></div>
+
+      </div>
+    </aside>
+  </main>
+
+</div>
+
+<div class="drag-hud" id="hud" hidden></div>
+<canvas class="loupe" id="loupe" hidden></canvas>
+<div class="mode-banner" id="banner" hidden></div>
+<div class="toasts" id="toasts"></div>
+
+<div class="keys-overlay" id="keysOverlay" hidden>
+  <div class="keys-card">
+    <header>KEYBOARD<button id="keysClose">×</button></header>
+    <div class="keys-grid">
+      <b>Space</b><span>play / pause</span>
+      <b>J K L</b><span>shuttle — reverse / stop / forward, taps double speed</span>
+      <b>I / O</b><span>set output start / end at playhead</span>
+      <b>← →</b><span>step 1 frame · ⇧ 10</span>
+      <b>, .</b><span>nudge selection ±1f · ⇧ ±10f</span>
+      <b>[ ]</b><span>trim selection to playhead (in / out)</span>
+      <b>B</b><span>blade mode · click cuts</span>
+      <b>R</b><span>＋time mode · drag opens / removes time</span>
+      <b>V / Esc</b><span>back to select</span>
+      <b>M</b><span>marker at playhead</span>
+      <b>S</b><span>toggle skimming</span>
+      <b>Z</b><span>zoom to selection · again = back</span>
+      <b>F</b><span>fit everything</span>
+      <b>⌘ scroll</b><span>zoom at cursor</span>
+      <b>⇧ (held)</b><span>fine drag — 1/7 gain + loupe</span>
+      <b>⌥ (held)</b><span>snap off · ⌥-drag body = slip</span>
+      <b>⌘ (held)</b><span>ripple trim on free tracks</span>
+      <b>⌫</b><span>delete selection (magnetic = ripple)</span>
+      <b>⌘Z / ⇧⌘Z</b><span>undo / redo</span>
+      <b>Home / End</b><span>output start / end</span>
+    </div>
+  </div>
+</div>
+
+<script src="./app.js"></script>
+</body>
+</html>

@@ -1,3 +1,4 @@
+import { defineGsapTimeline } from "framediff/gsap";
 import { defineComposition, defineTimelineDocument, type CompositionSetup, type StudioComposition } from "framediff";
 import mainSource from "./HeroMain.html?raw";
 import lowerThirdSource from "./LowerThird.html?raw";
@@ -77,7 +78,21 @@ export const heroExcerptComp = defineComposition(excerptSource, {
   timeline: defineTimelineDocument(heroExcerptTimeline),
   meta: { timelineFile: "src/compositions/HeroExcerpt.timeline.json" },
 });
-export const directManipulationLabComp = defineComposition(directManipulationLabSource, {
+const framediffRecordedMotionSetup = defineGsapTimeline(({ gsap, frames }) => {
+  const timeline = gsap.timeline({ paused: true });
+  timeline.fromTo(
+    "[data-fd-id=\"move-card\"]",
+    { x: 603, y: 438 },
+    { id: "move-card-motion-path", keyframes: [
+      { x: 1593.231, y: 656.256, duration: frames(52), ease: "none" },
+      { x: 34, y: 620, duration: frames(127) },
+    ] },
+    frames(0),
+  );
+  return timeline;
+});
+
+export const directManipulationLabComp = defineComposition(directManipulationLabSource, { setup: framediffRecordedMotionSetup,
   document: directManipulationLabDocument,
   meta: {
     authoring: { timeline: "hidden", transport: "always", directManipulation: true },

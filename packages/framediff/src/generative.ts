@@ -64,6 +64,8 @@ export interface GenRecipe {
   speed?: number;
   /** Voice pitch shift in semitones for audio models. */
   pitch?: number;
+  /** Named voice preset for TTS models that offer one (ElevenLabs). */
+  voice?: string;
   /** Guidance strength 0–1 (Kling). */
   cfg?: number;
   /** Reproducibility seed (Veo/Wan — Seedance has no seed input). */
@@ -287,6 +289,14 @@ export function invalidateGenManifest(): void {
   manifestP = null;
 }
 
+/** Bust the manifest cache and tell every mounted GenOutput to re-resolve its pinned take.
+ *  Call after a take lands or a pin changes — without this, a playing preview keeps the
+ *  media element it resolved at mount time and pin edits appear to do nothing. */
+export function refreshGenOutputs(): void {
+  invalidateGenManifest();
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("framediff:gen-takes"));
+}
+
 // ---------------------------------------------------------------------------
 // Framework-free HTML output — plays the pinned take; a slate when nothing is pinned
 // ---------------------------------------------------------------------------
@@ -378,8 +388,11 @@ export function generative(recipe: GenRecipe): GenerativeComposition {
         slate.hidden = outputKind === "audio" ? false : !!pinned;
         if (pinned) {
           const url = `/__framediff-cache/${encodeURIComponent(pinned.contentHash)}`;
-          (output as HTMLElement).dataset.fdSrc = url;
-          output.setAttribute("src", url);
+          // Same-src refreshes must not restart a playing media element.
+          if (output.getAttribute("src") !== url) {
+            (output as HTMLElement).dataset.fdSrc = url;
+            output.setAttribute("src", url);
+          }
           if (outputKind === "audio") status.textContent = `take ${wantTake} pinned · audio-first performance`;
         } else {
           output.removeAttribute("src");

@@ -13,7 +13,7 @@ export type GenParamValue = string | number | boolean;
 
 export interface GenParamDef {
   /** Recipe field this param reads/writes (a literal in the .gen.ts). */
-  key: "tier" | "resolution" | "duration" | "aspect" | "audio" | "cfg" | "seed" | "speed" | "pitch";
+  key: "tier" | "resolution" | "duration" | "aspect" | "audio" | "cfg" | "seed" | "speed" | "pitch" | "voice";
   label: string;
   type: "enum" | "number";
   options?: GenParamValue[];
@@ -572,6 +572,107 @@ const seedAudio10: GenModelDef = {
 };
 
 // ---------------------------------------------------------------------------
+// ElevenLabs Eleven v3 — fal-hosted TTS. The prompt is the spoken text, verbatim;
+// pacing comes from punctuation, not timing directions. No reference inputs — voice
+// consistency across segments comes from sharing the same named preset.
+// ---------------------------------------------------------------------------
+
+const elevenV3: GenModelDef = {
+  id: "elevenlabs-v3",
+  name: "Eleven v3",
+  vendor: "ElevenLabs · fal",
+  output: "audio",
+  est: true,
+  fitted: "fal-ai/elevenlabs/tts/eleven-v3 OpenAPI · ~$0.10/1K chars",
+  accepts: { video: false, image: false, endImage: false, audio: true },
+  maxRefs: { audio: 1 },
+  caps: ["most natural prosody", "inline audio tags — [whispers] [excited] [pause]…", "voice anchor via a comp:// audio ref", "mp3 output"],
+  limits: ["fal exposes preset voices only — the audio ref borrows the anchor comp's voice settings, it cannot clone arbitrary audio", "no speed control (v3) — pace with text and tags", "read length follows the text, not a duration field"],
+  negativePrompt: false,
+  params: [
+    // Timeline length bounds the composition; the read itself follows the text, so keep
+    // the spoken line comfortably shorter than this slot to protect its tail.
+    { key: "duration", label: "TIMELINE", type: "number", min: 2, max: 30, step: 1, def: 10, canonical: false },
+    { key: "voice", label: "VOICE", type: "enum", options: ["Rachel", "Aria", "Sarah", "Charlotte", "Matilda", "Laura", "Jessica", "Brian", "Daniel", "George"], def: "Rachel" },
+  ],
+  dropHint: "drop another ElevenLabs comp as the voice anchor — this segment reads with the anchor's voice",
+  modeOf(r) {
+    return hasKind(r, "audio") ? "anchored-text-to-audio" : "text-to-audio";
+  },
+  endpointOf() {
+    return "fal-ai/elevenlabs/tts/eleven-v3";
+  },
+  buildInput(r) {
+    // Schema-exact: eleven-v3 accepts voice/text/stability (+timestamps/language_code/
+    // normalization). The audio ref is resolved to a voice at submit time by the runtime.
+    return {
+      text: r.prompt,
+      voice: r.voice ?? "Rachel",
+      stability: 0.45,
+    };
+  },
+  refFieldsOf() {
+    // The audio ref is a recipe-level voice anchor, not a provider input — no field.
+    return [];
+  },
+  costUsd(r) {
+    return (r.prompt.length / 1000) * 0.1;
+  },
+  baseline: "$0.02 · ~200 chars",
+};
+
+// ---------------------------------------------------------------------------
+// ElevenLabs Multilingual v2 — the steadier sibling of Eleven v3. Reads punctuation
+// as light beats instead of dramatic holds, so a line lands near its natural word-count
+// length. Prefer it when the read must fit a fixed timeline slot.
+// ---------------------------------------------------------------------------
+
+const elevenMultilingualV2: GenModelDef = {
+  id: "elevenlabs-multilingual-v2",
+  name: "Multilingual v2",
+  vendor: "ElevenLabs · fal",
+  output: "audio",
+  est: true,
+  fitted: "fal-ai/elevenlabs/tts/multilingual-v2 OpenAPI · ~$0.10/1K chars",
+  accepts: { video: false, image: false, endImage: false, audio: true },
+  maxRefs: { audio: 1 },
+  caps: ["even documentary pacing", "voice anchor via a comp:// audio ref", "SSML pauses — <break time=\"0.6s\"/>", "predictable read length", "mp3 output"],
+  limits: ["fal exposes preset voices only — the audio ref borrows the anchor comp's voice settings, it cannot clone arbitrary audio", "less expressive range than Eleven v3 (no audio tags)"],
+  negativePrompt: false,
+  params: [
+    { key: "duration", label: "TIMELINE", type: "number", min: 2, max: 30, step: 1, def: 10, canonical: false },
+    { key: "voice", label: "VOICE", type: "enum", options: ["Rachel", "Aria", "Sarah", "Charlotte", "Matilda", "Laura", "Jessica", "Brian", "Daniel", "George"], def: "Rachel" },
+    { key: "speed", label: "SPEED", type: "number", min: 0.7, max: 1.2, step: 0.05, def: 1 },
+  ],
+  dropHint: "no reference inputs — pick a voice preset instead",
+  modeOf() {
+    return "text-to-audio";
+  },
+  endpointOf() {
+    return "fal-ai/elevenlabs/tts/multilingual-v2";
+  },
+  buildInput(r) {
+    return {
+      text: r.prompt,
+      voice: r.voice ?? "Rachel",
+      // Slightly loose stability + a touch of style keeps the read alive without
+      // drifting into the theatrical pauses that made Eleven v3 overrun fixed slots.
+      stability: 0.45,
+      similarity_boost: 0.75,
+      style: 0.2,
+      speed: r.speed ?? 1,
+    };
+  },
+  refFieldsOf() {
+    return [];
+  },
+  costUsd(r) {
+    return (r.prompt.length / 1000) * 0.1;
+  },
+  baseline: "$0.02 · ~200 chars",
+};
+
+// ---------------------------------------------------------------------------
 
 export const GEN_MODELS: Record<string, GenModelDef> = {
   [seedance.id]: seedance,
@@ -582,6 +683,8 @@ export const GEN_MODELS: Record<string, GenModelDef> = {
   [wan25.id]: wan25,
   [seedream50.id]: seedream50,
   [seedAudio10.id]: seedAudio10,
+  [elevenV3.id]: elevenV3,
+  [elevenMultilingualV2.id]: elevenMultilingualV2,
 };
 
 export const DEFAULT_GEN_MODEL_BY_OUTPUT: Record<CompositionOutputKind, string> = {
