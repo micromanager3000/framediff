@@ -23,8 +23,8 @@ const fmtD = (f) => `${f >= 0 ? "+" : "−"}${Math.abs(Math.round(f))}f · ${f >
    chrome down to a plain baseline timeline plus exactly one idea. */
 const PAGES = {
   lab:      { label: null, ideas: null, markers: true, connected: true, tracks: null, v1Magnetic: true,
-              caps: ["loupe", "fine", "snapEnds", "snapBeats", "beatDots", "wedge", "gaps", "magnetic", "blade", "takes", "stems", "skim", "minimap", "roll", "slip", "motion"] },
-  loupe:    { label: "PRECISION LOUPE",    ideas: [1, 2, 3], caps: ["loupe", "fine"],                 tracks: ["ov", "v1", "mx"],        v1Magnetic: false },
+              caps: ["loupe", "fine", "hold", "snapEnds", "snapBeats", "beatDots", "wedge", "gaps", "magnetic", "blade", "takes", "stems", "skim", "minimap", "roll", "slip", "motion"] },
+  loupe:    { label: "PRECISION LOUPE",    ideas: [1, 2, 3], caps: ["loupe", "fine", "hold"],         tracks: ["ov", "v1", "mx"],        v1Magnetic: false },
   snap:     { label: "STICKY SNAP",        ideas: [4, 5],    caps: ["fine", "snapEnds"],              tracks: ["ov", "v1", "sfx", "mx"], v1Magnetic: false, markers: true },
   beats:    { label: "BEAT GRID",          ideas: [6],       caps: ["snapBeats", "beatDots"],         tracks: ["v1", "sfx", "mx"],       v1Magnetic: false },
   ripple:   { label: "RIPPLE INSERT",      ideas: [7, 8],    caps: ["wedge", "gaps", "snapEnds"],     tracks: ["ov", "v1", "sfx", "mx"], v1Magnetic: true, connected: true },
@@ -249,6 +249,8 @@ const sndBreak = () => tone(660, 0.04, 0.035, "sine", 440);
 const sndDrop = () => tone(190, 0.07, 0.06, "sine", 150);
 const sndCut = () => { tone(2200, 0.02, 0.04, "square"); setTimeout(() => tone(1650, 0.02, 0.035, "square"), 24); };
 const sndWhoosh = () => tone(320, 0.16, 0.03, "sawtooth", 90);
+const sndEdge = () => tone(920, 0.035, 0.05, "sine");          // trim edge lands on the media wall
+const sndThud = () => tone(130, 0.09, 0.08, "sine", 78);       // …and breaks through into hold-frame
 
 /* ============ snap engine (typed + weighted + sticky hysteresis) ============ */
 function beatFrames() {
@@ -292,6 +294,22 @@ function stickySnap(g, raw, targets, e) {
   if (best) { g.stuck = best; showGuide(best); sndTick(); return best.f; }
   return raw;
 }
+/* idea 3: the media edge is a physical wall — the trim edge sticks at the
+   first/last real frame, holds through wobbles, then breaks through with a
+   thud into hold-frame territory. Independent of grid snapping; ⌥ bypasses. */
+function mediaDetent(g, raw, boundF, e, enabled) {
+  if (!enabled || e.altKey) { g.mediaStuck = null; return raw; }
+  const enter = 8 / ppf, exit = 30 / ppf;
+  if (g.mediaStuck != null) {
+    if (Math.abs(raw - g.mediaStuck) < exit) return g.mediaStuck;
+    g.mediaStuck = null; sndThud();
+  } else if (Math.abs(raw - boundF) < enter) {
+    g.mediaStuck = boundF; sndEdge();
+    return boundF;
+  }
+  return raw;
+}
+
 /* one-shot snap without sounds/guides — for hover previews and gesture starts */
 function quietSnap(raw, targets, e, px = 8, force = false) {
   if ((!force && !anySnap()) || !snapOn || e.altKey) return raw;
@@ -445,7 +463,7 @@ function buildClip(c, tr) {
     film.dataset.idea = "11";
     const fw = 46;
     film.style.background = `repeating-linear-gradient(90deg, rgb(0 0 0 / 38%) 0 1.5px, transparent 1.5px ${fw}px), repeating-linear-gradient(90deg, hsl(${t.hue} 42% 30% / .55) 0 ${fw}px, hsl(${t.hue} 46% 24% / .55) ${fw}px ${fw * 2}px), linear-gradient(180deg, hsl(${t.hue} 40% 26%), hsl(${t.hue} 45% 17%))`;
-    film.style.backgroundPositionX = `${-c.srcIn * 1.2}px`;
+    film.style.backgroundPositionX = `${-Math.max(0, c.srcIn) * 1.2}px`;
   }
   if (tr.kind === "music" && !c.gap) drawWave(el("canvas", "clip-wave", b), c, t);
   const name = el("span", "clip-name", b);
@@ -463,20 +481,36 @@ function buildClip(c, tr) {
       }
     }
   }
-  if (!c.gap && c.srcLen < 900) {                                  // idea 3: hold-frame overrun
-    const over = c.dur - (c.srcLen - c.srcIn);
-    if (over > 0) {
-      const o = el("i", "clip-overrun", b);
-      o.dataset.idea = "3";
-      o.style.left = `${(c.srcLen - c.srcIn) * ppf}px`;
-      o.style.width = `${over * ppf}px`;
-      o.title = "Past the source's end — the last frame holds";
-    }
-  }
+  updateOverruns(b, c);                                            // idea 3: hold-frame zones
   const hl = el("i", "trim-handle left", b); hl.dataset.gesture = "trim-l"; hl.dataset.idea = "1 2 9";
   const hr = el("i", "trim-handle right", b); hr.dataset.gesture = "trim-r"; hr.dataset.idea = "1 2 9";
   clipEls.set(c.id, b);
   return b;
+}
+
+/* idea 3: hold-frame zones — a head zone freezes the first frame (srcIn < 0),
+   a tail zone freezes the last (dur past srcLen). Rendered at build AND live
+   during trims, hatched cool-blue with a ❚❚ label when there's room. */
+function updateOverruns(elc, live) {
+  const zones = [];
+  if (!live.gap && trackById(live.trackId).kind !== "music") {
+    const head = Math.max(0, -live.srcIn);
+    if (head > 0.5) zones.push(["head", 0, head, "Before the source's first frame — it holds"]);
+    if (live.srcLen < 900) {
+      const tail = Math.max(0, live.dur - (live.srcLen - live.srcIn));
+      if (tail > 0.5) zones.push(["tail", live.dur - tail, tail, "Past the source's end — the last frame holds"]);
+    }
+  }
+  elc.querySelectorAll(".clip-overrun").forEach((o) => o.remove());
+  for (const [kind, at, len, title] of zones) {
+    const o = el("i", `clip-overrun ${kind}`, elc);
+    o.dataset.idea = "3";
+    o.style.left = `${at * ppf}px`;
+    o.style.width = `${len * ppf}px`;
+    o.title = title;
+    const px = len * ppf;
+    o.dataset.hold = px > 46 ? `❚❚ ${Math.round(len)}f` : px > 18 ? "❚❚" : "";
+  }
 }
 
 function drawWave(canvas, c, t) {
@@ -600,12 +634,25 @@ function showLoupe(fCenter, g, e, opts = {}) {
       ctx.save(); ctx.beginPath(); ctx.rect(fx(live.from), y0, Math.max(2, live.dur * mag), ch); ctx.clip();
       ctx.fillStyle = "rgb(244 242 236 / 85%)"; ctx.font = "700 8px ui-monospace, monospace";
       ctx.fillText(c.gap ? "gap" : c.name, fx(live.from) + 5, y0 + 12);
-      // media limit inside loupe (idea 3)
-      if (!c.gap && c.srcLen < 900) {
-        const limX = fx(live.from + (c.srcLen - live.srcIn));
-        if (limX < fx(live.from + live.dur)) {
-          ctx.strokeStyle = "rgb(244 242 236 / 55%)"; ctx.setLineDash([3, 3]);
-          ctx.beginPath(); ctx.moveTo(limX, y0); ctx.lineTo(limX, y0 + ch); ctx.stroke(); ctx.setLineDash([]);
+      // media brackets + hold zones inside loupe (idea 3)
+      if (!c.gap) {
+        const holds = [];
+        const head = Math.max(0, -live.srcIn);
+        if (head > 0) holds.push([live.from, live.from + head]);
+        if (c.srcLen < 900) {
+          const mediaEnd = live.from + (c.srcLen - live.srcIn);
+          if (mediaEnd < live.from + live.dur) holds.push([mediaEnd, live.from + live.dur]);
+        }
+        for (const [z0, z1] of holds) {
+          ctx.fillStyle = "rgb(143 201 236 / 13%)";
+          ctx.fillRect(fx(z0), y0, (z1 - z0) * mag, ch);
+          const bracket = z0 === live.from ? z1 : z0;      // the media edge itself
+          ctx.strokeStyle = "rgb(184 216 240 / 75%)"; ctx.setLineDash([3, 3]);
+          ctx.beginPath(); ctx.moveTo(fx(bracket), y0); ctx.lineTo(fx(bracket), y0 + ch); ctx.stroke(); ctx.setLineDash([]);
+          if ((z1 - z0) * mag > 30) {
+            ctx.fillStyle = "rgb(184 216 240 / 85%)"; ctx.font = "800 7px ui-monospace, monospace";
+            ctx.fillText("HOLD", fx(z0) + 4, y0 + ch - 5);
+          }
         }
       }
       ctx.restore();
@@ -979,29 +1026,41 @@ function moveTrim(e) {
   const d = gestureDelta(e);
   const { clip, edge, base, ripple } = G;
   const T = snapTargets(new Set([clip.id]), {});
+  const holdable = has("hold") && trackById(clip.trackId).kind !== "music";  // audio doesn't freeze-frame
   let dd = 0;                                    // applied delta at the edge
   G.limit = false;
   if (edge === "r") {
-    const out = stickySnap(G, base.from + base.dur + d, T, e);
+    let out = stickySnap(G, base.from + base.dur + d, T, e);
+    out = mediaDetent(G, out, base.from - base.srcIn + clip.srcLen, e, holdable && clip.srcLen < 900);
     const dur = clamp(out - base.from, 1, 1e9);
     G.limit = dur === 1;
     dd = dur - base.dur;
     G.live.set(clip.id, { dur });
   } else if (!ripple) {
-    // free head trim: the box edge follows the pointer (studio behavior)
-    const raw = stickySnap(G, base.from + d, T, e);
-    const inF = clamp(raw, base.from - base.srcIn, base.from + base.dur - 1);
-    G.limit = inF !== raw && raw < inF;                 // red = out of media handles
+    // free head trim: the box edge follows the pointer (studio behavior);
+    // past the source's first frame it holds frame 0 (srcIn goes negative)
+    let raw = stickySnap(G, base.from + d, T, e);
+    raw = mediaDetent(G, raw, base.from - base.srcIn, e, holdable);
+    const inF = clamp(raw, holdable ? -1e9 : base.from - base.srcIn, base.from + base.dur - 1);
+    G.limit = raw < inF;                          // red only at a true wall
     dd = inF - base.from;
     G.live.set(clip.id, { from: inF, dur: base.dur - dd, srcIn: base.srcIn + dd });
   } else {
     // ripple head trim: junction holds, the filmstrip is eaten, downstream closes in
-    const eat = clamp(d, -base.srcIn, base.dur - 1);
-    G.limit = d < -base.srcIn;
+    const dEff = mediaDetent(G, d, -base.srcIn, e, holdable);
+    const eat = clamp(dEff, holdable ? -1e9 : -base.srcIn, base.dur - 1);
+    G.limit = !holdable && dEff < -base.srcIn;
     dd = -eat;                                    // downstream shifts by -eat
     G.live.set(clip.id, { dur: base.dur - eat, srcIn: base.srcIn + eat });
   }
-  clipEls.get(clip.id)?.querySelector(`.trim-handle.${edge === "r" ? "right" : "left"}`)?.classList.toggle("limit", G.limit);
+  const liveNow = liveClip(clip);
+  const holdF = edge === "r"
+    ? (clip.srcLen < 900 ? Math.max(0, Math.round(liveNow.srcIn + liveNow.dur - clip.srcLen)) : 0)
+    : Math.max(0, -Math.round(liveNow.srcIn));
+  const handle = clipEls.get(clip.id)?.querySelector(`.trim-handle.${edge === "r" ? "right" : "left"}`);
+  handle?.classList.toggle("limit", G.limit);
+  handle?.classList.toggle("hold", !G.limit && holdF > 0);
+  G.holdF = holdF;
   applyClipLive(clip);
   if (ripple) {
     const shift = edge === "r" ? dd : dd;
@@ -1016,10 +1075,12 @@ function moveTrim(e) {
   const live = liveClip(clip);
   const edgeF = edge === "r" ? live.from + live.dur : live.from;
   const label = edge === "r" ? "out" : "in";
+  const holdNote = G.holdF > 0 ? ` · <span class="hud-hold">❚❚ ${edge === "r" ? "last" : "first"} frame ×${G.holdF}f</span>` : "";
   showHud(e.clientX, e.clientY,
-    `${clip.gap ? "gap" : clip.name} ${label} <b>${fmtT(edgeF)}</b> · ${fmtT(base.dur)} → ${fmtT(live.dur)}${ripple ? " · <b>ripple</b>" : ""}${G.limit ? ' · <span style="color:#f07470">media limit</span>' : ""}${hudTarget(G)}`);
+    `${clip.gap ? "gap" : clip.name} ${label} <b>${fmtT(edgeF)}</b> · ${fmtT(base.dur)} → ${fmtT(live.dur)}${ripple ? " · <b>ripple</b>" : ""}${G.limit ? ' · <span style="color:#f07470">media limit</span>' : ""}${holdNote}${hudTarget(G)}`);
   showLoupe(edgeF, G, e, { trackId: clip.trackId });          // loupe always on for trims (idea 1)
-  updateMonitor(Math.round(edge === "r" ? edgeF - 1 : edgeF));
+  // preview the first/last visible frame — ceil on the in side so the lookup can't round past the clip
+  updateMonitor(edge === "r" ? Math.round(edgeF) - 1 : Math.ceil(edgeF - 1e-6));
 }
 function applyClipLive(c) {
   const live = liveClip(c);
@@ -1027,7 +1088,8 @@ function applyClipLive(c) {
   el.style.left = `${xOf(live.from)}px`;
   el.style.width = `${Math.max(3, live.dur * ppf)}px`;
   const film = el.querySelector(".clip-film");
-  if (film) film.style.backgroundPositionX = `${-live.srcIn * 1.2}px`;
+  if (film) film.style.backgroundPositionX = `${-Math.max(0, live.srcIn) * 1.2}px`;
+  updateOverruns(el, live);
 }
 function endTrim(e, g) {
   if (!g.moved) return;
@@ -1036,7 +1098,8 @@ function endTrim(e, g) {
   if (!dDur && Math.round(live.from) === g.base.from) { rebuild(); return; }
   sndDrop();
   const rippleNote = g.ripple ? " (ripple)" : "";
-  commit(`Trimmed ${g.clip.gap ? "gap" : g.clip.name} ${g.edge === "r" ? "out" : "in"} ${fmtD(g.edge === "r" ? dDur : -dDur)}${rippleNote}`, null, () => {
+  const holdNote = g.holdF > 0 ? `${g.edge === "r" ? "last" : "first"} frame holds ×${g.holdF}f` : null;
+  commit(`Trimmed ${g.clip.gap ? "gap" : g.clip.name} ${g.edge === "r" ? "out" : "in"} ${fmtD(g.edge === "r" ? dDur : -dDur)}${rippleNote}`, holdNote, () => {
     g.clip.from = Math.round(live.from); g.clip.dur = Math.max(1, Math.round(live.dur)); g.clip.srcIn = Math.round(live.srcIn);
     // ripple: downstream shifts by the duration change, both edges (junction-fixed head trims included)
     if (g.ripple) for (const id of g.downstream) { const c = clips.find((c) => c.id === id); if (c) c.from += dDur; }
@@ -1381,18 +1444,24 @@ function overlayAt(f) {
 function updateMonitor(previewFrame = null) {
   const f = previewFrame ?? (skimFrame ?? playhead);
   const sc = sceneAt(f);
+  let frozen = false;
   if (sc) {
     const t = TONES[sc.tone];
-    const srcF = Math.round(f - liveClip(sc).from + liveClip(sc).srcIn);
+    const live = liveClip(sc);
+    const rawSrc = Math.round(f - live.from + live.srcIn);
+    const srcF = clamp(rawSrc, 0, Math.max(0, Math.round(sc.srcLen) - 1));   // a hold shows the frozen frame
+    frozen = sc.srcLen < 900 ? rawSrc !== srcF : rawSrc < 0;
     monFill.style.background = `linear-gradient(135deg, hsl(${t.hue} 45% 26%), hsl(${t.hue} 52% 12%) 70%)`;
     monName.textContent = sc.name;
-    monSub.textContent = `frame ${Math.round(f)} · src ${srcF}f · ${FPS}fps`;
+    monSub.textContent = `frame ${Math.round(f)} · src ${srcF}f${frozen ? " · hold" : ""} · ${FPS}fps`;
   } else {
     monFill.style.background = "#08090c";
     monName.textContent = "—";
     monSub.textContent = `frame ${Math.round(f)} · ${FPS}fps`;
   }
-  monTag.textContent = previewFrame != null && G ? (G.kind === "trim" ? (G.edge === "r" ? "OUT PREVIEW" : "IN PREVIEW") : "") : skimFrame != null ? "SKIM" : "";
+  monTag.textContent = previewFrame != null && G
+    ? (G.kind === "trim" ? `${G.edge === "r" ? "OUT" : "IN"} PREVIEW${frozen ? " · ❚❚ HOLD" : ""}` : "")
+    : skimFrame != null ? "SKIM" : "";
   const ov = overlayAt(f);
   monCaption.textContent = ov?.caption ?? "";
   monTc.innerHTML = `${secs(f)}<small>s</small>`;
@@ -1434,7 +1503,7 @@ function updateHint(e) {
   const snapBit = anySnap() ? " · ⌥ no snap" : "";
   if (tool === "blade") h = "BLADE — click a clip to cut · ⇧-click cuts every track · snaps to the playhead · Esc to exit";
   else if (tool === "wedge") h = "＋TIME — drag right anywhere to insert time, left to remove · locked tracks stay · Esc to exit";
-  else if (e.target.closest(".trim-handle")) h = `Drag to trim · magnetic track ripples downstream · ⌘-drag ripples on free tracks${fineBit}${snapBit}`;
+  else if (e.target.closest(".trim-handle")) h = `Drag to trim · magnetic track ripples downstream · ⌘-drag ripples on free tracks${has("hold") ? " · past the footage = hold frame" : ""}${fineBit}${snapBit}`;
   else if (e.target.closest(".roll-handle")) h = "Roll the junction — one clip grows, the neighbor shrinks, downstream stays put";
   else if (e.target.closest(".clip.gap-clip")) h = "Gap clip — trim its edges or ⌫ to close it (storyline repacks)";
   else if (e.target.closest(".clip")) {

@@ -149,7 +149,10 @@ canvas { display: block; }
 .clip.selected .trim-handle { opacity: .9; }
 .trim-handle.ripple-armed { background: var(--path); }
 
-.clip-overrun { position: absolute; inset-block: 0; z-index: 1; border-left: 1px dashed rgb(232 235 242 / 45%); background: repeating-linear-gradient(-45deg, rgb(0 0 0 / 45%) 0 5px, rgb(0 0 0 / 25%) 5px 10px); pointer-events: none; }
+.clip-overrun { position: absolute; inset-block: 0; z-index: 1; background: repeating-linear-gradient(-45deg, rgb(143 201 236 / 11%) 0 5px, rgb(9 12 16 / 52%) 5px 10px); pointer-events: none; }
+.clip-overrun.tail { border-left: 1px dashed rgb(163 205 236 / 60%); }
+.clip-overrun.head { border-right: 1px dashed rgb(163 205 236 / 60%); }
+.clip-overrun::after { content: attr(data-hold); position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; color: rgb(190 220 244 / 92%); font: 800 7px/1 var(--mono); letter-spacing: .1em; white-space: nowrap; text-shadow: 0 1px 3px rgb(0 0 0 / 75%); }
 
 .clip.gap-clip { border: 1px dashed rgb(240 180 95 / 45%); background: rgb(240 180 95 / 5%); color: var(--faint); cursor: grab; }
 .clip.gap-clip .clip-name { color: var(--faint); }
@@ -271,3 +274,5 @@ body.mode-wedge .lane-track, body.mode-wedge .clip, body.mode-wedge .ruler, body
 .pbadge.pinned { pointer-events: auto; cursor: pointer; }
 .pbadge.pinned:hover { background: rgb(240 180 95 / 25%); color: var(--text); }
 .trim-handle.limit { background: var(--red); }
+.trim-handle.hold { background: var(--blue); }
+.drag-hud .hud-hold { color: var(--blue); }

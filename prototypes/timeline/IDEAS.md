@@ -28,7 +28,7 @@ A zoomed bubble opens above the pointer during any edge drag: frame ticks, beat 
 Hold ⇧ mid-gesture: pointer gain drops to 1/7, sub-frame movement accumulates, the loupe opens, snap radii tighten so stickiness doesn't swallow the precision you just asked for. Precision is a *modifier you can enter mid-drag*, never a mode or a re-grab — the same reason iOS lets you slide off the scrubber into finer rates without lifting your finger.
 
 **3 · Headroom & hold-frame** — *the studio's `clip-overrun`, evolved · FCPX red-edge convention*
-Trims past the source hold the last frame and hatch the overrun (the studio already does this); the prototype adds the *approach*: the loupe draws the media-limit bracket before you hit it, the trim handle turns red at the wall, and the HUD says `media limit` — the industry-universal "red = out of handles" signal.
+Both ends of the footage are physical. Trimming toward a media edge, the edge *sticks* at the first/last real frame (its own detent with a tick — independent of grid snapping, `⌥` bypasses), then breaks through with a low thud into hold-frame territory: head trims freeze the first frame, tail trims freeze the last. Hold zones hatch cool-blue with a `❚❚ Nf` label live during the drag, the trim handle turns blue, the loupe draws the media bracket and shades HOLD, and the monitor previews the frozen frame (`src 0f · hold`). Red stays reserved for the one true wall — the 1-frame minimum.
 
 ## B · MAGNETISM — sticky ends that never feel grabby
 
