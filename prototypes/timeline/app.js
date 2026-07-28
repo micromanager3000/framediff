@@ -106,9 +106,14 @@ function redo() {
   recomputeAxis(); rebuild(); toast("Redid edit");
 }
 
-/* commit transaction: undo snapshot → mutate → children ride parents → settle */
-function commit(label, sub, fn) {
-  pushUndo();
+/* commit transaction: undo snapshot → mutate → children ride parents → settle.
+   opts.coalesce: rapid same-key commits (hold-to-repeat steppers) share one undo entry. */
+let lastCoalesce = { key: null, t: 0 };
+function commit(label, sub, fn, opts = {}) {
+  const cont = opts.coalesce && lastCoalesce.key === opts.coalesce && performance.now() - lastCoalesce.t < 1600;
+  lastCoalesce = opts.coalesce ? { key: opts.coalesce, t: performance.now() } : { key: null, t: 0 };
+  if (!cont) pushUndo();
+  if (cont) label = null;
   const beforeAxis = axisStart;
   const beforeFrom = new Map(clips.map((c) => [c.id, c.from]));
   fn();
@@ -381,6 +386,7 @@ function rebuild() {
   positionPlayhead();
   drawMinimap();
   updateProj();
+  updateSelBar();
 }
 
 function buildClip(c, tr) {
@@ -433,6 +439,15 @@ function buildClip(c, tr) {
   }
   const hl = el("i", "trim-handle left", b); hl.dataset.gesture = "trim-l"; hl.dataset.idea = "1 2 9";
   const hr = el("i", "trim-handle right", b); hr.dataset.gesture = "trim-r"; hr.dataset.idea = "1 2 9";
+  const handleTitle = tr.magnetic ? "Trim — ripples the storyline · pull away vertically for fine"
+    : "Trim — upper half plain, lower half ripples · pull away vertically for fine";
+  hl.title = hr.title = handleTitle;
+  if (!c.gap && (tr.kind === "scenes" || tr.kind === "music") && c.dur * ppf > 70 && c.srcLen - c.dur >= 1) {
+    const sp = el("i", "slip-pill", b);                             // idea 11, modeless
+    sp.dataset.gesture = "slip-pill"; sp.dataset.idea = "11";
+    sp.textContent = "⇄";
+    sp.title = "Slip — drag to slide the source; in/out stay put";
+  }
   clipEls.set(c.id, b);
   return b;
 }
@@ -609,13 +624,30 @@ function beginGesture(e, kind, extra = {}) {
     kind, startX: e.clientX, startY: e.clientY, lastX: e.clientX, lastSL: scroller.scrollLeft,
     acc: 0, moved: false, stuck: null, live: new Map(), shift: new Map(), ...extra,
   };
+  selBar?.remove(); selBar = null;
+  hideCutHover?.();
+  phCluster?.classList.remove("show");
+  hideJunction?.();
   window.addEventListener("pointermove", onGestureMove);
   window.addEventListener("pointerup", onGestureEnd, { once: true });
   window.addEventListener("pointercancel", onGestureEnd, { once: true });
 }
+/* idea 2, pointer-only: precision gearing. Pull AWAY from the track vertically and the
+   drag gears down smoothly to 1/10× (iOS scrubber pattern). ⇧ still forces fine. */
+const GEARED = new Set(["trim", "roll", "slip", "wedge", "cutdrag", "marker", "key", "scrub"]);
+function dragGain(e) {
+  let gain = e.shiftKey ? FINE_GAIN : 1;
+  if (GEARED.has(G?.kind)) {
+    const dy = Math.abs(e.clientY - G.startY);
+    if (dy > 28) gain = Math.min(gain, Math.max(0.1, 1 - ((dy - 28) / 140) * 0.9));
+  }
+  return gain;
+}
+const gainNote = (e) => { const g = dragGain(e); return g < 0.9 ? ` · fine ×1/${Math.round(1 / g)}` : ""; };
 function gestureDelta(e) {
   autoPan(e);
-  const gain = e.shiftKey ? FINE_GAIN : 1;               // idea 2: ⇧ = fine gearing
+  const gain = dragGain(e);
+  G.gain = gain;
   G.acc += ((e.clientX - G.lastX) * gain + (scroller.scrollLeft - G.lastSL)) / ppf;
   G.lastX = e.clientX; G.lastSL = scroller.scrollLeft;
   if (!G.moved && Math.hypot(e.clientX - G.startX, e.clientY - G.startY) > 3) G.moved = true;
@@ -628,8 +660,15 @@ function autoPan(e) {
 }
 
 /* pointerdown routing */
+const CUT_ZONE = 9;                                  // px strip along a clip's lower edge
+function inCutZone(e, clipEl) {
+  if (e.target.closest(".trim-handle, .slip-pill, .pbadge, .clip-badges")) return false;
+  const r = clipEl.getBoundingClientRect();
+  return e.clientY > r.bottom - CUT_ZONE && e.clientX > r.left + 10 && e.clientX < r.right - 10;
+}
 tlCanvas.addEventListener("pointerdown", (e) => {
   if (e.button !== 0) return;
+  closeCtxMenu();
   const t = e.target.closest("[data-gesture]");
   if (!t) return;
   const kind = t.dataset.gesture;
@@ -639,15 +678,18 @@ tlCanvas.addEventListener("pointerdown", (e) => {
   if (kind === "key") return startKeyDrag(e, t.dataset.id);
   if (kind === "rw-move" || kind === "rw-left" || kind === "rw-right") return startRw(e, kind);
   if (kind === "roll") return startRoll(e, t.dataset.a, t.dataset.b);
+  if (kind === "junction-add") return startCutDrag(e, null, Number(t.dataset.f));
+  if (kind === "slip-pill") return startSlip(e, clips.find((c) => c.id === t.closest(".clip").dataset.id));
   if (kind === "trim-l" || kind === "trim-r") {
     const clip = clips.find((c) => c.id === t.closest(".clip").dataset.id);
     if (tool === "wedge") return startWedge(e);
-    return startTrim(e, clip, kind === "trim-l" ? "l" : "r");
+    return startTrim(e, clip, kind === "trim-l" ? "l" : "r", t);
   }
   if (kind === "clip") {
     const clip = clips.find((c) => c.id === t.dataset.id);
     if (tool === "blade") return doBlade(e, clip);
     if (tool === "wedge") return startWedge(e);
+    if (!clip.gap && inCutZone(e, t)) return startCutDrag(e, clip);   // ✂ strip: click cuts, drag tears open
     if (e.altKey && !clip.gap) return startSlip(e, clip);
     return startMove(e, clip);
   }
@@ -664,6 +706,7 @@ function onGestureMove(e) {
   ({
     scrub: moveScrub, marker: moveMarker, key: moveKey, rw: moveRw, move: moveMove,
     trim: moveTrim, roll: moveRoll, slip: moveSlip, wedge: moveWedge, marquee: moveMarquee,
+    cutdrag: moveCutDrag,
   })[G.kind]?.(e);
   drawMinimap();
 }
@@ -673,11 +716,12 @@ function onGestureEnd(e) {
   ({
     scrub: endScrub, marker: endMarker, key: endKey, rw: endRw, move: endMove,
     trim: endTrim, roll: endRoll, slip: endSlip, wedge: endWedge, marquee: endMarquee,
+    cutdrag: endCutDrag,
   })[g.kind]?.(e, g);
   G = null;
   hideHud(); hideLoupe(); hideGuide();
-  document.querySelectorAll(".rippling, .parting").forEach((el) => { el.classList.remove("rippling", "parting"); el.style.transform = ""; });
-  drawMinimap(); updateMonitor();
+  document.querySelectorAll(".rippling, .parting, .will-split").forEach((el) => { el.classList.remove("rippling", "parting", "will-split"); el.style.transform = ""; });
+  drawMinimap(); updateMonitor(); updateSelBar();
 }
 
 /* ---- scrub ---- */
@@ -686,19 +730,15 @@ function startScrub(e) {
   moveScrub(e);
 }
 function moveScrub(e) {
-  let f;
-  if (e.shiftKey) {                                     // fine gearing applies to scrubbing too
-    f = playhead + (e.clientX - G.lastX) * FINE_GAIN / ppf;
-  } else {
-    f = frameAt(e.clientX);
-  }
+  const gain = dragGain(e);                             // pull down off the ruler = fine scrub
+  let f = gain < 1 ? playhead + ((e.clientX - G.lastX) * gain) / ppf : frameAt(e.clientX);
   G.lastX = e.clientX;
   f = stickySnap(G, f, snapTargets(new Set(), { beats: true }), e);
   playhead = clamp(f, axisStart, axisEnd);
   positionPlayhead(); updateMonitor();
-  if (e.shiftKey) showLoupe(playhead, G, e, { trackId: "v1" });
+  if (gain < 0.55) showLoupe(playhead, G, e, { trackId: "v1" });
   else hideLoupe();
-  showHud(e.clientX, e.clientY, `<b>${fmtT(playhead)}</b> · ${Math.round(playhead)}f${hudTarget(G)}`);
+  showHud(e.clientX, e.clientY, `<b>${fmtT(playhead)}</b> · ${Math.round(playhead)}f${gainNote(e)}${hudTarget(G)}`);
 }
 function endScrub() { playhead = Math.round(playhead); positionPlayhead(); }
 
@@ -919,11 +959,16 @@ function endMagneticMove(e, g) {
 }
 
 /* ---- trim (free / ⌘ ripple / magnetic auto-ripple) ---- */
-function startTrim(e, clip, edge) {
+function startTrim(e, clip, edge, handleEl) {
   e.stopPropagation();
   selection = new Set([clip.id]); refreshSelection();
   const tr = trackById(clip.trackId);
-  const ripple = tr.magnetic || e.metaKey;
+  let ripple = tr.magnetic || e.metaKey;
+  if (!ripple && handleEl) {
+    // pointer-only ripple: the handle's lower half ripples, upper half plain-trims
+    const hr = handleEl.getBoundingClientRect();
+    ripple = e.clientY > hr.top + hr.height / 2;
+  }
   beginGesture(e, "trim", {
     clip, edge, tr, ripple,
     base: { from: clip.from, dur: clip.dur, srcIn: clip.srcIn },
@@ -973,7 +1018,7 @@ function moveTrim(e) {
   const edgeF = edge === "r" ? live.from + live.dur : live.from;
   const label = edge === "r" ? "out" : "in";
   showHud(e.clientX, e.clientY,
-    `${clip.gap ? "gap" : clip.name} ${label} <b>${fmtT(edgeF)}</b> · ${fmtT(base.dur)} → ${fmtT(live.dur)}${ripple ? " · <b>ripple</b>" : ""}${G.limit ? ' · <span style="color:#f07470">media limit</span>' : ""}${hudTarget(G)}`);
+    `${clip.gap ? "gap" : clip.name} ${label} <b>${fmtT(edgeF)}</b> · ${fmtT(base.dur)} → ${fmtT(live.dur)}${ripple ? " · <b>ripple</b>" : ""}${G.limit ? ' · <span style="color:#f07470">media limit</span>' : ""}${gainNote(e)}${hudTarget(G)}`);
   showLoupe(edgeF, G, e, { trackId: clip.trackId });          // loupe always on for trims (idea 1)
   updateMonitor(Math.round(edge === "r" ? edgeF - 1 : edgeF));
 }
@@ -1000,31 +1045,38 @@ function endTrim(e, g) {
   });
 }
 
-/* ---- roll at junctions (idea 10) ---- */
-let rollHandleEl = null;
+/* ---- junction pill (ideas 7 + 10): ⟷ roll on top, ＋ open-time below ---- */
+let rollHandleEl = null, junctionAddEl = null;
+function hideJunction() { rollHandleEl?.remove(); rollHandleEl = null; junctionAddEl?.remove(); junctionAddEl = null; }
 function updateRollHandles(e) {
-  if (G || tool !== "select") { rollHandleEl?.remove(); rollHandleEl = null; return; }
+  if (G || tool !== "select") { hideJunction(); return; }
+  if (e.target.closest?.(".roll-handle")) return;      // stay visible while on the pills
   const trEl = e.target.closest?.(".lane-track");
   const trId = trEl?.dataset.track;
-  if (!trId || trId === "motion") { rollHandleEl?.remove(); rollHandleEl = null; return; }
+  if (!trId || trId === "motion") { hideJunction(); return; }
   const f = frameAt(e.clientX);
   const tcs = clips.filter((c) => c.trackId === trId).sort((a, b) => a.from - b.from);
   for (let i = 0; i < tcs.length - 1; i++) {
     const a = tcs[i], b = tcs[i + 1];
     if (Math.abs(a.from + a.dur - b.from) < 0.51 && Math.abs(f - b.from) * ppf < 7) {
-      if (!rollHandleEl) rollHandleEl = el("div", "roll-handle", tlCanvas);
       const tr = trackById(trId);
       const laneTop = tlCanvas.querySelectorAll(".lane")[tracks.indexOf(tr) + 1].offsetTop;
-      rollHandleEl.style.left = `${LABEL_W + xOf(b.from)}px`;
+      const h = Math.max(10, Math.floor((tr.clipH - 2) / 2));
+      if (!rollHandleEl) { rollHandleEl = el("div", "roll-handle", tlCanvas); rollHandleEl.textContent = "⟷"; rollHandleEl.dataset.gesture = "roll"; rollHandleEl.dataset.idea = "10"; }
+      if (!junctionAddEl) { junctionAddEl = el("div", "roll-handle junction-add", tlCanvas); junctionAddEl.textContent = "＋"; junctionAddEl.dataset.gesture = "junction-add"; junctionAddEl.dataset.idea = "6 7"; }
+      rollHandleEl.style.left = junctionAddEl.style.left = `${LABEL_W + xOf(b.from)}px`;
       rollHandleEl.style.top = `${laneTop + tr.clipTop}px`;
-      rollHandleEl.style.height = `${tr.clipH}px`;
-      rollHandleEl.textContent = "⟷";
+      rollHandleEl.style.height = `${h}px`;
+      junctionAddEl.style.top = `${laneTop + tr.clipTop + h + 2}px`;
+      junctionAddEl.style.height = `${h}px`;
       rollHandleEl.title = `Roll ${a.name} / ${b.name} — moves the boundary, downstream stays put`;
-      rollHandleEl.dataset.gesture = "roll"; rollHandleEl.dataset.a = a.id; rollHandleEl.dataset.b = b.id;
+      junctionAddEl.title = "＋TIME here — click inserts 0.5s · drag right for more · drag left removes";
+      rollHandleEl.dataset.a = a.id; rollHandleEl.dataset.b = b.id;
+      junctionAddEl.dataset.f = String(Math.round(b.from));
       return;
     }
   }
-  rollHandleEl?.remove(); rollHandleEl = null;
+  hideJunction();
 }
 function startRoll(e, aId, bId) {
   e.stopPropagation();
@@ -1042,7 +1094,7 @@ function moveRoll(e) {
   G.live.set(b.id, { from: base.bFrom + d, dur: base.bDur - d, srcIn: base.bSrcIn + d });
   applyClipLive(a); applyClipLive(b);
   if (rollHandleEl) rollHandleEl.style.left = `${LABEL_W + xOf(base.bFrom + d)}px`;
-  showHud(e.clientX, e.clientY, `roll <b>${fmtD(d)}</b> · ${a.name} ${fmtT(base.aDur + d)} / ${b.name} ${fmtT(base.bDur - d)}${hudTarget(G)}`);
+  showHud(e.clientX, e.clientY, `roll <b>${fmtD(d)}</b> · ${a.name} ${fmtT(base.aDur + d)} / ${b.name} ${fmtT(base.bDur - d)}${gainNote(e)}${hudTarget(G)}`);
   showLoupe(base.bFrom + d, G, e, { trackId: a.trackId });
   updateMonitor(Math.round(base.bFrom + d));
 }
@@ -1060,7 +1112,7 @@ function endRoll(e, g) {
 /* ---- slip (idea 11) ---- */
 function startSlip(e, clip) {
   e.stopPropagation();
-  if (clip.srcLen - clip.dur < 1) { toast(`${clip.name} has no slip headroom`); return; }
+  if (!clip || clip.srcLen - clip.dur < 1) { toast(`${clip?.name ?? "clip"} has no slip headroom`); return; }
   selection = new Set([clip.id]); refreshSelection();
   beginGesture(e, "slip", { clip, base: clip.srcIn });
 }
@@ -1070,7 +1122,7 @@ function moveSlip(e) {
   const srcIn = clamp(G.base - d, 0, Math.max(0, c.srcLen - c.dur));
   G.live.set(c.id, { srcIn });
   applyClipLive(c);
-  showHud(e.clientX, e.clientY, `slip ${c.name} <b>${fmtD(G.base - srcIn)}</b> · src in ${fmtT(srcIn)}`);
+  showHud(e.clientX, e.clientY, `slip ${c.name} <b>${fmtD(G.base - srcIn)}</b> · src in ${fmtT(srcIn)}${gainNote(e)}`);
   showLoupe(0, G, e, { source: true, clip: { ...c, srcIn } });
 }
 function endSlip(e, g) {
@@ -1082,7 +1134,7 @@ function endSlip(e, g) {
 
 /* ---- ripple insert wedge (idea 7): +TIME opens spacetime ---- */
 function ripplePlan(t0) {
-  const movers = new Set();
+  const movers = new Set(), splits = [], flows = [];
   let maxPull = Infinity;
   for (const tr of tracks) {
     if (tr.locked) continue;
@@ -1090,16 +1142,24 @@ function ripplePlan(t0) {
     const tcs = clips.filter((c) => c.trackId === tr.id && !c.parentId).sort((a, b) => a.from - b.from);
     let blockEnd = -Infinity, first = Infinity, prevNonMover = null;
     for (const c of tcs) {
+      const end = c.from + c.dur;
       if (c.from >= t0 - 1e-6) { movers.add(c.id); first = Math.min(first, c.from); }
-      else { blockEnd = Math.max(blockEnd, c.from + c.dur); prevNonMover = c; }
+      else if (end > t0 + 1e-6 && !c.gap) {
+        // straddles the point — beds flow (span + grow), everything else splits in sync
+        (tr.kind === "music" ? flows : splits).push(c);
+        maxPull = Math.min(maxPull, Math.max(0, end - t0 - 1));   // negative wedge eats into the tail
+      } else { blockEnd = Math.max(blockEnd, end); prevNonMover = c; }
     }
     if (first < Infinity) {
-      if (tr.magnetic) maxPull = Math.min(maxPull, prevNonMover?.gap ? prevNonMover.dur : blockEnd === -Infinity ? 1e9 : 0);
-      else maxPull = Math.min(maxPull, first - (blockEnd === -Infinity ? axisStart : blockEnd));
+      const straddled = splits.some((c) => c.trackId === tr.id) || flows.some((c) => c.trackId === tr.id);
+      if (!straddled) {
+        if (tr.magnetic) maxPull = Math.min(maxPull, prevNonMover?.gap ? prevNonMover.dur : blockEnd === -Infinity ? 1e9 : 0);
+        else maxPull = Math.min(maxPull, first - (blockEnd === -Infinity ? axisStart : blockEnd));
+      }
     }
   }
   for (const c of clips) if (c.parentId && movers.has(c.parentId)) movers.add(c.id);
-  return { movers, maxPull: maxPull === Infinity ? 1e9 : Math.max(0, maxPull) };
+  return { movers, splits, flows, maxPull: maxPull === Infinity ? 1e9 : Math.max(0, maxPull) };
 }
 let wedgeEl = null;
 function startWedge(e) {
@@ -1132,8 +1192,15 @@ function moveWedge(e) {
   for (const m of markers) if (m.frame >= t0) markerEls.get(m.id).style.transform = `translateX(${delta * ppf}px)`;
   for (const k of motionKeys) if (k.frame >= t0) keyEls.get(k.id).style.transform = `translateX(${delta * ppf}px)`;
   if (render.to >= t0) positionRw(render.from, render.to + delta);
+  // straddlers: beds visibly grow/shrink, split clips get the dashed warning outline
+  for (const c of plan.flows) { G.live.set(c.id, { dur: Math.max(1, c.dur + delta) }); applyClipLive(c); }
+  for (const c of plan.splits) clipEls.get(c.id)?.classList.add("will-split");
   moveStems();
-  showHud(e.clientX, e.clientY, `＋TIME at ${fmtT(t0)} · <b>${fmtD(delta)}</b> · ${plan.movers.size} clips ride${lockNote}${hudTarget(G)}`);
+  const strad = [
+    ...(plan.splits.length ? [`✂ ${plan.splits.map((c) => c.name).join(", ")}`] : []),
+    ...(plan.flows.length ? [`${plan.flows.map((c) => c.name).join(", ")} flows`] : []),
+  ].map((s) => ` · ${s}`).join("");
+  showHud(e.clientX, e.clientY, `＋TIME at ${fmtT(t0)} · <b>${fmtD(delta)}</b> · ${plan.movers.size} clips ride${strad}${lockNote}${gainNote(e)}${hudTarget(G)}`);
   if (e.shiftKey) showLoupe(t0 + delta, G, e, { trackId: "v1" });
 }
 function endWedge(e, g) {
@@ -1141,16 +1208,51 @@ function endWedge(e, g) {
   markerEls.forEach((el) => (el.style.transform = ""));
   keyEls.forEach((el) => (el.style.transform = ""));
   const delta = Math.round(g.delta ?? 0);
-  if (!g.moved || !delta) { positionRw(); return; }
+  if (!g.moved || !delta) {
+    positionRw();
+    if (g.plan.splits.length || g.plan.flows.length) rebuild();   // restore straddler previews
+    return;
+  }
+  commitWedge(g.t0, delta, g.plan);
+}
+/* the wedge commit, callable from drags, junction ＋ clicks, and menus alike */
+function commitWedge(t0, delta, plan) {
+  const g = { t0, plan };
   sndWhoosh();
-  const label = delta > 0 ? `Inserted ${(delta / FPS).toFixed(2)}s at ${fmtT(g.t0)}` : `Removed ${(-delta / FPS).toFixed(2)}s at ${fmtT(g.t0)}`;
-  commit(label, "everything downstream shifted", () => {
+  const splitNote = plan.splits.length ? ` · split ${plan.splits.map((c) => c.name).join(", ")}` : "";
+  const flowNote = plan.flows.length ? ` · ${plan.flows.map((c) => c.name).join(", ")} flows` : "";
+  const label = delta > 0 ? `Inserted ${(delta / FPS).toFixed(2)}s at ${fmtT(t0)}` : `Removed ${(-delta / FPS).toFixed(2)}s at ${fmtT(t0)}`;
+  commit(label, `downstream shifted${splitNote}${flowNote}`, () => {
+    // straddlers first: sync clips split at the point (tails land pre-shifted), beds flow
+    for (const c of g.plan.splits) {
+      const headDur = g.t0 - c.from;
+      const eaten = delta < 0 ? -delta : 0;
+      const tail = {
+        ...c, id: uid(),
+        from: delta > 0 ? g.t0 + delta : g.t0,
+        dur: Math.max(1, c.dur - headDur - eaten),
+        srcIn: c.srcIn + headDur + eaten,
+        badges: undefined, takes: undefined,
+      };
+      c.dur = Math.max(1, headDur);
+      clips.push(tail);
+      // connected clips annotating tail content ride with the tail
+      for (const ch of clips) if (ch.parentId === c.id && ch.from >= g.t0 - 1e-6) { ch.parentId = tail.id; ch.from += delta; }
+    }
+    for (const c of g.plan.flows) c.dur = Math.max(1, c.dur + delta);
     for (const tr of tracks) {
       if (tr.locked) continue;
+      const trackSplit = g.plan.splits.some((c) => c.trackId === tr.id);
       if (tr.magnetic) {
         const tcs = clips.filter((c) => c.trackId === tr.id).sort((a, b) => a.from - b.from);
+        if (delta > 0 && trackSplit) {
+          // the seam sits exactly at the point: head | gap | tail
+          clips.push({ id: uid(), trackId: tr.id, name: "gap", gap: true, from: g.t0 + 0.1, dur: delta, srcIn: 0, srcLen: 1e9, tone: "amber" });
+          for (const c of tcs) if (g.plan.movers.has(c.id)) c.from += delta;
+          continue;
+        }
         const firstMover = tcs.find((c) => g.plan.movers.has(c.id));
-        if (!firstMover) continue;
+        if (!firstMover && !trackSplit) continue;
         if (delta > 0) {
           const before = tcs.filter((c) => !g.plan.movers.has(c.id));
           if (!before.length && firstMover.from >= g.t0 - 1e-6 && g.t0 < firstMover.from) {
@@ -1160,8 +1262,8 @@ function endWedge(e, g) {
             for (const c of tcs) if (g.plan.movers.has(c.id)) c.from += delta;
           }
         } else {
-          const prev = tcs.filter((c) => !g.plan.movers.has(c.id)).pop();
-          if (prev?.gap) { prev.dur += delta; if (prev.dur < 1) clips = clips.filter((c) => c.id !== prev.id); }
+          const prev = tcs.filter((c) => !g.plan.movers.has(c.id) && !g.plan.splits.includes(c)).pop();
+          if (!trackSplit && prev?.gap) { prev.dur += delta; if (prev.dur < 1) clips = clips.filter((c) => c.id !== prev.id); }
           for (const c of tcs) if (g.plan.movers.has(c.id)) c.from += delta;
         }
       } else {
@@ -1195,19 +1297,167 @@ function updateCutLine(e) {
   hideGuide();
 }
 function clearCutTints() { document.querySelectorAll(".cut-tint").forEach((t) => t.remove()); }
-function doBlade(e, clip) {
-  const f = Math.round(quietSnap(frameAt(e.clientX), snapTargets(new Set(), { self: false }), e));
-  const targets = e.shiftKey ? clips.filter((c) => !c.gap && f > c.from + 1 && f < c.from + c.dur - 1)
-    : clip && !clip.gap && f > clip.from + 1 && f < clip.from + clip.dur - 1 ? [clip] : [];
+function cutAt(targets, f, sub) {
+  targets = targets.filter((c) => c && !c.gap && f > c.from + 1 && f < c.from + c.dur - 1);
   if (!targets.length) return toast("Nothing to cut there");
   sndCut();
-  commit(`Cut ${targets.length > 1 ? `${targets.length} clips` : targets[0].name} at ${fmtT(f)}`, "B again to keep cutting", () => {
+  commit(`Cut ${targets.length > 1 ? `${targets.length} clips` : targets[0].name} at ${fmtT(f)}`, sub, () => {
     for (const c of targets) {
       const off = f - c.from;
-      clips.push({ ...c, id: uid(), from: f, dur: c.dur - off, srcIn: c.srcIn + off, parentId: c.parentId, badges: undefined });
+      clips.push({ ...c, id: uid(), from: f, dur: c.dur - off, srcIn: c.srcIn + off, parentId: c.parentId, badges: undefined, takes: undefined });
       c.dur = off;
     }
   });
+}
+function doBlade(e, clip) {
+  const f = Math.round(quietSnap(frameAt(e.clientX), snapTargets(new Set(), { self: false }), e));
+  cutAt(e.shiftKey ? clips.filter((c) => !c.gap) : [clip], f, "B again to keep cutting");
+}
+
+/* ✂ strip gesture: click = cut here · drag = tear the timeline open (idea 7, modeless) */
+function startCutDrag(e, clip, forcedT0) {
+  e.stopPropagation();
+  const t0 = forcedT0 ?? Math.round(quietSnap(frameAt(e.clientX), snapTargets(new Set(), { self: false }), e));
+  beginGesture(e, "cutdrag", { clip, t0 });
+}
+function moveCutDrag(e) {
+  gestureDelta(e);
+  if (!G.moved) return;
+  hideCutHover();
+  G.kind = "wedge";                                 // morph: the cut line becomes a wedge anchor
+  G.plan = ripplePlan(G.t0);
+  wedgeEl = el("div", "wedge", tlCanvas);
+  el("span", "wedge-label", wedgeEl);
+  moveWedge(e);
+}
+function endCutDrag(e, g) {
+  if (!g.clip) return commitWedge(g.t0, BEAT_STEP, ripplePlan(g.t0));   // junction ＋ click: quick half-second
+  cutAt([g.clip], g.t0, "drag the ✂ strip sideways to open time instead");
+}
+
+/* ---- ✂ strip hover preview (modeless blade) ---- */
+let cutHoverEl = null, cutHoverClip = null;
+function hideCutHover() {
+  cutHoverEl?.remove(); cutHoverEl = null;
+  if (cutHoverClip) { cutHoverClip.style.cursor = ""; cutHoverClip = null; }
+  document.querySelectorAll(".cut-tint").forEach((t) => t.remove());
+}
+function updateCutZone(e) {
+  if (G || tool !== "select") { hideCutHover(); return; }
+  const clipEl = e.target.closest?.(".clip");
+  const c = clipEl && clips.find((x) => x.id === clipEl.dataset.id);
+  if (!c || c.gap || !inCutZone(e, clipEl)) { hideCutHover(); return; }
+  if (cutHoverClip && cutHoverClip !== clipEl) cutHoverClip.style.cursor = "";
+  cutHoverClip = clipEl;
+  clipEl.style.cursor = "crosshair";
+  const f = Math.round(quietSnap(frameAt(e.clientX), snapTargets(new Set(), { self: false }), e));
+  if (!cutHoverEl) { cutHoverEl = el("div", "cut-line", tlCanvas); el("span", "cut-tc", cutHoverEl); }
+  cutHoverEl.style.left = `${LABEL_W + xOf(f)}px`;
+  cutHoverEl.querySelector(".cut-tc").textContent = `✂ ${fmtT(f)} · click cuts · drag opens time`;
+  document.querySelectorAll(".cut-tint").forEach((t) => t.remove());
+  if (f > c.from + 1 && f < c.from + c.dur - 1) {
+    const tint = el("i", "cut-tint", clipEl);
+    tint.style.left = "0"; tint.style.width = `${(f - c.from) * ppf}px`;
+  }
+}
+
+/* ---- playhead cluster (ideas 14 + 19, modeless): hover the playhead → ⇤ ✂ ⇥ with previews ---- */
+let phCluster = null, opTints = [];
+function playheadTargets(op) {
+  const f = Math.round(playhead);
+  return clips.filter((c) => {
+    const tr = trackById(c.trackId);
+    if (tr.locked || c.gap) return false;
+    if (op !== "split" && tr.kind === "music") return false;      // beds keep flowing
+    return f > c.from + 1 && f < c.from + c.dur - 1;
+  });
+}
+function clearOpTints() { opTints.forEach((t) => t.remove()); opTints = []; }
+function previewPlayheadOp(op) {
+  clearOpTints();
+  const f = Math.round(playhead);
+  for (const c of playheadTargets(op)) {
+    const elc = clipEls.get(c.id);
+    if (!elc) continue;
+    const t = el("i", "cut-tint", elc);
+    if (op === "split") { t.style.left = `${(f - c.from) * ppf - 0.75}px`; t.style.width = "1.5px"; }
+    else if (op === "head") { t.style.left = "0"; t.style.width = `${(f - c.from) * ppf}px`; }
+    else { t.style.left = `${(f - c.from) * ppf}px`; t.style.width = `${(c.from + c.dur - f) * ppf}px`; }
+    opTints.push(t);
+  }
+}
+function applyPlayheadOp(op) {
+  clearOpTints();
+  const f = Math.round(playhead);
+  const targets = playheadTargets(op);
+  if (!targets.length) return toast("Nothing under the playhead");
+  if (op === "split") return cutAt(targets, f, "from the playhead cluster");
+  trimClipsToPlayhead(targets, op === "head" ? "l" : "r");
+}
+function ensurePhCluster() {
+  if (phCluster?.isConnected) return;
+  phCluster?.remove();
+  phCluster = el("div", "ph-cluster", tlCanvas);
+  const mk = (txt, title, op) => {
+    const b = el("button", "", phCluster);
+    b.textContent = txt; b.title = title;
+    b.addEventListener("pointerdown", (ev) => { ev.stopPropagation(); ev.preventDefault(); });
+    b.addEventListener("mouseenter", () => previewPlayheadOp(op));
+    b.addEventListener("mouseleave", clearOpTints);
+    b.addEventListener("click", (ev) => { ev.stopPropagation(); applyPlayheadOp(op); });
+  };
+  mk("⇤", "Trim starts to the playhead — hover to preview (beds & locked tracks sit out)", "head");
+  mk("✂", "Split every clip under the playhead", "split");
+  mk("⇥", "Trim ends to the playhead — hover to preview (beds & locked tracks sit out)", "tail");
+}
+function updatePhCluster(e) {
+  if (G) { phCluster?.classList.remove("show"); return; }
+  ensurePhCluster();
+  const overCluster = e.target.closest?.(".ph-cluster");
+  const inRuler = e.target.closest?.(".ruler-row");
+  const rect = scroller.getBoundingClientRect();
+  const canvasX = e.clientX - rect.left + scroller.scrollLeft;
+  const phX = LABEL_W + xOf(playhead);
+  if (overCluster || (inRuler && Math.abs(canvasX - phX) < 14)) {
+    phCluster.style.left = `${phX + 6}px`;
+    phCluster.style.top = `${RULER_H + 4}px`;
+    phCluster.classList.add("show");
+  } else phCluster.classList.remove("show");
+}
+
+/* ---- selection bar (idea 19, modeless): nudge steppers + duration + delete ---- */
+let selBar = null;
+function updateSelBar() {
+  const sel = clips.filter((c) => selection.has(c.id));
+  if (!sel.length || G) { selBar?.remove(); selBar = null; return; }
+  if (!selBar?.isConnected) {
+    selBar?.remove();
+    selBar = el("div", "sel-bar", document.body);
+    const mk = (txt, title, fn, repeat) => {
+      const b = el("button", "", selBar);
+      b.textContent = txt; b.title = title;
+      b.addEventListener("pointerdown", (ev) => {
+        ev.stopPropagation(); ev.preventDefault();
+        fn();
+        if (repeat) {
+          const iv = setInterval(fn, 130);
+          window.addEventListener("pointerup", () => clearInterval(iv), { once: true });
+        }
+      });
+    };
+    mk("◂", "Nudge −1 frame · hold to repeat ( , on keys)", () => nudge(-1), true);
+    el("span", "sel-dur", selBar);
+    mk("▸", "Nudge +1 frame · hold to repeat ( . on keys)", () => nudge(1), true);
+    mk("×", "Delete selection — magnetic tracks close up (⌫)", () => deleteSelection());
+  }
+  const first = clipEls.get(sel[0].id);
+  if (!first) { selBar.remove(); selBar = null; return; }
+  const r = first.getBoundingClientRect();
+  const total = sel.reduce((a, c) => a + c.dur, 0);
+  selBar.querySelector(".sel-dur").textContent =
+    sel.length > 1 ? `${sel.length} clips · ${fmtT(total)}` : `${sel[0].gap ? "gap" : sel[0].name} · ${fmtT(sel[0].dur)}`;
+  selBar.style.left = `${Math.max(8, r.left)}px`;
+  selBar.style.top = `${Math.max(52, r.top - 27)}px`;
 }
 
 /* ---- marquee (multi-select) ---- */
@@ -1237,38 +1487,54 @@ function endMarquee(e, g) {
 function refreshSelection() {
   for (const [id, elc] of clipEls) elc.classList.toggle("selected", selection.has(id));
   updateProj();
+  updateSelBar();
 }
 
-/* ---- gap chips (idea 8) ---- */
+/* ---- gap chips + seams (idea 8): close ×, or bridge ≈ two halves back into one flowing clip ---- */
 let gapChipEl = null, gapHover = null;
+function seamNeighbors(trId, f0, f1) {
+  const tcs = clips.filter((c) => c.trackId === trId && !c.gap).sort((a, b) => a.from - b.from);
+  const head = tcs.filter((c) => Math.abs(c.from + c.dur - f0) < 0.6).pop();
+  const tail = tcs.find((c) => Math.abs(c.from - f1) < 0.6);
+  if (head && tail && head.name === tail.name && Math.abs(head.srcIn + head.dur - tail.srcIn) < 0.6) return { head, tail };
+  return null;
+}
 function updateGapChip(e) {
   if (G || tool !== "select") { removeGapChip(); return; }
   const trEl = e.target.closest?.(".lane-track");
   const trId = trEl?.dataset.track;
-  if (!trId || trId === "motion" || e.target.closest(".clip")) { removeGapChip(); return; }
-  const tr = trackById(trId);
+  if (!trId || trId === "motion") { removeGapChip(); return; }
+  const overGapClip = e.target.closest?.(".clip.gap-clip");
+  if (overGapClip) {
+    const c = clips.find((x) => x.id === overGapClip.dataset.id);
+    if (c) return showGapChip(trId, c.from, c.from + c.dur, { gapClipId: c.id });
+  }
+  if (e.target.closest(".clip")) { removeGapChip(); return; }
   const f = frameAt(e.clientX);
   const tcs = clips.filter((c) => c.trackId === trId).sort((a, b) => a.from - b.from);
   let prev = null;
   for (const c of tcs) {
     if (c.from > f) {
       const g0 = prev ? prev.from + prev.dur : null;
-      if (g0 !== null && f > g0 && c.from - g0 > 2) return showGapChip(trId, g0, c.from, e);
+      if (g0 !== null && f > g0 && c.from - g0 > 2) return showGapChip(trId, g0, c.from, {});
       break;
     }
     prev = c;
   }
   removeGapChip();
 }
-function showGapChip(trId, f0, f1, e) {
-  const key = `${trId}:${Math.round(f0)}`;
-  gapHover = { trId, f0, f1 };
-  if (!gapChipEl) {
+function showGapChip(trId, f0, f1, opts) {
+  const key = `${trId}:${Math.round(f0)}:${opts.gapClipId ?? ""}`;
+  gapHover = { trId, f0, f1, ...opts };
+  if (gapChipEl?.dataset.key !== key) {
+    gapChipEl?.remove();
     gapChipEl = el("div", "gap-chip", tlCanvas);
-    gapChipEl.innerHTML = `<span></span><button title="Close gap — everything after slides left">×</button>`;
-    gapChipEl.querySelector("button").onpointerdown = (ev) => { ev.stopPropagation(); ev.preventDefault(); closeGap(); };
+    gapChipEl.dataset.key = key;
+    const bridgeable = seamNeighbors(trId, f0, f1);
+    gapChipEl.innerHTML = `<span></span>${bridgeable ? `<button class="bridge" title="Bridge — merge the halves so ${bridgeable.head.name} plays through the gap">≈</button>` : ""}<button class="close" title="Close gap — everything after slides left">×</button>`;
+    gapChipEl.querySelector(".close").onpointerdown = (ev) => { ev.stopPropagation(); ev.preventDefault(); closeGap(); };
+    gapChipEl.querySelector(".bridge")?.addEventListener("pointerdown", (ev) => { ev.stopPropagation(); ev.preventDefault(); bridgeSeam(); });
   }
-  gapChipEl.dataset.key = key;
   gapChipEl.querySelector("span").textContent = `gap ${(Math.round(f1 - f0) / FPS).toFixed(2)}s`;
   const tr = trackById(trId);
   const laneEl = laneTracks.get(trId).parentElement;
@@ -1278,13 +1544,28 @@ function showGapChip(trId, f0, f1, e) {
 function removeGapChip() { gapChipEl?.remove(); gapChipEl = null; gapHover = null; }
 function closeGap() {
   if (!gapHover) return;
-  const { trId, f0, f1 } = gapHover;
+  const { trId, f0, f1, gapClipId } = gapHover;
   const len = Math.round(f1 - f0);
   removeGapChip();
   sndWhoosh();
-  const ds = clips.filter((c) => c.trackId === trId && c.from >= f1 - 0.5).map((c) => c.id);
+  const ds = clips.filter((c) => c.trackId === trId && c.id !== gapClipId && c.from >= f1 - 0.5).map((c) => c.id);
   commit(`Closed ${(len / FPS).toFixed(2)}s gap`, "ripple delete", () => {
+    if (gapClipId) clips = clips.filter((c) => c.id !== gapClipId);
     for (const id of ds) clips.find((c) => c.id === id).from -= len;
+  });
+}
+function bridgeSeam() {
+  if (!gapHover) return;
+  const { trId, f0, f1, gapClipId } = gapHover;
+  const pair = seamNeighbors(trId, f0, f1);
+  removeGapChip();
+  if (!pair) return;
+  sndTick();
+  commit(`Bridged ${pair.head.name} — plays through`, "split → flow", () => {
+    pair.head.dur = pair.tail.from + pair.tail.dur - pair.head.from;
+    pair.head.srcLen = Math.max(pair.head.srcLen, pair.head.srcIn + pair.head.dur);
+    for (const ch of clips) if (ch.parentId === pair.tail.id) ch.parentId = pair.head.id;
+    clips = clips.filter((c) => c.id !== pair.tail.id && c.id !== gapClipId);
   });
 }
 
@@ -1360,6 +1641,8 @@ scroller.addEventListener("pointermove", (e) => {
   updateRollHandles(e);
   updateGapChip(e);
   updateCutLine(e);
+  updateCutZone(e);
+  updatePhCluster(e);
   updateHint(e);
   if (!skimOn || G || playing || !e.target.closest(".ruler")) {
     if (skimFrame != null && !G) { skimFrame = null; skimEl.hidden = true; updateMonitor(); }
@@ -1377,20 +1660,23 @@ scroller.addEventListener("pointerleave", () => { if (skimFrame != null) { skimF
 const hintEl = document.getElementById("hint");
 function updateHint(e) {
   let h = "";
-  if (tool === "blade") h = "BLADE — click a clip to cut · ⇧-click cuts every track · snaps to beats & playhead · Esc to exit";
-  else if (tool === "wedge") h = "＋TIME — drag right anywhere to insert time, left to remove · locked tracks stay · Esc to exit";
-  else if (e.target.closest(".trim-handle")) h = "Drag to trim · magnetic track ripples downstream · ⌘-drag ripples on free tracks · ⇧ fine · ⌥ no snap";
+  if (tool === "blade") h = "BLADE — click a clip to cut · ⇧-click cuts every track · Esc exits (or just use the ✂ strip, no mode needed)";
+  else if (tool === "wedge") h = "＋TIME — drag right to insert, left to remove · Esc exits (or just drag a ✂ strip / junction ＋)";
+  else if (e.target.closest(".junction-add")) h = "＋ at the junction — click inserts 0.5s · drag right for more · drag left removes time";
   else if (e.target.closest(".roll-handle")) h = "Roll the junction — one clip grows, the neighbor shrinks, downstream stays put";
-  else if (e.target.closest(".clip.gap-clip")) h = "Gap clip — trim its edges or ⌫ to close it (storyline repacks)";
+  else if (e.target.closest(".slip-pill")) h = "Drag ⇄ to slip the source — in/out stay put, the filmstrip slides";
+  else if (e.target.closest(".trim-handle")) h = "Drag to trim — upper half plain, lower half ripples (magnetic always ripples) · pull away vertically for fine";
+  else if (e.target.closest(".ph-cluster")) h = "Playhead cluster — hover a button to preview exactly what it will do, click to apply";
+  else if (e.target.closest(".clip.gap-clip")) h = "Gap clip — trim it, × closes, ≈ bridges the halves back into one flowing clip";
   else if (e.target.closest(".clip")) {
     const c = clips.find((c) => c.id === e.target.closest(".clip").dataset.id);
     const tr = c && trackById(c.trackId);
-    h = tr?.magnetic ? "Drag to reorder the storyline · edges ripple-trim · ⌥-drag slips the source · ⇧ fine"
-      : "Drag to move (⇧ fine, ⌥ no snap) · ⌥-drag slips · edges trim · ⌘-edge ripple-trims";
+    h = tr?.magnetic ? "Drag to reorder · edges ripple-trim · ⇄ slips · ✂ strip along the bottom cuts — drag it to open time"
+      : "Drag to move · edges trim (lower half ripples) · ⇄ slips · ✂ strip cuts — drag it to open time";
   }
-  else if (e.target.closest(".ruler")) h = "Click / drag to scrub · hover skims · ⇧-scrub for fine + loupe · markers drag, dbl-click deletes";
+  else if (e.target.closest(".ruler")) h = "Click / drag to scrub — pull down for fine · hover skims · double-click adds a marker · park near the playhead for ⇤ ✂ ⇥";
   else if (e.target.closest(".minimap")) h = "Minimap — drag the window to pan · drag its edges to zoom · click to jump";
-  else h = "Drag clips · edges trim · hover junctions to roll · R opens time · B cuts · , . nudge · [ ] trim to playhead";
+  else h = "Everything is pointer-reachable — zones on clips, pills at junctions, the playhead cluster, right-click menus · keys are shortcuts, not requirements";
   if (hintEl.textContent !== h) hintEl.textContent = h;
 }
 
@@ -1452,7 +1738,7 @@ minimapEl.addEventListener("pointerdown", (e) => {
   const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
   window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
 });
-scroller.addEventListener("scroll", () => { if (!G) drawMinimap(); });
+scroller.addEventListener("scroll", () => { if (!G) { drawMinimap(); updateSelBar(); } });
 
 /* ============ toasts + project line ============ */
 const toastsEl = document.getElementById("toasts");
@@ -1470,11 +1756,9 @@ function updateProj() {
 }
 
 /* ============ tools / chips / magnet ============ */
+/* modes survive only as keyboard accelerators (B/R for repeated cuts/inserts) — no UI requires them */
 function setTool(next) {
   tool = tool === next ? "select" : next;
-  document.getElementById("toolSelect").classList.toggle("active", tool === "select");
-  document.getElementById("toolBlade").classList.toggle("active", tool === "blade");
-  document.getElementById("toolWedge").classList.toggle("active", tool === "wedge");
   document.body.classList.toggle("mode-blade", tool === "blade");
   document.body.classList.toggle("mode-wedge", tool === "wedge");
   const banner = document.getElementById("banner");
@@ -1500,12 +1784,17 @@ function nudge(d) {
   if (!sel.length) return toast("Select a clip on a free track to nudge", "magnetic clips ride the storyline");
   commit(`Nudged ${sel.length > 1 ? `${sel.length} clips` : sel[0].name} ${fmtD(d)}`, null, () => {
     for (const c of sel) c.from += d;
-  });
+  }, { coalesce: "nudge" });
+  updateSelBar();
 }
 function trimToPlayhead(edge) {
   const ph = Math.round(playhead);
   const sel = clips.filter((c) => selection.has(c.id) && ph > c.from && ph < c.from + c.dur);
   if (!sel.length) return toast("Park the playhead inside a selected clip first");
+  trimClipsToPlayhead(sel, edge);
+}
+function trimClipsToPlayhead(sel, edge) {
+  const ph = Math.round(playhead);
   commit(`Trimmed ${sel.length > 1 ? `${sel.length} clips` : sel[0].name} ${edge === "l" ? "in" : "out"} to playhead`, null, () => {
     for (const c of sel) {
       const tr = trackById(c.trackId);
@@ -1577,14 +1866,56 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
-/* double-click: marker delete */
+/* double-click: marker on the ruler — add on empty, delete on a marker */
 tlCanvas.addEventListener("dblclick", (e) => {
   const m = e.target.closest(".marker");
   if (m) {
     const mk = markers.find((x) => x.id === m.dataset.id);
     commit(`Deleted marker ${mk.label}`, null, () => { markers = markers.filter((x) => x.id !== mk.id); });
+    return;
+  }
+  if (e.target.closest(".ruler")) {
+    const f = Math.round(frameAt(e.clientX));
+    commit(`Marker at ${fmtT(f)}`, "double-click a marker to delete it", () => markers.push({ id: uid("m"), frame: f, label: `m${markers.length + 1}` }));
   }
 });
+
+/* right-click: the pointer-native catch-all */
+let ctxMenu = null;
+function closeCtxMenu() { ctxMenu?.remove(); ctxMenu = null; }
+tlCanvas.addEventListener("contextmenu", (e) => {
+  e.preventDefault();
+  closeCtxMenu();
+  const items = [];
+  const clipEl = e.target.closest(".clip");
+  const c = clipEl && clips.find((x) => x.id === clipEl.dataset.id);
+  const f = Math.round(quietSnap(frameAt(e.clientX), snapTargets(new Set(), { self: false }), e));
+  if (c && !c.gap) {
+    items.push([`✂ Split ${c.name} here`, () => cutAt([c], f)]);
+    items.push(["✂ Split all tracks here", () => cutAt(clips.filter((x) => !x.gap), f)]);
+    items.push(["⧉ Open 0.5s here", () => commitWedge(f, BEAT_STEP, ripplePlan(f))]);
+    items.push([`× Delete ${c.name}`, () => { selection = new Set([c.id]); deleteSelection(); }]);
+  } else if (c?.gap) {
+    if (seamNeighbors(c.trackId, c.from, c.from + c.dur))
+      items.push(["≈ Bridge — play through", () => { gapHover = { trId: c.trackId, f0: c.from, f1: c.from + c.dur, gapClipId: c.id }; bridgeSeam(); }]);
+    items.push(["× Close gap", () => { gapHover = { trId: c.trackId, f0: c.from, f1: c.from + c.dur, gapClipId: c.id }; closeGap(); }]);
+  } else if (e.target.closest(".ruler")) {
+    items.push([`◆ Marker at ${fmtT(f)}`, () => commit(`Marker at ${fmtT(f)}`, null, () => markers.push({ id: uid("m"), frame: f, label: `m${markers.length + 1}` }))]);
+    items.push(["⧉ Open 0.5s here", () => commitWedge(f, BEAT_STEP, ripplePlan(f))]);
+  } else {
+    items.push(["⧉ Open 0.5s here", () => commitWedge(f, BEAT_STEP, ripplePlan(f))]);
+    items.push(["Fit timeline", zoomFit]);
+  }
+  ctxMenu = el("div", "ctx-menu", document.body);
+  for (const [label, fn] of items) {
+    const b = el("button", "", ctxMenu);
+    b.textContent = label;
+    b.onclick = () => { closeCtxMenu(); fn(); };
+  }
+  ctxMenu.style.left = `${Math.min(e.clientX, innerWidth - 200)}px`;
+  ctxMenu.style.top = `${Math.min(e.clientY, innerHeight - items.length * 32 - 14)}px`;
+});
+window.addEventListener("pointerdown", (e) => { if (ctxMenu && !e.target.closest?.(".ctx-menu")) closeCtxMenu(); }, true);
 
 /* wheel zoom (⌘/Ctrl) — studio convention, anchored at cursor (idea 16) */
 scroller.addEventListener("wheel", (e) => {
@@ -1594,14 +1925,27 @@ scroller.addEventListener("wheel", (e) => {
 }, { passive: false });
 
 /* ============ topbar wiring ============ */
+function stepFrames(d) { playhead = Math.round(playhead) + d; positionPlayhead(); updateMonitor(); drawMinimap(); }
+const holdRepeat = (id, fn) => {
+  const b = document.getElementById(id);
+  if (!b) return;
+  b.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    fn();
+    const iv = setInterval(fn, 110);
+    window.addEventListener("pointerup", () => clearInterval(iv), { once: true });
+  });
+};
 document.getElementById("tPlay").onclick = () => setPlaying(playing ? 0 : 1);
 document.getElementById("tHome").onclick = () => { playhead = render.from; positionPlayhead(); updateMonitor(); drawMinimap(); };
-document.getElementById("toolSelect").onclick = () => setTool("select");
-document.getElementById("toolBlade").onclick = () => setTool("blade");
-document.getElementById("toolWedge").onclick = () => setTool("wedge");
+holdRepeat("stepBack", () => stepFrames(-1));
+holdRepeat("stepFwd", () => stepFrames(1));
+document.getElementById("undoBtn").onclick = () => undo();
+document.getElementById("redoBtn").onclick = () => redo();
 document.getElementById("zIn").onclick = () => setZoom(ppf * 2);
 document.getElementById("zOut").onclick = () => setZoom(ppf / 2);
 document.getElementById("zFit").onclick = zoomFit;
+document.getElementById("zSel").onclick = zoomSelection;
 const chip = (id, get, set) => {
   const c = document.getElementById(id);
   c.onclick = () => { set(!get()); c.classList.toggle("on", get()); };
