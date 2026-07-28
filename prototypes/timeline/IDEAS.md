@@ -99,7 +99,7 @@ FCPX's most under-copied idea, and the one FrameDiff is uniquely positioned to o
 ---
 
 **22 · Layers & stacking** — *After Effects / Photoshop ⌘[ ⌘] · first principles*
-Every visual element has an explicit place in the composite, kept as doubly-linked lists (`prevId/nextId` on layers, `zPrevId/zNextId` on clips — id-based so undo snapshots stay plain JSON). Layers are a draggable ordered list: grab a lane label, drag ↑↓, upper layers cover lower ones. Within a layer, overlapping clips are allowed and keep their own stacking order — the timeline packs them into as many rows as the overlaps need (top of stack = top row; non-overlapping layers stay one row tall), while the monitor composites topmost-wins. Drops that land on other clips go to the top of the stack; `⌘]` brings forward, `⌘[` sends back, all undoable.
+Every visual element has an explicit place in the composite, kept as doubly-linked lists (`prevId/nextId` on layers, `zPrevId/zNextId` on clips — id-based so undo snapshots stay plain JSON). Layers are a draggable ordered list: grab a lane label, drag ↑↓, upper layers cover lower ones. Within a layer, overlapping clips are allowed and keep their own stacking order — the timeline packs them into as many rows as the overlaps need (top of stack = top row; non-overlapping layers stay one row tall), while the monitor composites topmost-wins. Drags speak the drop-target grammar: a faint ghost holds the vacated slot, a dashed outline previews the exact landing frame *and* row (snap included), and pointer height picks the stack slot — drag ↑↓ over a pile to slide under or over it. `⌘]` brings forward, `⌘[` sends back, all undoable.
 
 ## What we deliberately did *not* copy
 

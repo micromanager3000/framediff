@@ -95,6 +95,11 @@ function zInsertAbove(c, ref) {                             // c becomes ref's z
   if (ref.zNextId) byId(ref.zNextId).zPrevId = c.id;
   ref.zNextId = c.id;
 }
+function zInsertBelow(c, ref) {                             // c becomes ref's zPrev
+  c.zNextId = ref.id; c.zPrevId = ref.zPrevId ?? null;
+  if (ref.zPrevId) byId(ref.zPrevId).zNextId = c.id;
+  ref.zPrevId = c.id;
+}
 function zSwap(c, up) {                                     // one step toward top (up) or bottom
   const other = up ? (c.zNextId && byId(c.zNextId)) : (c.zPrevId && byId(c.zPrevId));
   if (!other) return null;
@@ -986,6 +991,62 @@ function startMove(e, clip) {
     base: new Map(ids.map((id) => [id, clips.find((c) => c.id === id).from])),
     childIds: childrenOf(ids),
   });
+  // drop-target grammar (idea 22): a faint ghost holds the vacated slot,
+  // a bright dashed outline previews exactly where the clip will land
+  const el0 = clipEls.get(clip.id);
+  if (ids.length === 1 && !clip.gap && el0) {
+    G.ghosting = true;
+    G.grabDy = e.clientY - el0.getBoundingClientRect().top;
+    const og = el("div", "clip-ghost origin", laneTracks.get(clip.trackId));
+    Object.assign(og.style, { left: `${el0.offsetLeft}px`, top: `${el0.offsetTop}px`, width: `${el0.offsetWidth}px`, height: `${el0.offsetHeight}px` });
+    G.originGhost = og;
+  }
+}
+
+/* while dragging: pointer height picks the stack slot, and the drop ghost
+   shows the landing frame + the row it will occupy after the drop */
+function updateDropPreview(e, c, from) {
+  const tr = trackById(c.trackId);
+  const trackEl = laneTracks.get(c.trackId);
+  if (!tr || !trackEl) return;
+  const f0 = from, f1 = from + c.dur;
+  const all = zTopToBottom(c.trackId).filter((o) => o.id !== c.id);
+  const overl = all.filter((o) => !o.gap && f0 < o.from + o.dur - 0.01 && f1 > o.from + 0.01);
+  const rect = trackEl.getBoundingClientRect();
+  let k;
+  if (has("layers") && overl.length) {
+    k = 0;                                       // clips whose row-center sits above the pointer stay above
+    for (const o of overl) {
+      const center = rect.top + clipTopIn(tr, c.trackId, o.id) + tr.clipH / 2;
+      if (e.clientY > center) k++; else break;
+    }
+  } else {
+    const t2b = zTopToBottom(c.trackId);
+    const ci = t2b.findIndex((o) => o.id === c.id);
+    k = overl.filter((o) => t2b.indexOf(o) < ci).length;   // keep the current stack slot
+  }
+  if (has("layers")) {                           // the clip rides the pointer vertically too
+    const el0 = clipEls.get(c.id);
+    if (el0) el0.style.top = `${clamp(e.clientY - rect.top - G.grabDy, -6, trackEl.clientHeight - tr.clipH + 6)}px`;
+  }
+  // simulate the post-drop row packing for the landing outline
+  const insertIdx = overl.length ? (k < overl.length ? all.indexOf(overl[k]) : all.indexOf(overl[overl.length - 1]) + 1) : all.length;
+  const seq = [...all.slice(0, insertIdx), c, ...all.slice(insertIdx)];
+  const rows = [];
+  let rowOf = 0;
+  for (const o of seq) {
+    const [a, b] = o.id === c.id ? [f0, f1] : [o.from, o.from + o.dur];
+    let r = 0;
+    while ((rows[r] ?? []).some(([x, y]) => a < y - 0.01 && b > x + 0.01)) r++;
+    (rows[r] ??= []).push([a, b]);
+    if (o.id === c.id) rowOf = r;
+  }
+  if (!G.dropGhost) G.dropGhost = el("div", "clip-ghost drop", trackEl);
+  Object.assign(G.dropGhost.style, {
+    left: `${xOf(f0)}px`, width: `${Math.max(3, c.dur * ppf)}px`,
+    top: `${tr.clipTop + rowOf * (tr.clipH + ROW_GAP)}px`, height: `${tr.clipH}px`,
+  });
+  G.stack = { overl, k };
 }
 function childrenOf(ids) {
   const set = new Set(ids);
@@ -1022,6 +1083,7 @@ function moveMove(e) {
     el.style.zIndex = 99;                       // ride above the stack while in hand
     el.style.left = `${xOf(nf)}px`;
   }
+  if (G.ghosting) updateDropPreview(e, c, from);
   for (const id of G.childIds) {
     const el = clipEls.get(id);
     el.classList.add("rippling");
@@ -1030,7 +1092,10 @@ function moveMove(e) {
   }
   moveStems();
   const n = G.ids.length > 1 ? `${G.ids.length} clips` : c.gap ? "gap" : c.name;
-  showHud(e.clientX, e.clientY, `${n} · <b>${fmtD(applied)}</b> · in ${fmtT(from)}${hudTarget(G)}`);
+  const st = G.stack;
+  const stackNote = st?.overl.length && has("layers")
+    ? ` · <span class="hud-hold">${st.k === 0 ? "top of stack" : st.k === st.overl.length ? "bottom of stack" : `under ${st.overl[st.k - 1].name}`}</span>` : "";
+  showHud(e.clientX, e.clientY, `${n} · <b>${fmtD(applied)}</b> · in ${fmtT(from)}${stackNote}${hudTarget(G)}`);
   if (e.shiftKey || G.stuck) showLoupe(G.stuck?.edge === "out" ? from + c.dur : from, G, e, { trackId: c.trackId });
   else hideLoupe();
   updateMonitor(Math.round(from));
@@ -1043,23 +1108,31 @@ function moveStems() {
 }
 function endMove(e, g) {
   if (g.moveMagnetic) return endMagneticMove(e, g);
+  g.originGhost?.remove(); g.dropGhost?.remove();
   for (const id of g.ids) { const el = clipEls.get(id); el?.classList.remove("dragging"); if (el) el.style.zIndex = ""; }
   if (!g.moved) { rebuild(); return; }
   const applied = (g.live.get(g.clip.id)?.from ?? g.clip.from) - g.base.get(g.clip.id);
   const d = Math.round(applied);
-  if (!d) { rebuild(); return; }
+  // the drop lands exactly where the outline said: frame, row, and stack slot (idea 22)
+  const st = g.stack;
+  const restack = has("layers") && g.ghosting && !!st?.overl.length && !trackById(g.clip.trackId).magnetic;
+  if (!d && !restack) { rebuild(); return; }
   sndDrop();
   const idSet = new Set(g.ids);
   const roots = g.ids.filter((id) => !idSet.has(clips.find((c) => c.id === id)?.parentId));
   const n = g.ids.length > 1 ? `${g.ids.length} clips` : g.clip.gap ? "gap" : g.clip.name;
-  // a drop that lands on other clips goes to the top of the stack (idea 22)
-  const finalFrom = g.base.get(g.clip.id) + d;
-  const willStack = has("layers") && g.ids.length === 1 && !g.clip.gap && !trackById(g.clip.trackId).magnetic &&
-    clips.some((o) => o.trackId === g.clip.trackId && o.id !== g.clip.id && !o.gap &&
-      finalFrom < o.from + o.dur - 0.01 && finalFrom + g.clip.dur > o.from + 0.01);
-  commit(`Moved ${n} ${fmtD(d)}`, willStack ? "on top of the stack · ⌘[ slides it under" : "⌘Z to undo", () => {
+  const stackNote = restack
+    ? (st.k === 0 ? "top of the stack · ⌘[ slides it under"
+      : st.k === st.overl.length ? `under ${st.overl[st.overl.length - 1].name} · bottom of the stack`
+      : `under ${st.overl[st.k - 1].name}`)
+    : "⌘Z to undo";
+  commit(!d && restack ? `Restacked ${n}` : `Moved ${n} ${fmtD(d)}`, stackNote, () => {
     for (const id of roots) { const c = clips.find((c) => c.id === id); c.from = g.base.get(id) + d; }
-    if (willStack) { zUnlink(g.clip); zPushTop(g.clip); }
+    if (restack) {
+      zUnlink(g.clip);
+      if (st.k < st.overl.length) zInsertAbove(g.clip, st.overl[st.k]);
+      else zInsertBelow(g.clip, st.overl[st.overl.length - 1]);
+    }
   });
 }
 
@@ -1678,7 +1751,7 @@ function updateHint(e) {
     const c = clips.find((c) => c.id === e.target.closest(".clip").dataset.id);
     const tr = c && trackById(c.trackId);
     const slipBit = has("slip") ? " · ⌥-drag slips" : "";
-    const stackBit = has("layers") && tr && !tr.magnetic ? " · overlaps stack (⌘[ ⌘])" : "";
+    const stackBit = has("layers") && tr && !tr.magnetic ? " · overlaps stack — drag ↑↓ or ⌘[ ⌘]" : "";
     h = tr?.magnetic ? `Drag to reorder the storyline · edges ripple-trim${slipBit}${fineBit}`
       : `Drag to move${fineBit}${snapBit}${slipBit}${stackBit} · edges trim · ⌘-edge ripple-trims`;
   }

@@ -162,6 +162,8 @@ canvas { display: block; }
 .clip.gap-clip .clip-name { color: var(--faint); }
 
 .clip-ghost { position: absolute; z-index: 1; border: 1px dashed rgb(240 180 95 / 45%); border-radius: 5px; background: rgb(240 180 95 / 6%); pointer-events: none; }
+.clip-ghost.origin { border-color: rgb(232 235 242 / 22%); background: rgb(232 235 242 / 4%); }
+.clip-ghost.drop { z-index: 7; border: 1.5px dashed rgb(143 216 255 / 75%); background: rgb(143 216 255 / 9%); box-shadow: 0 0 12px rgb(143 216 255 / 18%); }
 
 .stem { position: absolute; z-index: 1; width: 1.5px; background: rgb(150 155 167 / 45%); pointer-events: none; }
 .stem::before { content: ""; position: absolute; bottom: -2px; left: -2.25px; width: 6px; height: 6px; border-radius: 50%; background: rgb(150 155 167 / 55%); }
