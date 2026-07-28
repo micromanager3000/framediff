@@ -1,0 +1,51 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "previz-to-gen",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--workspace",
+        "examples/previz-to-gen",
+        "--",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "4176",
+        "--strictPort"
+      ],
+      "port": 4176
+    },
+    {
+      "name": "timeline-lab",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "4179",
+        "--bind",
+        "127.0.0.1",
+        "--directory",
+        "prototypes/timeline"
+      ],
+      "port": 4179
+    },
+    {
+      "name": "nostalgia-short-film",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "/Users/vikasreddy/code/nostalgia-short-film",
+        "--",
+        "--port",
+        "5237",
+        "--strictPort"
+      ],
+      "port": 5237
+    }
+  ]
+}

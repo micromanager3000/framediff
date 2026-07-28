@@ -68,6 +68,12 @@
     refAdaptation = selectedRef?.adaptation;
   }
   const converted = (raw: string, original: unknown) => typeof original === "boolean" ? raw === "true" : typeof original === "number" ? Number(raw) : raw;
+  // A comp:// ref is a link into its source composition — but only while that comp still exists.
+  function inputCompositionKey(workspace: GenerativeWorkspaceSnapshot, src: string): string | null {
+    if (!src.startsWith("comp://")) return null;
+    const key = src.slice("comp://".length);
+    return workspace.compositions.some((candidate) => candidate.key === key) ? key : null;
+  }
   const takeUrl = (contentHash: string) => `/__framediff-cache/${encodeURIComponent(contentHash)}`;
   const takeExtension = (kind: "video" | "image" | "audio") => kind === "video" ? "mp4" : kind === "audio" ? "mp3" : "jpg";
   const COMP_DRAG_MIME = "application/x-framediff-comp";
@@ -259,9 +265,16 @@
               <h3>INPUT REFERENCES</h3>
               <div class="take-inputs">
                 {#each settings.refs as ref (`${ref.kind}:${ref.src}`)}
+                  {@const inputKey = inputCompositionKey(workspace, ref.src)}
                   <div>
                     <b>{ref.kind}</b>
-                    <span title={ref.src}>{ref.label}</span>
+                    {#if inputKey}
+                      <button class="ref-link" aria-label={`Open composition ${ref.label}`} title={`Open composition ${ref.label}`} onclick={() => session.navigate(inputKey)}>
+                        <span>{ref.label}</span><i aria-hidden="true">↗</i>
+                      </button>
+                    {:else}
+                      <span title={ref.src}>{ref.label}</span>
+                    {/if}
                     {#if ref.contentHash}<code title={ref.contentHash}>{ref.contentHash.slice(0, 10)}…</code>{/if}
                   </div>
                 {:else}
@@ -340,12 +353,30 @@
           >
             <h3>INPUT REFERENCES <small>drag a composition here</small></h3>
             {#each workspace.refs as ref, index (`${ref.kind}:${ref.src}`)}
+              {@const inputKey = inputCompositionKey(workspace, ref.src)}
               <div class:selected={selectedRefIndex === index}>
                 <b>{ref.kind}</b>
-                <button class="ref-select" aria-pressed={selectedRefIndex === index} onclick={() => selectedRefIndex = selectedRefIndex === index ? null : index}>
-                  <span>{ref.label}</span>
-                  {#if ref.geometry}<small>{ref.sourceWidth}×{ref.sourceHeight} → {ref.targetWidth}×{ref.targetHeight} · {ref.adaptation ? ref.adaptation.fit : "pass through"}</small>{/if}
-                </button>
+                {#if inputKey}
+                  <span class="ref-body">
+                    <button class="ref-link" aria-label={`Open composition ${ref.label}`} title={`Open composition ${ref.label}`} onclick={() => session.navigate(inputKey)}>
+                      <span>{ref.label}</span><i aria-hidden="true">↗</i>
+                    </button>
+                    {#if ref.geometry}
+                      <button
+                        class="ref-geometry"
+                        aria-pressed={selectedRefIndex === index}
+                        aria-label={`Adjust how ${ref.label} is adapted for the model`}
+                        title={`Adjust how ${ref.label} is adapted for the model`}
+                        onclick={() => selectedRefIndex = selectedRefIndex === index ? null : index}
+                      >{ref.sourceWidth}×{ref.sourceHeight} → {ref.targetWidth}×{ref.targetHeight} · {ref.adaptation ? ref.adaptation.fit : "pass through"}</button>
+                    {/if}
+                  </span>
+                {:else}
+                  <button class="ref-select" aria-pressed={selectedRefIndex === index} onclick={() => selectedRefIndex = selectedRefIndex === index ? null : index}>
+                    <span>{ref.label}</span>
+                    {#if ref.geometry}<small>{ref.sourceWidth}×{ref.sourceHeight} → {ref.targetWidth}×{ref.targetHeight} · {ref.adaptation ? ref.adaptation.fit : "pass through"}</small>{/if}
+                  </button>
+                {/if}
                 <button aria-label={`Remove ${ref.kind} reference ${ref.label}`} title={`Remove ${ref.label}`} onclick={() => { selectedRefIndex = null; void viewModel.removeRef(index); }}>×</button>
               </div>
             {/each}

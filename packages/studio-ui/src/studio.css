@@ -228,6 +228,10 @@ html, body, #svelte { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .composition-row.kind-generate .glyph { color: var(--pink); }
 .composition-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .composition-row .kind { color: var(--faint); background: none; font-family: var(--mono); font-size: 8px; }
+.composition-row .out-badge { padding: 2px 5px; border-radius: 4px; font: 800 8px/1.2 var(--mono); letter-spacing: .02em; text-transform: uppercase; }
+.out-badge.out-video { color: var(--blue); background: rgb(143 201 236 / 14%); }
+.out-badge.out-image { color: var(--yellow); background: rgb(240 200 116 / 14%); }
+.out-badge.out-audio { color: var(--green); background: rgb(114 211 156 / 14%); }
 .tour-badge { padding: 2px 4px; border: 1px solid rgb(240 180 95 / 35%); border-radius: 4px; color: var(--accent); font: 800 6px/1 var(--mono); letter-spacing: .06em; }
 .composition-empty { padding: 18px 10px; color: var(--faint); font: 9px/1.5 var(--mono); text-align: center; }
 .rail-footer { margin-top: auto; padding: 10px 13px; border-top: 1px solid var(--line); color: var(--faint); font-family: var(--mono); font-size: 9px; line-height: 1.6; }
@@ -958,6 +962,15 @@ dd { margin: 0; overflow: hidden; color: var(--muted); font-family: var(--mono);
 .gen-refs .ref-select { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 3px 0; text-align: left; }
 .gen-refs .ref-select span { max-width: 100%; }
 .gen-refs .ref-select small { max-width: 100%; overflow: hidden; color: var(--faint); font: 7px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
+.gen-refs .ref-body { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 3px 0; }
+.gen-workbench .ref-link { min-width: 0; max-width: 100%; display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; color: var(--muted); cursor: pointer; font: inherit; text-align: left; }
+.gen-workbench .ref-link span { overflow: hidden; color: inherit; text-overflow: ellipsis; white-space: nowrap; }
+.gen-workbench .ref-link i { flex: 0 0 auto; color: var(--faint); font-size: 9px; font-style: normal; }
+.gen-workbench .ref-link:hover { color: var(--text); }
+.gen-workbench .ref-link:hover span { text-decoration: underline; }
+.gen-workbench .ref-link:hover i { color: var(--pink); }
+.gen-refs .ref-geometry { max-width: 100%; overflow: hidden; padding: 0; border: 0; background: none; color: var(--faint); cursor: pointer; font: 7px var(--mono); text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.gen-refs .ref-geometry:hover, .gen-refs .ref-geometry[aria-pressed="true"] { color: var(--pink); }
 .add-ref { display: grid; grid-template-columns: 80px 1fr auto; gap: 6px; margin-top: 8px; }
 .add-ref button { border: 1px solid var(--line-strong); border-radius: 5px; background: var(--panel-raised); color: var(--muted); cursor: pointer; }
 .input-adaptation { margin-top: 10px; padding: 10px; border: 1px solid color-mix(in srgb, var(--pink) 28%, var(--line)); border-radius: 7px; background: color-mix(in srgb, var(--pink) 4%, var(--panel)); }

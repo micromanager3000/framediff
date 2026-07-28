@@ -148,6 +148,7 @@
           <span class="name">{composition.id}</span>
           {#if composition.guide}<span class="tour-badge">START</span>{/if}
           <span class="kind">{composition.kind}</span>
+          {#if composition.kind === "generate"}<span class="out-badge out-{composition.outputKind}">{composition.outputKind}</span>{/if}
         </button>
         <div class="row-actions">
           <button class="row-action" onclick={() => onduplicate(composition.key)} title="Duplicate {composition.id}" aria-label="Duplicate {composition.id}">⧉</button>
@@ -200,6 +201,7 @@
               <span class="glyph">{glyph[composition.kind]}</span>
               <span class="name">{composition.id}</span>
               <span class="kind">{composition.kind}</span>
+              {#if composition.kind === "generate"}<span class="out-badge out-{composition.outputKind}">{composition.outputKind}</span>{/if}
             </button>
             <div class="row-actions">
               <button class="row-action" onclick={() => onduplicate(composition.key)} title="Duplicate {composition.id}" aria-label="Duplicate {composition.id}">⧉</button>

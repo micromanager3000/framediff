@@ -853,8 +853,16 @@ export function mountComposition(
         const fit = inheritedValue(element, "data-fd-fit");
         if (fit) element.style.objectFit = fit;
         if (local.active && inDomain && state.playing) {
-          if (Math.abs(element.currentTime - target) > 0.5) { try { element.currentTime = target; } catch { /* media may not be ready */ } }
-          if (element.paused) void element.play().catch(() => {});
+          const holdAtEnd = Number.isFinite(element.duration) && target >= element.duration - 0.05;
+          if (holdAtEnd) {
+            // An ended video restarts from 0 on play(), which strobes between first and last
+            // frames when a placement outlives its source — hold the final frame instead.
+            if (!element.paused) element.pause();
+            if (Math.abs(element.currentTime - target) > 0.04) { try { element.currentTime = target; } catch { /* media may not be ready */ } }
+          } else {
+            if (Math.abs(element.currentTime - target) > 0.5) { try { element.currentTime = target; } catch { /* media may not be ready */ } }
+            if (element.paused) void element.play().catch(() => {});
+          }
         } else {
           if (!element.paused) element.pause();
           if (local.active && inDomain && Math.abs(element.currentTime - target) > 0.04) {

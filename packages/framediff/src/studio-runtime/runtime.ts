@@ -107,6 +107,7 @@ import {
   genRecipeDataOf,
   invalidateGenManifest,
   primeGenTakes,
+  refreshGenOutputs,
   recipeHashOf,
   forkGenRecipe,
   type GenRecipe,
@@ -1045,6 +1046,10 @@ function adaptedVisualComposition(options: {
     meta: { kind: "generate", output: options.kind, sourceFormat: "generated" },
   });
 }
+
+// Takes this session has already announced to mounted GenOutputs — new arrivals beyond
+// this set trigger a refreshGenOutputs() so playing previews pick them up live.
+const seenGenTakes = new Set<string>();
 
 export class HtmlStudioRuntime implements CompositionRuntimePort {
   private registry: CompRegistry;
@@ -3491,6 +3496,10 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const liveHash = await recipeHashOf(recipe);
     const data = await genJobs(recipe.id) ?? { jobs: [], takes: [] };
     primeGenTakes(data.takes);
+    // Takes this session hasn't seen before just landed — let mounted previews re-resolve.
+    const fresh = data.takes.filter((take) => !seenGenTakes.has(`${take.generator.gen}\0${take.generator.take}`));
+    for (const take of fresh) seenGenTakes.add(`${take.generator.gen}\0${take.generator.take}`);
+    if (fresh.length) refreshGenOutputs();
     const active = data.jobs.some((job) => job.status === "queued" || job.status === "running");
     const pinned = data.takes.find((take) =>
       take.generator.take === (recipe.take ?? 0) &&
@@ -3809,6 +3818,9 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (!rewritten) return { ok: false, message: `Could not rewrite ${file}.` };
     const committed = await this.commitSourceText("Edit generative recipe", revision, rewritten.text);
     if (!committed.ok) return { ok: false, message: committed.message ?? `Could not rewrite ${file}.` };
+    // Recipe edits (pins especially) must reach GenOutputs that are already mounted in a
+    // playing preview — without this they keep the media they resolved at mount time.
+    refreshGenOutputs();
     const dropped = remapped.droppedRefs.length
       ? ` Dropped unsupported inputs: ${remapped.droppedRefs.join(", ")}.`
       : "";
@@ -4001,12 +4013,23 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       }
     }
     const fields = definition.refFieldsOf(recipe);
+    // Voice anchor: an ElevenLabs segment whose audio ref points at another ElevenLabs gen
+    // comp borrows that comp's voice settings, so one anchor defines the narrator for every
+    // segment that references it. (fal exposes preset voices only — this is reference-level
+    // consistency, not audio cloning.)
+    let inputRecipe = recipe;
+    if ((recipe.model ?? "").startsWith("elevenlabs") && recipe.voice == null) {
+      const anchorSrc = (recipe.refs ?? []).find((ref) => ref.kind === "audio" && ref.src.startsWith("comp://"))?.src;
+      const anchor = anchorSrc ? this.registry[anchorSrc.slice("comp://".length)] : undefined;
+      const anchorVoice = anchor && "recipe" in anchor ? (anchor as GenerativeComposition).recipe.voice : undefined;
+      if (anchorVoice) inputRecipe = { ...recipe, voice: anchorVoice };
+    }
     const result = await genSubmit({
       provider: definition.provider ?? recipe.provider ?? "fal",
       gen: recipe.id,
       endpoint: definition.endpointOf(recipe),
       recipeHash: liveHash,
-      input: definition.buildInput(recipe),
+      input: definition.buildInput(inputRecipe),
       refs: resolved.map((ref, index) => ({
         kind: ref.kind,
         src: ref.src,
