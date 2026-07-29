@@ -28,6 +28,21 @@
       "port": 4179
     },
     {
+      "name": "evolv-studio",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "/Users/vikasreddy/code/evolv-product-launch",
+        "--",
+        "--port",
+        "5199",
+        "--strictPort"
+      ],
+      "port": 5199
+    },
+    {
       "name": "nostalgia-short-film",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
