@@ -53,12 +53,6 @@ npm run test:e2e
 Large example media is stored with Git LFS. Each example documents its assets and how to regenerate
 derived files.
 
-## Hosted service
-
-The hosted control plane, account frontend, render infrastructure, and deployment configuration live
-in the separate `micromanager3000/framediff-hosted` repository. This repository contains the public
-engine and authoring surface only.
-
 ## License
 
 FrameDiff source code is available under the [MIT License](LICENSE). Third-party code and assets keep

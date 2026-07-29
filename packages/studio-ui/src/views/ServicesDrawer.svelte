@@ -37,15 +37,15 @@
 
 <aside class="services-drawer" aria-label="Services">
   <header class="services-heading">
-    <div><strong>SERVICES</strong><span>LOCAL CREDENTIALS</span></div>
+    <div><strong>SERVICES</strong><span>PROJECT CREDENTIALS</span></div>
     <button onclick={onclose} aria-label="Close services">×</button>
   </header>
 
   <section class="services-security">
     <span class="services-lock" aria-hidden="true">⌾</span>
     <div>
-      <strong>Local prototype storage</strong>
-      <p>Keys are saved as plaintext in <code>{$store.credentials?.file ?? ".framediff/secrets.json"}</code>. The directory is gitignored and secret values are never sent back to this UI.</p>
+      <strong>{$store.credentials?.storage?.title ?? "Credential storage"}</strong>
+      <p>{$store.credentials?.storage?.description ?? "Secret values are never returned to this UI."}</p>
     </div>
   </section>
 
@@ -70,7 +70,7 @@
             {#if provider.set}
               <strong>Configured</strong>
               <code>•••• {provider.last4}</code>
-              <small>{provider.source === "env" ? "environment" : "local file"}</small>
+              {#if provider.source}<small>{provider.source}</small>{/if}
             {:else}
               <strong>Not configured</strong>
               <small>add {provider.envVar} below</small>
@@ -91,10 +91,10 @@
             />
           </label>
           <div class="service-actions">
-            {#if provider.source === "file"}
-              <button class="service-remove" disabled={busy || !!$store.busyProvider} onclick={() => void clear(provider)}>Remove local key</button>
-            {:else if provider.source === "env"}
-              <small>Managed by the environment. Saving here will override it locally.</small>
+            {#if provider.removable}
+              <button class="service-remove" disabled={busy || !!$store.busyProvider} onclick={() => void clear(provider)}>Remove key</button>
+            {:else if provider.sourceNote}
+              <small>{provider.sourceNote}</small>
             {:else}
               <small>Minimum 8 characters.</small>
             {/if}

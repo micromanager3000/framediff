@@ -5,6 +5,7 @@ import {
   compositionAssetIds,
   compositionRenderKeys,
   compositionSourcePaths,
+  createHttpStudioProjectAdapter,
   createStudioRuntime,
   isCompositionTreeRuntimeEqual,
   isDocumentOnlyCompositionUpdate,
@@ -30,6 +31,29 @@ const composition = {
 
 describe("HtmlStudioRuntime Inspector batches", () => {
   afterEach(() => vi.unstubAllGlobals());
+
+  it("uses an injected project adapter without replacing the browser fetch implementation", async () => {
+    const request = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/__framediff/assets") return new Response("missing", { status: 404 });
+      if (url === "/__framediff/src?file=src%2Fcomp.ts") {
+        return Response.json({ file: "src/comp.ts", text: "export const value = 1;", hash: "source:1" });
+      }
+      return new Response("not found", { status: 404 });
+    });
+    const browserFetch = vi.fn(async () => {
+      throw new Error("The injected adapter must not use global fetch.");
+    });
+    vi.stubGlobal("fetch", browserFetch);
+    const runtime = createStudioRuntime(
+      { main: composition } as CompRegistry,
+      createHttpStudioProjectAdapter(request),
+    );
+
+    await expect(runtime.readSource("src/comp.ts")).resolves.toBe("export const value = 1;");
+    expect(request).toHaveBeenCalledWith("/__framediff/src?file=src%2Fcomp.ts");
+    expect(browserFetch).not.toHaveBeenCalled();
+  });
 
   it("rewrites an XYZ gesture atomically even when earlier literals grow", async () => {
     let transaction: { label: string; groupId?: string; files: Array<{ file: string; text: string }> } | undefined;
