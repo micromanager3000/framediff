@@ -45,7 +45,6 @@ import {
   retargetCropRegion,
 } from "@framediff/studio-model";
 import { createAssetResolver, type AssetResolver } from "../assets/resolver";
-import { HttpFolderCAS } from "../assets/httpCas";
 import type { AssetManifest } from "../graph/schemas";
 import {
   parseNumericArrayProperty,
@@ -63,26 +62,11 @@ import {
   type ResolvedExpr,
   type StringLiteralLoc,
 } from "../studio/sourceMap";
+import { latestFailedGenJob } from "../studio/devfs";
 import {
-  applySourceEdit,
-  deleteSecret,
-  deleteSource,
-  getAssets,
-  genJobs,
-  genSubmit,
-  getSecrets,
-  gitCommit,
-  gitDirty,
-  latestFailedGenJob,
-  listCache,
-  putSecret,
-  readSource,
-  readSourceRevision,
-  uploadAsset as uploadAssetThroughBridge,
-  verifyProvider,
-  writeArtifactMeta,
-  writeSource,
-} from "../studio/devfs";
+  createHttpStudioProjectAdapter,
+  type StudioProjectAdapter,
+} from "../studio/projectAdapter";
 import type { CacheEntry, CompRegistry, StudioComposition } from "../studio/types";
 import { CAMERA3D_FIELD_KEYS } from "../studio/editableData";
 import { inspectorFieldsFromJsonDocument, jsonPointerValue, setJsonPointerValue } from "../studio/jsonDocument";
@@ -1066,7 +1050,10 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   private cacheProbe: Promise<CacheEntry[]> | null = null;
   private outputResolutions = new Map<string, Promise<string>>();
 
-  public constructor(registry: CompRegistry) {
+  public constructor(
+    registry: CompRegistry,
+    private readonly project: StudioProjectAdapter = createHttpStudioProjectAdapter(),
+  ) {
     this.registry = registry;
     this.assetsReady = this.loadAssets()
       .catch((error) => console.error("FrameDiff could not load the asset manifest.", error))
@@ -1098,7 +1085,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   public async replayProjectEdit(receipt: ProjectEditReceipt, direction: "undo" | "redo"): Promise<ProjectEditResult> {
     const target = direction === "undo" ? receipt.before : receipt.after;
     const expected = new Map((direction === "undo" ? receipt.after : receipt.before).map((entry) => [entry.file, entry.hash]));
-    const result = await applySourceEdit({
+    const result = await this.project.applySourceEdit({
       label: `${direction === "undo" ? "Undo" : "Redo"} ${receipt.label}`,
       files: target.map((entry) => ({ file: entry.file, expectedHash: expected.get(entry.file) ?? null, text: entry.text })),
     });
@@ -1113,7 +1100,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     text: string | null,
     groupId?: string,
   ): Promise<ProjectEditResult> {
-    const result = await applySourceEdit({
+    const result = await this.project.applySourceEdit({
       label,
       ...(groupId ? { groupId } : {}),
       files: [{ file: before.file, expectedHash: before.hash, text }],
@@ -1130,7 +1117,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     changes: Array<{ before: { file: string; text: string | null; hash: string | null }; text: string | null }>,
     groupId?: string,
   ): Promise<ProjectEditResult> {
-    const result = await applySourceEdit({
+    const result = await this.project.applySourceEdit({
       label,
       ...(groupId ? { groupId } : {}),
       files: changes.map(({ before, text }) => ({ file: before.file, expectedHash: before.hash, text })),
@@ -1187,7 +1174,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
 
     await this.assetsReady;
     const physicalSource = composition.meta?.file && composition.meta?.sourceFormat !== "generated"
-      ? await readSource(composition.meta.file)
+      ? await this.project.readSource(composition.meta.file)
       : null;
     // Do not wait for Vite HMR to make an accepted source transaction inspectable. The registry
     // remains the preview authority, while the derived project view reads the just-committed HTML.
@@ -1296,7 +1283,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const file = group?.source.file;
     if (!group || !file) return { ok: false, message: `Unroll group "${request.groupId}" no longer exists.` };
     if (!group.safe) return { ok: false, file, message: group.issues.join("; ") || "The helper trace is not serializable." };
-    const revision = await readSourceRevision(file);
+    const revision = await this.project.readSourceRevision(file);
     if (!revision?.text) return { ok: false, file, message: `Could not read ${file}.` };
     const rewritten = rewriteGsapUnrollSource(revision.text, {
       fps: composition.fps,
@@ -1339,7 +1326,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (located.some((entry) => !entry.file)) return { ok: false, message: "One or more registered animations no longer exist in source." };
     if (sourceFiles.size !== 1) return { ok: false, message: "One grouped animation edit currently needs to stay within one source module." };
     const file = [...sourceFiles][0];
-    const revision = await readSourceRevision(file);
+    const revision = await this.project.readSourceRevision(file);
     if (!revision?.text) return { ok: false, file, message: `Could not read ${file}.` };
     let text = revision.text;
     for (const { request } of located) {
@@ -1367,7 +1354,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const composition = this.registry[request.compositionKey];
     const file = composition?.meta?.module;
     if (!composition || !file) return { ok: false, message: "This composition needs an authored source module before a stopwatch can be enabled." };
-    const revision = await readSourceRevision(file);
+    const revision = await this.project.readSourceRevision(file);
     if (!revision?.text) return { ok: false, file, message: `Could not read ${file}.` };
     const id = `${request.objectId}-${request.property}`.replace(/[^A-Za-z0-9_-]+/g, "-");
     const prepared = ensureGsapTimelineSource(revision.text, {
@@ -1403,7 +1390,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const file = candidates.find((candidate) => files[candidate]
       && analyzeGsapSource(files[candidate], { fps: composition.fps, file: candidate }).operations.some((entry) => entry.id === request.animationId));
     if (!file) return { ok: false, message: `Animation "${request.animationId}" no longer exists in source.` };
-    const revision = await readSourceRevision(file);
+    const revision = await this.project.readSourceRevision(file);
     if (!revision?.text) return { ok: false, file, message: `Could not read ${file}.` };
     const rewritten = rewriteGsapMotionPathSource(revision.text, {
       fps: composition.fps,
@@ -1424,7 +1411,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const segments = parseMotionPathSvg(request.path);
     if (!composition || !file) return { ok: false, message: "This composition needs an authored source module for gesture paths." };
     if (!segments) return { ok: false, file, message: "Gesture fitting did not produce a valid cubic path." };
-    const revision = await readSourceRevision(file);
+    const revision = await this.project.readSourceRevision(file);
     if (!revision?.text) return { ok: false, file, message: `Could not read ${file}.` };
     const id = `${request.objectId}-motion-path`.replace(/[^A-Za-z0-9_-]+/g, "-");
     const from = segments[0].from;
@@ -1505,9 +1492,9 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     }
     const file = composition?.meta?.file;
     if (!composition || !file) return { ok: false, message: "This composition does not declare a source file." };
-    const revision = await readSourceRevision(file);
+    const revision = await this.project.readSourceRevision(file);
     const text = revision?.text;
-    if (!revision || text == null) return { ok: false, file, message: `Could not read ${file} through the FrameDiff dev bridge.` };
+    if (!revision || text == null) return { ok: false, file, message: `Could not read ${file} through the project adapter.` };
 
     let nextText = text;
     for (const request of requests.filter((entry) => entry.field !== "layer")) {
@@ -1572,8 +1559,8 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   ): Promise<PlacementEditResult> {
     const file = composition.meta?.timelineFile;
     if (!file || !composition.timeline) return { ok: false, message: "This composition has no external timeline document." };
-    const revision = await readSourceRevision(file);
-    if (!revision || revision.text == null) return { ok: false, file, message: `Could not read ${file} through the FrameDiff dev bridge.` };
+    const revision = await this.project.readSourceRevision(file);
+    if (!revision || revision.text == null) return { ok: false, file, message: `Could not read ${file} through the project adapter.` };
     let document: NonNullable<StudioComposition["timeline"]>;
     try {
       document = parsedTimelineDocument(revision.text);
@@ -1653,7 +1640,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     let nextTimeline: CompositionTimelineDocument | undefined;
     const timelineFile = composition.meta?.timelineFile;
     if (timelineFile && composition.timeline) {
-      const revision = await readSourceRevision(timelineFile);
+      const revision = await this.project.readSourceRevision(timelineFile);
       if (!revision || revision.text == null) return { ok: false, file: timelineFile, message: `Could not read ${timelineFile}.` };
       try {
         const parsed = parsedTimelineDocument(revision.text);
@@ -1676,7 +1663,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const htmlFile = composition.meta?.sourceFormat !== "generated" ? composition.meta?.file : undefined;
     let nextHtml = composition.html;
     if (htmlFile) {
-      const revision = await readSourceRevision(htmlFile);
+      const revision = await this.project.readSourceRevision(htmlFile);
       if (!revision || revision.text == null) return { ok: false, file: htmlFile, message: `Could not read ${htmlFile}.` };
       const remainingSourceItems = snapshot
         .filter((item) => !itemIds.includes(item.id) && findHtmlElementById(revision.text!, item.id))
@@ -1720,7 +1707,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (!composition || !file || !composition.timeline) {
       return { ok: false, message: "Shapes require an edit composition with an external timeline document." };
     }
-    const revision = await readSourceRevision(file);
+    const revision = await this.project.readSourceRevision(file);
     if (!revision || revision.text == null) return { ok: false, file, message: `Could not read ${file}.` };
     let document: CompositionTimelineDocument;
     try {
@@ -1795,7 +1782,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (documentMetadata && documentPointer != null && files[documentMetadata.file]) {
       try {
         const document = JSON.parse(files[documentMetadata.file]);
-        const schemaText = documentMetadata.schema ? await readSource(documentMetadata.schema) : null;
+        const schemaText = documentMetadata.schema ? await this.project.readSource(documentMetadata.schema) : null;
         const schema = schemaText ? JSON.parse(schemaText) : undefined;
         let fields = inspectorFieldsFromJsonDocument(documentMetadata.file, document, schema, documentPointer);
         // The composition-level Inspector owns document settings that are not already owned by
@@ -2228,7 +2215,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       }
       const file = composition?.meta?.file;
       if (!file) return { ok: false, message: "This composition does not declare its HTML source file." };
-      const revision = await readSourceRevision(file);
+      const revision = await this.project.readSourceRevision(file);
       const text = revision?.text;
       if (!revision || text == null) return { ok: false, file, message: `Could not read ${file}.` };
       const targetPrefix = "html-target:";
@@ -2252,7 +2239,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const composition = this.registry[request.compositionKey];
     const file = composition?.meta?.timelineFile;
     if (!composition || !file || !composition.timeline) return { ok: false, message: "This item has no external timeline document." };
-    const revision = await readSourceRevision(file);
+    const revision = await this.project.readSourceRevision(file);
     if (!revision || revision.text == null) return { ok: false, file, message: `Could not read ${file}.` };
     let document: CompositionTimelineDocument;
     try {
@@ -2416,7 +2403,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (!composition || composition.meta?.document?.file !== options.file) {
       return { ok: false, file: options.file, message: `${options.file} is not the selected composition document.` };
     }
-    const revision = await readSourceRevision(options.file);
+    const revision = await this.project.readSourceRevision(options.file);
     if (!revision || revision.text == null) return { ok: false, file: options.file, message: `Could not read ${options.file}.` };
     let document: unknown;
     try { document = JSON.parse(revision.text); }
@@ -2503,7 +2490,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       }
     }
     const files = [...new Set(resolved.map((entry) => entry.location!.file))];
-    const revisions = await Promise.all(files.map((file) => readSourceRevision(file)));
+    const revisions = await Promise.all(files.map((file) => this.project.readSourceRevision(file)));
     const missingRevision = files.find((_, index) => !revisions[index]?.text);
     if (missingRevision) return { ok: false, file: missingRevision, message: `Could not read ${missingRevision}.` };
     const changed = files.map((file, index) => {
@@ -2520,7 +2507,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       }
       return { revision, text };
     });
-    const committed = await applySourceEdit({
+    const committed = await this.project.applySourceEdit({
       label: request.label ?? (unique.length === 1 ? "Edit source-backed property" : "Edit source-backed properties"),
       ...(request.groupId ? { groupId: request.groupId } : {}),
       files: changed.map(({ revision, text }) => ({ file: revision.file, expectedHash: revision.hash, text })),
@@ -2548,7 +2535,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const projectedType = this.probed.get(request.compositionKey)?.find((item) => item.id === request.objectId)?.content.type;
     if (timelinePlacement && (timelinePlacement.content?.type ?? projectedType) !== "audio") {
       const timelineFile = composition.meta!.timelineFile!;
-      const revision = await readSourceRevision(timelineFile);
+      const revision = await this.project.readSourceRevision(timelineFile);
       if (!revision || revision.text == null) return { ok: false, file: timelineFile, message: `Could not read ${timelineFile}.` };
       let document: CompositionTimelineDocument;
       try {
@@ -2612,7 +2599,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (composition.meta?.sourceFormat === "generated") return { ok: false, file, message: "Generated HTML must be unrolled before direct manipulation." };
     const attributes: Record<string, number> = {};
     for (const [property, value] of entries) attributes[`data-fd-${property}`] = Math.round(value * 1_000) / 1_000;
-    const revision = await readSourceRevision(file);
+    const revision = await this.project.readSourceRevision(file);
     if (!revision || revision.text == null) return { ok: false, file, message: `Could not read ${file}.` };
     const rewritten = rewriteHtmlAttributes(revision.text, request.objectId, attributes);
     if (rewritten == null) return { ok: false, file, message: `Could not find data-fd-id="${request.objectId}" in ${file}.` };
@@ -2632,7 +2619,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const file = composition?.meta?.file;
     const preset = GRADE_PRESETS[presetId];
     if (!composition || !file || !preset) return { ok: false, message: "The grade preset or source composition is unavailable." };
-    const revision = await readSourceRevision(file);
+    const revision = await this.project.readSourceRevision(file);
     const source = revision?.text;
     if (!revision || source == null) return { ok: false, file, message: `Could not read ${file}.` };
     let next = source;
@@ -2646,11 +2633,11 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   }
 
   public readSource(file: string): Promise<string | null> {
-    return readSource(file);
+    return this.project.readSource(file);
   }
 
   public async listAssets() {
-    const [manifest, cache] = await Promise.all([getAssets(), listCache()]);
+    const [manifest, cache] = await Promise.all([this.project.getAssets(), this.project.listCache()]);
     const filenameByHash = new Map(cache.flatMap((entry) =>
       entry.contentHash && entry.filename ? [[entry.contentHash, entry.filename] as const] : [],
     ));
@@ -2672,7 +2659,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   }
 
   public async uploadAsset(file: File): Promise<string | null> {
-    const assetId = await uploadAssetThroughBridge(file);
+    const assetId = await this.project.uploadAsset(file);
     if (assetId) {
       await this.loadAssets();
       for (const listener of this.bakeInputListeners) listener();
@@ -2681,11 +2668,11 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   }
 
   public getGitStatus(): Promise<string[] | null> {
-    return gitDirty();
+    return this.project.gitDirty();
   }
 
   public commit(message: string): Promise<string | null> {
-    return gitCommit(message);
+    return this.project.gitCommit(message);
   }
 
   public async renderComposition(
@@ -2760,7 +2747,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   }
 
   public async listCacheEntries() {
-    return (await listCache()).map((entry) => ({
+    return (await this.project.listCache()).map((entry) => ({
       name: entry.name,
       filename: entry.filename,
       contentHash: entry.contentHash,
@@ -2788,7 +2775,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const kind = outputKind ?? composition.meta?.output ?? "video";
     inputs["framediff://output-kind"] = await hashString(kind);
     for (const path of compositionSourcePaths(this.registry, compositionKey)) {
-      const source = await readSource(path);
+      const source = await this.project.readSource(path);
       if (source == null) missing.push(path);
       else inputs[path] = await hashString(source);
     }
@@ -2835,16 +2822,16 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       throw new Error(`Cannot materialize ${composition.id}: ${fingerprint.missing.join(", ")}.`);
     }
     const hashes = new Map<string, string | null>(Object.entries(fingerprint.inputs));
-    const current = (await listCache())
+    const current = (await this.project.listCache())
       .filter((entry) =>
         entry.meta?.compId === composition.id
         && artifactStatusFromInputs(entry.meta.inputs, hashes) === "current")
       .sort((left, right) => right.mtimeMs - left.mtimeMs)[0];
     const cachedName = current?.contentHash ?? current?.name;
-    if (cachedName) return `/__framediff-cache/${encodeURIComponent(cachedName)}`;
+    if (cachedName) return this.project.cacheUrl(cachedName);
     const baked = await this.bakeComposition(compositionKey, () => undefined, outputKind);
     this.cacheProbe = null;
-    return `/__framediff-cache/${encodeURIComponent(baked.filename)}`;
+    return this.project.cacheUrl(baked.filename);
   }
 
   public async bakeComposition(
@@ -2864,12 +2851,12 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (kind === "audio") {
       if (!("recipe" in composition)) throw new Error("Audio bakes require a generative composition with a pinned take.");
       const recipe = (composition as GenerativeComposition).recipe;
-      const pinned = (await genJobs(recipe.id))?.takes.find((take) => take.generator.take === (recipe.take ?? 0));
+      const pinned = (await this.project.getGenerationJobs(recipe.id))?.takes.find((take) => take.generator.take === (recipe.take ?? 0));
       if (!pinned) throw new Error(`${composition.id} needs a pinned audio take before it can be baked.`);
       onProgress({ phase: "prepare", completed: 0, total: 1 });
-      const response = await fetch(`/__framediff-cache/${encodeURIComponent(pinned.contentHash)}`);
-      if (!response.ok) throw new Error(`Pinned audio bytes are unavailable (${response.status}).`);
-      blob = await response.blob();
+      const cached = await this.project.readCache(pinned.contentHash);
+      if (!cached) throw new Error("Pinned audio bytes are unavailable.");
+      blob = cached;
       onProgress({ phase: "audio", completed: 1, total: 1 });
       onProgress({ phase: "finalize", completed: 1, total: 1 });
     } else if (kind === "image") {
@@ -2907,8 +2894,8 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     }
     const hash = await hashBlob(blob);
     const extension = kind === "image" ? "png" : kind === "audio" ? (blob.type.includes("wav") ? "wav" : "mp3") : "mp4";
-    await new HttpFolderCAS().put(hash, blob, `${composition.id}.${kind}.${extension}`);
-    await writeArtifactMeta(hash, { compId: composition.id, label: `${composition.id} ${kind} bake`, inputs: fingerprint.inputs, createdAt: new Date().toISOString() });
+    await this.project.writeCache(hash, blob, `${composition.id}.${kind}.${extension}`);
+    await this.project.writeArtifactMeta(hash, { compId: composition.id, label: `${composition.id} ${kind} bake`, inputs: fingerprint.inputs, createdAt: new Date().toISOString() });
     return { bytes: blob.size, filename: hash };
   }
 
@@ -2983,7 +2970,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     }
     const contentHash = await hashBlob(blob);
     const extension = options.kind === "image" ? "png" : "mp4";
-    await new HttpFolderCAS().put(contentHash, blob, `${options.id}.input.${extension}`);
+    await this.project.writeCache(contentHash, blob, `${options.id}.input.${extension}`);
     return {
       contentHash,
       mime: options.kind === "image" ? "image/png" : "video/mp4",
@@ -3007,7 +2994,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const sources = await this.loadAllSources();
     const registryFile = await this.findRegistryFile();
     if (!registryFile) return { ok: false, message: "No COMPOSITIONS registry source file was found." };
-    if (!sources[registryFile]) sources[registryFile] = (await readSource(registryFile)) ?? "";
+    if (!sources[registryFile]) sources[registryFile] = (await this.project.readSource(registryFile)) ?? "";
     const isGenerative = request.kind === "generate";
     if (isGenerative && !request.outputKind) {
       return { ok: false, message: "Choose whether this generative composition outputs image, video, or audio." };
@@ -3026,7 +3013,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       if (parentFile && selectedParent) {
         const timelineFile = selectedParent.meta?.timelineFile;
         if (timelineFile && selectedParent.timeline) {
-          const timelineRevision = await readSourceRevision(timelineFile);
+          const timelineRevision = await this.project.readSourceRevision(timelineFile);
           if (timelineRevision?.text) {
             try {
               const currentTimeline = parsedTimelineDocument(timelineRevision.text);
@@ -3061,14 +3048,14 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
             } catch { /* leave the new composition top-level when the parent's timeline is invalid */ }
           }
         } else {
-          const parentRevision = await readSourceRevision(parentFile);
+          const parentRevision = await this.project.readSourceRevision(parentFile);
           const placedParentSource = parentRevision?.text == null ? null : insertNestedHtmlComposition(parentRevision.text, selectedParent.id, {
             compId: pascal,
             name: pascal,
             from: 0,
             durationInFrames: request.durationInFrames,
           });
-          if (parentRevision && placedParentSource) nested = await writeSource(parentFile, placedParentSource);
+          if (parentRevision && placedParentSource) nested = await this.project.writeSource(parentFile, placedParentSource);
         }
       }
       return {
@@ -3107,7 +3094,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         speed: 1,
         pitch: 0,
       });
-      if (!(await writeSource(generativeDataFile, `${JSON.stringify(recipeData, null, 2)}\n`))) {
+      if (!(await this.project.writeSource(generativeDataFile, `${JSON.stringify(recipeData, null, 2)}\n`))) {
         return { ok: false, message: `Could not write ${generativeDataFile}.` };
       }
       const recipe = generativeCompositionModule({
@@ -3120,9 +3107,9 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         fps: relative.fps,
         durationInFrames: request.durationInFrames,
       });
-      if (!(await writeSource(file, recipe))) return { ok: false, message: `Wrote ${generativeDataFile}, but could not write ${file}.` };
+      if (!(await this.project.writeSource(file, recipe))) return { ok: false, message: `Wrote ${generativeDataFile}, but could not write ${file}.` };
       const inserted = insertRegistryEntry(registryFile, sources, { key, varName, importFrom: relModule(registryFile, file) });
-      if (!inserted || !(await writeSource(registryFile, inserted.text))) {
+      if (!inserted || !(await this.project.writeSource(registryFile, inserted.text))) {
         return { ok: false, message: `Wrote ${file}, but could not register it in ${registryFile}.` };
       }
       return finishCreation();
@@ -3135,8 +3122,8 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
           { id: "note-2", type: "note", x: 560, y: 340, width: 280, rotation: -2, text: "Drag cards, pan the board, and scroll to zoom." },
         ],
       };
-      if (!(await writeSource(documentFile, `${JSON.stringify(moodboardDocument, null, 2)}\n`))) return { ok: false, message: `Could not write ${documentFile}.` };
-      if (!(await writeSource(file, moodboardCompositionModule({
+      if (!(await this.project.writeSource(documentFile, `${JSON.stringify(moodboardDocument, null, 2)}\n`))) return { ok: false, message: `Could not write ${documentFile}.` };
+      if (!(await this.project.writeSource(file, moodboardCompositionModule({
         id: pascal,
         exportName: varName,
         file,
@@ -3147,13 +3134,13 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         durationInFrames: request.durationInFrames,
       })))) return { ok: false, message: `Wrote ${documentFile}, but could not write ${file}.` };
       const inserted = insertRegistryEntry(registryFile, sources, { key, varName, importFrom: relModule(registryFile, file) });
-      if (!inserted || !(await writeSource(registryFile, inserted.text))) {
+      if (!inserted || !(await this.project.writeSource(registryFile, inserted.text))) {
         return { ok: false, message: `Wrote ${file}, but could not register it in ${registryFile}.` };
       }
       return finishCreation();
     }
     if (request.kind === "custom") {
-      if (!(await writeSource(file, customCompositionScaffold({
+      if (!(await this.project.writeSource(file, customCompositionScaffold({
         id: pascal,
         exportName: varName,
         file,
@@ -3166,11 +3153,11 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         fps: relative.fps,
         duration: request.durationInFrames,
       })))) return { ok: false, message: `Could not write ${file}.` };
-      if (!(await writeSource(module, htmlCompositionModule(file, varName)))) {
+      if (!(await this.project.writeSource(module, htmlCompositionModule(file, varName)))) {
         return { ok: false, message: `Wrote ${file}, but could not write ${module}.` };
       }
       const inserted = insertRegistryEntry(registryFile, sources, { key, varName, importFrom: relModule(registryFile, module) });
-      if (!inserted || !(await writeSource(registryFile, inserted.text))) {
+      if (!inserted || !(await this.project.writeSource(registryFile, inserted.text))) {
         return { ok: false, message: `Wrote ${file} and ${module}, but could not register them in ${registryFile}.` };
       }
       return finishCreation();
@@ -3192,24 +3179,24 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const timelineFile = scaffoldData.timeline ? `src/${pascal}.timeline.json` : undefined;
     const scaffoldOptions = { ...baseScaffoldOptions, timelineFile };
     const scaffold = htmlCompositionScaffold(scaffoldOptions);
-    if (!(await writeSource(file, scaffold))) return { ok: false, message: `Could not write ${file}.` };
-    if (!(await writeSource(documentFile, `${JSON.stringify(scaffoldData.document, null, 2)}\n`))) {
+    if (!(await this.project.writeSource(file, scaffold))) return { ok: false, message: `Could not write ${file}.` };
+    if (!(await this.project.writeSource(documentFile, `${JSON.stringify(scaffoldData.document, null, 2)}\n`))) {
       return { ok: false, message: `Wrote ${file}, but could not write ${documentFile}.` };
     }
-    if (!(await writeSource(schemaFile, `${JSON.stringify(scaffoldData.schema, null, 2)}\n`))) {
+    if (!(await this.project.writeSource(schemaFile, `${JSON.stringify(scaffoldData.schema, null, 2)}\n`))) {
       return { ok: false, message: `Wrote ${file} and ${documentFile}, but could not write ${schemaFile}.` };
     }
-    if (timelineFile && scaffoldData.timeline && !(await writeSource(timelineFile, `${JSON.stringify(scaffoldData.timeline, null, 2)}\n`))) {
+    if (timelineFile && scaffoldData.timeline && !(await this.project.writeSource(timelineFile, `${JSON.stringify(scaffoldData.timeline, null, 2)}\n`))) {
       return { ok: false, message: `Wrote the composition files, but could not write ${timelineFile}.` };
     }
-    if (!(await writeSource(module, htmlCompositionModule(file, varName, {
+    if (!(await this.project.writeSource(module, htmlCompositionModule(file, varName, {
       documentFile,
       schemaFile,
       bindings: scaffoldData.bindings,
       timelineFile,
     })))) return { ok: false, message: `Wrote ${file}, but could not write ${module}.` };
     const inserted = insertRegistryEntry(registryFile, sources, { key, varName, importFrom: relModule(registryFile, module) });
-    if (!inserted || !(await writeSource(registryFile, inserted.text))) {
+    if (!inserted || !(await this.project.writeSource(registryFile, inserted.text))) {
       return { ok: false, message: `Wrote ${file} and ${module}, but could not register them in ${registryFile}.` };
     }
     return finishCreation();
@@ -3222,7 +3209,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const registryFile = await this.findRegistryFile();
     if (!registryFile) return { ok: false, message: "No COMPOSITIONS registry source file was found." };
     const sources = await this.loadAllSources();
-    if (!sources[registryFile]) sources[registryFile] = (await readSource(registryFile)) ?? "";
+    if (!sources[registryFile]) sources[registryFile] = (await this.project.readSource(registryFile)) ?? "";
     let pascal = `${source.id}Copy`;
     for (let index = 2; this.registry[kebabName(pascal)] || Object.values(this.registry).some((entry) => entry.id === pascal); index += 1) {
       pascal = `${source.id}Copy${index}`;
@@ -3238,8 +3225,8 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       if (sourceRecipe.dataFile) {
         const dataFile = `${sourceDirectory}/${pascal}.gen.json`;
         const data = { ...genRecipeDataOf(sourceRecipe), take: 0 };
-        if (!(await writeSource(dataFile, `${JSON.stringify(data, null, 2)}\n`))) return { ok: false, message: `Could not fork ${source.id}'s recipe document.` };
-        if (!(await writeSource(recipeFile, generativeCompositionModule({
+        if (!(await this.project.writeSource(dataFile, `${JSON.stringify(data, null, 2)}\n`))) return { ok: false, message: `Could not fork ${source.id}'s recipe document.` };
+        if (!(await this.project.writeSource(recipeFile, generativeCompositionModule({
           id: pascal,
           exportName: varName,
           file: recipeFile,
@@ -3250,10 +3237,10 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
           durationInFrames: source.durationInFrames,
         })))) return { ok: false, message: `Wrote ${dataFile}, but could not fork ${source.id}'s module.` };
         const inserted = insertRegistryEntry(registryFile, sources, { key, varName, importFrom: relModule(registryFile, recipeFile) });
-        if (!inserted || !(await writeSource(registryFile, inserted.text))) return { ok: false, message: `Forked ${recipeFile}, but could not register it.` };
+        if (!inserted || !(await this.project.writeSource(registryFile, inserted.text))) return { ok: false, message: `Forked ${recipeFile}, but could not register it.` };
         return { ok: true, message: `Forked ${source.id} as ${pascal}; the new JSON recipe starts without a pinned take.`, compositionKey: key };
       }
-      const sourceText = sources[sourceFile] ?? await readSource(sourceFile);
+      const sourceText = sources[sourceFile] ?? await this.project.readSource(sourceFile);
       const transformed = sourceText == null ? null : transformCopiedCompText(sourceText, {
         oldId: source.id,
         newId: pascal,
@@ -3261,17 +3248,17 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         newFile: recipeFile,
         library: toLibrary || source.meta?.library === true,
       });
-      if (!transformed || !(await writeSource(recipeFile, transformed))) return { ok: false, message: `Could not fork ${source.id}'s generative recipe.` };
+      if (!transformed || !(await this.project.writeSource(recipeFile, transformed))) return { ok: false, message: `Could not fork ${source.id}'s generative recipe.` };
       const inserted = insertRegistryEntry(registryFile, sources, { key, varName, importFrom: relModule(registryFile, recipeFile) });
-      if (!inserted || !(await writeSource(registryFile, inserted.text))) return { ok: false, message: `Forked ${recipeFile}, but could not register it.` };
+      if (!inserted || !(await this.project.writeSource(registryFile, inserted.text))) return { ok: false, message: `Forked ${recipeFile}, but could not register it.` };
       return { ok: true, message: `Forked ${source.id} as ${pascal}; the new recipe starts without a pinned take.`, compositionKey: key };
     }
     if (source.meta?.kind === "moodboard" && source.meta.document?.file) {
       const documentFile = `${sourceDirectory}/${pascal}.comp.json`;
       const moduleFile = `${sourceDirectory}/${pascal}.ts`;
-      const documentText = sources[source.meta.document.file] ?? await readSource(source.meta.document.file);
-      if (documentText == null || !(await writeSource(documentFile, documentText))) return { ok: false, message: `Could not copy ${source.meta.document.file}.` };
-      if (!(await writeSource(moduleFile, moodboardCompositionModule({
+      const documentText = sources[source.meta.document.file] ?? await this.project.readSource(source.meta.document.file);
+      if (documentText == null || !(await this.project.writeSource(documentFile, documentText))) return { ok: false, message: `Could not copy ${source.meta.document.file}.` };
+      if (!(await this.project.writeSource(moduleFile, moodboardCompositionModule({
         id: pascal,
         exportName: varName,
         file: moduleFile,
@@ -3282,13 +3269,13 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         durationInFrames: source.durationInFrames,
       })))) return { ok: false, message: `Copied ${documentFile}, but could not write ${moduleFile}.` };
       const inserted = insertRegistryEntry(registryFile, sources, { key, varName, importFrom: relModule(registryFile, moduleFile) });
-      if (!inserted || !(await writeSource(registryFile, inserted.text))) return { ok: false, message: `Copied ${moduleFile}, but could not register it.` };
+      if (!inserted || !(await this.project.writeSource(registryFile, inserted.text))) return { ok: false, message: `Copied ${moduleFile}, but could not register it.` };
       return { ok: true, message: `Duplicated ${source.id} as ${pascal}.`, compositionKey: key };
     }
     if (source.meta?.sourceFormat === "generated") {
       return { ok: false, message: `${source.id} is generated by a shared composition factory; duplicate its data/factory entry in code instead.` };
     }
-    let text = sources[sourceFile] ?? await readSource(sourceFile);
+    let text = sources[sourceFile] ?? await this.project.readSource(sourceFile);
     if (text == null) return { ok: false, message: `Could not read ${sourceFile}.` };
     const directory = sourceDirectory;
     const file = `${directory}/${pascal}.html`;
@@ -3307,23 +3294,23 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (documentFile) text = rewriteHtmlAttribute(text, pascal, "data-fd-document", documentFile) ?? text;
     if (schemaFile) text = rewriteHtmlAttribute(text, pascal, "data-fd-schema", schemaFile) ?? text;
     if (timelineFile) text = rewriteHtmlAttribute(text, pascal, "data-fd-timeline-source", timelineFile) ?? text;
-    if (!(await writeSource(file, text))) return { ok: false, message: `Could not write ${file}.` };
+    if (!(await this.project.writeSource(file, text))) return { ok: false, message: `Could not write ${file}.` };
     if (sourceDocumentFile && documentFile) {
-      const documentText = sources[sourceDocumentFile] ?? await readSource(sourceDocumentFile);
-      if (documentText == null || !(await writeSource(documentFile, documentText))) return { ok: false, message: `Wrote ${file}, but could not copy ${sourceDocumentFile}.` };
+      const documentText = sources[sourceDocumentFile] ?? await this.project.readSource(sourceDocumentFile);
+      if (documentText == null || !(await this.project.writeSource(documentFile, documentText))) return { ok: false, message: `Wrote ${file}, but could not copy ${sourceDocumentFile}.` };
     }
     if (sourceSchemaFile && schemaFile) {
-      const schemaText = sources[sourceSchemaFile] ?? await readSource(sourceSchemaFile);
-      if (schemaText == null || !(await writeSource(schemaFile, schemaText))) return { ok: false, message: `Wrote ${file}, but could not copy ${sourceSchemaFile}.` };
+      const schemaText = sources[sourceSchemaFile] ?? await this.project.readSource(sourceSchemaFile);
+      if (schemaText == null || !(await this.project.writeSource(schemaFile, schemaText))) return { ok: false, message: `Wrote ${file}, but could not copy ${sourceSchemaFile}.` };
     }
     if (sourceTimelineFile && timelineFile) {
-      const timelineText = sources[sourceTimelineFile] ?? await readSource(sourceTimelineFile);
-      if (timelineText == null || !(await writeSource(timelineFile, timelineText))) return { ok: false, message: `Wrote ${file}, but could not copy ${sourceTimelineFile}.` };
+      const timelineText = sources[sourceTimelineFile] ?? await this.project.readSource(sourceTimelineFile);
+      if (timelineText == null || !(await this.project.writeSource(timelineFile, timelineText))) return { ok: false, message: `Wrote ${file}, but could not copy ${sourceTimelineFile}.` };
     }
     const setupImport = source.meta?.module && source.meta?.exportName
       ? `import { ${source.meta.exportName} as sourceComposition } from "${relModule(module, source.meta.module)}";`
       : undefined;
-    if (!(await writeSource(module, htmlCompositionModule(file, varName, {
+    if (!(await this.project.writeSource(module, htmlCompositionModule(file, varName, {
       setupImport,
       documentFile,
       schemaFile,
@@ -3331,7 +3318,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       timelineFile,
     })))) return { ok: false, message: `Wrote ${file}, but could not write ${module}.` };
     const inserted = insertRegistryEntry(registryFile, sources, { key, varName, importFrom: relModule(registryFile, module) });
-    if (!inserted || !(await writeSource(registryFile, inserted.text))) return { ok: false, message: `Wrote ${file}, but could not register it.` };
+    if (!inserted || !(await this.project.writeSource(registryFile, inserted.text))) return { ok: false, message: `Wrote ${file}, but could not register it.` };
     return {
       ok: true,
       message: toLibrary ? `Copied ${source.id} to ${pascal} in the library.` : `Duplicated ${source.id} as ${pascal}.`,
@@ -3345,7 +3332,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const registryFile = await this.findRegistryFile();
     if (!registryFile) return { ok: false, message: "No COMPOSITIONS registry source file was found." };
     const sources = await this.loadAllSources();
-    if (!sources[registryFile]) sources[registryFile] = (await readSource(registryFile)) ?? "";
+    if (!sources[registryFile]) sources[registryFile] = (await this.project.readSource(registryFile)) ?? "";
     const exportName = composition.meta?.exportName ?? findCompExportName(composition.id, sources)?.varName;
     if (!exportName) return { ok: false, message: `${composition.id} does not declare data-fd-export and cannot be removed safely.` };
     const escapedId = composition.id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -3368,7 +3355,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       return { ok: false, message: `${composition.id} is nested in ${references.join(", ")} — remove it there first.` };
     }
     const removed = removeRegistryEntry(registryFile, sources, exportName);
-    if (!removed || !(await writeSource(registryFile, removed.text))) {
+    if (!removed || !(await this.project.writeSource(registryFile, removed.text))) {
       return { ok: false, message: `Could not remove "${compositionKey}" from ${registryFile}.` };
     }
     const file = composition.meta?.file;
@@ -3377,7 +3364,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       && (composition.meta?.sourceFormat !== "generated" || composition.meta?.kind === "generate" || composition.meta?.kind === "moodboard")
       && !Object.entries(this.registry).some(([key, other]) => key !== compositionKey && (other.meta?.file === file || (module && other.meta?.module === module)));
     if (!ownsSources) return { ok: true, message: `Unregistered ${composition.id}; its shared source remains in place.` };
-    const deletionResults = await Promise.all([...ownedFiles].map((owned) => deleteSource(owned)));
+    const deletionResults = await Promise.all([...ownedFiles].map((owned) => this.project.deleteSource(owned)));
     return {
       ok: true,
       message: deletionResults.every(Boolean)
@@ -3395,7 +3382,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     let committed: ProjectEditResult;
     const timelineFile = target.meta?.timelineFile;
     if (timelineFile && target.timeline) {
-      const timelineRevision = await readSourceRevision(timelineFile);
+      const timelineRevision = await this.project.readSourceRevision(timelineFile);
       if (!timelineRevision?.text) return { ok: false, message: `Could not read ${timelineFile}.` };
       let timeline: CompositionTimelineDocument;
       try {
@@ -3425,7 +3412,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       committed = await this.commitSourceText(`Nest ${source.id} in ${target.id}`, timelineRevision, `${JSON.stringify(timeline, null, 2)}\n`);
       if (committed.ok) target.timeline = timeline;
     } else {
-      const revision = await readSourceRevision(file);
+      const revision = await this.project.readSourceRevision(file);
       const text = revision?.text;
       if (!revision || text == null) return { ok: false, message: `Could not read ${file} through the FrameDiff dev bridge.` };
       const next = insertNestedHtmlComposition(text, target.id, {
@@ -3445,7 +3432,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const composition = this.registry[compositionKey];
     const file = composition?.meta?.file;
     if (!composition || !file) return { ok: false, message: "The composition does not declare its HTML source." };
-    const revision = await readSourceRevision(file);
+    const revision = await this.project.readSourceRevision(file);
     const source = revision?.text;
     if (!revision || source == null) return { ok: false, message: `Could not read ${file}.` };
     const next = rewriteHtmlAttribute(source, composition.id, "data-fd-library", library);
@@ -3465,7 +3452,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const window = clampedFrom === 0 && clampedTo === total ? null : { from: clampedFrom, to: clampedTo };
     const file = composition.meta?.file;
     if (!file) return { ok: false, message: "The composition does not declare its HTML source." };
-    const revision = await readSourceRevision(file);
+    const revision = await this.project.readSourceRevision(file);
     const source = revision?.text;
     if (!revision || source == null) return { ok: false, message: `Could not read ${file}.` };
     let next = source;
@@ -3494,7 +3481,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const native = genNativeDims(recipe);
     const provider = definition.provider ?? recipe.provider ?? "fal";
     const liveHash = await recipeHashOf(recipe);
-    const data = await genJobs(recipe.id) ?? { jobs: [], takes: [] };
+    const data = await this.project.getGenerationJobs(recipe.id) ?? { jobs: [], takes: [] };
     primeGenTakes(data.takes);
     // Takes this session hasn't seen before just landed — let mounted previews re-resolve.
     const fresh = data.takes.filter((take) => !seenGenTakes.has(`${take.generator.gen}\0${take.generator.take}`));
@@ -3516,15 +3503,15 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
             : pinned.generator.recipeHash === liveHash
               ? "current"
               : "stale";
-    const assets = await getAssets();
-    const secrets = await getSecrets();
+    const assets = await this.project.getAssets();
+    const secrets = await this.project.getSecrets();
     const blockedInputs: string[] = [];
     for (const ref of recipe.refs ?? []) {
       if (!ref.src.startsWith("comp://")) continue;
       const input = this.registry[ref.src.slice("comp://".length)];
       if (!input || !("recipe" in input)) continue;
       const inputRecipe = (input as GenerativeComposition).recipe;
-      const inputTakes = await genJobs(inputRecipe.id);
+      const inputTakes = await this.project.getGenerationJobs(inputRecipe.id);
       const inputOutput = genOutputKindOf(inputRecipe);
       const pinned = inputTakes?.takes.some((take) =>
         take.generator.take === (inputRecipe.take ?? 0) &&
@@ -3672,7 +3659,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const recipe = (composition as GenerativeComposition).recipe;
     const file = recipe.dataFile ?? recipe.file;
     if (!file) return { ok: false, message: "The recipe does not declare its source file." };
-    const revision = await readSourceRevision(file);
+    const revision = await this.project.readSourceRevision(file);
     const source = revision?.text;
     if (!revision || source == null) return { ok: false, message: `Could not read ${file}.` };
     const lockedOutput = genOutputKindOf(recipe);
@@ -3831,7 +3818,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const composition = this.registry[compositionKey];
     if (!composition || !("recipe" in composition)) return { ok: false, message: "This is not a generative composition." };
     const recipe = (composition as GenerativeComposition).recipe;
-    const candidate = (await genJobs(recipe.id))?.takes.find((item) => item.generator.take === take);
+    const candidate = (await this.project.getGenerationJobs(recipe.id))?.takes.find((item) => item.generator.take === take);
     if (!candidate) return { ok: false, message: `Take ${take} is unavailable.` };
     const outputKind = candidate.generator.outputKind ??
       (candidate.generator.recipe ? genOutputKindOf({ model: candidate.generator.recipe.model, output: candidate.generator.recipe.output }) : undefined);
@@ -3845,14 +3832,14 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const composition = this.registry[compositionKey];
     if (!composition || !("recipe" in composition)) return { ok: false, message: "This is not a generative composition." };
     const recipe = (composition as GenerativeComposition).recipe;
-    const historical = (await genJobs(recipe.id))?.takes.find((candidate) => candidate.generator.take === take);
+    const historical = (await this.project.getGenerationJobs(recipe.id))?.takes.find((candidate) => candidate.generator.take === take);
     if (!historical) return { ok: false, message: `Take ${take} is unavailable.` };
     if (genOutputKindOf({ model: historical.generator.recipe?.model, output: historical.generator.recipe?.output }) !== genOutputKindOf(recipe)) {
       return { ok: false, message: `Take ${take} has a different output type and cannot seed this locked composition.` };
     }
     const file = recipe.dataFile ?? recipe.file;
     if (!file) return { ok: false, message: "The recipe does not declare its source file." };
-    const revision = await readSourceRevision(file);
+    const revision = await this.project.readSourceRevision(file);
     const source = revision?.text;
     if (!revision || source == null) return { ok: false, message: `Could not read ${file}.` };
     const draft = forkGenRecipe(recipe, historical.generator.recipe, historical.generator.inputs);
@@ -3871,7 +3858,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const composition = this.registry[compositionKey];
     if (!composition || !("recipe" in composition)) return { ok: false, message: "This is not a generative composition." };
     const recipe = (composition as GenerativeComposition).recipe;
-    const historical = (await genJobs(recipe.id))?.jobs.find((candidate) => candidate.id === jobId);
+    const historical = (await this.project.getGenerationJobs(recipe.id))?.jobs.find((candidate) => candidate.id === jobId);
     if (!historical || historical.status !== "failed" || !historical.recipe) {
       return { ok: false, message: "That failed generation attempt is unavailable." };
     }
@@ -3880,7 +3867,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     }
     const file = recipe.dataFile ?? recipe.file;
     if (!file) return { ok: false, message: "The recipe does not declare its source file." };
-    const revision = await readSourceRevision(file);
+    const revision = await this.project.readSourceRevision(file);
     const source = revision?.text;
     if (!revision || source == null) return { ok: false, message: `Could not read ${file}.` };
     const draft = forkGenRecipe(recipe, historical.recipe, historical.inputs);
@@ -3949,7 +3936,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
           if (inputOutput !== expectedOutput) {
             return { ok: false, message: `${inputComp.id} produces ${inputOutput}, not ${expectedOutput}.` };
           }
-          const inputData = await genJobs(inputRecipe.id);
+          const inputData = await this.project.getGenerationJobs(inputRecipe.id);
           const pinned = inputData?.takes.find((take) =>
             take.generator.take === (inputRecipe.take ?? 0) &&
             (take.generator.outputKind == null || take.generator.outputKind === inputOutput)
@@ -3959,12 +3946,12 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
           }
           if (inputOutput !== "audio" && inputRecipe.desiredOutput) {
             const baked = await this.bakeComposition(inputKey, () => undefined, inputOutput);
-            src = `/__framediff-cache/${encodeURIComponent(baked.filename)}`;
+            src = this.project.cacheUrl(baked.filename);
             mime = inputOutput === "image" ? "image/png" : "video/mp4";
             name = `${inputComp.id}.${inputOutput === "image" ? "png" : "mp4"}`;
           } else {
             const extension = inputOutput === "video" ? "mp4" : inputOutput === "audio" ? "mp3" : "jpg";
-            src = `/__framediff-cache/${encodeURIComponent(pinned.contentHash)}`;
+            src = this.project.cacheUrl(pinned.contentHash);
             mime = pinned.mime ?? (inputOutput === "video" ? "video/mp4" : inputOutput === "audio" ? "audio/mpeg" : "image/jpeg");
             name = `${inputComp.id}.${extension}`;
           }
@@ -3978,7 +3965,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
           }
           const kind: CompositionOutputKind = ref.kind === "video" ? "video" : "image";
           const baked = await this.bakeComposition(inputKey, () => undefined, kind);
-          src = `/__framediff-cache/${encodeURIComponent(baked.filename)}`;
+          src = this.project.cacheUrl(baked.filename);
           mime = kind === "image" ? "image/png" : "video/mp4";
           name = `${inputComp.id}.${kind === "image" ? "png" : "mp4"}`;
         }
@@ -3996,7 +3983,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
               durationInFrames: inputComp.durationInFrames,
               adaptation: ref.adapt,
             });
-            src = `/__framediff-cache/${encodeURIComponent(adapted.contentHash)}`;
+            src = this.project.cacheUrl(adapted.contentHash);
             mime = adapted.mime;
             name = adapted.name;
           } catch (error) {
@@ -4024,7 +4011,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       const anchorVoice = anchor && "recipe" in anchor ? (anchor as GenerativeComposition).recipe.voice : undefined;
       if (anchorVoice) inputRecipe = { ...recipe, voice: anchorVoice };
     }
-    const result = await genSubmit({
+    const result = await this.project.submitGeneration({
       provider: definition.provider ?? recipe.provider ?? "fal",
       gen: recipe.id,
       endpoint: definition.endpointOf(recipe),
@@ -4047,16 +4034,16 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   }
 
   public async configureProvider(provider: string, key: string): Promise<ProjectOperationResult> {
-    const saved = await putSecret(provider, key);
+    const saved = await this.project.putSecret(provider, key);
     if (!saved.ok) return { ok: false, message: saved.error ?? `Could not save the ${provider} key.` };
-    const verified = await verifyProvider(provider);
+    const verified = await this.project.verifyProvider(provider);
     return verified.ok
       ? { ok: true, message: `${provider} credentials saved.` }
       : { ok: false, message: verified.error ?? `${provider} verification failed.` };
   }
 
   public async getProviderCredentials(): Promise<ProviderCredentialsSnapshot> {
-    const secrets = await getSecrets();
+    const secrets = await this.project.getSecrets();
     if (!secrets) throw new Error("Could not read local service credentials.");
     const providers: ProviderCredentialsSnapshot["providers"] = [
       {
@@ -4092,13 +4079,19 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         ...(secrets.providers.luma ?? { set: false }),
       },
     ];
-    return { providers, file: secrets.file ?? ".framediff/secrets.json" };
+    return {
+      providers,
+      storage: secrets.storage ?? {
+        title: "Credential storage",
+        description: "Secret values are never returned to this UI.",
+      },
+    };
   }
 
   public async clearProvider(provider: string): Promise<ProjectOperationResult> {
-    const cleared = await deleteSecret(provider);
+    const cleared = await this.project.deleteSecret(provider);
     return cleared.ok
-      ? { ok: true, message: `${provider} credentials removed from the local file.` }
+      ? { ok: true, message: `${provider} credentials removed.` }
       : { ok: false, message: cleared.error ?? `Could not remove the ${provider} credentials.` };
   }
 
@@ -4275,19 +4268,23 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   }
 
   private async loadAssets(): Promise<void> {
-    const manifest = await getAssets();
+    const manifest = await this.project.getAssets();
     if (!manifest) return;
     this.manifest = manifest as AssetManifest;
     this.resolver = createAssetResolver({
       manifest: this.manifest,
-      cas: new HttpFolderCAS(),
+      cas: {
+        has: async (hash) => (await this.project.readCache(hash)) != null,
+        get: (hash) => this.project.readCache(hash),
+        put: (hash, blob) => this.project.writeCache(hash, blob),
+      },
       trustLocalCacheSources: true,
     });
   }
 
   private cacheForProbe(): Promise<CacheEntry[]> {
     if (!this.cacheProbe) {
-      const current = listCache();
+      const current = this.project.listCache();
       this.cacheProbe = current;
       void current.finally(() => queueMicrotask(() => { if (this.cacheProbe === current) this.cacheProbe = null; }));
     }
@@ -4314,7 +4311,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
 
   private async loadCompositionSources(compositionKey: string): Promise<FileSet> {
     const paths = compositionSourcePaths(this.registry, compositionKey);
-    const entries = await Promise.all(paths.map(async (path) => [path, await readSource(path)] as const));
+    const entries = await Promise.all(paths.map(async (path) => [path, await this.project.readSource(path)] as const));
     return Object.fromEntries(entries.filter((entry): entry is readonly [string, string] => entry[1] != null));
   }
 
@@ -4329,19 +4326,28 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     ]).filter((path): path is string => !!path);
     const registryFile = await this.findRegistryFile();
     if (registryFile) paths.push(registryFile);
-    const entries = await Promise.all([...new Set(paths)].map(async (path) => [path, await readSource(path)] as const));
+    const entries = await Promise.all([...new Set(paths)].map(async (path) => [path, await this.project.readSource(path)] as const));
     return Object.fromEntries(entries.filter((entry): entry is readonly [string, string] => entry[1] != null));
   }
 
   private async findRegistryFile(): Promise<string | null> {
     for (const candidate of ["src/config.ts", "src/compositions.ts", "src/main.ts"]) {
-      const text = await readSource(candidate);
+      const text = await this.project.readSource(candidate);
       if (text && /\bexport\s+const\s+COMPOSITIONS\b/.test(text)) return candidate;
     }
     return null;
   }
 }
 
-export function createStudioRuntime(registry: CompRegistry): HtmlStudioRuntime {
-  return new HtmlStudioRuntime(registry);
+export function createStudioRuntime(
+  registry: CompRegistry,
+  project: StudioProjectAdapter = createHttpStudioProjectAdapter(),
+): HtmlStudioRuntime {
+  return new HtmlStudioRuntime(registry, project);
 }
+
+export {
+  createHttpStudioProjectAdapter,
+  type GenerationSubmission,
+  type StudioProjectAdapter,
+} from "../studio/projectAdapter";

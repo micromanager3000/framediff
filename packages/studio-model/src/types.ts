@@ -768,13 +768,23 @@ export interface ProviderCredentialSnapshot {
   integration: "active" | "credentials-only";
   set: boolean;
   last4?: string;
-  source?: "file" | "env";
+  /** Human-readable ownership/location supplied by the project adapter. */
+  source?: string;
+  /** Whether this Studio can remove the configured credential. */
+  removable?: boolean;
+  /** Optional explanation for credentials managed outside this Studio. */
+  sourceNote?: string;
 }
 
 export interface ProviderCredentialsSnapshot {
   providers: ProviderCredentialSnapshot[];
-  /** Local JSON path relative to the project root. Secret values are never included. */
-  file: string;
+  /** Adapter-owned explanation of where secrets live and which boundary receives them. */
+  storage?: {
+    title: string;
+    description: string;
+  };
+  /** @deprecated Local adapters should describe storage with `storage`. */
+  file?: string;
 }
 
 export interface ProjectWorkspacePort {
