@@ -23,7 +23,7 @@ type DevServer = {
 export interface FrameDiffDevPlugin {
   name: string;
   config(): {
-    optimizeDeps: { include: string[] };
+    optimizeDeps: { include: string[]; exclude: string[] };
     server: { fs: { allow: string[] } };
   };
   configureServer(server: DevServer): void;
@@ -549,7 +549,26 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
         // Vite does not crawl module-worker entry points during its initial dependency scan.
         // Prebundle the encoder's only bare import up front so the first Bake cannot receive
         // a transient `504 Outdated Optimize Dep` while Vite discovers it on demand.
-        optimizeDeps: { include: ["mp4-muxer"] },
+        //
+        // The engine itself must NEVER be prebundled: exportVideo spawns its encode worker
+        // via `new URL("./encodeWorker.ts", import.meta.url)`, and from a .vite/deps chunk
+        // that URL 404s ("encode worker failed to start"). Git-dependency consumers alias
+        // these ids into node_modules/framediff-monorepo, where the optimizer otherwise
+        // picks them up; workspace examples resolve them as linked source, so the excludes
+        // are a no-op there. `@babel/parser` is the excluded source's one pure-CJS dep and
+        // still needs esbuild interop once the engine is served raw.
+        optimizeDeps: {
+          include: ["mp4-muxer", "@babel/parser"],
+          exclude: [
+            "framediff",
+            "framediff/three",
+            "framediff/gsap",
+            "framediff/gsap/source",
+            "framediff/studio-runtime",
+            "@framediff/studio-model",
+            "@framediff/studio-ui",
+          ],
+        },
         server: { fs: { allow: [PLUGIN_DIR] } },
       };
     },
