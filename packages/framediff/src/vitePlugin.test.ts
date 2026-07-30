@@ -194,6 +194,14 @@ describe("framediffDev local cache folder", () => {
     const config = framediffDev().config();
 
     expect(config.optimizeDeps.include).toContain("mp4-muxer");
+    // The excluded source's one pure-CJS dep still needs esbuild interop.
+    expect(config.optimizeDeps.include).toContain("@babel/parser");
+    // Never prebundle the engine: exportVideo's encode worker resolves relative to
+    // import.meta.url, which 404s from a .vite/deps chunk in git-dependency consumers.
+    expect(config.optimizeDeps.exclude).toContain("framediff");
+    expect(config.optimizeDeps.exclude).toContain("framediff/studio-runtime");
+    expect(config.optimizeDeps.exclude).toContain("@framediff/studio-model");
+    expect(config.optimizeDeps.exclude).toContain("@framediff/studio-ui");
     expect(config.server.fs.allow).toHaveLength(1);
   });
 
