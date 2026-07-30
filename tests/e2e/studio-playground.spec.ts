@@ -92,7 +92,7 @@ test("direct manipulation is immediate and writes bound geometry to composition 
   const htmlFile = "examples/studio-playground/src/compositions/labs/DirectManipulationLab.html";
   const originalDocumentText = await readFile(documentFile, "utf8");
   const originalHtml = await readFile(htmlFile, "utf8");
-  const originalX = JSON.parse(originalDocumentText).moveCard.x as number;
+  const originalX = JSON.parse(originalDocumentText).resizeCard.x as number;
 
   try {
     await openComposition(page, "direct-manipulation-lab");
@@ -100,25 +100,26 @@ test("direct manipulation is immediate and writes bound geometry to composition 
     await expect(page.getByRole("slider", { name: "Preview frame" })).toBeVisible();
     await expect(page.getByRole("group", { name: /Timeline/ })).toHaveCount(0);
     await expect(page.getByText("Make movable", { exact: false })).toHaveCount(0);
-    await expect(page.locator('[data-fd-id="move-card"]')).toHaveAttribute("data-fd-x", String(originalX));
+    await expect(page.locator('[data-fd-id="resize-card"]')).toHaveAttribute("data-fd-x", String(originalX));
     const timeOrigin = await page.evaluate(() => performance.timeOrigin);
     await page.locator('[data-fd-id="DirectManipulationLab"]').evaluate((root) => { root.setAttribute("data-hot-patch-probe", "same-root"); });
-    const bounds = await page.locator('[data-fd-id="move-card"]').boundingBox();
+    const bounds = await page.locator('[data-fd-id="resize-card"]').boundingBox();
     expect(bounds).not.toBeNull();
+    const dragStart = { x: bounds!.x + bounds!.width / 2, y: bounds!.y + bounds!.height / 2 };
 
-    await page.mouse.move(bounds!.x + bounds!.width / 2, bounds!.y + bounds!.height / 2);
+    await page.mouse.move(dragStart.x, dragStart.y);
     await page.mouse.down();
-    await page.mouse.move(bounds!.x + bounds!.width / 2 + 72, bounds!.y + bounds!.height / 2 + 36, { steps: 4 });
+    await page.mouse.move(dragStart.x + 72, dragStart.y + 36, { steps: 4 });
     await page.mouse.up();
 
-    await expect.poll(async () => JSON.parse(await readFile(documentFile, "utf8")).moveCard.x).not.toBe(originalX);
+    await expect.poll(async () => JSON.parse(await readFile(documentFile, "utf8")).resizeCard.x).not.toBe(originalX);
     expect(await readFile(htmlFile, "utf8")).toBe(originalHtml);
     expect(await page.evaluate(() => performance.timeOrigin)).toBe(timeOrigin);
     await expect(page.locator('[data-fd-id="DirectManipulationLab"]')).toHaveAttribute("data-hot-patch-probe", "same-root");
     await expect(page.getByText("composition JSON", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "Undo", exact: true }).click();
-    await expect.poll(async () => JSON.parse(await readFile(documentFile, "utf8")).moveCard.x).toBe(originalX);
+    await expect.poll(async () => JSON.parse(await readFile(documentFile, "utf8")).resizeCard.x).toBe(originalX);
     expect(await readFile(htmlFile, "utf8")).toBe(originalHtml);
     expect(await page.evaluate(() => performance.timeOrigin)).toBe(timeOrigin);
   } finally {
@@ -134,16 +135,16 @@ test("motion paths explain their canvas controls and make drawing mode unmistaka
   await expect(productFlight).toHaveCount(1);
   await productFlight.click();
 
-  await expect(page.getByRole("heading", { name: "MOTION PATH", exact: true })).toBeVisible();
-  await expect(page.getByText("Control where this layer travels", { exact: true })).toBeVisible();
-  await expect(page.getByText("Solid points set the stops. Hollow handles bend the route. Drag either directly on the canvas.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "ROUTE", exact: true })).toBeVisible();
+  await expect(page.getByText("Shape the object’s route on canvas", { exact: true })).toBeVisible();
+  await expect(page.getByText("Solid stops set positions; hollow handles shape the curve. Timing stays in the keys below.", { exact: true })).toBeVisible();
   await expect(page.locator(".path-points")).not.toHaveAttribute("open", "");
-  await expect(page.locator(".canvas-context-hud.motion")).toContainText("solid stops move the route");
+  await expect(page.locator(".canvas-context-hud.motion")).toContainText("solid stops set positions");
   await expect(page.locator(".timeline-empty")).toHaveText("No clips in this scene — the motion lanes below drive the composition.");
 
-  await page.getByRole("button", { name: "Draw movement" }).click();
+  await page.getByRole("button", { name: "Record a move" }).click();
   await expect(page.locator(".canvas-overlay")).toHaveClass(/gesture-active/);
-  await expect(page.locator(".gesture-mode-hud")).toContainText("Drag anywhere on the canvas to begin");
+  await expect(page.locator(".gesture-mode-hud")).toContainText("Playback starts when you drag the selected object");
 
   await page.keyboard.press("Escape");
   await expect(page.locator(".gesture-mode-hud")).toHaveCount(0);
@@ -283,6 +284,9 @@ test("edit clips expose video audio controls and reversible item and layer delet
     await expect.poll(async () => readFile(htmlFile, "utf8")).toBe(originalHtml);
 
     const deleteLayer = page.locator('.lane[data-lane-id="v:0"] .delete-lane');
+    // Undo restores source first; wait for the follow-up probe to restore the
+    // original V1 contents before acting on that lane again.
+    await expect(page.locator('.lane[data-lane-id="v:0"] .clip[data-item-id="editorial-media"]')).toBeVisible();
     await expect(deleteLayer).toHaveAttribute("aria-label", "Delete V1");
     await deleteLayer.click();
     await expect(deleteLayer).toHaveAttribute("aria-label", "Confirm delete V1");
