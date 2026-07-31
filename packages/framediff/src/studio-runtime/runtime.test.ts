@@ -32,6 +32,83 @@ const composition = {
 describe("HtmlStudioRuntime Inspector batches", () => {
   afterEach(() => vi.unstubAllGlobals());
 
+  it("remounts open previews with the refreshed asset resolver after an import", async () => {
+    let imported = false;
+    const project = {
+      getAssets: vi.fn(async () => ({
+        version: 1,
+        assets: imported ? {
+          fresh: {
+            name: "fresh.png",
+            contentHash: "sha256:fresh",
+            mime: "image/png",
+            bytes: 5,
+            sources: ["/__framediff-cache/sha256%3Afresh"],
+          },
+        } : {},
+      })),
+      uploadAsset: vi.fn(async () => {
+        imported = true;
+        return "fresh";
+      }),
+    };
+    const runtime = createStudioRuntime({ main: composition } as CompRegistry, project as never);
+    type PreviewStub = { compositionKey: string; mountedKey?: string };
+    const preview: PreviewStub = { compositionKey: "main", mountedKey: "main" };
+    const runtimeInternals = runtime as unknown as {
+      assetsReady: Promise<void>;
+      previews: Set<PreviewStub>;
+      renderPreview(preview: PreviewStub): void;
+    };
+    await runtimeInternals.assetsReady;
+    const renderPreview = vi.spyOn(runtimeInternals, "renderPreview").mockImplementation(() => undefined);
+    runtimeInternals.previews.add(preview);
+
+    await expect(runtime.uploadAsset({ name: "fresh.png" } as File)).resolves.toBe("fresh");
+
+    expect(preview.mountedKey).toBeUndefined();
+    expect(renderPreview).toHaveBeenCalledWith(preview);
+    expect(project.getAssets).toHaveBeenCalledTimes(2);
+  });
+
+  it("preserves imported asset references when submitting a generative composition", async () => {
+    const generated = generative({
+      id: "Generated",
+      output: "video",
+      model: "seedance-2.0",
+      prompt: "Bring the portrait to life",
+      refs: [{ kind: "image", src: "asset://portrait" }],
+    });
+    const project = {
+      getAssets: vi.fn(async () => ({
+        version: 1,
+        assets: {
+          portrait: {
+            name: "portrait.png",
+            contentHash: "sha256:portrait",
+            mime: "image/png",
+            bytes: 10,
+            sources: ["/__framediff-cache/sha256%3Aportrait"],
+          },
+        },
+      })),
+      submitGeneration: vi.fn(async () => ({
+        job: { id: "job-1", status: "queued" },
+      })),
+    };
+    const runtime = createStudioRuntime({ generated } as CompRegistry, project as never);
+
+    await expect(runtime.submitGeneration("generated")).resolves.toMatchObject({ ok: true });
+
+    expect(project.submitGeneration).toHaveBeenCalledWith(expect.objectContaining({
+      refs: [expect.objectContaining({
+        kind: "image",
+        src: "asset://portrait",
+        authoredSrc: "asset://portrait",
+      })],
+    }));
+  });
+
   it("uses an injected project adapter without replacing the browser fetch implementation", async () => {
     const request = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);

@@ -86,6 +86,11 @@ export interface GenerativeViewSnapshot extends GenerativeManagerState {
   generationActive: boolean;
 }
 
+export function referenceKindForMime(mime: string): "image" | "video" | "audio" | null {
+  const family = mime.trim().toLocaleLowerCase().split("/", 1)[0];
+  return family === "image" || family === "video" || family === "audio" ? family : null;
+}
+
 export class GenerativeViewModel {
   public readonly store: Readable<GenerativeViewSnapshot>;
   private readonly generationStore: Readable<GenerativeManagerState>;

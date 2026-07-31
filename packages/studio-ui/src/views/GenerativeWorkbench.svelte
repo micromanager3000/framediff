@@ -1,15 +1,21 @@
 <script lang="ts">
   import { onDestroy, tick } from "svelte";
   import {
+    FRAMEDIFF_ASSET_DRAG_MIME,
     classifyVisualGeometry,
     cropRegionForTargetAspect,
+    parseFramediffAssetDragPayload,
     retargetCropRegion,
     type StudioSession,
     type CompositionRuntimePort,
     type GenerativeWorkspaceSnapshot,
     type VisualAdaptation,
   } from "@framediff/studio-model";
-  import { nextGenerationTake, type GenerativeViewModel } from "../viewmodels/Generative.ViewModel";
+  import {
+    nextGenerationTake,
+    referenceKindForMime,
+    type GenerativeViewModel,
+  } from "../viewmodels/Generative.ViewModel";
   import PreviewHost from "./PreviewHost.svelte";
   import VisualAdaptationEditor from "./VisualAdaptationEditor.svelte";
 
@@ -167,16 +173,28 @@
     clearTimeout(outputSaveTimer);
     clearTimeout(refSaveTimer);
   });
-  function dragCompositionOver(event: DragEvent): void {
-    if (!event.dataTransfer?.types.includes(COMP_DRAG_MIME)) return;
+  function dragReferenceOver(event: DragEvent): void {
+    if (
+      !event.dataTransfer?.types.includes(COMP_DRAG_MIME) &&
+      !event.dataTransfer?.types.includes(FRAMEDIFF_ASSET_DRAG_MIME)
+    ) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "copy";
     compDragOver = true;
   }
-  function dropComposition(event: DragEvent): void {
-    const key = event.dataTransfer?.getData(COMP_DRAG_MIME);
+  function dropReference(event: DragEvent): void {
     compDragOver = false;
-    if (!key || !$store.workspace) return;
+    if (!$store.workspace) return;
+    const asset = parseFramediffAssetDragPayload(
+      event.dataTransfer?.getData(FRAMEDIFF_ASSET_DRAG_MIME) ?? "",
+    );
+    if (asset) {
+      event.preventDefault();
+      void viewModel.addAssetRef(asset.id, referenceKindForMime(asset.mime) ?? refKind);
+      return;
+    }
+    const key = event.dataTransfer?.getData(COMP_DRAG_MIME);
+    if (!key) return;
     event.preventDefault();
     const composition = $store.workspace.compositions.find((candidate) => candidate.key === key);
     if (!composition) return;
@@ -344,14 +362,14 @@
           {/if}
           <section
             role="group"
-            aria-label="Generation input references; drop a composition to add it"
+            aria-label="Generation input references; drop media or a composition to add it"
             class:drag-over={compDragOver}
             class="gen-refs"
-            ondragover={dragCompositionOver}
+            ondragover={dragReferenceOver}
             ondragleave={() => compDragOver = false}
-            ondrop={dropComposition}
+            ondrop={dropReference}
           >
-            <h3>INPUT REFERENCES <small>drag a composition here</small></h3>
+            <h3>INPUT REFERENCES <small>drag media or a composition here</small></h3>
             {#each workspace.refs as ref, index (`${ref.kind}:${ref.src}`)}
               {@const inputKey = inputCompositionKey(workspace, ref.src)}
               <div class:selected={selectedRefIndex === index}>
@@ -389,6 +407,8 @@
                   assetId = event.currentTarget.value;
                   const composition = workspace.compositions.find((candidate) => `comp://${candidate.key}` === assetId);
                   if (composition) refKind = composition.outputKind;
+                  const asset = $store.assets.find((candidate) => candidate.id === assetId);
+                  if (asset) refKind = referenceKindForMime(asset.mime) ?? refKind;
                 }}
               >
                 <option value="">Select media or composition…</option>
