@@ -102,17 +102,29 @@ POST /__framediff/gen/voice/create   { generatedVoiceId, name, description }
   → { voice_id }                     # use this as `voice` on an elevenlabs-direct recipe
 ```
 
-### Why there is no voice picker
+### The voice picker
 
-`elevenlabs-direct` deliberately ships **no `voice` param**. Voice ids are account-specific,
-so a static enum would be fiction — the same mistake that produced the `Voice not found`
-failure in the first place. The id lives in the recipe JSON, and real ones are discoverable:
+Voice ids are account-specific, so a static enum would be fiction — the same mistake that
+produced the `Voice not found` failure in the first place. But an absent picker was equally
+useless, so params can now carry **account-scoped choices**: `GenParamDef.dynamicOptions`
+marks a param as discovered rather than declared, and the runtime fills it from
+`/gen/voices` only when a param asks for it.
 
 ```
-GET /__framediff/gen/voices → { voices: [{ voice_id, name, category, description }] }
+GET /__framediff/gen/voices → { voices: [{ voice_id, name, category, description, preview_url }] }
 ```
 
-A follow-up could let the Studio populate a picker from that route.
+Each choice separates the human label from the opaque id and carries the provider's own
+hosted sample, so a voice can be **auditioned in the Studio without paying for a take**.
+Generated and cloned voices sort above stock presets — a project that designed its own cast
+cares about those. A scope-restricted key (missing `voices_read`) surfaces as an explanation
+in the picker instead of an empty list.
+
+One trap worth recording: adding a `$state` rune to `GenerativeWorkbench.svelte` flips that
+legacy-mode component into runes mode and invalidates every `export let` prop, breaking the
+Studio in consuming projects. `npm run typecheck` does **not** catch it —
+`npm run check --workspace @framediff/studio-ui` (svelte-check) does. Run it after touching
+any `.svelte` file.
 
 **Note:** ElevenLabs direct needs its own `ELEVENLABS_API_KEY`. A fal key will not work.
 
