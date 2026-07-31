@@ -877,8 +877,9 @@ html&gt;body{padding:0}&lt;/style&gt;
     grid-template-columns: auto 1fr;
     gap: 10px;
     align-items: start;
-    padding-left: 10px;
-    border-left: 3px solid var(--destructive);
+    padding: 8px 10px;
+    border: 1px solid color-mix(in srgb, var(--destructive) 30%, transparent);
+    border-radius: 8px;
   }
 
   #fd-local-worker-plan .plan-constraint-mark {
@@ -1063,7 +1064,8 @@ html&gt;body{padding:0}&lt;/style&gt;
     display: grid;
     gap: 6px;
     padding: 12px;
-    border-left: 3px solid var(--viz-series-1);
+    border: 1px solid color-mix(in srgb, var(--viz-series-1) 24%, transparent);
+    border-radius: 8px;
     background: var(--muted);
     overflow-wrap: anywhere;
   }
@@ -1126,8 +1128,9 @@ html&gt;body{padding:0}&lt;/style&gt;
   }
 
   #fd-local-worker-plan .plan-note {
-    padding-left: 10px;
-    border-left: 2px solid var(--border);
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
     color: var(--muted-foreground);
   }
 

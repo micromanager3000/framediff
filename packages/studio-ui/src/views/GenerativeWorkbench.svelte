@@ -208,6 +208,8 @@
   onDestroy(() => {
     clearTimeout(outputSaveTimer);
     clearTimeout(refSaveTimer);
+    auditionAudio?.pause();
+    auditionAudio = undefined;
   });
   function dragReferenceOver(event: DragEvent): void {
     if (
@@ -583,13 +585,11 @@
               {:else}
                 <!-- svelte-ignore a11y_media_has_caption -->
                 <video
-                  bind:this={takeVideo}
                   src={takeUrl(previewedTake.contentHash)}
                   controls
                   autoplay
                   playsinline
                   aria-label={`Preview of take ${previewedTake.take}`}
-                  onloadedmetadata={syncTakeVideo}
                 ></video>
               {/if}
             {/if}

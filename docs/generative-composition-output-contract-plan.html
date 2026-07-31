@@ -344,14 +344,14 @@
       width: 100%;
       padding: 6px 11px;
       border: 0;
-      border-left: 2px solid transparent;
+      border-radius: 5px;
       background: transparent;
       color: var(--muted);
       text-align: left;
       cursor: pointer;
       font-size: 10px;
     }
-    .comp-row.active { border-left-color: var(--accent); background: var(--panel-raised); color: var(--text); }
+    .comp-row.active { background: color-mix(in srgb, var(--accent) 8%, var(--panel-raised)); color: var(--text); }
     .comp-row .glyph { width: 14px; color: var(--pink); text-align: center; }
     .comp-row .name { flex: 1; }
     .comp-row .kind {

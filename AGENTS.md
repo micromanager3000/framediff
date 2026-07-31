@@ -27,6 +27,35 @@
   between adjacent inline items, rules between table rows, panel borders. The rule
   above is about colored accent bars used as decoration or state on one edge of a
   block.
+- Run `npm run check:ui` after changing Studio, example, prototype, or documentation
+  styles. The check rejects the known 2–3px left/inset accent-bar patterns.
+
+## Implementation quality
+
+- Treat every browser/runtime/project adapter call as a failure boundary. User-facing
+  async operations must catch rejected promises, restore `loading` / `busy` /
+  `editing` flags, and expose an actionable error instead of leaving controls inert.
+- Protect refreshes and polling from stale responses. When requests can overlap or
+  the selected composition can change, use a generation token and ignore superseded
+  results.
+- Add a regression test for every bug fix. For async state bugs, include a rejecting
+  adapter test and assert that transient flags return to `false`.
+- Preserve package direction: examples consume reusable code from `packages/`;
+  reusable behavior must not be duplicated across examples or moved into app-specific
+  code.
+- Keep UI components focused on rendering and interaction. Put project operations,
+  persistence, race handling, and error normalization in Studio model managers or
+  runtime adapters.
+
+## Validation
+
+- For model/runtime changes, run the focused test first, then `npm run check`.
+- For Studio interaction changes, also run the relevant Playwright spec. Run the
+  complete E2E suite before pushing when the change affects shared navigation,
+  preview, timeline, Inspector, generation, or rendering behavior.
+- Review `git diff --check` and the final scoped diff before committing. Do not
+  weaken tests, type checks, accessibility diagnostics, or validation scripts to
+  make a change pass.
 
 ## Plan artifacts
 

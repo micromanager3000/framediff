@@ -1358,8 +1358,10 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
 
         if (url.pathname === "/__framediff/gen/jobs" && req.method === "GET") {
           const gen = url.searchParams.get("gen");
+          const hasLedger = fs.existsSync(jobsFile(root));
+          const hasLegacyLedger = fs.existsSync(legacyJobsFile(root));
           const jobs = readJobs(root);
-          let changed = normalizeJobTakes(jobs) || !fs.existsSync(jobsFile(root));
+          let changed = normalizeJobTakes(jobs) || (!hasLedger && hasLegacyLedger);
           const finalizeTake = async (
             job: GenJobRecord,
             artifact: { url: string; content_type?: string; file_name?: string },

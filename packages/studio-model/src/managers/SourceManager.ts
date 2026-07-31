@@ -1,4 +1,5 @@
 import { ObservableValue } from "../observable";
+import { errorMessage } from "../errors";
 import type { ProjectWorkspacePort } from "../types";
 import type { StudioSession } from "../StudioSession";
 
@@ -34,6 +35,7 @@ export class SourceManager {
   public destroy(): void {
     this.unsubscribe?.();
     this.unsubscribe = null;
+    this.generation += 1;
   }
 
   public refresh(): Promise<void> {
@@ -46,14 +48,31 @@ export class SourceManager {
       this.state.set({ file: null, text: "", loading: false, error: null });
       return;
     }
-    this.state.set({ ...this.state.get(), file, loading: true, error: null });
-    const text = await this.workspace.readSource(file);
-    if (generation !== this.generation) return;
+    const current = this.state.get();
     this.state.set({
+      ...current,
       file,
-      text: text ?? "",
-      loading: false,
-      error: text == null ? `Could not read ${file}.` : null,
+      text: current.file === file ? current.text : "",
+      loading: true,
+      error: null,
     });
+    try {
+      const text = await this.workspace.readSource(file);
+      if (generation !== this.generation) return;
+      this.state.set({
+        file,
+        text: text ?? "",
+        loading: false,
+        error: text == null ? `Could not read ${file}.` : null,
+      });
+    } catch (error) {
+      if (generation !== this.generation) return;
+      this.state.update((state) => ({
+        ...state,
+        file,
+        loading: false,
+        error: errorMessage(error, `Could not read ${file}.`),
+      }));
+    }
   }
 }

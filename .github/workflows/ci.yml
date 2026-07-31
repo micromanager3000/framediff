@@ -18,6 +18,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: UI conventions
+        run: npm run check:ui
       - name: Typecheck workspaces
         run: npm run typecheck
       - name: Unit tests

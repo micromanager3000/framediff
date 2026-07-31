@@ -312,7 +312,7 @@ test("a composition can be dragged into a generative recipe and undone", async (
   await expect(page.locator(".breadcrumb button.active")).toHaveText("Blah");
 
   const endCard = rows.filter({ hasText: "EndCard" });
-  const references = page.getByRole("group", { name: "Generation input references; drop a composition to add it" });
+  const references = page.getByRole("group", { name: "Generation input references; drop media or a composition to add it" });
   await expect(endCard).toHaveCount(1);
   await expect(references).toBeVisible();
 

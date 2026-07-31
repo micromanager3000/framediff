@@ -190,6 +190,16 @@ describe("framediffDev local cache folder", () => {
     expect(ledger.jobs).toEqual(response.jobs);
   });
 
+  it("does not create a generation ledger when an empty project is read", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "framediff-vite-generations-empty-"));
+    const request = devBridge(root);
+
+    const response = JSON.parse((await request("/__framediff/gen/jobs?gen=dialogue")).body);
+
+    expect(response).toMatchObject({ jobs: [], takes: [] });
+    expect(fs.existsSync(path.join(root, "framediff.generations.json"))).toBe(false);
+  });
+
   it("prebundles the module worker dependency before the first bake", () => {
     const config = framediffDev().config();
 

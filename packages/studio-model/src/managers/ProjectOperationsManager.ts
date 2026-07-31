@@ -1,4 +1,5 @@
 import { ObservableValue } from "../observable";
+import { errorMessage } from "../errors";
 import { canNestComposition } from "../nesting";
 import type {
   CacheEntryDescriptor,
@@ -67,6 +68,7 @@ export class ProjectOperationsManager {
   private inputUnsubscribe: (() => void) | null = null;
   private lastComposition: CompositionDescriptor | undefined;
   private bakeGeneration = 0;
+  private cacheGeneration = 0;
 
   public constructor(private readonly session: StudioSession, private readonly workspace: ObservableProjectWorkspace) {}
 
@@ -89,13 +91,26 @@ export class ProjectOperationsManager {
     this.sessionUnsubscribe = null;
     this.editUnsubscribe = null;
     this.inputUnsubscribe = null;
+    this.bakeGeneration += 1;
+    this.cacheGeneration += 1;
   }
 
   public async refreshCache(): Promise<void> {
+    const generation = ++this.cacheGeneration;
     this.state.update((state) => ({ ...state, cacheLoading: true }));
-    const cache = await this.workspace.listCacheEntries();
-    this.state.update((state) => ({ ...state, cache, cacheLoading: false }));
-    await this.refreshCurrentBake();
+    try {
+      const cache = await this.workspace.listCacheEntries();
+      if (generation !== this.cacheGeneration) return;
+      this.state.update((state) => ({ ...state, cache, cacheLoading: false, error: null }));
+      await this.refreshCurrentBake();
+    } catch (error) {
+      if (generation !== this.cacheGeneration) return;
+      this.state.update((state) => ({
+        ...state,
+        cacheLoading: false,
+        error: errorMessage(error, "Could not read the render cache."),
+      }));
+    }
   }
 
   public async refreshCurrentBake(): Promise<void> {
@@ -111,22 +126,40 @@ export class ProjectOperationsManager {
       ...state,
       currentBake: { compositionKey: composition.key, compositionId: composition.id, status: "checking", artifactCount: artifacts },
     }));
-    const currentBake = await compositionBakeSnapshot(
-      composition,
-      this.state.get().cache,
-      (compositionKey) => this.workspace.getCompositionBakeInputs(compositionKey),
-    );
-    if (generation !== this.bakeGeneration) return;
-    this.state.update((state) => ({ ...state, currentBake }));
+    try {
+      const currentBake = await compositionBakeSnapshot(
+        composition,
+        this.state.get().cache,
+        (compositionKey) => this.workspace.getCompositionBakeInputs(compositionKey),
+      );
+      if (generation !== this.bakeGeneration) return;
+      this.state.update((state) => ({ ...state, currentBake }));
+    } catch (error) {
+      if (generation !== this.bakeGeneration) return;
+      this.state.update((state) => ({
+        ...state,
+        currentBake: null,
+        error: errorMessage(error, `Could not check ${composition.id}'s cached render.`),
+      }));
+    }
   }
 
   /** Resolves to the new composition's key, or null when creation failed (state carries why). */
   public async create(request: NewCompositionRequest): Promise<string | null> {
     if (this.state.get().busy) return null;
     this.state.update((state) => ({ ...state, busy: true, error: null, message: null }));
-    const result = await this.workspace.createComposition(request, this.session.state.get().currentKey);
-    this.state.update((state) => ({ ...state, busy: false, message: result.ok ? result.message : null, error: result.ok ? null : result.message }));
-    return result.ok ? result.compositionKey ?? null : null;
+    try {
+      const result = await this.workspace.createComposition(request, this.session.state.get().currentKey);
+      this.state.update((state) => ({ ...state, busy: false, message: result.ok ? result.message : null, error: result.ok ? null : result.message }));
+      return result.ok ? result.compositionKey ?? null : null;
+    } catch (error) {
+      this.state.update((state) => ({
+        ...state,
+        busy: false,
+        error: errorMessage(error, "Could not create the composition."),
+      }));
+      return null;
+    }
   }
 
   public copy(compositionKey: string, options?: { library?: boolean }): Promise<boolean> {
@@ -169,8 +202,17 @@ export class ProjectOperationsManager {
   private async run(operation: () => Promise<ProjectOperationResult>): Promise<boolean> {
     if (this.state.get().busy) return false;
     this.state.update((state) => ({ ...state, busy: true, error: null, message: null }));
-    const result = await operation();
-    this.state.update((state) => ({ ...state, busy: false, message: result.ok ? result.message : null, error: result.ok ? null : result.message }));
-    return result.ok;
+    try {
+      const result = await operation();
+      this.state.update((state) => ({ ...state, busy: false, message: result.ok ? result.message : null, error: result.ok ? null : result.message }));
+      return result.ok;
+    } catch (error) {
+      this.state.update((state) => ({
+        ...state,
+        busy: false,
+        error: errorMessage(error, "Could not complete the project operation."),
+      }));
+      return false;
+    }
   }
 }
