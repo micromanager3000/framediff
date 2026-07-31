@@ -1,4 +1,5 @@
 import { ObservableValue } from "../observable";
+import { errorMessage } from "../errors";
 import type { CompositionRuntimePort, InspectorDetailsSnapshot } from "../types";
 import type { InspectorControlSnapshot } from "../types";
 import type { StudioSession } from "../StudioSession";
@@ -64,18 +65,23 @@ export class InspectorManager {
     const details = this.state.get().details;
     if (!details || this.state.get().editing) return false;
     this.state.update((state) => ({ ...state, editing: true, error: null }));
-    const result = await this.runtime.editInspectorField({
-      compositionKey: details.compositionKey,
-      itemId: details.itemId,
-      fieldId,
-      value,
-    });
-    if (!result.ok) {
-      this.state.update((state) => ({ ...state, editing: false, error: result.message ?? "Could not edit field." }));
+    try {
+      const result = await this.runtime.editInspectorField({
+        compositionKey: details.compositionKey,
+        itemId: details.itemId,
+        fieldId,
+        value,
+      });
+      if (!result.ok) {
+        this.state.update((state) => ({ ...state, editing: false, error: result.message ?? "Could not edit field." }));
+        return false;
+      }
+      this.applyEditedValues([{ fieldId, value }]);
+      return true;
+    } catch (error) {
+      this.failEdit(error, "Could not edit field.");
       return false;
     }
-    this.applyEditedValues([{ fieldId, value }]);
-    return true;
   }
 
   public async editMany(
@@ -85,32 +91,37 @@ export class InspectorManager {
     const details = this.state.get().details;
     if (!details || this.state.get().editing || !edits.length) return false;
     this.state.update((state) => ({ ...state, editing: true, error: null }));
-    if (!this.runtime.editInspectorFields) {
-      for (const edit of edits) {
-        const result = await this.runtime.editInspectorField({
+    try {
+      if (!this.runtime.editInspectorFields) {
+        for (const edit of edits) {
+          const result = await this.runtime.editInspectorField({
+            compositionKey: details.compositionKey,
+            itemId: details.itemId,
+            ...edit,
+          });
+          if (!result.ok) {
+            this.state.update((state) => ({ ...state, editing: false, error: result.message ?? "Could not edit fields." }));
+            return false;
+          }
+        }
+      } else {
+        const result = await this.runtime.editInspectorFields({
           compositionKey: details.compositionKey,
           itemId: details.itemId,
-          ...edit,
+          edits,
+          ...options,
         });
         if (!result.ok) {
           this.state.update((state) => ({ ...state, editing: false, error: result.message ?? "Could not edit fields." }));
           return false;
         }
       }
-    } else {
-      const result = await this.runtime.editInspectorFields({
-        compositionKey: details.compositionKey,
-        itemId: details.itemId,
-        edits,
-        ...options,
-      });
-      if (!result.ok) {
-        this.state.update((state) => ({ ...state, editing: false, error: result.message ?? "Could not edit fields." }));
-        return false;
-      }
+      this.applyEditedValues(edits);
+      return true;
+    } catch (error) {
+      this.failEdit(error, "Could not edit fields.");
+      return false;
     }
-    this.applyEditedValues(edits);
-    return true;
   }
 
   private applyEditedValues(edits: Array<{ fieldId: string; value: number | string | boolean }>): void {
@@ -142,11 +153,24 @@ export class InspectorManager {
 
   public async applyPreset(presetId: string): Promise<boolean> {
     const details = this.state.get().details;
-    if (!details) return false;
+    if (!details || this.state.get().editing) return false;
     this.state.update((state) => ({ ...state, editing: true, error: null }));
-    const result = await this.runtime.applyGradePreset(details.compositionKey, details.itemId, presetId);
-    this.state.update((state) => ({ ...state, editing: false, error: result.ok ? null : result.message ?? "Could not apply preset." }));
-    if (result.ok) void this.load();
-    return result.ok;
+    try {
+      const result = await this.runtime.applyGradePreset(details.compositionKey, details.itemId, presetId);
+      this.state.update((state) => ({ ...state, editing: false, error: result.ok ? null : result.message ?? "Could not apply preset." }));
+      if (result.ok) void this.load();
+      return result.ok;
+    } catch (error) {
+      this.failEdit(error, "Could not apply preset.");
+      return false;
+    }
+  }
+
+  private failEdit(error: unknown, fallback: string): void {
+    this.state.update((state) => ({
+      ...state,
+      editing: false,
+      error: errorMessage(error, fallback),
+    }));
   }
 }

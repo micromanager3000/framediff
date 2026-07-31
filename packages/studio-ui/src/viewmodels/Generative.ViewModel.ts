@@ -4,6 +4,7 @@ import type {
   GenerativeJobSnapshot,
   GenerativeManager,
   GenerativeManagerState,
+  GenerativeTakeSnapshot,
   GenerativeWorkspaceSnapshot,
   AssetState,
   VisualAdaptation,
@@ -23,6 +24,10 @@ export interface FailedTakeView {
   policyRejection: boolean;
   matchesCurrentRecipe: boolean;
 }
+
+export type HistoricalTakeView =
+  | { kind: "generated"; take: number; generatedTake: GenerativeTakeSnapshot }
+  | { kind: "failed"; take: number; failedTake: FailedTakeView };
 
 export function readableGenerationError(error?: string): string {
   if (!error) return "The provider could not complete this generation.";
@@ -60,6 +65,25 @@ export function failedTakeViews(workspace: GenerativeWorkspaceSnapshot | null): 
     }));
 }
 
+export function historicalTakeViews(
+  workspace: GenerativeWorkspaceSnapshot | null,
+  failures = failedTakeViews(workspace),
+): HistoricalTakeView[] {
+  if (!workspace) return [];
+  return [
+    ...workspace.takes.map((generatedTake) => ({
+      kind: "generated" as const,
+      take: generatedTake.take,
+      generatedTake,
+    })),
+    ...failures.map((failedTake) => ({
+      kind: "failed" as const,
+      take: failedTake.take,
+      failedTake,
+    })),
+  ].sort((left, right) => right.take - left.take);
+}
+
 export function generatingTakeViews(
   workspace: GenerativeWorkspaceSnapshot | null,
   submitting = false,
@@ -84,6 +108,11 @@ export interface GenerativeViewSnapshot extends GenerativeManagerState {
   generatingTakes: GeneratingTakeView[];
   failedTakes: FailedTakeView[];
   generationActive: boolean;
+}
+
+export function referenceKindForMime(mime: string): "image" | "video" | "audio" | null {
+  const family = mime.trim().toLocaleLowerCase().split("/", 1)[0];
+  return family === "image" || family === "video" || family === "audio" ? family : null;
 }
 
 export class GenerativeViewModel {

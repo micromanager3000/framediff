@@ -28,6 +28,12 @@ layout, and the example-to-package promotion rule.
 - [PLATFORM-VISION-2026-07-02.md](./PLATFORM-VISION-2026-07-02.md) — dated collaborative-platform
   vision and prototype framing.
 
+## Active plans
+
+- [script-sheet-plan.html](./script-sheet-plan.html) — the `script` comp as a full-height editable
+  sheet, built on the `GenerativeWorkbench` pane precedent. Prototype: `prototypes/script/`
+  (`script-lab` launch config).
+
 ## Historical evidence and plans
 
 Date-stamped audits, milestone status files, spikes, rebuild reports, and implementation plans record

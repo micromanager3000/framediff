@@ -23,8 +23,17 @@ type DevServer = {
 export interface FrameDiffDevPlugin {
   name: string;
   config(): {
-    optimizeDeps: { include: string[] };
+    optimizeDeps: { include: string[]; exclude: string[] };
     server: { fs: { allow: string[] } };
+    build: {
+      chunkSizeWarningLimit: number;
+      rollupOptions: {
+        output: {
+          onlyExplicitManualChunks: boolean;
+          manualChunks(id: string): string | undefined;
+        };
+      };
+    };
   };
   configureServer(server: DevServer): void;
 }
@@ -524,9 +533,25 @@ async function falUpload(key: string, buf: Buffer, mime: string, name: string): 
 
 const DATA_URI_MAX = 8 * 1024 * 1024; // fallback when storage upload fails; ~10.7MB base64
 const BYTEPLUS_ARK_BASE = "https://ark.ap-southeast.bytepluses.com/api/v3";
+const ELEVENLABS_BASE = "https://api.elevenlabs.io";
 
 /** Jobs mid-finalization — two overlapping /gen/jobs polls must not ingest a take twice. */
 const finalizing = new Set<string>();
+
+function framediffManualChunk(id: string): string | undefined {
+  const normalized = id.replaceAll("\\", "/");
+  if (normalized.includes("/node_modules/gsap/")) return "vendor-gsap";
+  if (/\/(?:packages|node_modules\/@framediff)\/studio-ui\/src\//.test(normalized)) return "framediff-studio-ui";
+  if (/\/(?:packages|node_modules\/@framediff)\/studio-model\/src\//.test(normalized)) return "framediff-studio-model";
+  if (
+    /\/(?:packages|node_modules)\/framediff\/src\/studio-runtime\//.test(normalized) ||
+    /\/(?:packages|node_modules)\/framediff\/src\/studio\//.test(normalized) ||
+    /\/(?:packages|node_modules)\/framediff\/src\/gsap\/traces\.ts$/.test(normalized)
+  ) {
+    return "framediff-studio-runtime";
+  }
+  return undefined;
+}
 
 /** `git status --porcelain` lines → paths (strip status columns, rename arrows, quotes). */
 function parsePorcelain(out: string): string[] {
@@ -549,8 +574,39 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
         // Vite does not crawl module-worker entry points during its initial dependency scan.
         // Prebundle the encoder's only bare import up front so the first Bake cannot receive
         // a transient `504 Outdated Optimize Dep` while Vite discovers it on demand.
-        optimizeDeps: { include: ["mp4-muxer"] },
+        //
+        // The engine itself must NEVER be prebundled: exportVideo spawns its encode worker
+        // via `new URL("./encodeWorker.ts", import.meta.url)`, and from a .vite/deps chunk
+        // that URL 404s ("encode worker failed to start"). Git-dependency consumers alias
+        // these ids into node_modules/framediff-monorepo, where the optimizer otherwise
+        // picks them up; workspace examples resolve them as linked source, so the excludes
+        // are a no-op there. `@babel/parser` is the excluded source's one pure-CJS dep and
+        // still needs esbuild interop once the engine is served raw.
+        optimizeDeps: {
+          include: ["mp4-muxer", "@babel/parser"],
+          exclude: [
+            "framediff",
+            "framediff/three",
+            "framediff/gsap",
+            "framediff/gsap/source",
+            "framediff/studio-runtime",
+            "@framediff/studio-model",
+            "@framediff/studio-ui",
+          ],
+        },
         server: { fs: { allow: [PLUGIN_DIR] } },
+        build: {
+          // Optional heavyweight capabilities are lazy chunks. Keep the warning ceiling high
+          // enough for the media decoder while package-level chunks below keep the eager Studio
+          // surface comfortably bounded.
+          chunkSizeWarningLimit: 800,
+          rollupOptions: {
+            output: {
+              onlyExplicitManualChunks: false,
+              manualChunks: framediffManualChunk,
+            },
+          },
+        },
       };
     },
     configureServer(server) {
@@ -991,7 +1047,16 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
               return json(res, 400, { error: "gen, endpoint, recipeHash, input, recipe required" });
             }
             if (!/^[a-zA-Z0-9/_.-]+$/.test(endpoint)) return json(res, 400, { error: "bad endpoint" });
-            if (provider !== "fal" && provider !== "byteplus") return json(res, 400, { error: "unsupported generation provider" });
+            if (provider !== "fal" && provider !== "byteplus" && provider !== "elevenlabs") {
+              return json(res, 400, { error: "unsupported generation provider" });
+            }
+            if (
+              provider === "elevenlabs"
+              && endpoint !== "v1/text-to-voice/design"
+              && !/^v1\/text-to-speech\/[a-zA-Z0-9_-]+$/.test(endpoint)
+            ) {
+              return json(res, 400, { error: "unsupported ElevenLabs endpoint" });
+            }
             const k = providerKey(root, provider);
             if (!k) return json(res, 400, { error: `no ${provider} key — add one under SERVICES` });
             const falStorageKey = provider === "fal" ? k : providerKey(root, "fal");
@@ -1057,6 +1122,7 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
               recipeHash,
               status: "queued",
               take: nextJobTake(jobs, gen),
+              ...(typeof input.seed === "number" ? { seed: input.seed } : {}),
               at: new Date().toISOString(),
               recipe: body.recipe,
               inputs,
@@ -1106,6 +1172,102 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
               attempt.responseUrl = attempt.statusUrl;
               saveJob(root, attempt);
               return json(res, 200, { job: attempt });
+            }
+
+            if (provider === "elevenlabs") {
+              // ElevenLabs answers synchronously — audio bytes for TTS, JSON previews for
+              // Voice Design — so there is no queue to poll: the take lands here and the
+              // job is already `done` when this response returns.
+              const isDesign = endpoint === "v1/text-to-voice/design";
+              const r = await fetch(`${ELEVENLABS_BASE}/${endpoint}`, {
+                method: "POST",
+                headers: {
+                  "xi-api-key": k.key,
+                  "content-type": "application/json",
+                  accept: isDesign ? "application/json" : "audio/mpeg",
+                },
+                body: JSON.stringify(input),
+              });
+              if (!r.ok) {
+                const text = await r.text();
+                let detail: unknown = text.slice(0, 400);
+                try {
+                  const parsed = JSON.parse(text) as { detail?: unknown; message?: string };
+                  const d = parsed.detail as { message?: string } | string | undefined;
+                  detail = (typeof d === "string" ? d : d?.message) ?? parsed.message ?? detail;
+                } catch { /* raw */ }
+                attempt.status = "failed";
+                attempt.error = typeof detail === "string" ? detail : JSON.stringify(detail).slice(0, 400);
+                attempt.doneAt = new Date().toISOString();
+                saveJob(root, attempt);
+                return json(res, r.status, { error: attempt.error, job: attempt });
+              }
+
+              // Land bytes as a take, mirroring the queue path's finalize step.
+              const landTake = (job: GenJobRecord, buf: Buffer, ext: string, extra?: Record<string, unknown>) => {
+                const takeNo = job.take ?? 1;
+                const { id, entry } = ingestBytes(buf, `${job.gen}.take${takeNo}.${ext}`);
+                const withGen = readManifest();
+                const target = withGen.assets[id] as { generator?: unknown };
+                if (!(entry as { generator?: { take?: number } }).generator?.take && target) {
+                  target.generator = {
+                    gen: job.gen,
+                    take: takeNo,
+                    recipeHash: job.recipeHash,
+                    endpoint: job.endpoint,
+                    recipe: job.recipe,
+                    inputs: job.inputs,
+                    requestId: job.id,
+                    seed: job.seed,
+                    outputKind: "audio",
+                    at: new Date().toISOString(),
+                    ...(extra ?? {}),
+                  };
+                  fs.writeFileSync(manifestPath, JSON.stringify(withGen, null, 2) + "\n");
+                }
+                job.status = "done";
+                job.assetId = id;
+                job.outputKind = "audio";
+                job.doneAt = new Date().toISOString();
+              };
+
+              if (!isDesign) {
+                const contentType = r.headers.get("content-type")?.split(";", 1)[0];
+                if (contentType && !contentType.startsWith("audio/")) {
+                  throw new Error(`ElevenLabs TTS returned ${contentType}, not audio`);
+                }
+                const audio = Buffer.from(await r.arrayBuffer());
+                if (!audio.length) throw new Error("ElevenLabs TTS returned empty audio");
+                landTake(attempt, audio, "mp3");
+                saveJob(root, attempt);
+                return json(res, 200, { job: attempt });
+              }
+
+              // Voice Design: every candidate becomes its own take, so the takes rail is
+              // the audition. Each take records the generated_voice_id that produced it —
+              // pin one, then POST /gen/voice/create to make it a permanent voice.
+              const out = (await r.json().catch(() => ({}))) as {
+                previews?: { audio_base_64?: string; generated_voice_id?: string; media_type?: string; duration_secs?: number }[];
+                text?: string;
+              };
+              const previews = (out.previews ?? []).filter((p) => p.audio_base_64);
+              if (!previews.length) throw new Error("Voice Design returned no previews");
+              const siblings: GenJobRecord[] = [];
+              previews.forEach((preview, index) => {
+                const job = index === 0
+                  ? attempt!
+                  : { ...attempt!, id: crypto.randomUUID(), take: (attempt!.take ?? 1) + index };
+                const ext = preview.media_type?.includes("wav") ? "wav" : "mp3";
+                landTake(job, Buffer.from(preview.audio_base_64!, "base64"), ext, {
+                  generatedVoiceId: preview.generated_voice_id,
+                  sampleText: out.text,
+                  durationSecs: preview.duration_secs,
+                });
+                if (index > 0) siblings.push(job);
+              });
+              const allJobs = readJobs(root).filter((j) => j.id !== attempt!.id);
+              writeJobs(root, [...allJobs, attempt!, ...siblings]);
+              return json(res, 200, { job: attempt, takes: [attempt, ...siblings].length });
             }
 
             if (refs.some((r) => r.field)) {
@@ -1175,10 +1337,67 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
           }
         }
 
+        // Real voice ids for the account — `voice` on an elevenlabs-direct recipe is an id,
+        // not a display name, and ids are account-specific, so they can only be discovered.
+        if (url.pathname === "/__framediff/gen/voices" && req.method === "GET") {
+          const k = providerKey(root, "elevenlabs");
+          if (!k) return json(res, 400, { error: "no elevenlabs key — add one under SERVICES" });
+          const r = await fetch(`${ELEVENLABS_BASE}/v1/voices`, { headers: { "xi-api-key": k.key } });
+          const text = await r.text();
+          if (!r.ok) return json(res, r.status, { error: text.slice(0, 300) });
+          const out = JSON.parse(text) as {
+            voices?: { voice_id?: string; name?: string; category?: string; description?: string; preview_url?: string }[];
+          };
+          return json(res, 200, {
+            voices: (out.voices ?? []).map((v) => ({
+              voice_id: v.voice_id,
+              name: v.name,
+              category: v.category,
+              description: v.description,
+              // ElevenLabs hosts a sample per voice, so auditioning costs nothing.
+              preview_url: v.preview_url,
+            })),
+          });
+        }
+
+        // Promote a Voice Design candidate into a permanent library voice. The take you
+        // pinned carries its generated_voice_id in the manifest's generator block; the
+        // voice_id this returns is what an elevenlabs-direct recipe's `voice` should hold.
+        if (url.pathname === "/__framediff/gen/voice/create" && req.method === "POST") {
+          const k = providerKey(root, "elevenlabs");
+          if (!k) return json(res, 400, { error: "no elevenlabs key — add one under SERVICES" });
+          const body = JSON.parse((await readBody(req)).toString("utf8") || "{}") as {
+            generatedVoiceId?: string;
+            name?: string;
+            description?: string;
+          };
+          if (!body.generatedVoiceId || !body.name || !body.description) {
+            return json(res, 400, { error: "generatedVoiceId, name, and description required" });
+          }
+          if (body.description.length < 20 || body.description.length > 1000) {
+            return json(res, 400, { error: "description must be between 20 and 1000 characters" });
+          }
+          const r = await fetch(`${ELEVENLABS_BASE}/v1/text-to-voice`, {
+            method: "POST",
+            headers: { "xi-api-key": k.key, "content-type": "application/json" },
+            body: JSON.stringify({
+              voice_name: body.name,
+              voice_description: body.description,
+              generated_voice_id: body.generatedVoiceId,
+            }),
+          });
+          const text = await r.text();
+          if (!r.ok) return json(res, r.status, { error: text.slice(0, 300) });
+          const out = JSON.parse(text) as { voice_id?: string; name?: string; category?: string };
+          return json(res, 200, { voice_id: out.voice_id, name: out.name, category: out.category });
+        }
+
         if (url.pathname === "/__framediff/gen/jobs" && req.method === "GET") {
           const gen = url.searchParams.get("gen");
+          const hasLedger = fs.existsSync(jobsFile(root));
+          const hasLegacyLedger = fs.existsSync(legacyJobsFile(root));
           const jobs = readJobs(root);
-          let changed = normalizeJobTakes(jobs) || !fs.existsSync(jobsFile(root));
+          let changed = normalizeJobTakes(jobs) || (!hasLedger && hasLegacyLedger);
           const finalizeTake = async (
             job: GenJobRecord,
             artifact: { url: string; content_type?: string; file_name?: string },

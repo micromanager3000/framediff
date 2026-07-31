@@ -3,9 +3,15 @@ import { defineComposition } from "./composition";
 import {
   applyPlanActuals,
   defineEditSkeleton,
+  deletePlanRow,
   generateEditSkeleton,
+  insertPlanRow,
+  movePlanRow,
   parsePlanRows,
+  parseScriptSheet,
   planDrift,
+  retimePlanRows,
+  setPlanRowSource,
   swapNestedComp,
 } from "./planning";
 
@@ -17,6 +23,26 @@ const PLAN = `<!doctype html><html><head><style></style></head><body>
     data-fd-from="0" data-fd-duration="1050" data-fd-prop-location="loc-headland" data-fd-prop-cast="cast-moth"></section>
   <section data-fd-clip data-fd-id="sc2" data-fd-name="2 · Title" data-fd-from="1050" data-fd-duration="300"></section>
   <section data-fd-clip data-fd-id="sc3" data-fd-name="3 · The flame gutters" data-fd-from="1350" data-fd-duration="7650"></section>
+</main>
+</body></html>`;
+
+const SCRIPT = `<!doctype html><html><body>
+<main data-fd-composition data-fd-id="Script" data-fd-duration="90">
+  <p data-fd-id="summary" data-fd-script-field="summary">A short.</p>
+  <section data-fd-clip data-fd-id="a" data-fd-from="0" data-fd-duration="30">
+    <h3 data-fd-id="a-title" data-fd-script-field="title">Approach</h3>
+    <p data-fd-id="a-narration" data-fd-script-field="narration">Hello &amp; goodbye.</p>
+    <p data-fd-id="a-visual" data-fd-script-field="visual">Sea.</p>
+    <p data-fd-id="a-sfx" data-fd-script-field="sfx">Bell.</p>
+    <div data-fd-clip data-fd-script-source data-fd-id="a-source" data-fd-type="nested" data-fd-comp="ShotA" data-fd-from="0" data-fd-duration="30"></div>
+  </section>
+  <section data-fd-clip data-fd-id="b" data-fd-from="30" data-fd-duration="60">
+    <h3 data-fd-id="b-title" data-fd-script-field="title">Gallery</h3>
+    <p data-fd-id="b-narration" data-fd-script-field="narration"></p>
+    <p data-fd-id="b-visual" data-fd-script-field="visual">Lamp.</p>
+    <p data-fd-id="b-sfx" data-fd-script-field="sfx">Wind.</p>
+    <div data-fd-clip data-fd-script-source data-fd-id="b-source" data-fd-type="nested" data-fd-comp="ShotB" data-fd-from="30" data-fd-duration="60"></div>
+  </section>
 </main>
 </body></html>`;
 
@@ -40,6 +66,55 @@ describe("parsePlanRows", () => {
         "</section>",
     );
     expect(parsePlanRows(withThumb).map((row) => row.id)).toEqual(["sc1", "sc2", "sc3"]);
+  });
+});
+
+describe("script sheet plan edits", () => {
+  it("projects addressable prose and source slots", () => {
+    const sheet = parseScriptSheet(SCRIPT);
+    expect(sheet.summary).toEqual({ elementId: "summary", text: "A short." });
+    expect(sheet.rows[0]).toMatchObject({
+      id: "a",
+      fields: {
+        title: { elementId: "a-title", text: "Approach" },
+        narration: { elementId: "a-narration", text: "Hello & goodbye." },
+        visual: { elementId: "a-visual", text: "Sea." },
+        sfx: { elementId: "a-sfx", text: "Bell." },
+      },
+      source: { elementId: "a-source", type: "nested", compId: "ShotA" },
+    });
+  });
+
+  it("ripples starts, source slots, and total duration in one value", () => {
+    const next = retimePlanRows(SCRIPT, { a: 45 })!;
+    expect(parsePlanRows(next).map((row) => [row.id, row.from, row.durationInFrames])).toEqual([
+      ["a", 0, 45],
+      ["b", 45, 60],
+    ]);
+    expect(next).toContain('data-fd-id="b-source" data-fd-type="nested" data-fd-comp="ShotB" data-fd-from="45"');
+    expect(next).toContain('data-fd-id="Script" data-fd-duration="105"');
+  });
+
+  it("moves and deletes rows while keeping timing contiguous", () => {
+    const moved = movePlanRow(SCRIPT, "b", "a")!;
+    expect(parsePlanRows(moved).map((row) => [row.id, row.from])).toEqual([["b", 0], ["a", 60]]);
+    const deleted = deletePlanRow(moved, "b")!;
+    expect(parsePlanRows(deleted).map((row) => [row.id, row.from])).toEqual([["a", 0]]);
+    expect(deleted).toContain('data-fd-id="Script" data-fd-duration="30"');
+  });
+
+  it("inserts a complete row and switches a source between comp and media", () => {
+    const inserted = insertPlanRow(SCRIPT, { beforeId: "b", durationInFrames: 15 })!;
+    const rows = parseScriptSheet(inserted).rows;
+    expect(rows.map((row) => row.from)).toEqual([0, 30, 45]);
+    expect(rows[1].fields.title.elementId).toBe(`${rows[1].id}-title`);
+    const media = setPlanRowSource(inserted, "a", { type: "video", src: "asset://wave" })!;
+    expect(media).toContain('data-fd-id="a-source" data-fd-type="video"');
+    expect(media).toContain('data-fd-src="asset://wave"');
+    expect(media).not.toContain('data-fd-id="a-source" data-fd-type="video" data-fd-comp=');
+    const nested = setPlanRowSource(media, "a", { type: "nested", compId: "ShotA2" })!;
+    expect(nested).toContain('data-fd-comp="ShotA2"');
+    expect(parseScriptSheet(nested).rows[0].source?.src).toBeUndefined();
   });
 });
 

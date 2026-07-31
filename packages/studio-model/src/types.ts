@@ -484,6 +484,53 @@ export interface TimelineDeleteRequest {
   };
 }
 
+export interface ScriptSheetFieldSnapshot {
+  elementId: string;
+  text: string;
+}
+
+export interface ScriptSheetSourceSnapshot {
+  elementId: string;
+  type: "nested" | "video" | "image" | "audio";
+  compId?: string;
+  src?: string;
+  trimStart?: number;
+}
+
+export interface ScriptSheetRowSnapshot {
+  id: string;
+  name?: string;
+  from: number;
+  durationInFrames: number;
+  props: Record<string, string>;
+  fields: {
+    title: ScriptSheetFieldSnapshot;
+    narration: ScriptSheetFieldSnapshot;
+    visual: ScriptSheetFieldSnapshot;
+    sfx: ScriptSheetFieldSnapshot;
+  };
+  source?: ScriptSheetSourceSnapshot;
+}
+
+export interface ScriptSheetSnapshot {
+  summary?: ScriptSheetFieldSnapshot;
+  rows: ScriptSheetRowSnapshot[];
+}
+
+export type ScriptSourceEdit =
+  | { type: "nested"; compId: string }
+  | { type: "video" | "image" | "audio"; src: string };
+
+export type PlanEditRequest =
+  | { compositionKey: string; type: "retime"; rowId: string; durationInFrames: number }
+  | { compositionKey: string; type: "move"; rowId: string; beforeId: string | null }
+  | { compositionKey: string; type: "delete"; rowId: string }
+  | { compositionKey: string; type: "insert"; beforeId?: string | null; durationInFrames?: number }
+  | { compositionKey: string; type: "source"; rowId: string; source: ScriptSourceEdit };
+export type PlanEditIntent = PlanEditRequest extends infer Request
+  ? Request extends { compositionKey: string } ? Omit<Request, "compositionKey"> : never
+  : never;
+
 export interface TimelineShapeCreateRequest {
   compositionKey: string;
   shape: "rect" | "ellipse" | "line" | "path";
@@ -575,6 +622,9 @@ export interface CompositionRuntimePort {
   captureFrame?(compositionKey: string, frame: number): Promise<AgentFrameSnapshot>;
   editPlacement(request: PlacementEditRequest): Promise<PlacementEditResult>;
   editPlacements(requests: PlacementEditRequest[]): Promise<PlacementEditResult>;
+  /** Read and atomically mutate a timed script document without exposing source parsing to the UI. */
+  probeScriptSheet?(compositionKey: string): Promise<ScriptSheetSnapshot | null>;
+  editPlan?(request: PlanEditRequest): Promise<PlacementEditResult>;
   /** Remove source-backed timeline objects as one reversible source transaction. */
   deleteTimelineItems?(request: TimelineDeleteRequest): Promise<PlacementEditResult>;
   /** Add a JSON-authored vector shape to an edit timeline. */
@@ -654,12 +704,27 @@ export interface ProjectOperationResult {
   conflicts?: ProjectEditConflict[];
 }
 
+/** A labelled option whose display name differs from its stored value, optionally
+ *  auditionable — provider voice ids are the motivating case. */
+export interface GenerativeChoiceSnapshot {
+  value: string;
+  label: string;
+  group?: string;
+  description?: string;
+  /** Sample audio the Studio can play without spending a generation. */
+  previewUrl?: string;
+}
+
 export interface GenerativeParamSnapshot {
   key: string;
   label: string;
   type: "enum" | "number";
   value: string | number | boolean;
   options?: (string | number | boolean)[];
+  /** Populated at snapshot time from the provider account; takes precedence over `options`. */
+  choices?: GenerativeChoiceSnapshot[];
+  /** Set when choices could not be loaded, so the UI can explain rather than show an empty list. */
+  choicesError?: string;
   min?: number;
   max?: number;
   step?: number;
@@ -761,20 +826,30 @@ export interface GenerativeWorkspaceSnapshot {
 }
 
 export interface ProviderCredentialSnapshot {
-  provider: "fal" | "byteplus" | "midjourney" | "luma";
+  provider: "fal" | "byteplus" | "elevenlabs" | "midjourney" | "luma";
   name: string;
   envVar: string;
   description: string;
   integration: "active" | "credentials-only";
   set: boolean;
   last4?: string;
-  source?: "file" | "env";
+  /** Human-readable ownership/location supplied by the project adapter. */
+  source?: string;
+  /** Whether this Studio can remove the configured credential. */
+  removable?: boolean;
+  /** Optional explanation for credentials managed outside this Studio. */
+  sourceNote?: string;
 }
 
 export interface ProviderCredentialsSnapshot {
   providers: ProviderCredentialSnapshot[];
-  /** Local JSON path relative to the project root. Secret values are never included. */
-  file: string;
+  /** Adapter-owned explanation of where secrets live and which boundary receives them. */
+  storage?: {
+    title: string;
+    description: string;
+  };
+  /** @deprecated Local adapters should describe storage with `storage`. */
+  file?: string;
 }
 
 export interface ProjectWorkspacePort {

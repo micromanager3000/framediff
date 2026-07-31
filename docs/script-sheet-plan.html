@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FrameDiff · Script sheet implementation plan</title>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #0b0d10;
+  --panel: #12151a;
+  --panel-raised: #1a1e25;
+  --line: rgb(232 235 242 / 8%);
+  --line-strong: rgb(232 235 242 / 16%);
+  --text: #f4f2ec;
+  --muted: #c6c8cd;
+  --faint: #969ba7;
+  --accent: #f0b45f;
+  --pink: #d5a9e8;
+  --green: #72d39c;
+  --yellow: #f0c874;
+  --red: #f07470;
+  --blue: #8fc9ec;
+  --teal: #69d6c0;
+  --path: #72d5f4;
+  --mono: "SFMono-Regular", ui-monospace, Consolas, "Liberation Mono", monospace;
+  --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 0 24px 96px;
+  background: radial-gradient(circle at 82% -4%, rgb(240 180 95 / 9%), transparent 42%), var(--bg);
+  color: var(--text); font-family: var(--sans); font-size: 14.5px; line-height: 1.65;
+}
+.wrap { max-width: 1020px; margin: 0 auto; }
+a { color: var(--accent); text-decoration: none; border-bottom: 1px solid rgb(240 180 95 / 30%); }
+a:hover { border-bottom-color: var(--accent); }
+code { font-family: var(--mono); font-size: .88em; color: var(--teal); word-break: break-word; }
+h1, h2, h3 { line-height: 1.25; letter-spacing: -.015em; }
+h1 { margin: 0 0 6px; font-size: 30px; font-weight: 600; }
+h2 { margin: 58px 0 4px; font-size: 19px; font-weight: 600; display: flex; align-items: baseline; gap: 12px; }
+h2 .n { color: var(--faint); font: 700 10px var(--mono); letter-spacing: .16em; }
+h3 { margin: 30px 0 8px; font-size: 14.5px; font-weight: 650; color: var(--text); }
+p { margin: 10px 0; color: var(--muted); }
+ul, ol { margin: 10px 0; padding-left: 20px; color: var(--muted); }
+li { margin: 5px 0; }
+li::marker { color: var(--faint); }
+.lede { font-size: 16px; color: var(--muted); max-width: 76ch; }
+.sub { color: var(--faint); font-size: 12.5px; }
+
+header.masthead { padding: 44px 0 26px; border-bottom: 1px solid var(--line-strong); }
+.brand { display: flex; align-items: center; gap: 9px; margin-bottom: 22px; font-size: 11px; letter-spacing: .12em; }
+.mark { width: 17px; height: 17px; border-radius: 50%;
+  background: conic-gradient(from 0deg, var(--accent) 0 25%, rgb(232 235 242 / 10%) 25% 100%);
+  box-shadow: inset 0 0 0 1.5px rgb(232 235 242 / 22%); }
+.brand b { font-weight: 600; }
+.brand span { padding-left: 9px; border-left: 1px solid var(--line-strong); color: var(--faint); font-family: var(--mono); font-size: 9px; }
+.links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.link-card { display: block; padding: 11px 14px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--panel); }
+.link-card:hover { border-color: var(--accent); background: var(--panel-raised); }
+.link-card b { display: block; color: var(--text); font-size: 12.5px; font-weight: 600; }
+.link-card em { display: block; margin-top: 3px; color: var(--faint); font: 10px var(--mono); font-style: normal; }
+
+/* callouts are tinted blocks — no edge rules, per AGENTS.md UI conventions */
+.note { margin: 18px 0; padding: 15px 17px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); }
+.note.key { background: rgb(240 180 95 / 7%); border-color: rgb(240 180 95 / 26%); }
+.note.warn { background: rgb(240 116 112 / 7%); border-color: rgb(240 116 112 / 24%); }
+.note.good { background: rgb(114 211 156 / 7%); border-color: rgb(114 211 156 / 24%); }
+.note-label { display: block; margin-bottom: 6px; font: 700 8.5px var(--mono); letter-spacing: .16em; }
+.note.key .note-label { color: var(--accent); }
+.note.warn .note-label { color: var(--red); }
+.note.good .note-label { color: var(--green); }
+.note p:first-of-type { margin-top: 0; }
+.note p:last-child { margin-bottom: 0; }
+
+.tw { overflow-x: auto; margin: 16px 0; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+table { width: 100%; min-width: 660px; border-collapse: collapse; font-size: 13px; }
+th { padding: 10px 14px; background: var(--panel-raised); color: var(--faint);
+  font: 700 8.5px var(--mono); letter-spacing: .14em; text-align: left; white-space: nowrap; }
+td { padding: 11px 14px; border-top: 1px solid var(--line); color: var(--muted); vertical-align: top; }
+td:first-child { color: var(--text); }
+tbody tr:hover { background: rgb(232 235 242 / 2.5%); }
+
+.tag { display: inline-block; padding: 2px 7px; border-radius: 4px;
+  font: 700 8.5px var(--mono); letter-spacing: .1em; white-space: nowrap; }
+.t-new { color: var(--green); background: rgb(114 211 156 / 14%); }
+.t-mod { color: var(--accent); background: rgb(240 180 95 / 14%); }
+.t-read { color: var(--faint); background: rgb(232 235 242 / 8%); }
+.t-s { color: var(--green); background: rgb(114 211 156 / 12%); }
+.t-m { color: var(--yellow); background: rgb(240 200 116 / 12%); }
+.t-l { color: var(--red); background: rgb(240 116 112 / 12%); }
+
+.phase { margin: 14px 0; padding: 18px 20px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel); }
+.phase-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+.phase-n { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: 7px;
+  background: var(--panel-raised); color: var(--accent); font: 700 11px var(--mono); }
+.phase-head h3 { margin: 0; font-size: 15px; }
+.phase-head .sub { margin-left: auto; }
+.phase ul { margin-bottom: 0; }
+.deliv { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--faint); }
+.deliv b { color: var(--muted); font-weight: 600; }
+
+figure { margin: 24px 0; }
+figure svg { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 11px; background: var(--panel); }
+figcaption { margin-top: 9px; color: var(--faint); font-size: 11.5px; }
+
+pre { margin: 14px 0; padding: 15px 17px; overflow-x: auto;
+  border: 1px solid var(--line); border-radius: 10px; background: #08090c;
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.6; color: var(--muted); }
+pre .k { color: var(--teal); }
+pre .s { color: var(--accent); }
+pre .c { color: var(--faint); }
+pre .d { color: var(--pink); }
+
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+@media (max-width: 780px) { .two { grid-template-columns: 1fr; } }
+.opt { padding: 16px 18px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel); }
+.opt.picked { border-color: rgb(114 211 156 / 40%); background: rgb(114 211 156 / 5%); }
+.opt h3 { margin-top: 0; display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.opt ul { padding-left: 18px; font-size: 13px; }
+.pro::marker { color: var(--green); }
+.con::marker { color: var(--red); }
+hr { margin: 60px 0 0; border: 0; border-top: 1px solid var(--line); }
+footer { padding-top: 18px; color: var(--faint); font-size: 11.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead">
+    <div class="brand"><i class="mark"></i><b>FRAMEDIFF</b><span>REVIEWED IMPLEMENTATION PLAN · 2026-07-30</span></div>
+  <h1>The script comp as a sheet</h1>
+  <p class="lede">
+    Turn <code>kind="script"</code> compositions from a fixed 16:9 canvas into a full-height,
+    vertically scrollable sheet that owns the studio's middle area — five columns per scene, editable
+    timing that ripples through every later row, reorderable rows, and a per-row source slot that
+    points at either a comp or a media file.
+  </p>
+  <div class="links">
+    <a class="link-card" href="https://github.com/micromanager3000/framediff/tree/main/prototypes/script">
+      <b>↗ The prototype</b><em>prototypes/script · interaction reference</em></a>
+    <a class="link-card" href="http://localhost:4181">
+      <b>▶ Run it locally</b><em>launch config script-lab · port 4181</em></a>
+    <a class="link-card" href="https://github.com/micromanager3000/framediff/blob/main/prototypes/script/README.md">
+      <b>☰ Prototype README</b><em>what each column and control does</em></a>
+  </div>
+</header>
+
+<div class="note good">
+  <span class="note-label">IMPLEMENTED V1</span>
+  <p>
+    This plan was checked against <code>main@6f29707</code> before implementation. The shipped slice
+    includes the full-height sheet, atomic ripple/reorder/insert/delete, addressable prose, comp and
+    media source slots, and a preview tab that mounts the active row source with script overlays.
+    The review replaced the proposed multi-placement session call with one explicit
+    <code>editPlan()</code> runtime transaction: placement edits alone cannot move HTML elements or
+    remove stale comp/media attributes.
+  </p>
+</div>
+
+<h2><span class="n">01</span> What the prototype settles</h2>
+<p>
+  The prototype is a standalone static page with an in-memory model — none of it touches the engine.
+  Its value is that it answers the design questions, so implementation can argue about mechanism
+  instead of layout.
+</p>
+<div class="tw"><table>
+  <thead><tr><th>Decision</th><th>What the prototype establishes</th></tr></thead>
+  <tbody>
+    <tr><td>Shape</td><td>A document, not a canvas. Fills the middle area, scrolls vertically, free-form header on top, sticky column labels.</td></tr>
+    <tr><td>Five columns</td><td>Derived <b>TIME</b> · editable <b>DURATION</b> · <b>NARRATION / DIALOG</b> · <b>VISUAL / SFX</b> · <b>SOURCE</b>.</td></tr>
+    <tr><td>Timing truth</td><td>Duration is the only timing input. Editing one ripples every later start; running time follows. Time is never edited directly.</td></tr>
+    <tr><td>Source slot</td><td>A row points at <em>either</em> a comp <em>or</em> a media file. Both first-class, swappable as the scene firms up.</td></tr>
+    <tr><td>Row handling</td><td>Reorder by drag or keyboard, delete with undo. Reordering re-derives timing exactly like a retime.</td></tr>
+    <tr><td>Preview</td><td>Second tab: narration as captions, visual + SFX as a slate, over the row's source.</td></tr>
+    <tr><td>No type chips</td><td>Narration and dialog share a column with no VO/DIALOG label — the words carry it. SFX sits with the picture, not the spoken line.</td></tr>
+  </tbody>
+</table></div>
+
+<h2><span class="n">02</span> The architectural fork</h2>
+<p>
+  There are two established ways to own a surface in this studio, and they lead to very different
+  amounts of work. This is the decision the whole plan hangs on.
+</p>
+
+<div class="two">
+  <div class="opt picked">
+    <h3>A · A Svelte pane <span class="tag t-s">RECOMMENDED</span></h3>
+    <p class="sub">Follows <code>GenerativeWorkbench.svelte</code>.</p>
+    <p>
+      <code>StudioShell.svelte:472</code> already swaps the entire centre pane on kind:
+      <code>{#if $store.current?.kind === "generate"}</code> renders
+      <code>GenerativeWorkbench</code> instead of <code>PreviewHost</code>, under a grid class
+      <code>.workspace.generate-workspace</code> whose rows are
+      <code>34px minmax(0,1fr)</code> — a full-height single surface. A
+      <code>ScriptSheet.svelte</code> mirrors that exactly.
+    </p>
+    <ul>
+      <li class="pro">Never enters the runtime's fit-scale path, so the 16:9 letterbox problem simply does not arise.</li>
+      <li class="pro">Source stays ordinary <code>.html</code>, so placements remain editable and the timeline keeps working.</li>
+      <li class="pro">Reuses <code>editPlacements</code>, <code>editElementText</code>, <code>MediaPanel</code>, <code>assetDrag.ts</code>.</li>
+      <li class="con">The sheet is a studio view, so it is not visible outside the studio (a rendered script comp still letterboxes).</li>
+    </ul>
+  </div>
+  <div class="opt">
+    <h3>B · A composition-owned surface</h3>
+    <p class="sub">Follows <code>defineMoodboardComposition</code>.</p>
+    <p>
+      <code>compositions/moodboard.ts</code> emits a composition whose root carries
+      <code>data-fd-interactive</code>, owns all its own pointer UX, and persists back through
+      <code>writeSource</code>. The studio overlay stands aside via
+      <code>studio.css:1267</code>.
+    </p>
+    <ul>
+      <li class="pro">The sheet travels with the composition, not the studio.</li>
+      <li class="con"><b>Blocked by the letterbox.</b> <code>studio-runtime/runtime.ts:4232</code> scales every stage by <code>min(bounds.w/comp.w, bounds.h/comp.h)</code>. A filling, scrolling sheet cannot escape an outer <code>transform: scale()</code>, so this route must first change a hot path shared by every comp.</li>
+      <li class="con">Generated comps declare <code>sourceFormat: "generated"</code> and their placements go <b>read-only</b> — timeline retiming of a script would stop working.</li>
+      <li class="con">Sheet UX would be authored as generated HTML strings rather than components.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="note good">
+  <span class="note-label">WHY A</span>
+  <p>
+    Option B was the intuitive read — the prototype looks like a document, and moodboard is the
+    document precedent. But moodboard is a <em>card canvas with no temporal axis</em>, while a script
+    is a timed document whose rows are real clips. Keeping the source as plain HTML means
+    <code>parsePlanRows</code>, <code>planDrift</code>, <code>generateEditSkeleton</code>,
+    the timeline, and the Inspector all keep working on it unchanged, and the sheet becomes one more
+    editor over the same data rather than a parallel one. It is also strictly less risky: no change to
+    the shared render path.
+  </p>
+</div>
+
+<figure>
+<svg viewBox="0 0 960 268" xmlns="http://www.w3.org/2000/svg" role="img"
+     aria-label="Script.html is the single source of truth; ScriptSheet.svelte reads a projection of it and writes back through editPlacements, editElementText and editInspectorFields; the timeline and planning verbs read the same source.">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#969ba7"/></marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#72d39c"/></marker>
+  </defs>
+  <g font-family="SFMono-Regular, ui-monospace, monospace" font-size="10.5">
+    <rect x="26" y="98" width="176" height="76" rx="9" fill="#1a1e25" stroke="rgba(240,180,95,.4)"/>
+    <text x="114" y="126" fill="#f4f2ec" text-anchor="middle" font-size="11.5">Script.html</text>
+    <text x="114" y="144" fill="#969ba7" text-anchor="middle" font-size="9">data-fd-clip rows</text>
+    <text x="114" y="160" fill="#f0b45f" text-anchor="middle" font-size="8.5">SINGLE SOURCE OF TRUTH</text>
+
+    <rect x="278" y="26" width="196" height="82" rx="9" fill="#12151a" stroke="rgba(232,235,242,.16)"/>
+    <text x="376" y="50" fill="#f4f2ec" text-anchor="middle" font-size="11">ScriptSheet.svelte</text>
+    <text x="376" y="68" fill="#969ba7" text-anchor="middle" font-size="9">5 columns · scrollable</text>
+    <text x="376" y="82" fill="#969ba7" text-anchor="middle" font-size="9">reorder · delete · pickers</text>
+    <text x="376" y="98" fill="#69d6c0" text-anchor="middle" font-size="8.5">NEW</text>
+
+    <rect x="278" y="128" width="196" height="52" rx="9" fill="#12151a" stroke="rgba(232,235,242,.16)"/>
+    <text x="376" y="150" fill="#f4f2ec" text-anchor="middle" font-size="11">Timeline · Inspector</text>
+    <text x="376" y="167" fill="#72d39c" text-anchor="middle" font-size="8.5">UNCHANGED</text>
+
+    <rect x="278" y="198" width="196" height="52" rx="9" fill="#12151a" stroke="rgba(232,235,242,.16)"/>
+    <text x="376" y="220" fill="#f4f2ec" text-anchor="middle" font-size="11">planning.ts verbs</text>
+    <text x="376" y="237" fill="#72d39c" text-anchor="middle" font-size="8.5">UNCHANGED + NEW VERBS</text>
+
+    <rect x="552" y="60" width="200" height="118" rx="9" fill="#12151a" stroke="rgba(105,214,192,.35)"/>
+    <text x="652" y="84" fill="#69d6c0" text-anchor="middle" font-size="11">StudioSession</text>
+    <text x="652" y="104" fill="#969ba7" text-anchor="middle" font-size="9">editPlan() ← structural edits</text>
+    <text x="652" y="120" fill="#969ba7" text-anchor="middle" font-size="9">editElementText() ← prose</text>
+    <text x="652" y="136" fill="#969ba7" text-anchor="middle" font-size="9">probeScriptSheet()</text>
+    <text x="652" y="152" fill="#969ba7" text-anchor="middle" font-size="9">one receipt per gesture</text>
+    <text x="652" y="170" fill="#f0b45f" text-anchor="middle" font-size="8.5">ONE groupId PER GESTURE</text>
+
+    <rect x="808" y="88" width="126" height="62" rx="9" fill="#1a1e25" stroke="rgba(232,235,242,.16)"/>
+    <text x="871" y="112" fill="#f4f2ec" text-anchor="middle" font-size="10.5">/__framediff</text>
+    <text x="871" y="127" fill="#f4f2ec" text-anchor="middle" font-size="10.5">/edit</text>
+    <text x="871" y="142" fill="#969ba7" text-anchor="middle" font-size="8.5">one transaction</text>
+
+    <path d="M206,124 Q240,124 240,88 Q240,66 274,66" stroke="#969ba7" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
+    <path d="M206,140 Q240,140 240,150 L274,154" stroke="#969ba7" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
+    <path d="M206,156 Q240,156 240,200 L274,222" stroke="#969ba7" stroke-width="1.3" fill="none" marker-end="url(#a)"/>
+    <path d="M478,74 Q516,74 516,104 L546,110" stroke="#72d39c" stroke-width="1.3" fill="none" marker-end="url(#ag)"/>
+    <path d="M756,119 L802,119" stroke="#72d39c" stroke-width="1.3" fill="none" marker-end="url(#ag)"/>
+    <path d="M871,150 Q871,240 500,252 Q160,258 114,180" stroke="#72d39c" stroke-width="1.3" fill="none"
+          stroke-dasharray="4 3" marker-end="url(#ag)"/>
+    <text x="520" y="266" fill="#72d39c" text-anchor="middle" font-size="9">rewritten source</text>
+  </g>
+</svg>
+<figcaption>
+  One source, three readers. The sheet is a new editor over the same HTML the timeline and the
+  planning verbs already read, so nothing has to be kept in sync.
+</figcaption>
+</figure>
+
+<h2><span class="n">03</span> The row contract</h2>
+<p>
+  Rows are already clips. What they lack is <b>addressable prose</b>: in
+  <code>examples/previz-to-gen/src/compositions/Script.html</code> the shot name, VO and beat text are
+  plain <code>&lt;div&gt;</code> / <code>&lt;p&gt;</code> with no <code>data-fd-id</code>, and
+  <code>docs/STUDIO-EDITING-CONTRACTS.md</code> requires a unique id for anything source-edited. So the
+  port is mostly handing ids to text that already exists, plus splitting SFX out of the VO line.
+</p>
+<pre><span class="c">&lt;!-- one row, after the port --&gt;</span>
+&lt;section class="row" <span class="d">data-fd-clip</span> <span class="d">data-fd-id</span>=<span class="s">"scene-approach"</span>
+         <span class="d">data-fd-from</span>=<span class="s">"0"</span> <span class="d">data-fd-duration</span>=<span class="s">"240"</span>          <span class="c">&lt;-- frames; from is derived by the sheet</span>
+         <span class="d">data-fd-prop-cast</span>=<span class="s">"cast-boat cast-lamp"</span>
+         <span class="d">data-fd-prop-location</span>=<span class="s">"loc-harbor-mouth"</span>
+         <span class="d">data-fd-prop-status</span>=<span class="s">"generated"</span>&gt;              <span class="c">&lt;-- PLANNING_STATUSES</span>
+
+  &lt;h3 <span class="d">data-fd-id</span>=<span class="s">"scene-approach-title"</span>&gt;Open-water approach&lt;/h3&gt;
+  &lt;p  <span class="d">data-fd-id</span>=<span class="s">"scene-approach-nar"</span>&gt;“Any light will do…”&lt;/p&gt;      <span class="c">NARRATION / DIALOG</span>
+  &lt;p  <span class="d">data-fd-id</span>=<span class="s">"scene-approach-vis"</span>&gt;Low over the swell…&lt;/p&gt;     <span class="c">VISUAL</span>
+  &lt;p  <span class="d">data-fd-id</span>=<span class="s">"scene-approach-sfx"</span>&gt;swell, a bell buoy&lt;/p&gt;       <span class="c">SFX</span>
+
+  <span class="c">&lt;!-- the source slot: a nested comp… --&gt;</span>
+  &lt;div <span class="d">data-fd-clip</span> <span class="d">data-fd-id</span>=<span class="s">"scene-approach-src"</span> <span class="d">data-fd-type</span>=<span class="s">"nested"</span>
+       <span class="d">data-fd-comp</span>=<span class="s">"harborShot"</span> <span class="d">data-fd-trim-start</span>=<span class="s">"0"</span>&gt;&lt;/div&gt;
+  <span class="c">&lt;!-- …or a media file, the same slot with different attributes --&gt;</span>
+  &lt;img <span class="d">data-fd-id</span>=<span class="s">"scene-approach-src"</span> <span class="d">data-fd-type</span>=<span class="s">"image"</span>
+       <span class="d">data-fd-src</span>=<span class="s">"asset://…"</span> alt=""&gt;</pre>
+<div class="note good">
+  <span class="note-label">WHAT THIS BUYS</span>
+  <p>
+    <code>parsePlanRows</code> already skips clips nested inside a row, so the source slot never gets
+    mistaken for a row. <code>swapNestedComp</code> already repoints <code>data-fd-comp</code> and
+    advances <code>data-fd-prop-status</code>. The comp-vs-media switch is one attribute change on one
+    element. No new file format, no second source of truth.
+  </p>
+</div>
+
+<h2><span class="n">04</span> What has to be built</h2>
+<p>
+  Three capabilities the codebase does not have yet. Everything else in the feature is assembly.
+</p>
+
+<h3>Ripple retiming</h3>
+<p>
+  Ripple arithmetic lives in the pure <code>retimePlanRows()</code> transform. It rewrites the edited
+  duration, every derived row start, each marked source slot's mirrored timing, and the composition
+  duration in one source value. <code>STUDIO-EDITING-CONTRACTS.md</code> requires one gesture to be
+  one transaction, so the runtime commits that value once.
+</p>
+<p>
+  Review finding: a multi-placement call is insufficient for the feature as a whole. Reorder,
+  insert/delete, and comp↔media switching also change source structure. The correct boundary is
+  <code>CompositionRuntimePort.editPlan(request)</code>, with <code>StudioSession.editPlan()</code>
+  providing editing state and notices. The arithmetic stays in <code>planning.ts</code> and is
+  testable without a browser.
+</p>
+
+<h3>Row reordering</h3>
+<p>
+  Rows render in source order under
+  <code>documentFlow</code> (<code>packages/framediff/src/runtime.ts:824</code>), so a reorder must
+  physically move the element <em>and</em> rewrite the <code>from</code> attributes of everything after
+  it. <code>insertNestedHtmlComposition</code> can only append before the root's closing tag
+  (<code>:459</code>) and cannot target a position, so this needs a new
+  <code>moveHtmlElement()</code> / <code>moveHtmlElementAfter()</code> preserve the exact source
+  fragment, and <code>movePlanRow()</code> follows with the same ripple pass. “Move to end” means
+  after the last plan row, not after unrelated footer or script elements.
+</p>
+
+<h3>Plan-row verbs</h3>
+<p>
+  <code>planning.ts</code> is pure string-in / string-out over HTML and has no notion of insert, move,
+  or delete. It needs <code>insertPlanRow</code>, <code>movePlanRow</code>, <code>deletePlanRow</code>
+  and a pure <code>retimePlanRows</code>, sitting beside the verbs that already exist.
+</p>
+
+<h2><span class="n">05</span> Files</h2>
+<div class="tw"><table>
+  <thead><tr><th>Path</th><th></th><th>Change</th></tr></thead>
+  <tbody>
+    <tr><td><code>studio-ui/src/views/ScriptSheet.svelte</code></td><td><span class="tag t-new">NEW</span></td>
+        <td>The sheet UI: document and preview tabs, all row interactions, source picker/drop target.</td></tr>
+    <tr><td><code>studio-ui/src/viewmodels/Script.ViewModel.ts</code></td><td><span class="tag t-new">NEW</span></td>
+        <td>Runtime-backed row projection, edit intents, asset/composition choices, and refresh after commits.</td></tr>
+    <tr><td><code>studio-ui/src/StudioShell.svelte</code> :461–476</td><td><span class="tag t-mod">MODIFY</span></td>
+        <td>Add the <code>kind === "script"</code> branch beside the <code>"generate"</code> one, plus a <code>script-workspace</code> grid class.</td></tr>
+    <tr><td><code>studio-ui/src/studio.css</code> :300</td><td><span class="tag t-mod">MODIFY</span></td>
+        <td><code>.workspace.script-workspace</code> copying <code>.generate-workspace</code>'s full-height rows. <b>Six declarations, not one</b> — three breakpoints (:300, :1162, :1245) each with a <code>.guided</code> variant.</td></tr>
+    <tr><td><code>framediff/src/planning.ts</code></td><td><span class="tag t-mod">EXTEND</span></td>
+        <td><code>parseScriptSheet</code>, <code>retimePlanRows</code>, <code>movePlanRow</code>, <code>insertPlanRow</code>, <code>deletePlanRow</code>, <code>setPlanRowSource</code>.</td></tr>
+    <tr><td><code>framediff/src/studio/htmlSource.ts</code></td><td><span class="tag t-mod">EXTEND</span></td>
+        <td>Formatting-preserving <code>moveHtmlElement</code> and <code>moveHtmlElementAfter</code>.</td></tr>
+    <tr><td><code>framediff/src/studio-runtime/runtime.ts</code></td><td><span class="tag t-mod">EXTEND</span></td>
+        <td><code>probeScriptSheet</code> plus the atomic <code>editPlan</code> source transaction.</td></tr>
+    <tr><td><code>studio-model/src/StudioSession.ts</code> :544</td><td><span class="tag t-mod">EXTEND</span></td>
+        <td><code>editPlan</code> facade for editing state, notices, and post-commit reprobe.</td></tr>
+    <tr><td><code>studio-model/src/authoring.ts</code> :46</td><td><span class="tag t-mod">REVIEW</span></td>
+        <td>No semantic change. The dedicated sheet owns its own preview transport; the generic authoring contract remains useful to non-sheet consumers.</td></tr>
+    <tr><td><code>examples/previz-to-gen/…/Script.html</code></td><td><span class="tag t-mod">PORT</span></td>
+        <td>Add <code>data-fd-id</code> to prose, split SFX out, fix the incidental bugs below. The acceptance case.</td></tr>
+    <tr><td><code>studio-model/src/assetDrag.ts</code></td><td><span class="tag t-read">USE</span></td>
+        <td><code>FRAMEDIFF_ASSET_DRAG_MIME</code> already carries asset drops onto the source cell.</td></tr>
+    <tr><td><code>studio-model/src/types.ts</code> :597</td><td><span class="tag t-read">USE</span></td>
+        <td><code>AssetDescriptor.durationSeconds</code> is exactly what "fit scene" needs.</td></tr>
+    <tr><td><code>docs/HTML-COMPOSITIONS.md</code> :236</td><td><span class="tag t-mod">MODIFY</span></td>
+        <td>Document the row contract and the sheet.</td></tr>
+  </tbody>
+</table></div>
+
+<h2><span class="n">06</span> Phases</h2>
+
+<div class="phase">
+  <div class="phase-head"><i class="phase-n">0</i><h3>Port the row contract</h3><span class="sub"><span class="tag t-s">SHIPPED</span></span></div>
+  <p>
+    Give the prose in <code>Script.html</code> stable <code>data-fd-id</code>s, split SFX from the VO
+    line, and confirm the whole existing suite still passes — especially
+    <code>tests/example-authoring.test.ts</code>, which asserts the shape of every example comp. No UI
+    work. This is the cheap step that de-risks everything after it.
+  </p>
+  <div class="deliv"><b>Done when</b> <code>parsePlanRows</code> returns identical rows, the Inspector
+    can edit each prose field, and <code>example-authoring</code> plus
+    <code>exampleTimelineOwnership</code> are green.</div>
+</div>
+
+<div class="phase">
+  <div class="phase-head"><i class="phase-n">1</i><h3>The pane and projection</h3><span class="sub"><span class="tag t-s">SHIPPED</span></span></div>
+  <p>
+    <code>ScriptSheet.svelte</code> + view model + the <code>StudioShell</code> branch and grid class.
+    Header block, five columns, derived times, running time, sticky labels — rendered from
+    <code>probeScriptSheet()</code>. The runtime owns parsing; the Svelte package never imports the
+    engine's HTML scanner.
+  </p>
+  <div class="deliv"><b>Done when</b> opening the previz-to-gen script shows the sheet filling the
+    workspace and scrolling, and the other kinds are visually unchanged at all three breakpoints.</div>
+</div>
+
+<div class="phase">
+  <div class="phase-head"><i class="phase-n">2</i><h3>Ripple and text editing</h3><span class="sub"><span class="tag t-s">SHIPPED</span></span></div>
+  <p>
+    <code>retimePlanRows</code> + <code>editPlan</code> + the duration control. Prose editing uses
+    <code>editElementText</code>. Every structural gesture yields one receipt, so undo reverses the
+    complete ripple.
+  </p>
+  <div class="deliv"><b>Done when</b> a duration change rewrites every later <code>from</code> in one
+    transaction, one ⌘Z reverses the whole ripple, and the arithmetic is unit-tested in
+    <code>planning.test.ts</code> with no DOM.</div>
+</div>
+
+<div class="phase">
+  <div class="phase-head"><i class="phase-n">3</i><h3>Reorder, insert, and delete</h3><span class="sub"><span class="tag t-s">SHIPPED</span></span></div>
+  <p>
+    <code>moveHtmlElement</code>, <code>movePlanRow</code>, <code>insertPlanRow</code>, and
+    <code>deletePlanRow</code>; native drag plus explicit keyboard-friendly up/down controls. Each
+    gesture is one <code>editPlan</code> transaction.
+  </p>
+  <div class="deliv"><b>Done when</b> a reorder moves the element and retimes the tail in one
+    transaction, and round-trips through reload.</div>
+</div>
+
+<div class="phase">
+  <div class="phase-head"><i class="phase-n">4</i><h3>The source slot</h3><span class="sub"><span class="tag t-s">SHIPPED</span></span></div>
+  <p>
+    Attach an existing comp from the row picker, or drop project media via
+    <code>FRAMEDIFF_ASSET_DRAG_MIME</code>. <code>setPlanRowSource</code> switches the stable slot
+    element and removes incompatible attributes in the same transaction.
+  </p>
+  <div class="deliv"><b>Done when</b> a row swaps rough → previz → take without leaving the sheet, a
+    dropped file lands in the asset manifest, and <code>swapNestedComp</code> still recognises the
+    result.</div>
+</div>
+
+<div class="phase">
+  <div class="phase-head"><i class="phase-n">5</i><h3>Preview tab</h3><span class="sub"><span class="tag t-s">SHIPPED</span></span></div>
+  <p>
+    The second tab mounts the active row's nested comp or media and renders narration as captions,
+    visual/SFX as a slate, with scene navigation and a full-script scrubber.
+  </p>
+  <div class="deliv"><b>Done when</b> the preview scrubs the whole script, switches source at row
+    boundaries, and remains frame-derived. Surfacing <code>generateEditSkeleton</code> as a Studio
+    action is a separate workflow decision; the existing library verb remains unchanged.</div>
+</div>
+
+<h2><span class="n">07</span> Risks and known traps</h2>
+<div class="tw"><table>
+  <thead><tr><th>Trap</th><th></th><th>Handling</th></tr></thead>
+  <tbody>
+    <tr><td>Ripple emitted as N sequential edits</td><td><span class="tag t-l">HIGH</span></td>
+        <td>Resolved with one <code>editPlan</code> source transaction and one receipt per gesture.</td></tr>
+    <tr><td><code>image</code> is not an allowed timeline content type</td><td><span class="tag t-m">MED</span></td>
+        <td>The whitelist applies to external timeline JSON. V1 image slots are HTML-authored and projected through the script-sheet contract, where image is already supported.</td></tr>
+    <tr><td>Two parallel content unions, already out of sync</td><td><span class="tag t-m">MED</span></td>
+        <td><code>TimelineContentSnapshot</code> has an <code>image</code> variant; <code>studio/types.ts:111</code> <code>ItemContent</code> does not. Pick one before adding to either.</td></tr>
+    <tr><td><code>CompositionKind</code> is declared three times</td><td><span class="tag t-m">MED</span></td>
+        <td><code>composition.ts:3</code>, <code>studio-model/types.ts:5</code>, and inlined again at <code>studio/types.ts:10</code>, with no cross-check test. Not this feature's job to fix, but do not add a fourth.</td></tr>
+    <tr><td>Rows are not guaranteed contiguous</td><td><span class="tag t-m">MED</span></td>
+        <td><code>retimePlanRows</code> normalises the document on every structural or duration edit. Opening remains non-mutating.</td></tr>
+    <tr><td>New workspace grid class missed at a breakpoint</td><td><span class="tag t-s">LOW</span></td>
+        <td><code>.generate-workspace</code> exists six times in <code>studio.css</code> — :300/:301, :1162/:1163, :1245/:1246, each with a <code>.guided</code> pair. Easy to copy one and miss five.</td></tr>
+    <tr><td><code>previz-to-gen</code> is not in the vitest include list</td><td><span class="tag t-s">LOW</span></td>
+        <td>Unit tests there will silently not run. Add it, or keep coverage in <code>packages/</code> and <code>tests/</code>.</td></tr>
+  </tbody>
+</table></div>
+
+<h3>Incidental bugs found while planning</h3>
+<ul>
+  <li><code>Script.html</code>'s copy-pasted <code>ReferenceTitle.schema.json</code> declaration was removed.</li>
+  <li>The stray <code>data-fd-x</code>/<code>data-fd-y</code> attributes on <code>scene-chase</code> were removed.</li>
+  <li>Row and nested-source timing are now rewritten together by <code>retimePlanRows</code>.</li>
+  <li><code>planning.test.ts:128</code> tests <code>copyHtmlElementInto</code>, which belongs to <code>htmlSource</code>.</li>
+  <li><code>studio.css:254</code> <code>.asset-row.selected</code> uses a left-edge accent, which the new <a href="https://github.com/micromanager3000/framediff/blob/main/AGENTS.md">UI convention</a> forbids. Do not copy it into the sheet.</li>
+</ul>
+
+<h2><span class="n">08</span> V1 decisions from review</h2>
+<ol>
+  <li><b>Sheet owns the script workspace.</b> The generic timeline and transport are not rendered inside the dedicated script branch. Preview navigation lives in the sheet. The authoring contract remains unchanged for API consumers and fallback surfaces.</li>
+  <li><b>Status is not kind.</b> The source picker shows composition kind; production maturity remains <code>data-fd-prop-status</code> from <code>PLANNING_STATUSES</code>. V1 does not invent a second ladder.</li>
+  <li><b>Header notes live in HTML.</b> An addressable element marked <code>data-fd-script-field="summary"</code> keeps prose and row timing on one source path. The existing JSON-bound title remains supported.</li>
+  <li><b>Rendering is unchanged.</b> Exporting a script composition still renders its authored canvas. The sheet is an authoring surface, not a new render mode.</li>
+  <li><b>Preview is a reading aid.</b> It mounts the row source and overlays script fields; it does not create or mutate the master edit.</li>
+</ol>
+
+<h2><span class="n">09</span> Out of scope</h2>
+<ul>
+  <li>Changing the runtime's fit-scale path — option A avoids needing it.</li>
+  <li>Existing <code>planning.ts</code> verb semantics; only additions.</li>
+  <li>Cast / locations / storyboard surfaces. They may want the same treatment later; their UX is separate work.</li>
+  <li>Deduplicating the three <code>CompositionKind</code> declarations.</li>
+  <li>Creating a new source composition inline from a row, automatic “fit scene to media,” and a
+    Studio button for <code>generateEditSkeleton</code>. These cross project-operation and workflow
+    boundaries and are follow-up features, not hidden requirements of the sheet editor.</li>
+  <li>Retiring left-edge accent rules elsewhere in <code>studio.css</code> (<code>.composition-row.active</code>, <code>.asset-row.selected</code>, <code>.ms-tnode.active</code>, <code>.agent-check-panel li</code>, <code>.guide-step-detail</code>) — a separate cleanup against the new convention.</li>
+</ul>
+
+<hr />
+<footer>
+  FrameDiff · script sheet implementation plan · drafted 2026-07-30 alongside
+  <a href="https://github.com/micromanager3000/framediff/tree/main/prototypes/script">prototypes/script</a>.
+  Reviewed against <code>main@6f29707</code>; implementation details in this document reflect the
+  resulting V1 rather than the original speculative line references.
+</footer>
+
+</div>
+</body>
+</html>

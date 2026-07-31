@@ -77,7 +77,7 @@ test("the first recorded gesture bootstraps motion source and commits without an
     const start = { x: compositionBounds!.x + compositionBounds!.width - 16, y: orbBounds!.y + orbBounds!.height / 2 };
     await page.mouse.click(start.x, start.y);
     await expect(page.locator(".inspector > header strong")).toHaveText("backdrop-orb-a");
-    await page.getByRole("button", { name: "Draw movement" }).click();
+    await page.getByRole("button", { name: "Record a move" }).click();
 
     await page.mouse.move(start.x, start.y);
     await page.mouse.down();
@@ -86,8 +86,8 @@ test("the first recorded gesture bootstraps motion source and commits without an
       await page.waitForTimeout(38);
     }
     await page.mouse.up();
-    await expect(page.getByRole("button", { name: "Save motion path" })).toBeEnabled();
-    await page.getByRole("button", { name: "Save motion path" }).click();
+    await expect(page.getByRole("button", { name: "Save move" })).toBeEnabled();
+    await page.getByRole("button", { name: "Save move" }).click();
 
     await expect.poll(async () => readOptionalFile(backdropModuleFile)).toContain("defineGsapTimeline");
     const committed = await readFile(backdropModuleFile, "utf8");
@@ -144,7 +144,7 @@ test("a comp drags into the portrait generative recipe as a comp reference", asy
     await openComposition(page, "vertical-atmosphere", verticalBase);
     const primaryCompositions = page.locator('.composition-list[role="list"]').first();
     const main = primaryCompositions.locator(".composition-row").filter({ hasText: "VerticalMain" });
-    const references = page.getByRole("group", { name: "Generation input references; drop a composition to add it" });
+    const references = page.getByRole("group", { name: "Generation input references; drop media or a composition to add it" });
 
     await main.dragTo(references);
     await expect(page.getByRole("button", { name: "Remove video reference VerticalMain", exact: true })).toBeVisible();

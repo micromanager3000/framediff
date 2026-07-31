@@ -116,6 +116,30 @@ serialized graph node. Effects are authored through HTML attributes and setup mo
 into Studio metadata where supported. The longer-term node/timeline IR remains useful design context,
 but it must not be mistaken for a second source of truth.
 
+## Studio project boundary
+
+Studio editing logic depends on the `StudioProjectAdapter` interface, not on a particular filesystem,
+server, account system, or deployment. The adapter owns source revisions and atomic edits, asset and
+artifact storage, Git-like status and commits, generation jobs, and provider credential metadata.
+
+`createStudioRuntime(registry)` uses the local Vite HTTP adapter by default, so a normal open-source
+project remains zero-configuration. An embedding application can instead call
+`createStudioRuntime(registry, adapter)` and implement the same typed contract against any durable
+project service. Rendering, source transforms, Studio view models, and UI remain unchanged.
+
+```mermaid
+flowchart LR
+  STUDIO["StudioApplication + Studio UI"] --> RUNTIME["HtmlStudioRuntime<br/>rendering + edit algorithms"]
+  RUNTIME --> PORT["StudioProjectAdapter<br/>typed project/service boundary"]
+  PORT --> LOCAL["Default local adapter<br/>Vite bridge + project files"]
+  PORT --> OTHER["Embedding adapter<br/>external repository + object store"]
+```
+
+The dependency direction is one-way: FrameDiff defines a host-neutral port and a standalone default;
+embedders depend on that public port. Core packages never import or branch on an embedding product.
+Adapter-provided credential labels and storage descriptions let the shared UI explain the active
+security boundary without product-specific conditionals.
+
 ## Package ownership
 
 `packages/framediff/src/` is organized by reusable responsibility:
@@ -201,8 +225,6 @@ The main packaged surfaces used by the examples are:
 - [HTML-COMPOSITIONS.md](./HTML-COMPOSITIONS.md) — implemented authoring ABI and frame lifecycle.
 - [STUDIO-EDITING-CONTRACTS.md](./STUDIO-EDITING-CONTRACTS.md) — identity, provenance, edits, history.
 - [AGENT-API.md](./AGENT-API.md) — machine-readable Studio inspection and editing.
-- Hosted control-plane and deployment documentation lives in the separate private
-  `framediff-hosted` repository.
 - [SVELTEKIT-STUDIO-ARCHITECTURE.md](./SVELTEKIT-STUDIO-ARCHITECTURE.md) — implemented Studio package
   boundaries and dependency direction.
 - [COMPOSITION-GRAPH.md](./COMPOSITION-GRAPH.md) — deep bake/CAS/generation design rationale; some

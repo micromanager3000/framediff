@@ -23,6 +23,9 @@ export interface GenParamDef {
   def: GenParamValue;
   /** Subset of options currently allowed (e.g. seedance fast tier caps resolution). */
   gate?: (recipe: GenRecipe) => GenParamValue[] | null;
+  /** Options come from the provider account at snapshot time, not this definition.
+   *  Account-specific ids (voices) can only be discovered, never hardcoded. */
+  dynamicOptions?: "voices";
   /** Param currently applies (e.g. kling aspect is t2v-only — i2v inherits the image). */
   enabledIf?: (recipe: GenRecipe) => boolean;
   /** Exclude from the recipe hash (e.g. seedance tier — the endpoint already encodes it).
@@ -674,6 +677,139 @@ const elevenMultilingualV2: GenModelDef = {
 
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// ElevenLabs direct — the provider's own API rather than fal's wrapper. fal exposes
+// ten preset voices; direct accepts ANY voice_id, so the full library, cloned voices,
+// and Voice Design output are all reachable, plus a real `seed` for reproducible reads.
+// `voice` on the recipe is the voice_id (not a display name): GET /__framediff/gen/voices
+// lists the account's real ids. Responses are synchronous audio bytes — the bridge writes
+// them straight to the CAS instead of registering a queue poll.
+// ---------------------------------------------------------------------------
+
+const elevenDirect: GenModelDef = {
+  id: "elevenlabs-direct",
+  name: "Eleven v3 · direct",
+  vendor: "ElevenLabs",
+  provider: "elevenlabs",
+  output: "audio",
+  est: false,
+  fitted: "api.elevenlabs.io /v1/text-to-speech OpenAPI · ~$0.10/1K chars",
+  accepts: { video: false, image: false, endImage: false, audio: false },
+  caps: [
+    "any voice_id — full library, cloned voices, or Voice Design output",
+    "best-effort seeded reads for more repeatable takes",
+    "inline audio tags — [whispers] [excited] [pause]…",
+    "speed control via voice_settings",
+    "mp3 output",
+  ],
+  limits: [
+    "needs an ELEVENLABS key under SERVICES (fal's key does not work)",
+    "`voice` is a voice_id, not a display name — the picker lists the voices on your account",
+    "no comp:// voice anchor — the voice_id IS the anchor, so reuse it across reads",
+  ],
+  negativePrompt: false,
+  params: [
+    // Options are fetched from the account — a hardcoded enum would be fiction, but an
+    // empty picker would be useless. The Studio fills this from /gen/voices and can
+    // audition each one from the provider's own hosted sample.
+    { key: "voice", label: "VOICE", type: "enum", options: [], def: "", dynamicOptions: "voices" },
+    { key: "duration", label: "TIMELINE", type: "number", min: 2, max: 60, step: 1, def: 10, canonical: false },
+    { key: "speed", label: "SPEED", type: "number", min: 0.7, max: 1.2, step: 0.05, def: 1 },
+    { key: "seed", label: "SEED", type: "number", min: 0, max: 4294967295, step: 1, def: 0 },
+  ],
+  dropHint: "no reference inputs — set `voice` to a voice_id (design one, or pick from your library)",
+  modeOf() {
+    return "text-to-audio";
+  },
+  endpointOf(r) {
+    // The voice_id is a path segment; the bridge validates the whole path.
+    return `v1/text-to-speech/${r.voice ?? ""}`;
+  },
+  buildInput(r) {
+    return {
+      text: r.prompt,
+      model_id: "eleven_v3",
+      voice_settings: {
+        stability: 0.45,
+        similarity_boost: 0.8,
+        style: 0,
+        use_speaker_boost: true,
+        ...(r.speed != null ? { speed: r.speed } : {}),
+      },
+      // Zero is a valid deterministic seed, not the "random" sentinel.
+      ...(r.seed != null ? { seed: r.seed } : {}),
+    };
+  },
+  refFieldsOf() {
+    return [];
+  },
+  costUsd(r) {
+    return (r.prompt.length / 1000) * 0.1;
+  },
+  baseline: "$0.02 · ~200 chars",
+};
+
+// ---------------------------------------------------------------------------
+// ElevenLabs Voice Design — author a voice from a description instead of casting a
+// preset. One submit returns several candidate voices; the bridge lands each as its own
+// take, so the takes rail becomes the audition. Pin the one you want, then promote it to
+// a permanent library voice (POST /__framediff/gen/voice/create) and use its id with
+// `elevenlabs-direct`.
+// ---------------------------------------------------------------------------
+
+const elevenVoiceDesign: GenModelDef = {
+  id: "elevenlabs-voice-design",
+  name: "Voice Design",
+  vendor: "ElevenLabs",
+  provider: "elevenlabs",
+  output: "audio",
+  est: false,
+  fitted: "api.elevenlabs.io /v1/text-to-voice/design OpenAPI",
+  accepts: { video: false, image: false, endImage: false, audio: false },
+  caps: [
+    "the prompt IS the voice description — describe age, texture, accent, attitude",
+    "each candidate lands as its own take — audition, then pin",
+    "seeded designs are reproducible",
+    "pinned take promotes to a permanent voice_id",
+  ],
+  limits: [
+    "needs an ELEVENLABS key under SERVICES",
+    "designs a voice, not a line read — use elevenlabs-direct for dialogue once you have the id",
+    "the sample sentence is auto-written unless the recipe sets one",
+  ],
+  negativePrompt: false,
+  params: [
+    { key: "duration", label: "TIMELINE", type: "number", min: 2, max: 30, step: 1, def: 10, canonical: false },
+    // guidance_scale: how literally the design follows the description.
+    { key: "cfg", label: "GUIDANCE", type: "number", min: 0, max: 100, step: 1, def: 5 },
+    // Voice Design uses a signed 31-bit upper bound, unlike TTS's uint32 seed.
+    { key: "seed", label: "SEED", type: "number", min: 0, max: 2147483647, step: 1, def: 0 },
+  ],
+  dropHint: "no reference inputs — describe the voice in the prompt",
+  modeOf() {
+    return "describe-to-voice";
+  },
+  endpointOf() {
+    return "v1/text-to-voice/design";
+  },
+  buildInput(r) {
+    return {
+      voice_description: r.prompt,
+      auto_generate_text: true,
+      guidance_scale: r.cfg ?? 5,
+      // Zero is accepted by Voice Design and must remain reproducible.
+      ...(r.seed != null ? { seed: r.seed } : {}),
+    };
+  },
+  refFieldsOf() {
+    return [];
+  },
+  costUsd() {
+    return 0.05;
+  },
+  baseline: "$0.05 · a few candidates",
+};
+
 export const GEN_MODELS: Record<string, GenModelDef> = {
   [seedance.id]: seedance,
   [seedanceDirect.id]: seedanceDirect,
@@ -685,6 +821,8 @@ export const GEN_MODELS: Record<string, GenModelDef> = {
   [seedAudio10.id]: seedAudio10,
   [elevenV3.id]: elevenV3,
   [elevenMultilingualV2.id]: elevenMultilingualV2,
+  [elevenDirect.id]: elevenDirect,
+  [elevenVoiceDesign.id]: elevenVoiceDesign,
 };
 
 export const DEFAULT_GEN_MODEL_BY_OUTPUT: Record<CompositionOutputKind, string> = {

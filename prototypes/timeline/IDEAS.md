@@ -46,8 +46,14 @@ The music track publishes its beats to the ruler (dots, downbeats heavier), the 
 **7 · The ＋TIME wedge** — *Logic's Insert Silence · Pro Tools Shuffle · FCPX insert*
 Press R, drag anywhere: a hatched wedge opens and **everything downstream shifts live** — scenes, SFX, captions riding their parents, markers, motion keys, and the render window itself grows. Drag *left* to remove time, clamped so nothing can collide (the plan computes the max pull per track). Snaps to beats. HUD: `＋TIME at 6.50s · +105f · +3.50s · 12 clips ride · ⇢ downbeat`. This is the tool for the generative reality that scene durations *change* — regenerate a longer hero and you open time for it in one gesture.
 
+**Straddle policy — split for sync, flow for beds.** What happens to a clip that *spans* the insert point? Logic's Insert Silence splits regions at the locator so content stays synced; every editor treats music beds as things that keep playing. Both are right, for different clips — so the wedge does both by kind:
+- **Sync clips split** (scenes, SFX, captions): cut at the point, the tail rides downstream with everything it was synced to. During the drag they show a dashed will-split outline; the HUD lists them (`✂ hero`).
+- **Beds flow** (music): the clip spans the insert and **grows by the inserted amount**, so it keeps playing *and still reaches the end* — you can watch the waveform stretch live. (A bed that merely stayed put would end early; that was the old behavior's quiet bug.)
+- **Every choice is one gesture to reverse**: a split leaves a *seam* — its gap chip offers **≈ bridge** (merge the halves back into one flowing clip) next to **× close** (opt that track out). Want the music split after all? **Blade it at the point first** — pre-cut clips ride like anything else. **Lock** still means "don't touch." Dragging the wedge *left* eats into a straddler's tail (range removal), bounded so the tail survives.
+Defaults follow intent, previews are honest, and nothing needs a mode.
+
 **8 · Gaps are objects** — *FCPX gap clips · Resolve close-up*
-Hover any gap: a chip states its duration with one-click close (ripple delete, springy). On the magnetic track, inserted time **materializes as a dashed gap clip** you can trim, move, or delete like anything else. This is the joint that makes ideas 7 and 12 one system instead of two: the wedge on a magnetic track *creates* a gap object; deleting a gap object *is* a negative wedge.
+Hover any gap: a chip states its duration with **× close** (ripple delete, springy) and — when the gap's neighbors are two source-continuous halves of the same clip — **≈ bridge**, which merges them back into one clip that plays through (the split→flow converter from idea 7). On the magnetic track, inserted time **materializes as a dashed gap clip** you can trim, move, or delete like anything else. This is the joint that makes ideas 7 and 12 one system instead of two: the wedge *creates* gap objects, deleting one *is* a negative wedge, and bridging one re-decides the straddle policy after the fact.
 
 **9 · Ripple trim** — *FCPX default trim · Premiere's yellow trim*
 On magnetic tracks, edge trims ripple automatically — downstream follows live while you drag, previewed truthfully (head trims hold the junction and eat the filmstrip, exactly like FCPX). On free tracks, ⌘-drag an edge to ripple. Follows the industry color grammar: amber handles = healing edits.
@@ -100,6 +106,53 @@ FCPX's most under-copied idea, and the one FrameDiff is uniquely positioned to o
 
 **22 · Layers & stacking** — *After Effects / Photoshop ⌘[ ⌘] · first principles*
 Every visual element has an explicit place in the composite, kept as doubly-linked lists (`prevId/nextId` on layers, `zPrevId/zNextId` on clips — id-based so undo snapshots stay plain JSON). Layers are a draggable ordered list: grab a lane label, drag ↑↓, upper layers cover lower ones. Within a layer, overlapping clips are allowed and keep their own stacking order — the timeline packs them into as many rows as the overlaps need (top of stack = top row; non-overlapping layers stay one row tall), while the monitor composites topmost-wins. Drags speak the drop-target grammar: a faint ghost holds the vacated slot, a dashed outline previews the exact landing frame *and* row (snap included), and pointer height picks the stack slot — drag ↑↓ over a pile to slide under or over it. `⌘]` brings forward, `⌘[` sends back, all undoable.
+
+---
+
+## G · The agent interface — same system, machine-readable
+
+FrameDiff timelines are edited by people *and* by models, so every idea above was checked against a second question: what does it give an LLM? The answer is a pattern: **almost every "delight" feature is secretly a semantic layer** — and semantics, not pixels, are what agents consume. Five principles fall out:
+
+1. **Anchors, not coordinates** (ideas 4–6, 14). The named snap targets are an addressing scheme: `hero.out`, `beat:33`, `marker:beat-drop`, `playhead`, `gap:sfx:2`. An agent should say `align(cta.in, beat:33)` — never "set from to 495" — because anchors re-resolve at apply time and survive upstream edits. LLMs are bad at frame arithmetic and good at naming things; this plays to that.
+2. **Verbs with invariants, not attribute math** (ideas 7, 9–11, 14). `insertTime(at, dur)`, `rippleTrim`, `roll`, `slip`, `split` each preserve something by construction (downstream sync, total length, placement). An agent picks the verb that matches its *intent*, and the invariant guarantees it can't half-apply — versus today, where "make room for a longer hero" means rewriting a dozen `data-fd-from` attributes and hoping the model's arithmetic holds.
+3. **Plans before commits** (idea 7). `ripplePlan(t0)` already exists as a pure function — exposed as a dry-run (`{rides: 12, splits: ["hero"], flows: ["pulse-120"], renderTo: 26.5s}`), it lets an agent (or a human reviewing an agent) see consequences before applying. The wedge's live preview *is* this plan, drawn.
+4. **Relationships and lists, not offsets** (ideas 12–13, 21). Connected clips (`connect(caption, hero)`) and magnetic order (`move("cta", before: "social")`) mean agents edit *structure* while the pack/ride machinery computes geometry. Take stacks complete the loop: agents generate takes into a slot, a judge pins one, ripple absorbs the duration change.
+5. **Receipts and reversibility** (ideas 18–20). Every commit returns what the toast says: `{op: "insertTime", Δ: "+105f", affected: 12, undoId}` — the structured result an agent uses to *verify its own edit*, and the audit trail a human uses to supervise an agent session. Named undo makes agent mistakes cheap: revert by id, not by diffing HTML.
+
+Sketch of the surface (the ViewModel largely has the pieces — `commitPlacement`, `commitRenderWindow`, `moveAnimationKeys` — this names the missing verbs):
+
+```
+inspect(anchor | t)        → { clipsAround, beats, markers, limits, targets }   // the loupe, as JSON
+plan.insertTime(at, dur)   → { rides, splits, flows, maxPull, renderTo }        // dry-run
+insertTime / removeTime / rippleTrim / roll / slip / split / closeGap / bridge / connect / reorder / pin
+apply(op)                  → { label, delta, affected, undoId }
+```
+
+Human-only ideas, honestly labeled: zoom (16) and the minimap/skimming *surfaces* (15, 17) don't need agent analogs — agents don't scroll — but the minimap's *data* is the timeline summary an agent reads, and skimming's analog is frame sampling. The loupe (1) likewise: its *contents* are `inspect()`. The deeper point: **the human interface and the agent interface should be one system** — same anchors in the HUD and the API, same verbs behind keys and calls, same toasts for both kinds of editor. That's also the oversight story: an agent editing your timeline produces the same legible trail you'd leave yourself.
+
+## H · The pointer-only pass — no keys, no modes required
+
+Second design pass: every operation must be reachable with clicks and drags alone. Keys survive as accelerators; nothing *requires* them, and there are no armed modes to enter or escape. The philosophy is the Avid Smart Tool's, finished: **the verb lives where you point, and the pointer previews the verb before you commit.** (This is also, not incidentally, the touch/iPad pass.)
+
+The zone grammar:
+
+| Where you point | What happens |
+|---|---|
+| Clip body | drag = move / reorder |
+| Clip edges | drag = trim — **upper half plain, lower half ripples** (color-split handle; magnetic tracks always ripple) |
+| Clip lower strip | **✂ zone** — hover shows the cut line + doomed-half tint · **click cuts** · **drag tears the timeline open** (split + insert; drag left removes) |
+| Clip center | **⇄ pill** (hover-revealed) — drag slips the source |
+| Junction between clips | pill pair: **⟷ roll** · **＋ open time** (click = +0.5s, drag = choose) |
+| Playhead (hover in ruler) | **⇤ ✂ ⇥ cluster** — trim-starts / split-all / trim-ends, each **previewing its exact damage as a tint on hover** before you click |
+| Selection | floating bar — **◂1f · 1f▸ steppers** (hold to repeat, coalesced into one undo entry) · duration · × delete |
+| Ruler | drag scrubs · **pull down mid-drag = fine gearing** · double-click adds a marker |
+| Anywhere | **right-click** — split here / split all tracks / open 0.5s / close·bridge gap / marker / delete |
+| Vertical distance, any precision drag | **the gearing dial**: pull away from the track and the drag slows smoothly to 1/10×, loupe opens — precision is how far you pull (iOS scrubber pattern), not a key you hold |
+| Topbar | ↩ ↪ undo/redo · frame-step ◂\| \|▸ (hold to repeat) · FIT / SEL / ± zoom · SNAP / SKIM / SOUND chips |
+
+What this replaced: the B and R armed modes (now the ✂ strip + junction ＋), ⇧-fine (now vertical gearing), ⌘-ripple (now the handle's lower half), ⌥-slip (now the ⇄ pill), [ ] (now the playhead cluster, with previews the keys never had), , . (now steppers), M (double-click), ⌘Z/Z (buttons). The momentary ⌥ snap-bypass became unnecessary: breakaway hysteresis plus gearing-shrunken snap radii cover the "escape the magnet" case, and the SNAP chip remains the hard off.
+
+Two honest trade-offs: hover-revealed affordances don't exist on touch until you make them persistent (a compact "handles always visible" density toggle in the real studio), and the ✂ strip spends ~9px of every clip's height on a zone — worth it, since cutting is the most frequent destructive edit and it now costs zero mode round-trips.
 
 ## What we deliberately did *not* copy
 

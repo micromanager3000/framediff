@@ -10,6 +10,8 @@ import type {
   SourceFileRevisionSnapshot,
 } from "@framediff/studio-model";
 
+export type StudioProjectRequest = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+
 export interface SourceEditFileRequest {
   file: string;
   expectedHash: string | null;
@@ -29,9 +31,12 @@ export interface SourceEditResponse {
   error?: string;
 }
 
-export async function readSourceRevision(file: string): Promise<SourceFileRevisionSnapshot | null> {
+export async function readSourceRevision(
+  file: string,
+  request: StudioProjectRequest = globalThis.fetch.bind(globalThis),
+): Promise<SourceFileRevisionSnapshot | null> {
   try {
-    const r = await fetch(`/__framediff/src?file=${encodeURIComponent(file)}`);
+    const r = await request(`/__framediff/src?file=${encodeURIComponent(file)}`);
     if (!r.ok) return null;
     const j = (await r.json()) as { file: string; text: string; hash: string };
     return { file: j.file, text: j.text, hash: j.hash };
@@ -40,17 +45,23 @@ export async function readSourceRevision(file: string): Promise<SourceFileRevisi
   }
 }
 
-export async function readSource(file: string): Promise<string | null> {
-  return (await readSourceRevision(file))?.text ?? null;
+export async function readSource(
+  file: string,
+  request: StudioProjectRequest = globalThis.fetch.bind(globalThis),
+): Promise<string | null> {
+  return (await readSourceRevision(file, request))?.text ?? null;
 }
 
 /** Atomic, revision-checked source transaction used by Studio, undo/redo, and agents. */
-export async function applySourceEdit(request: SourceEditRequest): Promise<SourceEditResponse> {
+export async function applySourceEdit(
+  edit: SourceEditRequest,
+  request: StudioProjectRequest = globalThis.fetch.bind(globalThis),
+): Promise<SourceEditResponse> {
   try {
-    const r = await fetch("/__framediff/edit", {
+    const r = await request("/__framediff/edit", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(request),
+      body: JSON.stringify(edit),
     });
     const j = (await r.json()) as SourceEditResponse;
     return r.ok && j.ok ? j : { ...j, ok: false, error: j.error ?? `Source edit failed (${r.status}).` };
@@ -59,9 +70,13 @@ export async function applySourceEdit(request: SourceEditRequest): Promise<Sourc
   }
 }
 
-export async function writeSource(file: string, text: string): Promise<boolean> {
+export async function writeSource(
+  file: string,
+  text: string,
+  request: StudioProjectRequest = globalThis.fetch.bind(globalThis),
+): Promise<boolean> {
   try {
-    const r = await fetch(`/__framediff/src?file=${encodeURIComponent(file)}`, {
+    const r = await request(`/__framediff/src?file=${encodeURIComponent(file)}`, {
       method: "PUT",
       body: text,
     });
@@ -71,18 +86,23 @@ export async function writeSource(file: string, text: string): Promise<boolean> 
   }
 }
 
-export async function deleteSource(file: string): Promise<boolean> {
+export async function deleteSource(
+  file: string,
+  request: StudioProjectRequest = globalThis.fetch.bind(globalThis),
+): Promise<boolean> {
   try {
-    const r = await fetch(`/__framediff/src?file=${encodeURIComponent(file)}`, { method: "DELETE" });
+    const r = await request(`/__framediff/src?file=${encodeURIComponent(file)}`, { method: "DELETE" });
     return r.ok;
   } catch {
     return false;
   }
 }
 
-export async function listCache(): Promise<CacheEntry[]> {
+export async function listCache(
+  request: StudioProjectRequest = globalThis.fetch.bind(globalThis),
+): Promise<CacheEntry[]> {
   try {
-    const r = await fetch("/__framediff/cache");
+    const r = await request("/__framediff/cache");
     if (!r.ok) return [];
     const j = (await r.json()) as { entries: CacheEntry[] };
     return j.entries;
@@ -91,9 +111,11 @@ export async function listCache(): Promise<CacheEntry[]> {
   }
 }
 
-export async function gitDirty(): Promise<string[] | null> {
+export async function gitDirty(
+  request: StudioProjectRequest = globalThis.fetch.bind(globalThis),
+): Promise<string[] | null> {
   try {
-    const r = await fetch("/__framediff/git");
+    const r = await request("/__framediff/git");
     if (!r.ok) return null;
     const j = (await r.json()) as { dirty: string[] };
     return j.dirty;
@@ -102,9 +124,12 @@ export async function gitDirty(): Promise<string[] | null> {
   }
 }
 
-export async function gitCommit(message: string): Promise<string | null> {
+export async function gitCommit(
+  message: string,
+  request: StudioProjectRequest = globalThis.fetch.bind(globalThis),
+): Promise<string | null> {
   try {
-    const r = await fetch("/__framediff/git/commit", {
+    const r = await request("/__framediff/git/commit", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ message }),
@@ -118,9 +143,13 @@ export async function gitCommit(message: string): Promise<string | null> {
 }
 
 /** Persist a sidecar next to a baked artifact (through the CAS folder endpoint). */
-export async function writeArtifactMeta(name: string, meta: unknown): Promise<void> {
+export async function writeArtifactMeta(
+  name: string,
+  meta: unknown,
+  request: StudioProjectRequest = globalThis.fetch.bind(globalThis),
+): Promise<void> {
   try {
-    await fetch(`/__framediff-cache/${encodeURIComponent(name)}.meta.json`, {
+    await request(`/__framediff-cache/${encodeURIComponent(name)}.meta.json`, {
       method: "PUT",
       body: JSON.stringify(meta, null, 2),
     });
@@ -154,9 +183,11 @@ export interface AssetManifestJson {
   >;
 }
 
-export async function getAssets(): Promise<AssetManifestJson | null> {
+export async function getAssets(
+  request: StudioProjectRequest = globalThis.fetch.bind(globalThis),
+): Promise<AssetManifestJson | null> {
   try {
-    const r = await fetch("/__framediff/assets", { cache: "no-store" });
+    const r = await request("/__framediff/assets", { cache: "no-store" });
     return r.ok ? ((await r.json()) as AssetManifestJson) : null;
   } catch {
     return null;
@@ -164,9 +195,12 @@ export async function getAssets(): Promise<AssetManifestJson | null> {
 }
 
 /** Upload a browser File into the cache + manifest; returns the asset id. */
-export async function uploadAsset(file: File): Promise<string | null> {
+export async function uploadAsset(
+  file: File,
+  request: StudioProjectRequest = globalThis.fetch.bind(globalThis),
+): Promise<string | null> {
   try {
-    const r = await fetch(`/__framediff/assets/upload?name=${encodeURIComponent(file.name)}`, {
+    const r = await request(`/__framediff/assets/upload?name=${encodeURIComponent(file.name)}`, {
       method: "POST",
       body: file,
     });
@@ -179,9 +213,13 @@ export async function uploadAsset(file: File): Promise<string | null> {
 }
 
 /** Ingest a file already on the machine (absolute or ~ path) into the cache + manifest. */
-export async function ingestAssetPath(p: string, name?: string): Promise<string | null> {
+export async function ingestAssetPath(
+  p: string,
+  name?: string,
+  request: StudioProjectRequest = globalThis.fetch.bind(globalThis),
+): Promise<string | null> {
   try {
-    const r = await fetch("/__framediff/assets/ingest", {
+    const r = await request("/__framediff/assets/ingest", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ path: p, name }),
@@ -197,23 +235,89 @@ export async function ingestAssetPath(p: string, name?: string): Promise<string 
 // ---- generative comps (provider secrets + the fal proxy) ----
 
 export interface SecretsInfo {
-  providers: Record<string, { set: boolean; last4?: string; source?: "file" | "env" }>;
-  /** Where keys land at the project repository root (gitignored). */
+  providers: Record<string, {
+    set: boolean;
+    last4?: string;
+    source?: string;
+    removable?: boolean;
+    sourceNote?: string;
+  }>;
+  storage?: {
+    title: string;
+    description: string;
+  };
+  /** Legacy local bridge field, normalized into `storage` by getSecrets. */
   file?: string;
 }
 
-export async function getSecrets(): Promise<SecretsInfo | null> {
+export interface ProviderVoice {
+  voice_id: string;
+  name?: string;
+  category?: string;
+  description?: string;
+  preview_url?: string;
+}
+
+/** The account's real voice ids. Ids are provider-account specific, so they can only be
+ *  discovered — never hardcoded. Returns null when the provider key is missing or scoped
+ *  without read access, so callers can explain instead of showing an empty list. */
+export async function getProviderVoices(
+  request: StudioProjectRequest = globalThis.fetch.bind(globalThis),
+): Promise<{ voices: ProviderVoice[] } | { error: string }> {
   try {
-    const r = await fetch("/__framediff/secrets");
-    return r.ok ? ((await r.json()) as SecretsInfo) : null;
+    const r = await request("/__framediff/gen/voices");
+    const raw = (await r.json().catch(() => ({}))) as { voices?: ProviderVoice[]; error?: unknown };
+    if (!r.ok) {
+      const detail = typeof raw.error === "string" ? raw.error : JSON.stringify(raw.error ?? {});
+      return { error: /voices_read/.test(detail)
+        ? "The ElevenLabs key is missing the voices_read permission."
+        : detail.slice(0, 200) || `voices request failed (${r.status})` };
+    }
+    return { voices: (raw.voices ?? []).filter((v) => v.voice_id) };
+  } catch (error) {
+    return { error: String((error as Error).message) };
+  }
+}
+
+export async function getSecrets(
+  request: StudioProjectRequest = globalThis.fetch.bind(globalThis),
+): Promise<SecretsInfo | null> {
+  try {
+    const r = await request("/__framediff/secrets");
+    if (!r.ok) return null;
+    const raw = (await r.json()) as SecretsInfo;
+    const file = raw.file ?? ".framediff/secrets.json";
+    return {
+      ...raw,
+      providers: Object.fromEntries(Object.entries(raw.providers ?? {}).map(([provider, value]) => [
+        provider,
+        value.source === "env"
+          ? {
+              ...value,
+              source: "environment",
+              sourceNote: "Managed by the environment. Saving here will override it locally.",
+            }
+          : value.source === "file"
+            ? { ...value, source: "local file", removable: true }
+            : value,
+      ])),
+      storage: raw.storage ?? {
+        title: "Local prototype storage",
+        description: `Keys are saved as plaintext in ${file}. The directory is gitignored and secret values are never sent back to this UI.`,
+      },
+    };
   } catch {
     return null;
   }
 }
 
-export async function putSecret(provider: string, key: string): Promise<{ ok: boolean; error?: string }> {
+export async function putSecret(
+  provider: string,
+  key: string,
+  request: StudioProjectRequest = globalThis.fetch.bind(globalThis),
+): Promise<{ ok: boolean; error?: string }> {
   try {
-    const r = await fetch("/__framediff/secrets", {
+    const r = await request("/__framediff/secrets", {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ provider, key }),
@@ -225,9 +329,12 @@ export async function putSecret(provider: string, key: string): Promise<{ ok: bo
   }
 }
 
-export async function deleteSecret(provider: string): Promise<{ ok: boolean; error?: string }> {
+export async function deleteSecret(
+  provider: string,
+  request: StudioProjectRequest = globalThis.fetch.bind(globalThis),
+): Promise<{ ok: boolean; error?: string }> {
   try {
-    const r = await fetch("/__framediff/secrets", {
+    const r = await request("/__framediff/secrets", {
       method: "DELETE",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ provider }),
@@ -246,9 +353,12 @@ export interface VerifyResult {
   note?: string;
 }
 
-export async function verifyProvider(provider: string): Promise<VerifyResult> {
+export async function verifyProvider(
+  provider: string,
+  request: StudioProjectRequest = globalThis.fetch.bind(globalThis),
+): Promise<VerifyResult> {
   try {
-    const r = await fetch(`/__framediff/gen/verify?provider=${encodeURIComponent(provider)}`);
+    const r = await request(`/__framediff/gen/verify?provider=${encodeURIComponent(provider)}`);
     return (await r.json()) as VerifyResult;
   } catch (e) {
     return { ok: false, error: String((e as Error).message) };
@@ -310,9 +420,9 @@ export async function genSubmit(payload: {
   input: Record<string, unknown>;
   refs: { kind: GenRefKind; src: string; authoredSrc: string; mime?: string; name?: string; field?: string; many?: boolean; adapt?: GenInputProvenance["adapt"] }[];
   recipe: GenRecipeSnapshot;
-}): Promise<{ job?: GenJob; error?: string }> {
+}, request: StudioProjectRequest = globalThis.fetch.bind(globalThis)): Promise<{ job?: GenJob; error?: string }> {
   try {
-    const r = await fetch("/__framediff/gen/submit", {
+    const r = await request("/__framediff/gen/submit", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
@@ -323,9 +433,12 @@ export async function genSubmit(payload: {
   }
 }
 
-export async function genJobs(gen: string): Promise<{ jobs: GenJob[]; takes: GenTakeRow[] } | null> {
+export async function genJobs(
+  gen: string,
+  request: StudioProjectRequest = globalThis.fetch.bind(globalThis),
+): Promise<{ jobs: GenJob[]; takes: GenTakeRow[] } | null> {
   try {
-    const r = await fetch(`/__framediff/gen/jobs?gen=${encodeURIComponent(gen)}`);
+    const r = await request(`/__framediff/gen/jobs?gen=${encodeURIComponent(gen)}`);
     return r.ok ? ((await r.json()) as { jobs: GenJob[]; takes: GenTakeRow[] }) : null;
   } catch {
     return null;

@@ -13,6 +13,8 @@
         "gravityY": { "type": "number", "title": "Gravity", "minimum": -20, "maximum": 10, "multipleOf": 0.1 },
         "windBase": { "type": "number", "title": "Wind", "minimum": 0, "maximum": 12, "multipleOf": 0.1 },
         "windGust": { "type": "number", "title": "Gust", "minimum": 0, "maximum": 8, "multipleOf": 0.1 },
+        "windSpeed": { "type": "number", "title": "Motion speed", "minimum": 0.15, "maximum": 3, "multipleOf": 0.05 },
+        "flutter": { "type": "number", "title": "Edge flutter", "minimum": 0, "maximum": 2, "multipleOf": 0.05 },
         "damping": { "type": "number", "minimum": 0, "maximum": 0.2, "multipleOf": 0.001 },
         "stiffness": { "type": "number", "minimum": 0, "maximum": 1, "multipleOf": 0.01 },
         "shearStiffness": { "type": "number", "title": "Shear stiffness", "minimum": 0, "maximum": 1, "multipleOf": 0.01 },
@@ -22,6 +24,10 @@
         "pins": { "type": "string", "enum": ["none", "top", "corners"] },
         "roughness": { "type": "number", "minimum": 0, "maximum": 1, "multipleOf": 0.01 },
         "metalness": { "type": "number", "minimum": 0, "maximum": 1, "multipleOf": 0.01 },
+        "iridescence": { "type": "number", "minimum": 0, "maximum": 1, "multipleOf": 0.01 },
+        "clearcoat": { "type": "number", "minimum": 0, "maximum": 1, "multipleOf": 0.01 },
+        "clearcoatRoughness": { "type": "number", "title": "Coat roughness", "minimum": 0, "maximum": 1, "multipleOf": 0.01 },
+        "sheen": { "type": "number", "minimum": 0, "maximum": 1, "multipleOf": 0.01 },
         "cameraFov": { "type": "number", "title": "Camera FOV", "minimum": 10, "maximum": 90, "multipleOf": 1 }
       }
     },

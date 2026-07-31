@@ -1,16 +1,25 @@
 <script lang="ts">
   import { onDestroy, tick } from "svelte";
   import {
+    FRAMEDIFF_ASSET_DRAG_MIME,
     classifyVisualGeometry,
     cropRegionForTargetAspect,
+    parseFramediffAssetDragPayload,
     retargetCropRegion,
     type StudioSession,
     type CompositionRuntimePort,
     type GenerativeWorkspaceSnapshot,
     type VisualAdaptation,
   } from "@framediff/studio-model";
-  import { nextGenerationTake, type GenerativeViewModel } from "../viewmodels/Generative.ViewModel";
+  import {
+    historicalTakeViews,
+    nextGenerationTake,
+    referenceKindForMime,
+    type GenerativeViewModel,
+  } from "../viewmodels/Generative.ViewModel";
+  import { sessionStore } from "../viewmodels/store";
   import PreviewHost from "./PreviewHost.svelte";
+  import SynchronizedCompositionPreview from "./SynchronizedCompositionPreview.svelte";
   import VisualAdaptationEditor from "./VisualAdaptationEditor.svelte";
 
   export let viewModel: GenerativeViewModel;
@@ -18,6 +27,7 @@
   export let session: StudioSession;
   export let onservices: () => void;
   const store = viewModel.store;
+  const sessionState = sessionStore(session);
   let promptDraft = "";
   let negativeDraft = "";
   let previousRecipe = "";
@@ -37,6 +47,7 @@
   let outputSaveTimer: ReturnType<typeof setTimeout> | undefined;
   let refSaveTimer: ReturnType<typeof setTimeout> | undefined;
   let promptEditor: HTMLTextAreaElement | undefined;
+  let takeVideo: HTMLVideoElement | undefined;
   $: if ($store.workspace && $store.workspace.liveHash !== previousRecipe) {
     previousRecipe = $store.workspace.liveHash;
     promptDraft = $store.workspace.prompt;
@@ -44,10 +55,25 @@
   }
   $: if ($store.workspace && $store.workspace.compositionKey !== previewCompositionKey) {
     previewCompositionKey = $store.workspace.compositionKey;
-    previewTake = null;
+    previewTake = $store.workspace.takes.reduce<number | null>(
+      (latest, take) => latest == null || take.take > latest ? take.take : latest,
+      null,
+    );
     failedDraftStarted = "";
   }
   $: previewedTake = $store.workspace?.takes.find((take) => take.take === previewTake) ?? null;
+  $: previewRefs = previewedTake?.settings?.refs ?? $store.workspace?.refs ?? [];
+  $: previewVideoRef = previewedTake?.outputKind === "video"
+    ? previewRefs.find((ref) => ref.kind === "video" && !!$store.workspace && inputCompositionKey($store.workspace, ref.src) != null)
+    : undefined;
+  $: previewVideoCompositionKey = previewVideoRef && $store.workspace
+    ? inputCompositionKey($store.workspace, previewVideoRef.src)
+    : null;
+  $: currentComposition = $sessionState.compositions.find((composition) => composition.key === $sessionState.currentKey);
+  $: previewFps = currentComposition?.fps ?? 24;
+  $: previewFrom = currentComposition?.render?.from ?? 0;
+  $: previewTo = currentComposition?.render?.to ?? currentComposition?.durationInFrames ?? 1;
+  $: previewLastFrame = Math.max(previewFrom, previewTo - 1);
   $: nextTake = nextGenerationTake($store.workspace);
   $: latestJobId = $store.workspace?.jobs.at(-1)?.id ?? "";
   $: latestFailedTake = $store.failedTakes.find((take) => take.id === latestJobId) ?? null;
@@ -66,6 +92,22 @@
   $: if (currentRefKey !== refDraftKey) {
     refDraftKey = currentRefKey;
     refAdaptation = selectedRef?.adaptation;
+  }
+  // Voice auditioning plays the provider's own hosted sample — no generation, no spend.
+  // Plain `let`: this component is legacy-mode (export let props), so a rune here would
+  // flip the whole file into runes mode and invalidate every prop declaration.
+  let auditioning: string | undefined;
+  let auditionAudio: HTMLAudioElement | undefined;
+  const previewUrlFor = (param: { choices?: { value: string; previewUrl?: string }[]; value: unknown }) =>
+    param.choices?.find((choice) => choice.value === String(param.value))?.previewUrl;
+  function audition(url?: string) {
+    auditionAudio?.pause();
+    if (!url || auditioning === url) { auditioning = undefined; return; }
+    auditionAudio = new Audio(url);
+    auditionAudio.onended = () => { auditioning = undefined; };
+    auditionAudio.onerror = () => { auditioning = undefined; };
+    auditioning = url;
+    void auditionAudio.play().catch(() => { auditioning = undefined; });
   }
   const converted = (raw: string, original: unknown) => typeof original === "boolean" ? raw === "true" : typeof original === "number" ? Number(raw) : raw;
   // A comp:// ref is a link into its source composition — but only while that comp still exists.
@@ -166,17 +208,31 @@
   onDestroy(() => {
     clearTimeout(outputSaveTimer);
     clearTimeout(refSaveTimer);
+    auditionAudio?.pause();
+    auditionAudio = undefined;
   });
-  function dragCompositionOver(event: DragEvent): void {
-    if (!event.dataTransfer?.types.includes(COMP_DRAG_MIME)) return;
+  function dragReferenceOver(event: DragEvent): void {
+    if (
+      !event.dataTransfer?.types.includes(COMP_DRAG_MIME) &&
+      !event.dataTransfer?.types.includes(FRAMEDIFF_ASSET_DRAG_MIME)
+    ) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "copy";
     compDragOver = true;
   }
-  function dropComposition(event: DragEvent): void {
-    const key = event.dataTransfer?.getData(COMP_DRAG_MIME);
+  function dropReference(event: DragEvent): void {
     compDragOver = false;
-    if (!key || !$store.workspace) return;
+    if (!$store.workspace) return;
+    const asset = parseFramediffAssetDragPayload(
+      event.dataTransfer?.getData(FRAMEDIFF_ASSET_DRAG_MIME) ?? "",
+    );
+    if (asset) {
+      event.preventDefault();
+      void viewModel.addAssetRef(asset.id, referenceKindForMime(asset.mime) ?? refKind);
+      return;
+    }
+    const key = event.dataTransfer?.getData(COMP_DRAG_MIME);
+    if (!key) return;
     event.preventDefault();
     const composition = $store.workspace.compositions.find((candidate) => candidate.key === key);
     if (!composition) return;
@@ -187,6 +243,19 @@
     if (assetId.startsWith("comp://")) void viewModel.addCompositionRef(assetId.slice("comp://".length), refKind);
     else void viewModel.addAssetRef(assetId, refKind);
     assetId = "";
+  }
+  function syncTakeVideo(): void {
+    if (!takeVideo) return;
+    const target = Math.max(0, ($sessionState.frame - previewFrom) / Math.max(1, previewFps));
+    if (takeVideo.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      const last = Number.isFinite(takeVideo.duration) ? Math.max(0, takeVideo.duration - 0.001) : target;
+      const time = Math.min(target, last);
+      if (Math.abs(takeVideo.currentTime - time) > Math.max(0.04, 1 / Math.max(1, previewFps))) {
+        takeVideo.currentTime = time;
+      }
+    }
+    if ($sessionState.playing) void takeVideo.play().catch(() => undefined);
+    else takeVideo.pause();
   }
   async function startFromSelectedTake(): Promise<void> {
     if (!previewedTake) return;
@@ -211,6 +280,7 @@
       await editDraft();
     }
   }
+  $: $sessionState.frame, $sessionState.playing, previewFps, previewFrom, syncTakeVideo();
 </script>
 
 <section class="gen-workbench">
@@ -298,7 +368,26 @@
           <div class="gen-params">
             {#each workspace.params as param (param.key)}
               <label><span>{param.label}</span>
-                {#if param.type === "enum"}
+                {#if param.choices || param.choicesError}
+                  <!-- Account-scoped options (voice ids): the label is the human name, the
+                       value the opaque id, and each can be auditioned from the provider's
+                       own sample rather than by paying for a take. -->
+                  <div class="gen-choice">
+                    <select disabled={!param.enabled || $store.busy || !param.choices?.length} value={String(param.value)} onchange={(event) => void viewModel.update({ [param.key]: event.currentTarget.value })}>
+                      {#if !param.choices?.length}<option value="">{param.choicesError ?? "none available"}</option>{/if}
+                      {#if param.choices?.length && !param.choices.some((choice) => choice.value === String(param.value))}
+                        <option value={String(param.value)}>{String(param.value) || "— pick a voice —"}</option>
+                      {/if}
+                      {#each param.choices ?? [] as choice}
+                        <option value={choice.value}>{choice.label}{choice.group && choice.group !== "premade" ? ` · ${choice.group}` : ""}</option>
+                      {/each}
+                    </select>
+                    {#if previewUrlFor(param)}
+                      <button type="button" class="gen-audition" title="Play a sample of this voice" aria-label="Play a sample of this voice" onclick={() => audition(previewUrlFor(param))}>{auditioning === previewUrlFor(param) ? "■" : "▶"}</button>
+                    {/if}
+                  </div>
+                  {#if param.choicesError}<small class="gen-choice-error">{param.choicesError}</small>{/if}
+                {:else if param.type === "enum"}
                   <select disabled={!param.enabled || $store.busy} value={String(param.value)} onchange={(event) => void viewModel.update({ [param.key]: converted(event.currentTarget.value, param.value) })}>
                     {#each param.options ?? [] as option}<option value={String(option)}>{String(option)}</option>{/each}
                   </select>
@@ -344,14 +433,14 @@
           {/if}
           <section
             role="group"
-            aria-label="Generation input references; drop a composition to add it"
+            aria-label="Generation input references; drop media or a composition to add it"
             class:drag-over={compDragOver}
             class="gen-refs"
-            ondragover={dragCompositionOver}
+            ondragover={dragReferenceOver}
             ondragleave={() => compDragOver = false}
-            ondrop={dropComposition}
+            ondrop={dropReference}
           >
-            <h3>INPUT REFERENCES <small>drag a composition here</small></h3>
+            <h3>INPUT REFERENCES <small>drag media or a composition here</small></h3>
             {#each workspace.refs as ref, index (`${ref.kind}:${ref.src}`)}
               {@const inputKey = inputCompositionKey(workspace, ref.src)}
               <div class:selected={selectedRefIndex === index}>
@@ -389,6 +478,8 @@
                   assetId = event.currentTarget.value;
                   const composition = workspace.compositions.find((candidate) => `comp://${candidate.key}` === assetId);
                   if (composition) refKind = composition.outputKind;
+                  const asset = $store.assets.find((candidate) => candidate.id === assetId);
+                  if (asset) refKind = referenceKindForMime(asset.mime) ?? refKind;
                 }}
               >
                 <option value="">Select media or composition…</option>
@@ -446,16 +537,65 @@
                 <audio src={takeUrl(previewedTake.contentHash)} controls autoplay aria-label={`Preview of take ${previewedTake.take}`}></audio>
               </div>
             {:else}
-              <!-- svelte-ignore a11y_media_has_caption -->
-              <video
-                src={takeUrl(previewedTake.contentHash)}
-                controls
-                autoplay
-                playsinline
-                aria-label={`Preview of take ${previewedTake.take}`}
-              ></video>
+              {#if previewVideoCompositionKey}
+                <section class="gen-compare" aria-label={`Synchronized comparison of ${previewVideoRef?.label ?? "previz"} and take ${previewedTake.take}`}>
+                  <header>
+                    <span>SYNCED COMPARISON</span>
+                    <small><i aria-hidden="true"></i> one playhead · frame locked</small>
+                  </header>
+                  <div class="compare-panes">
+                    <figure>
+                      <div class="compare-monitor">
+                        <SynchronizedCompositionPreview {runtime} {session} compositionKey={previewVideoCompositionKey} />
+                      </div>
+                      <figcaption><b>PREVIZ</b><span>{previewVideoRef?.label}</span></figcaption>
+                    </figure>
+                    <figure>
+                      <div class="compare-monitor">
+                        <!-- svelte-ignore a11y_media_has_caption -->
+                        <video
+                          bind:this={takeVideo}
+                          src={takeUrl(previewedTake.contentHash)}
+                          muted
+                          playsinline
+                          preload="auto"
+                          aria-label={`Generated take ${previewedTake.take}`}
+                          onloadedmetadata={syncTakeVideo}
+                        ></video>
+                      </div>
+                      <figcaption><b>TAKE {previewedTake.take}</b><span>generated output</span></figcaption>
+                    </figure>
+                  </div>
+                  <div class="compare-transport">
+                    <button onclick={() => session.togglePlaying()} aria-label={$sessionState.playing ? "Pause synchronized comparison" : "Play synchronized comparison"}>
+                      {$sessionState.playing ? "❚❚" : "▶"}
+                    </button>
+                    <input
+                      aria-label="Synchronized comparison frame"
+                      type="range"
+                      min={previewFrom}
+                      max={previewLastFrame}
+                      step="1"
+                      value={$sessionState.frame}
+                      oninput={(event) => session.setFrame(Number(event.currentTarget.value))}
+                    />
+                    <output>{String($sessionState.frame - previewFrom).padStart(4, "0")}f</output>
+                  </div>
+                </section>
+              {:else}
+                <!-- svelte-ignore a11y_media_has_caption -->
+                <video
+                  src={takeUrl(previewedTake.contentHash)}
+                  controls
+                  autoplay
+                  playsinline
+                  aria-label={`Preview of take ${previewedTake.take}`}
+                ></video>
+              {/if}
             {/if}
-            <span class="preview-label">PREVIEWING TAKE {previewedTake.take}</span>
+            {#if !previewVideoCompositionKey}
+              <span class="preview-label">PREVIEWING TAKE {previewedTake.take}</span>
+            {/if}
           {:else}
             <PreviewHost {runtime} {session} interactive={false} />
           {/if}
@@ -481,24 +621,6 @@
             </div>
           </div>
         {/each}
-        {#each $store.failedTakes.slice().reverse() as failedTake (failedTake.id)}
-          <div class="gen-take failed" role="alert">
-            <div class="take-preview">
-              <b>take {failedTake.take} · failed</b>
-              <strong>{failedTake.policyRejection ? "Provider content policy" : "Provider error"}</strong>
-              <span>{failedTake.error}</span>
-              <small>Attempt saved in framediff.generations.json.</small>
-            </div>
-            <div class="failed-take-actions">
-              <code title={failedTake.id}>{failedTake.id.slice(0, 8)}…</code>
-              {#if failedTake.id !== failedDraftStarted}
-                <button onclick={() => void startFromFailedTake(failedTake.id)}>Start take {nextTake} from this</button>
-              {:else}
-                <small>take {nextTake} draft started</small>
-              {/if}
-            </div>
-          </div>
-        {/each}
         {#if !$store.generationActive && !failedAttemptBlocksDraft}
           <button
             type="button"
@@ -514,35 +636,56 @@
             </span>
           </button>
         {/if}
-        {#each workspace.takes.slice().reverse() as take (take.take)}
-          <div class:pinned={take.take === workspace.pinnedTake} class:selected={take.take === previewTake} class="gen-take">
-            <button
-              class="take-preview"
-              aria-pressed={take.take === previewTake}
-              aria-label={`Preview take ${take.take}`}
-              onclick={() => previewTake = take.take}
-            >
-              <b>take {take.take}</b>
-              <span>{(take.bytes / 1_000_000).toFixed(1)} MB · seed {take.seed ?? "—"}</span>
-            </button>
-            <button
-              class="take-use"
-              disabled={$store.busy || take.take === workspace.pinnedTake}
-              aria-label={take.take === workspace.pinnedTake ? `Take ${take.take} in use` : `Use take ${take.take}`}
-              title={take.take === workspace.pinnedTake ? "This take is used by the composition" : `Use take ${take.take} in the composition`}
-              onclick={() => { previewTake = take.take; void viewModel.pin(take.take); }}
-            >{take.take === workspace.pinnedTake ? "In use" : "Use take"}</button>
-            <a
-              class="take-download"
-              href={takeUrl(take.contentHash)}
-              download={`${workspace.recipeId}-take-${take.take}.${takeExtension(take.outputKind)}`}
-              aria-label={`Download take ${take.take}`}
-              title={`Download take ${take.take}`}
-            >
-              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 15.5h12" /></svg>
-              <span>Download</span>
-            </a>
-          </div>
+        {#each historicalTakeViews(workspace, $store.failedTakes) as historicalTake (`${historicalTake.kind}:${historicalTake.take}`)}
+          {#if historicalTake.kind === "failed"}
+            {@const failedTake = historicalTake.failedTake}
+            <div class="gen-take failed" role="alert">
+              <div class="take-preview">
+                <b>take {failedTake.take} · failed</b>
+                <strong>{failedTake.policyRejection ? "Provider content policy" : "Provider error"}</strong>
+                <span>{failedTake.error}</span>
+                <small>Attempt saved in framediff.generations.json.</small>
+              </div>
+              <div class="failed-take-actions">
+                <code title={failedTake.id}>{failedTake.id.slice(0, 8)}…</code>
+                {#if failedTake.id !== failedDraftStarted}
+                  <button onclick={() => void startFromFailedTake(failedTake.id)}>Start take {nextTake} from this</button>
+                {:else}
+                  <small>take {nextTake} draft started</small>
+                {/if}
+              </div>
+            </div>
+          {:else}
+            {@const take = historicalTake.generatedTake}
+            <div class:pinned={take.take === workspace.pinnedTake} class:selected={take.take === previewTake} class="gen-take">
+              <button
+                class="take-preview"
+                aria-pressed={take.take === previewTake}
+                aria-label={`Preview take ${take.take}`}
+                onclick={() => previewTake = take.take}
+              >
+                <b>take {take.take}</b>
+                <span>{(take.bytes / 1_000_000).toFixed(1)} MB · seed {take.seed ?? "—"}</span>
+              </button>
+              <button
+                class="take-use"
+                disabled={$store.busy || take.take === workspace.pinnedTake}
+                aria-label={take.take === workspace.pinnedTake ? `Take ${take.take} in use` : `Use take ${take.take}`}
+                title={take.take === workspace.pinnedTake ? "This take is used by the composition" : `Use take ${take.take} in the composition`}
+                onclick={() => { previewTake = take.take; void viewModel.pin(take.take); }}
+              >{take.take === workspace.pinnedTake ? "In use" : "Use take"}</button>
+              <a
+                class="take-download"
+                href={takeUrl(take.contentHash)}
+                download={`${workspace.recipeId}-take-${take.take}.${takeExtension(take.outputKind)}`}
+                aria-label={`Download take ${take.take}`}
+                title={`Download take ${take.take}`}
+              >
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 15.5h12" /></svg>
+                <span>Download</span>
+              </a>
+            </div>
+          {/if}
         {/each}
         {#if !workspace.takes.length && !$store.generatingTakes.length && !$store.failedTakes.length}
           <div class="panel-empty">Generated takes land here and are pinned into source.</div>

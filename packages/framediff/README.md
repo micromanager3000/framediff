@@ -5,9 +5,6 @@ document with CSS and JavaScript, plus a small `data-fd-*` contract that makes i
 properties visible to the Studio. The same document is mounted for preview and deterministic
 browser rendering with WebCodecs and WebGPU.
 
-> This is the engine package. The hosted product that consumes it lives in the separate
-> `micromanager3000/framediff-hosted` repository.
-
 ## Composition model
 
 ```html

@@ -18,7 +18,9 @@
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
-    "check": "npm run typecheck && npm run test:unit && npm run build"
+    "check:bundles": "node scripts/check-bundle-budgets.mjs",
+    "check:ui": "node scripts/check-ui-conventions.mjs",
+    "check": "npm run check:ui && npm run typecheck && npm run test:unit && npm run build && npm run check:bundles"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

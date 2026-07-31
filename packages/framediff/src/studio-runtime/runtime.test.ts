@@ -5,6 +5,7 @@ import {
   compositionAssetIds,
   compositionRenderKeys,
   compositionSourcePaths,
+  createHttpStudioProjectAdapter,
   createStudioRuntime,
   isCompositionTreeRuntimeEqual,
   isDocumentOnlyCompositionUpdate,
@@ -30,6 +31,143 @@ const composition = {
 
 describe("HtmlStudioRuntime Inspector batches", () => {
   afterEach(() => vi.unstubAllGlobals());
+
+  it("remounts open previews with the refreshed asset resolver after an import", async () => {
+    let imported = false;
+    const project = {
+      getAssets: vi.fn(async () => ({
+        version: 1,
+        assets: imported ? {
+          fresh: {
+            name: "fresh.png",
+            contentHash: "sha256:fresh",
+            mime: "image/png",
+            bytes: 5,
+            sources: ["/__framediff-cache/sha256%3Afresh"],
+          },
+        } : {},
+      })),
+      uploadAsset: vi.fn(async () => {
+        imported = true;
+        return "fresh";
+      }),
+    };
+    const runtime = createStudioRuntime({ main: composition } as CompRegistry, project as never);
+    type PreviewStub = { compositionKey: string; mountedKey?: string };
+    const preview: PreviewStub = { compositionKey: "main", mountedKey: "main" };
+    const runtimeInternals = runtime as unknown as {
+      assetsReady: Promise<void>;
+      previews: Set<PreviewStub>;
+      renderPreview(preview: PreviewStub): void;
+    };
+    await runtimeInternals.assetsReady;
+    const renderPreview = vi.spyOn(runtimeInternals, "renderPreview").mockImplementation(() => undefined);
+    runtimeInternals.previews.add(preview);
+
+    await expect(runtime.uploadAsset({ name: "fresh.png" } as File)).resolves.toBe("fresh");
+
+    expect(preview.mountedKey).toBeUndefined();
+    expect(renderPreview).toHaveBeenCalledWith(preview);
+    expect(project.getAssets).toHaveBeenCalledTimes(2);
+  });
+
+  it("preserves imported asset references when submitting a generative composition", async () => {
+    const generated = generative({
+      id: "Generated",
+      output: "video",
+      model: "seedance-2.0",
+      prompt: "Bring the portrait to life",
+      refs: [{ kind: "image", src: "asset://portrait" }],
+    });
+    const project = {
+      getAssets: vi.fn(async () => ({
+        version: 1,
+        assets: {
+          portrait: {
+            name: "portrait.png",
+            contentHash: "sha256:portrait",
+            mime: "image/png",
+            bytes: 10,
+            sources: ["/__framediff-cache/sha256%3Aportrait"],
+          },
+        },
+      })),
+      submitGeneration: vi.fn(async () => ({
+        job: { id: "job-1", status: "queued" },
+      })),
+    };
+    const runtime = createStudioRuntime({ generated } as CompRegistry, project as never);
+
+    await expect(runtime.submitGeneration("generated")).resolves.toMatchObject({ ok: true });
+
+    expect(project.submitGeneration).toHaveBeenCalledWith(expect.objectContaining({
+      refs: [expect.objectContaining({
+        kind: "image",
+        src: "asset://portrait",
+        authoredSrc: "asset://portrait",
+      })],
+    }));
+  });
+
+  it("identifies ElevenLabs and blocks direct speech until a voice id is set", async () => {
+    const generated = generative({
+      id: "Narration",
+      output: "audio",
+      model: "elevenlabs-direct",
+      prompt: "A quiet introduction.",
+    });
+    const project = {
+      getAssets: vi.fn(async () => ({ version: 1, assets: {} })),
+      getGenerationJobs: vi.fn(async () => ({ jobs: [], takes: [] })),
+      getSecrets: vi.fn(async () => ({ providers: { elevenlabs: { set: true } } })),
+      submitGeneration: vi.fn(),
+    };
+    const runtime = createStudioRuntime({ generated } as CompRegistry, project as never);
+
+    await expect(runtime.getGenerativeWorkspace("generated")).resolves.toMatchObject({
+      providerName: "ElevenLabs",
+      providerReady: true,
+      blockedReason: expect.stringContaining("voice_id"),
+    });
+    await expect(runtime.getProviderCredentials()).resolves.toMatchObject({
+      providers: expect.arrayContaining([
+        expect.objectContaining({
+          provider: "elevenlabs",
+          name: "ElevenLabs direct",
+          integration: "active",
+          set: true,
+        }),
+      ]),
+    });
+    await expect(runtime.submitGeneration("generated")).resolves.toMatchObject({
+      ok: false,
+      message: expect.stringContaining("voice_id"),
+    });
+    expect(project.submitGeneration).not.toHaveBeenCalled();
+  });
+
+  it("uses an injected project adapter without replacing the browser fetch implementation", async () => {
+    const request = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/__framediff/assets") return new Response("missing", { status: 404 });
+      if (url === "/__framediff/src?file=src%2Fcomp.ts") {
+        return Response.json({ file: "src/comp.ts", text: "export const value = 1;", hash: "source:1" });
+      }
+      return new Response("not found", { status: 404 });
+    });
+    const browserFetch = vi.fn(async () => {
+      throw new Error("The injected adapter must not use global fetch.");
+    });
+    vi.stubGlobal("fetch", browserFetch);
+    const runtime = createStudioRuntime(
+      { main: composition } as CompRegistry,
+      createHttpStudioProjectAdapter(request),
+    );
+
+    await expect(runtime.readSource("src/comp.ts")).resolves.toBe("export const value = 1;");
+    expect(request).toHaveBeenCalledWith("/__framediff/src?file=src%2Fcomp.ts");
+    expect(browserFetch).not.toHaveBeenCalled();
+  });
 
   it("rewrites an XYZ gesture atomically even when earlier literals grow", async () => {
     let transaction: { label: string; groupId?: string; files: Array<{ file: string; text: string }> } | undefined;
@@ -67,6 +205,62 @@ describe("HtmlStudioRuntime Inspector batches", () => {
     expect(transaction?.files[0].text).toContain("startCameraX: 10");
     expect(transaction?.files[0].text).toContain("startCameraY: 2");
     expect(transaction?.files[0].text).toContain("startCameraZ: 30");
+  });
+});
+
+describe("HtmlStudioRuntime script sheets", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("projects the row contract and commits a ripple as one source transaction", async () => {
+    const html = `<main data-fd-composition data-fd-id="Script" data-fd-duration="60">
+  <section data-fd-clip data-fd-id="a" data-fd-from="0" data-fd-duration="30">
+    <h3 data-fd-id="a-title" data-fd-script-field="title">A</h3>
+    <p data-fd-id="a-narration" data-fd-script-field="narration">Line</p>
+    <p data-fd-id="a-visual" data-fd-script-field="visual">View</p>
+    <p data-fd-id="a-sfx" data-fd-script-field="sfx">Bell</p>
+    <div data-fd-clip data-fd-script-source data-fd-id="a-source" data-fd-type="nested" data-fd-comp="shot" data-fd-from="0" data-fd-duration="30"></div>
+  </section>
+  <section data-fd-clip data-fd-id="b" data-fd-from="30" data-fd-duration="30"></section>
+</main>`;
+    const script = {
+      id: "Script",
+      width: 1920,
+      height: 1080,
+      fps: 30,
+      durationInFrames: 60,
+      html,
+      meta: { kind: "script" as const, file: "src/Script.html", sourceFormat: "html" as const },
+    } satisfies StudioComposition;
+    let transaction: { label: string; files: Array<{ file: string; text: string }> } | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/__framediff/assets") return new Response("missing", { status: 404 });
+      if (url.startsWith("/__framediff/src?")) {
+        return Response.json({ file: "src/Script.html", text: html, hash: "script:1" });
+      }
+      if (url === "/__framediff/edit" && init?.method === "POST") {
+        transaction = JSON.parse(String(init.body));
+        return Response.json({ ok: true, receipt: { id: "script-1", label: transaction!.label, before: [], after: [] } });
+      }
+      return new Response("not found", { status: 404 });
+    }));
+    const runtime = createStudioRuntime({ script } as CompRegistry);
+
+    await expect(runtime.probeScriptSheet("script")).resolves.toMatchObject({
+      rows: [{ id: "a", fields: { narration: { text: "Line" } } }, { id: "b" }],
+    });
+    const result = await runtime.editPlan({
+      compositionKey: "script",
+      type: "retime",
+      rowId: "a",
+      durationInFrames: 45,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(transaction?.label).toBe("Retime script scene");
+    expect(transaction?.files).toHaveLength(1);
+    expect(transaction?.files[0].text).toContain('data-fd-id="b" data-fd-from="45"');
+    expect(transaction?.files[0].text).toContain('data-fd-id="Script" data-fd-duration="75"');
   });
 });
 

@@ -5,7 +5,7 @@
 // boat). Everything is a pure function of time: update(t) re-derives every transform from t,
 // so scrub/preview/export/bake all agree exactly — the bake is what feeds the generator.
 
-import * as THREE from "three";
+import type * as Three from "three";
 import { defineThreeScene } from "framediff/three";
 
 // ---- shared path math (the chase camera trails the same arc the boat sails) -----------------
@@ -31,20 +31,6 @@ const TRIM = 0xd8dde8;
 const RED = 0xb8422f;
 const LAMP = 0xffd98a;
 
-const std = (color: number, rough = 0.85) => new THREE.MeshStandardMaterial({ color, roughness: rough });
-
-function box(w: number, h: number, d: number, mat: THREE.Material, x = 0, y = 0, z = 0): THREE.Mesh {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-  m.position.set(x, y, z);
-  return m;
-}
-
-function cyl(rTop: number, rBot: number, h: number, mat: THREE.Material, y = 0): THREE.Mesh {
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBot, h, 24), mat);
-  m.position.y = y;
-  return m;
-}
-
 // deterministic rock cluster + buoys (literal placements — no Math.random anywhere)
 const ROCKS: [x: number, z: number, w: number, h: number, ry: number][] = [
   [0, 0, 3.6, 1.4, 0.3], [1.7, 0.9, 2.0, 0.9, 0.9], [-1.6, 1.2, 1.8, 0.7, 1.7],
@@ -55,7 +41,19 @@ const BUOYS: [x: number, z: number, phase: number][] = [[6.2, -7.4, 0.0], [-8.8,
 export const harborScene = defineThreeScene({
   id: "harbor-previz",
 
-  create({ scene }) {
+  async create({ scene }) {
+    const THREE = await import("three");
+    const std = (color: number, rough = 0.85) => new THREE.MeshStandardMaterial({ color, roughness: rough });
+    const box = (w: number, h: number, d: number, mat: Three.Material, x = 0, y = 0, z = 0): Three.Mesh => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+      mesh.position.set(x, y, z);
+      return mesh;
+    };
+    const cyl = (rTop: number, rBot: number, h: number, mat: Three.Material, y = 0): Three.Mesh => {
+      const mesh = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBot, h, 24), mat);
+      mesh.position.y = y;
+      return mesh;
+    };
     scene.fog = new THREE.Fog(0x0d1120, 24, 70);
 
     // ---- the sea (a calm disc; motion reads through the boat and buoys) ----
