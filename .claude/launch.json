@@ -52,6 +52,21 @@
       "port": 5199
     },
     {
+      "name": "monsters-pizza",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "/Users/vikasreddy/code/monsters-pizza",
+        "--",
+        "--port",
+        "5333",
+        "--strictPort"
+      ],
+      "port": 5333
+    },
+    {
       "name": "nostalgia-short-film",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
