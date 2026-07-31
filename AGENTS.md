@@ -46,6 +46,12 @@
 - Keep UI components focused on rendering and interaction. Put project operations,
   persistence, race handling, and error normalization in Studio model managers or
   runtime adapters.
+- Keep optional heavyweight browser capabilities behind dynamic imports close to the
+  operation that needs them. In particular, animation source parsing, video
+  export/capture, and Three.js scene setup must not become eager Studio dependencies.
+- Do not import the same module both statically and dynamically in a browser entry
+  graph. Put shared lightweight types or registries in a separate module so the
+  expensive implementation remains a real lazy boundary.
 
 ## Validation
 
@@ -56,6 +62,9 @@
 - Review `git diff --check` and the final scoped diff before committing. Do not
   weaken tests, type checks, accessibility diagnostics, or validation scripts to
   make a change pass.
+- After changing browser imports, package exports, or Vite chunking, run a production
+  build followed by `npm run check:bundles`. Keep every emitted JavaScript chunk
+  within 800 kB and every eagerly loaded route chunk within 500 kB.
 
 ## Plan artifacts
 

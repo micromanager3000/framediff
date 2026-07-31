@@ -1,11 +1,11 @@
-import * as THREE from "three";
 import { defineThreeScene, defineThreeSceneComposition } from "framediff/three";
 
 const palette = [0x8f7cff, 0x5bd3c2, 0xef86ba, 0xf4c86f];
 
 const playgroundWorld = defineThreeScene({
   id: "playground-world",
-  create({ scene }) {
+  async create({ scene }) {
+    const THREE = await import("three");
     scene.fog = new THREE.Fog(0x080b13, 8, 32);
     const floor = new THREE.Mesh(
       new THREE.CircleGeometry(13, 64),

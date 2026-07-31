@@ -713,6 +713,10 @@ html, body, #svelte { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .camera-open-rig small { grid-column: 1; color: var(--faint); font: 7px/1.35 var(--mono); }
 .camera-open-rig b { grid-column: 2; grid-row: 1 / span 2; color: var(--text); font-size: 15px; }
 .camera-open-rig:hover { border-color: var(--blue); background: rgb(143 201 236 / 16%); }
+.camera-open-rig:disabled { cursor: progress; opacity: .72; }
+.camera-rig-load-error { display: flex; align-items: center; gap: 8px; margin: -2px 14px 10px; color: #e7a3a3; font: 8px/1.45 var(--mono); }
+.camera-rig-load-error span { min-width: 0; flex: 1; }
+.camera-rig-load-error button { padding: 5px 7px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--panel-raised); color: var(--text); cursor: pointer; font: 800 7px/1 var(--mono); white-space: nowrap; }
 .camera-readout { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 0 14px 10px; }
 .camera-readout > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; padding: 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel-raised); }
 .camera-readout span { color: var(--faint); font: 7px/1 var(--mono); letter-spacing: .08em; }
@@ -766,6 +770,10 @@ html, body, #svelte { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .camera-rig-scene { min-width: 0; min-height: 0; position: relative; overflow: hidden; background: radial-gradient(circle at 50% 45%, #15222b, #090c0e 68%); }
 .camera-rig-canvas { position: absolute; inset: 0; }
 .camera-rig-canvas canvas { width: 100%; height: 100%; display: block; outline: none; }
+.camera-rig-load-state { position: absolute; inset: 50% auto auto 50%; z-index: 3; display: grid; justify-items: center; gap: 8px; max-width: min(360px, calc(100% - 48px)); padding: 14px 18px; color: var(--faint); text-align: center; transform: translate(-50%, -50%); }
+.camera-rig-load-state.error { padding: 18px; color: var(--text); background: color-mix(in srgb, var(--panel) 94%, transparent); border: 1px solid rgb(224 105 105 / 40%); border-radius: 8px; box-shadow: 0 16px 42px rgb(0 0 0 / 52%); }
+.camera-rig-load-state span { color: var(--faint); font-size: 12px; line-height: 1.45; }
+.camera-rig-load-state button { min-height: 30px; padding: 0 12px; color: var(--text); background: var(--panel-raised); border: 1px solid var(--line-strong); border-radius: 5px; cursor: pointer; }
 .camera-rig-toolbar { position: absolute; z-index: 3; top: 12px; left: 12px; right: 12px; display: flex; align-items: center; gap: 8px; pointer-events: none; }
 .camera-rig-toolset { display: flex; overflow: hidden; border: 1px solid rgb(143 201 236 / 25%); border-radius: 7px; background: rgb(9 12 14 / 82%); box-shadow: 0 8px 30px rgb(0 0 0 / 24%); pointer-events: auto; backdrop-filter: blur(8px); }
 .camera-rig-toolset button { padding: 7px 10px; border: 0; border-right: 1px solid rgb(143 201 236 / 14%); background: transparent; color: var(--faint); cursor: pointer; font: 800 7px/1 var(--mono); letter-spacing: .08em; white-space: nowrap; }

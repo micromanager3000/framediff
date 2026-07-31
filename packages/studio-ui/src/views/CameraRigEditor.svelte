@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import * as THREE from "three";
-  import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-  import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
+  import type * as Three from "three";
+  import type { OrbitControls as OrbitControlsInstance } from "three/examples/jsm/controls/OrbitControls.js";
+  import type { TransformControls as TransformControlsInstance } from "three/examples/jsm/controls/TransformControls.js";
   import type { InspectorFieldSnapshot, InspectorSectionSnapshot } from "@framediff/studio-model";
   import {
     cameraFieldMap,
@@ -39,25 +39,27 @@
   let draftValues: Record<string, number> = {};
   let dragging = false;
   let initialized = false;
-  let renderer: THREE.WebGLRenderer | undefined;
-  let scene: THREE.Scene | undefined;
-  let editorCamera: THREE.PerspectiveCamera | undefined;
-  let orbit: OrbitControls | undefined;
-  let transform: TransformControls | undefined;
-  let transformHelper: THREE.Object3D | undefined;
-  let plane: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> | undefined;
+  let loadError = "";
+  let THREE: typeof import("three");
+  let renderer: Three.WebGLRenderer | undefined;
+  let scene: Three.Scene | undefined;
+  let editorCamera: Three.PerspectiveCamera | undefined;
+  let orbit: OrbitControlsInstance | undefined;
+  let transform: TransformControlsInstance | undefined;
+  let transformHelper: Three.Object3D | undefined;
+  let plane: Three.Mesh<Three.PlaneGeometry, Three.MeshBasicMaterial> | undefined;
   let video: HTMLVideoElement | undefined;
-  let videoTexture: THREE.VideoTexture | undefined;
-  let placeholderTexture: THREE.CanvasTexture | undefined;
+  let videoTexture: Three.VideoTexture | undefined;
+  let placeholderTexture: Three.CanvasTexture | undefined;
   let frameHandle = 0;
 
-  const rigCameras = {} as Record<CameraEndpoint, THREE.PerspectiveCamera>;
-  const cameraHelpers = {} as Record<CameraEndpoint, THREE.CameraHelper>;
-  const cameraMarkers = {} as Record<CameraEndpoint, THREE.Mesh>;
-  const targetMarkers = {} as Record<CameraEndpoint, THREE.Mesh>;
-  const focusMarkers = {} as Record<CameraEndpoint, THREE.Mesh>;
-  const sightLines = {} as Record<CameraEndpoint, THREE.Line>;
-  const focusLines = {} as Record<CameraEndpoint, THREE.Line>;
+  const rigCameras = {} as Record<CameraEndpoint, Three.PerspectiveCamera>;
+  const cameraHelpers = {} as Record<CameraEndpoint, Three.CameraHelper>;
+  const cameraMarkers = {} as Record<CameraEndpoint, Three.Mesh>;
+  const targetMarkers = {} as Record<CameraEndpoint, Three.Mesh>;
+  const focusMarkers = {} as Record<CameraEndpoint, Three.Mesh>;
+  const sightLines = {} as Record<CameraEndpoint, Three.Line>;
+  const focusLines = {} as Record<CameraEndpoint, Three.Line>;
   const endpoints: CameraEndpoint[] = ["start", "end"];
   const axes = ["X", "Y", "Z"] as const;
   const endpointRows = [
@@ -95,7 +97,7 @@
     syncScene();
   }
 
-  function placeholder(): THREE.CanvasTexture {
+  function placeholder(): Three.CanvasTexture {
     const canvas = document.createElement("canvas");
     canvas.width = 1280;
     canvas.height = 720;
@@ -122,7 +124,7 @@
     return texture;
   }
 
-  function installVideoTexture(material: THREE.MeshBasicMaterial): void {
+  function installVideoTexture(material: Three.MeshBasicMaterial): void {
     if (!planePreviewUrl) return;
     video = document.createElement("video");
     video.src = planePreviewUrl;
@@ -149,22 +151,22 @@
     }
   }
 
-  function marker(geometry: THREE.BufferGeometry, color: number): THREE.Mesh {
+  function marker(geometry: Three.BufferGeometry, color: number): Three.Mesh {
     return new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1, depthTest: false }));
   }
 
-  function line(color: number): THREE.Line {
+  function line(color: number): Three.Line {
     return new THREE.Line(
       new THREE.BufferGeometry(),
       new THREE.LineBasicMaterial({ color, transparent: true, opacity: 1, depthTest: false }),
     );
   }
 
-  function setLine(target: THREE.Line, from: CameraVector, to: CameraVector): void {
+  function setLine(target: Three.Line, from: CameraVector, to: CameraVector): void {
     target.geometry.setFromPoints([new THREE.Vector3(...from), new THREE.Vector3(...to)]);
   }
 
-  function activeObject(): THREE.Object3D | undefined {
+  function activeObject(): Three.Object3D | undefined {
     if (tool === "camera") return cameraMarkers[endpoint];
     if (tool === "target") return targetMarkers[endpoint];
     if (tool === "focus") return focusMarkers[endpoint];
@@ -210,12 +212,12 @@
       setLine(focusLines[side], camera, focus);
       const active = side === endpoint;
       for (const object of [cameraMarkers[side], targetMarkers[side], focusMarkers[side]]) {
-        const material = object.material as THREE.MeshBasicMaterial;
+        const material = object.material as Three.MeshBasicMaterial;
         material.opacity = active ? 1 : 0.22;
         object.visible = viewPreset !== "shot";
       }
       for (const guide of [cameraHelpers[side], sightLines[side], focusLines[side]]) {
-        const material = guide.material as THREE.LineBasicMaterial;
+        const material = guide.material as Three.LineBasicMaterial;
         material.opacity = active ? (guide === focusLines[side] ? 0.42 : 0.82) : 0.12;
         material.transparent = true;
         guide.visible = viewPreset !== "shot";
@@ -243,7 +245,7 @@
     attachTransform();
   }
 
-  function rigBounds(): THREE.Box3 {
+  function rigBounds(): Three.Box3 {
     const bounds = new THREE.Box3();
     if (plane) {
       plane.updateMatrixWorld(true);
@@ -372,107 +374,128 @@
   }
 
   onMount(() => {
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x090c0e);
-    editorCamera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
-    editorCamera.position.set(4.8, 3.4, 5.8);
-    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    sceneHost.appendChild(renderer.domElement);
-    orbit = new OrbitControls(editorCamera, renderer.domElement);
-    orbit.target.set(0, 0, 0);
-    orbit.enableDamping = true;
-    orbit.dampingFactor = 0.08;
-    orbit.zoomSpeed = 0.9;
-    orbit.update();
+    let disposed = false;
+    let cleanup: (() => void) | undefined;
+    void Promise.all([
+      import("three"),
+      import("three/examples/jsm/controls/OrbitControls.js"),
+      import("three/examples/jsm/controls/TransformControls.js"),
+    ]).then(([three, orbitModule, transformModule]) => {
+      if (disposed) return;
+      THREE = three;
+      const { OrbitControls } = orbitModule;
+      const { TransformControls } = transformModule;
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x090c0e);
+      editorCamera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
+      editorCamera.position.set(4.8, 3.4, 5.8);
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      sceneHost.appendChild(renderer.domElement);
+      orbit = new OrbitControls(editorCamera, renderer.domElement);
+      orbit.target.set(0, 0, 0);
+      orbit.enableDamping = true;
+      orbit.dampingFactor = 0.08;
+      orbit.zoomSpeed = 0.9;
+      orbit.update();
 
-    const grid = new THREE.GridHelper(14, 28, 0x304554, 0x17232b);
-    grid.position.y = -2.2;
-    scene.add(grid);
-    scene.add(new THREE.AxesHelper(1.2));
+      const grid = new THREE.GridHelper(14, 28, 0x304554, 0x17232b);
+      grid.position.y = -2.2;
+      scene.add(grid);
+      scene.add(new THREE.AxesHelper(1.2));
 
-    placeholderTexture = placeholder();
-    const planeMaterial = new THREE.MeshBasicMaterial({ map: placeholderTexture, side: THREE.DoubleSide, toneMapped: false });
-    plane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), planeMaterial);
-    plane.name = "Video plane";
-    const edge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(1, 1)), new THREE.LineBasicMaterial({ color: 0xe0ac57, transparent: true, opacity: 0.92 }));
-    edge.position.z = 0.002;
-    plane.add(edge);
-    scene.add(plane);
-    installVideoTexture(planeMaterial);
+      placeholderTexture = placeholder();
+      const planeMaterial = new THREE.MeshBasicMaterial({ map: placeholderTexture, side: THREE.DoubleSide, toneMapped: false });
+      plane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), planeMaterial);
+      plane.name = "Video plane";
+      const edge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(1, 1)), new THREE.LineBasicMaterial({ color: 0xe0ac57, transparent: true, opacity: 0.92 }));
+      edge.position.z = 0.002;
+      plane.add(edge);
+      scene.add(plane);
+      installVideoTexture(planeMaterial);
 
-    for (const side of endpoints) {
-      rigCameras[side] = new THREE.PerspectiveCamera(45, 16 / 9, 0.04, 8);
-      cameraHelpers[side] = new THREE.CameraHelper(rigCameras[side]);
-      const helperMaterial = cameraHelpers[side].material as THREE.LineBasicMaterial;
-      helperMaterial.color.set(side === "start" ? 0x8fb4d1 : 0x9f8bd1);
-      helperMaterial.transparent = true;
-      helperMaterial.depthTest = false;
-      cameraMarkers[side] = marker(new THREE.SphereGeometry(0.055, 18, 12), side === "start" ? 0x9ed7ff : 0xb9a7ff);
-      targetMarkers[side] = marker(new THREE.OctahedronGeometry(0.05), 0xe4a9d2);
-      focusMarkers[side] = marker(new THREE.TorusGeometry(0.04, 0.012, 8, 24), 0x7fc79b);
-      sightLines[side] = line(side === "start" ? 0x8fb4d1 : 0x9f8bd1);
-      focusLines[side] = line(0x7fc79b);
-      for (const object of [cameraHelpers[side], cameraMarkers[side], targetMarkers[side], focusMarkers[side], sightLines[side], focusLines[side]]) scene.add(object);
-    }
+      for (const side of endpoints) {
+        rigCameras[side] = new THREE.PerspectiveCamera(45, 16 / 9, 0.04, 8);
+        cameraHelpers[side] = new THREE.CameraHelper(rigCameras[side]);
+        const helperMaterial = cameraHelpers[side].material as Three.LineBasicMaterial;
+        helperMaterial.color.set(side === "start" ? 0x8fb4d1 : 0x9f8bd1);
+        helperMaterial.transparent = true;
+        helperMaterial.depthTest = false;
+        cameraMarkers[side] = marker(new THREE.SphereGeometry(0.055, 18, 12), side === "start" ? 0x9ed7ff : 0xb9a7ff);
+        targetMarkers[side] = marker(new THREE.OctahedronGeometry(0.05), 0xe4a9d2);
+        focusMarkers[side] = marker(new THREE.TorusGeometry(0.04, 0.012, 8, 24), 0x7fc79b);
+        sightLines[side] = line(side === "start" ? 0x8fb4d1 : 0x9f8bd1);
+        focusLines[side] = line(0x7fc79b);
+        for (const object of [cameraHelpers[side], cameraMarkers[side], targetMarkers[side], focusMarkers[side], sightLines[side], focusLines[side]]) scene.add(object);
+      }
 
-    transform = new TransformControls(editorCamera, renderer.domElement);
-    transform.setSize(0.78);
-    transformHelper = transform.getHelper();
-    scene.add(transformHelper);
-    const eventControl = transform as unknown as {
-      addEventListener: (type: string, listener: (event: { value?: boolean }) => void) => void;
-    };
-    eventControl.addEventListener("dragging-changed", (event) => {
-      dragging = !!event.value;
-      if (orbit) orbit.enabled = !dragging;
-      if (!dragging) void commitTransform();
-    });
-    eventControl.addEventListener("objectChange", () => updateDraftFromTransform());
-
-    const resize = () => {
-      if (!renderer || !editorCamera) return;
-      const bounds = sceneHost.getBoundingClientRect();
-      renderer.setSize(Math.max(1, bounds.width), Math.max(1, bounds.height), false);
-      editorCamera.aspect = Math.max(0.01, bounds.width / Math.max(1, bounds.height));
-      editorCamera.updateProjectionMatrix();
-    };
-    const resizeObserver = new ResizeObserver(resize);
-    resizeObserver.observe(sceneHost);
-    resize();
-    initialized = true;
-    syncScene();
-    frameRig("orbit");
-    const render = () => {
-      frameHandle = requestAnimationFrame(render);
-      orbit?.update();
-      if (renderer && scene && editorCamera) renderer.render(scene, editorCamera);
-    };
-    render();
-
-    return () => {
-      cancelAnimationFrame(frameHandle);
-      resizeObserver.disconnect();
-      transform?.detach();
-      transform?.dispose();
-      orbit?.dispose();
-      video?.pause();
-      video?.removeAttribute("src");
-      video?.load();
-      videoTexture?.dispose();
-      placeholderTexture?.dispose();
-      planeMaterial.dispose();
-      scene?.traverse((object) => {
-        if (object instanceof THREE.Mesh || object instanceof THREE.Line || object instanceof THREE.LineSegments) {
-          object.geometry?.dispose();
-          const materials = Array.isArray(object.material) ? object.material : [object.material];
-          for (const material of materials) material?.dispose();
-        }
+      transform = new TransformControls(editorCamera, renderer.domElement);
+      transform.setSize(0.78);
+      transformHelper = transform.getHelper();
+      scene.add(transformHelper);
+      const eventControl = transform as unknown as {
+        addEventListener: (type: string, listener: (event: { value?: boolean }) => void) => void;
+      };
+      eventControl.addEventListener("dragging-changed", (event) => {
+        dragging = !!event.value;
+        if (orbit) orbit.enabled = !dragging;
+        if (!dragging) void commitTransform();
       });
-      renderer?.dispose();
-      renderer?.domElement.remove();
-      initialized = false;
+      eventControl.addEventListener("objectChange", () => updateDraftFromTransform());
+
+      const resize = () => {
+        if (!renderer || !editorCamera) return;
+        const bounds = sceneHost.getBoundingClientRect();
+        renderer.setSize(Math.max(1, bounds.width), Math.max(1, bounds.height), false);
+        editorCamera.aspect = Math.max(0.01, bounds.width / Math.max(1, bounds.height));
+        editorCamera.updateProjectionMatrix();
+      };
+      const resizeObserver = new ResizeObserver(resize);
+      resizeObserver.observe(sceneHost);
+      resize();
+      initialized = true;
+      syncScene();
+      frameRig("orbit");
+      const render = () => {
+        frameHandle = requestAnimationFrame(render);
+        orbit?.update();
+        if (renderer && scene && editorCamera) renderer.render(scene, editorCamera);
+      };
+      render();
+
+      cleanup = () => {
+        cancelAnimationFrame(frameHandle);
+        resizeObserver.disconnect();
+        transform?.detach();
+        transform?.dispose();
+        orbit?.dispose();
+        video?.pause();
+        video?.removeAttribute("src");
+        video?.load();
+        videoTexture?.dispose();
+        placeholderTexture?.dispose();
+        planeMaterial.dispose();
+        scene?.traverse((object) => {
+          if (object instanceof THREE.Mesh || object instanceof THREE.Line || object instanceof THREE.LineSegments) {
+            object.geometry?.dispose();
+            const materials = Array.isArray(object.material) ? object.material : [object.material];
+            for (const material of materials) material?.dispose();
+          }
+        });
+        renderer?.dispose();
+        renderer?.domElement.remove();
+        initialized = false;
+      };
+    }).catch((error) => {
+      if (!disposed) {
+        console.error("Could not load the 3D camera editor.", error);
+        loadError = error instanceof Error ? error.message : "The required 3D modules could not be loaded.";
+      }
+    });
+    return () => {
+      disposed = true;
+      cleanup?.();
     };
   });
 </script>
@@ -519,6 +542,15 @@
           </div>
         </div>
         <div class="camera-rig-canvas" bind:this={sceneHost}></div>
+        {#if loadError}
+          <div class="camera-rig-load-state error" role="alert">
+            <strong>3D editor unavailable</strong>
+            <span>{loadError}</span>
+            <button onclick={() => location.reload()}>Reload Studio</button>
+          </div>
+        {:else if !initialized}
+          <div class="camera-rig-load-state" role="status">Loading 3D editor…</div>
+        {/if}
         <div class="camera-rig-legend">
           <span class="camera-dot"></span> camera
           <span class="target-dot"></span> look at

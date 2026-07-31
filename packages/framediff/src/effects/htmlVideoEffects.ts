@@ -1,6 +1,6 @@
 import type { CompositionSetup } from "../composition";
 import { registerCanvasCapture } from "../runtime";
-import { VideoFrameSource } from "../render/videoFrames";
+import type { VideoFrameSource } from "../render/videoFrames";
 import { isVisualElementActive } from "../render/activeElement";
 import { createGradeRenderer, type GradeParams } from "./grade";
 import { generateWarmGoldLUT, type LUT3D } from "./lut";
@@ -9,6 +9,9 @@ import type { V3 } from "./mat4";
 import { cameraPoseAtFrame, type CameraInterpolation, type CameraKeyframe, type VirtualCameraPose } from "./camera";
 import { clampVisualMediaTime } from "../render/mediaTime";
 import { sourceTimeAtFrame } from "./videoSourceFrame";
+
+let videoFramesPromise: Promise<typeof import("../render/videoFrames")> | undefined;
+const loadVideoFrames = () => (videoFramesPromise ??= import("../render/videoFrames"));
 
 const numeric = (element: Element, name: string, fallback: number): number => {
   const owner = element.closest<HTMLElement>("[data-fd-clip], [data-fd-from], [data-fd-duration]");
@@ -145,6 +148,8 @@ export interface GradeVideoSetupOptions {
 export function createGradeVideoSetup(options: GradeVideoSetupOptions = {}): CompositionSetup {
   return async ({ root, composition, resolver, onFrame, onCleanup }) => {
     const canvases = Array.from(root.querySelectorAll<HTMLCanvasElement>(options.selector ?? "canvas[data-fd-grade-video]"));
+    if (!canvases.length) return;
+    const { VideoFrameSource } = await loadVideoFrames();
     await Promise.all(canvases.map(async (canvas) => {
       const ref = inherited(canvas, "data-fd-src") ?? "";
       const url = resolver ? (await resolver.resolve(ref)).url : ref;
@@ -254,6 +259,8 @@ function planePose(element: Element, frame: number, duration: number, options: V
 export function createVideoPlane3DSetup(options: VideoPlane3DSetupOptions = {}): CompositionSetup {
   return async ({ root, composition, resolver, onFrame, onCleanup }) => {
     const canvases = Array.from(root.querySelectorAll<HTMLCanvasElement>(options.selector ?? "canvas[data-fd-video-plane-3d]"));
+    if (!canvases.length) return;
+    const { VideoFrameSource } = await loadVideoFrames();
     await Promise.all(canvases.map(async (canvas) => {
       const ref = inherited(canvas, "data-fd-src") ?? "";
       const url = resolver ? (await resolver.resolve(ref)).url : ref;

@@ -213,6 +213,20 @@ describe("framediffDev local cache folder", () => {
     expect(config.optimizeDeps.exclude).toContain("@framediff/studio-model");
     expect(config.optimizeDeps.exclude).toContain("@framediff/studio-ui");
     expect(config.server.fs.allow).toHaveLength(1);
+    expect(config.build.chunkSizeWarningLimit).toBe(800);
+    expect(config.build.rollupOptions.output.onlyExplicitManualChunks).toBe(false);
+    const chunk = config.build.rollupOptions.output.manualChunks;
+    expect(chunk("/repo/packages/studio-ui/src/StudioShell.svelte")).toBe("framediff-studio-ui");
+    expect(chunk("/repo/packages/studio-model/src/StudioSession.ts")).toBe("framediff-studio-model");
+    expect(chunk("/repo/packages/framediff/src/studio-runtime/runtime.ts")).toBe("framediff-studio-runtime");
+    expect(chunk("/repo/packages/framediff/src/gsap/traces.ts")).toBe("framediff-studio-runtime");
+    expect(chunk("/repo/node_modules/@framediff/studio-ui/src/StudioShell.svelte")).toBe("framediff-studio-ui");
+    expect(chunk("/repo/node_modules/framediff/src/studio-runtime/runtime.ts")).toBe("framediff-studio-runtime");
+    expect(chunk("/repo/node_modules/gsap/gsap-core.js")).toBe("vendor-gsap");
+    // Three is already behind dynamic imports. Let Rollup omit it entirely from
+    // projects that do not use it instead of forcing an empty vendor chunk.
+    expect(chunk("/repo/node_modules/three/build/three.module.js")).toBeUndefined();
+    expect(chunk("/repo/packages/framediff/src/render/videoFrames.ts")).toBeUndefined();
   });
 
   it("lands a synchronous ElevenLabs read as a finished take", async () => {

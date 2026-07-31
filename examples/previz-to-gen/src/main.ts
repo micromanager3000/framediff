@@ -2,7 +2,6 @@
 // own styles (preview + render controls); all the video lives in ./config + ./compositions.
 
 import {
-  exportVideo,
   HttpFolderCAS,
   hashBlob,
   createAssetResolver,
@@ -11,6 +10,9 @@ import {
   type CompRegistry,
 } from "framediff";
 import { COMPOSITIONS } from "./config";
+
+let renderToolsPromise: Promise<typeof import("framediff/render")> | undefined;
+const loadRenderTools = () => (renderToolsPromise ??= import("framediff/render"));
 
 // The Studio runtime and this dev-hook module both import the registry. Accept updates on this
 // path as well, otherwise Vite propagates a composition save through +page.svelte and remounts
@@ -37,6 +39,7 @@ const getResolver = () =>
 (window as unknown as Record<string, unknown>).__bake = async (id = "harbor-previz") => {
   const comp = liveCompositions[id];
   if (!comp) throw new Error(`unknown comp "${id}"`);
+  const { exportVideo } = await loadRenderTools();
   const cas = new HttpFolderCAS();
   const buf = await exportVideo(comp, {
     width: comp.width,

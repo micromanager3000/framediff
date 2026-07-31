@@ -411,3 +411,17 @@ test("the agent surface can inspect every new composition kind", async ({ page }
   expect(visual.brightPixels).toBeGreaterThan(20);
   expect(visual.railTop).toBeGreaterThan(0.9);
 });
+
+test("the 3D camera editor loads its deferred runtime on demand", async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+
+  await openComposition(page, "HeroPlane3D.uizoom");
+  await page.locator('[data-fd-id="plane-uizoom"]').click({ force: true });
+  await page.getByRole("button", { name: "OPEN 3D RIG EDITOR" }).click();
+
+  await expect(page.getByRole("dialog", { name: "3D camera rig editor" })).toBeVisible();
+  await expect(page.locator(".camera-rig-canvas canvas")).toBeVisible();
+  await expect(page.locator(".camera-rig-load-state.error")).toHaveCount(0);
+  expect(pageErrors).toEqual([]);
+});

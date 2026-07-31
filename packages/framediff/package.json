@@ -30,6 +30,10 @@
       "types": "./src/gsap/source.ts",
       "default": "./src/gsap/source.ts"
     },
+    "./render": {
+      "types": "./src/render/index.ts",
+      "default": "./src/render/index.ts"
+    },
     "./vite": "./vite-plugin.ts",
     "./studio-runtime": {
       "types": "./src/studio-runtime/runtime.ts",

@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import type * as Three from "three";
 import type { CompositionSetup } from "../composition";
 import { registerCanvasCapture } from "../runtime";
 import { isVisualElementActive } from "../render/activeElement";
@@ -24,9 +24,11 @@ interface CameraCut {
 
 /** Bind a `defineThreeScene` scene to an ordinary authored canvas. */
 export function createThreeSceneSetup(options: ThreeSceneSetupOptions): CompositionSetup {
-  return ({ root, composition, onFrame, onCleanup }) => {
+  return async ({ root, composition, signal, onFrame, onCleanup }) => {
     const canvas = root.querySelector<HTMLCanvasElement>(options.canvas ?? "canvas[data-fd-three]");
     if (!canvas) throw new Error(`Three scene "${options.scene.id}" needs ${options.canvas ?? "canvas[data-fd-three]"}.`);
+    const THREE = await import("three");
+    if (signal.aborted) return;
     const width = options.width ?? composition.width;
     const height = options.height ?? composition.height;
     canvas.width = width;
@@ -109,7 +111,7 @@ export function createThreeSceneSetup(options: ThreeSceneSetupOptions): Composit
       stopCapture();
       instance?.dispose?.();
       world.traverse((object) => {
-        const mesh = object as THREE.Mesh;
+        const mesh = object as Three.Mesh;
         mesh.geometry?.dispose();
         const materials = Array.isArray(mesh.material) ? mesh.material : mesh.material ? [mesh.material] : [];
         materials.forEach((material) => material.dispose());

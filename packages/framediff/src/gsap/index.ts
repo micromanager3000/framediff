@@ -2,19 +2,17 @@ import { gsap } from "gsap";
 import { MotionPathPlugin } from "gsap/MotionPathPlugin";
 import type { CompositionSetup } from "../composition";
 import type { NormalizedTweenOperation } from "@framediff/studio-model";
+import {
+  getGsapRuntimeTraces,
+  recordGsapRuntimeTraces,
+  type RuntimeGsapTraceGroup,
+} from "./traces";
 
 export interface FrameGsapTimeline {
   pause(atTime?: number, suppressEvents?: boolean): this;
   totalTime(value: number, suppressEvents?: boolean): this;
   kill(): void;
   getChildren?(nested?: boolean, tweens?: boolean, timelines?: boolean): unknown[];
-}
-
-export interface RuntimeGsapTraceGroup {
-  id: string;
-  operations: NormalizedTweenOperation[];
-  serializable: boolean;
-  issues: string[];
 }
 
 export interface FrameGsapContext {
@@ -43,7 +41,6 @@ type TraceTween = {
   _startAt?: { vars?: Record<string, unknown> };
 };
 
-const latestTraces = new Map<string, RuntimeGsapTraceGroup[]>();
 const traceControlKeys = new Set([
   "parent", "id", "duration", "ease", "delay", "stagger", "overwrite", "immediateRender",
   "runBackwards", "startAt", "data", "callbackScope", "lazy", "paused", "repeat",
@@ -105,10 +102,6 @@ function traceTween(tween: TraceTween, fps: number): { operations: NormalizedTwe
   };
 }
 
-export function getGsapRuntimeTraces(compositionId: string): RuntimeGsapTraceGroup[] {
-  return latestTraces.get(compositionId) ?? [];
-}
-
 export interface DefineGsapTimelineOptions {
   /** Test/integration seam. Production callers should use the bundled GSAP engine. */
   engine?: typeof gsap;
@@ -149,7 +142,7 @@ export function defineGsapTimeline(
       });
     }, root);
     if (!timeline) throw new Error("defineGsapTimeline() factory must return a GSAP timeline.");
-    latestTraces.set(composition.id, traceGroups);
+    recordGsapRuntimeTraces(composition.id, traceGroups);
 
     // A caller may omit `{ paused: true }`; enforce the frame-driven contract at the boundary.
     timeline.pause(0, true);
@@ -166,3 +159,4 @@ export function defineGsapTimeline(
 
 export { gsap };
 export { MotionPathPlugin };
+export { getGsapRuntimeTraces, type RuntimeGsapTraceGroup } from "./traces";

@@ -11,7 +11,19 @@
 // Preview callers may use bounded fallbacks; export/effect capture callers should fail rather
 // than bake a guessed frame.
 
-import { Input, BlobSource, UrlSource, ALL_FORMATS, CanvasSink } from "mediabunny";
+import {
+  Input,
+  BlobSource,
+  UrlSource,
+  CanvasSink,
+  HLS,
+  MATROSKA,
+  MP4,
+  MPEG_TS,
+  OGG,
+  QTFF,
+  WEBM,
+} from "mediabunny";
 import { bgDelay } from "./bgTimer";
 import { clampVisualMediaTime } from "./mediaTime";
 
@@ -21,6 +33,10 @@ const FETCH_RETRY_DELAY_MS = 250;
 const LOCAL_CACHE_RANGE_CHUNK_BYTES = 4 * 1024 * 1024;
 const STALLED = Symbol("stalled");
 const blobCache = new Map<string, Promise<Blob>>();
+// Keep every MediaBunny container that can carry video. Audio-only formats from
+// ALL_FORMATS cannot produce a primary video track and unnecessarily pull their
+// demuxers into capture/export bundles.
+const VIDEO_FORMATS = [HLS, MP4, QTFF, MATROSKA, WEBM, OGG, MPEG_TS];
 
 function withDeadline<T>(p: Promise<T>, ms: number): Promise<T | typeof STALLED> {
   return Promise.race([p, bgDelay(ms).then((): typeof STALLED => STALLED)]);
@@ -75,7 +91,7 @@ export class VideoFrameSource {
           const source = shouldUseBlobSource(src)
             ? await blobSource(src)
             : new UrlSource(src, { parallelism: 1, getRetryDelay: () => null });
-          const input = new Input({ formats: ALL_FORMATS, source });
+          const input = new Input({ formats: VIDEO_FORMATS, source });
           const track = await input.getPrimaryVideoTrack();
           if (!track) throw new Error("no primary video track");
           const metadataDuration = await track.getDurationFromMetadata().catch(() => null);

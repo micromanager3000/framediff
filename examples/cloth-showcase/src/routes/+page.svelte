@@ -1,7 +1,6 @@
 <script lang="ts">
   import { StudioApplication } from "@framediff/studio-model";
   import { StudioShell, browserAnimationClock } from "@framediff/studio-ui";
-  import { captureCompositeFrame } from "framediff";
   import { studioRuntime } from "$lib/studio-runtime";
   import { composition } from "../config";
 
@@ -12,6 +11,7 @@
 
   async function runCaptureCheck(): Promise<void> {
     captureResult = "capturing";
+    const { captureCompositeFrame } = await import("framediff/render");
     const first = await captureCompositeFrame(composition, 120, { width: 640, height: 360 });
     const second = await captureCompositeFrame(composition, 120, { width: 640, height: 360 });
     const firstImage = first.toDataURL("image/png");
