@@ -19,6 +19,7 @@
   import FeelControl from "./views/FeelControl.svelte";
   import StudioOverture from "./views/StudioOverture.svelte";
   import { feelPreferences } from "./design/preferences";
+  import { overtureConditions, shouldShowOverture } from "./design/overture";
   import { studioSound } from "./design/sound";
   import { formatDuration, formatTimecode } from "./design/timecode";
   import { splitVariantName } from "./design/names";
@@ -419,7 +420,7 @@
     agentSurface = exposeStudioAgentApi(application);
     const rememberedComposition = window.sessionStorage.getItem(compositionStorageKey);
     void application.start().then(() => {
-      if (overtureStorageKey && !window.localStorage.getItem(overtureStorageKey)) showOverture();
+      if (shouldShowOverture(overtureConditions(overtureStorageKey))) showOverture();
       if (rememberedComposition && session.state.get().compositions.some((composition) => composition.key === rememberedComposition)) {
         shell.open(rememberedComposition);
       }

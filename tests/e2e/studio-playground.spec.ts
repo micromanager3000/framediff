@@ -304,8 +304,10 @@ test("a composition can be dragged into a generative recipe and undone", async (
   await openPlayground(page);
   const primaryCompositions = page.locator('.composition-list[role="list"]').first();
   const rows = primaryCompositions.locator(".composition-row");
-  await rows.filter({ hasText: "Blah" }).click();
-  await expect(page.locator(".breadcrumb button.active")).toHaveText("Blah");
+  // Previously "Blah" — one of five scratch compositions accidentally committed into this
+  // example. skyTimelapse is a real video-output recipe and exercises the same drop target.
+  await rows.filter({ hasText: "skyTimelapse" }).click();
+  await expect(page.locator(".breadcrumb button.active")).toHaveText("skyTimelapse");
 
   const endCard = rows.filter({ hasText: "EndCard" });
   const references = page.getByRole("group", { name: "Generation input references; drop a composition to add it" });

@@ -48,8 +48,15 @@
 [data-feel-motion="on"] .stage-ambience.gpu canvas { transition: opacity var(--feel-slow) ease; }
 
 .preview-panel { background: transparent; }
-.preview-surface > .preview-host,
-.preview-surface > .canvas-overlay { position: relative; z-index: 1; }
+/*
+ * The ambient canvas paints at z-index 0, so the composition host needs a stacking position
+ * above it. Nothing else in the stage is touched — in particular `.canvas-overlay` keeps its
+ * own `position: absolute; z-index: 8`, because that overlay is the element that receives every
+ * canvas click. An earlier version of this rule also matched the overlay and reset it to
+ * `position: relative`, which dropped it out of the stage entirely: it still existed, still
+ * had its handlers, and never saw a pointer event again.
+ */
+.preview-surface > .preview-host { position: relative; z-index: 1; }
 
 /* ------------------------------------------------------- the composition frame */
 
