@@ -21,13 +21,20 @@ The default command opens the standalone Studio Playground example. You can also
 an individual example:
 
 ```sh
+npm run dev --workspace @framediff/example-first-light
 npm run dev --workspace @framediff/example-studio-playground
 npm run dev --workspace @framediff/example-hero-lower-third
+npm run dev --workspace @framediff/example-hero-reel
+npm run dev --workspace @framediff/example-lighttwist-social-creator
 npm run dev --workspace @framediff/example-determinism-check
 npm run dev --workspace @framediff/example-cloth-showcase
 npm run dev --workspace @framediff/example-previz-to-gen
 npm run dev --workspace @framediff/example-vertical-hero
 ```
+
+If you have never used FrameDiff before, start with `example-first-light`. It is the
+smallest project that still renders something worth watching, it needs no media
+downloads, and its walkthrough is about the Studio itself rather than a brand's footage.
 
 ## Repository layout
 

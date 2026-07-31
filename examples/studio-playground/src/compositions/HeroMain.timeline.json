@@ -30,16 +30,6 @@
         "type": "nested",
         "composition": "EndCard"
       }
-    },
-    {
-      "id": "nested-blah",
-      "from": 0,
-      "durationInFrames": 150,
-      "name": "Blah",
-      "content": {
-        "type": "nested",
-        "composition": "Blah"
-      }
     }
   ]
 }

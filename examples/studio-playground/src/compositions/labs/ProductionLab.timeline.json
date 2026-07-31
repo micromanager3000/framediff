@@ -6,7 +6,7 @@
       "from": 0,
       "durationInFrames": 180,
       "layer": 0,
-      "name": "Start here · production graph",
+      "name": "Start here \u00b7 production graph",
       "content": {
         "type": "layers",
         "label": "Production graph introduction"
@@ -18,7 +18,7 @@
       "durationInFrames": 180,
       "layer": 0,
       "trimStart": 0,
-      "name": "01 · Canvas editing",
+      "name": "01 \u00b7 Canvas editing",
       "content": {
         "type": "nested",
         "composition": "DirectManipulationLab"
@@ -30,7 +30,7 @@
       "durationInFrames": 180,
       "layer": 0,
       "trimStart": 0,
-      "name": "02 · Visual properties",
+      "name": "02 \u00b7 Visual properties",
       "content": {
         "type": "nested",
         "composition": "RichPropertiesLab"
@@ -42,7 +42,7 @@
       "durationInFrames": 180,
       "layer": 0,
       "trimStart": 0,
-      "name": "03 · Editorial timeline",
+      "name": "03 \u00b7 Editorial timeline",
       "content": {
         "type": "nested",
         "composition": "EditorialLab"
@@ -54,7 +54,7 @@
       "durationInFrames": 180,
       "layer": 0,
       "trimStart": 0,
-      "name": "04 · GSAP, keys and paths",
+      "name": "04 \u00b7 GSAP, keys and paths",
       "content": {
         "type": "nested",
         "composition": "GsapMotionLab"
@@ -66,7 +66,7 @@
       "durationInFrames": 288,
       "layer": 0,
       "trimStart": 0,
-      "name": "05 · Grade and LUT",
+      "name": "05 \u00b7 Grade and LUT",
       "content": {
         "type": "nested",
         "composition": "GradeLab"
@@ -78,7 +78,7 @@
       "durationInFrames": 240,
       "layer": 0,
       "trimStart": 20,
-      "name": "06 · Full nested production",
+      "name": "06 \u00b7 Full nested production",
       "content": {
         "type": "nested",
         "composition": "HeroWithLowerThird"
@@ -90,7 +90,7 @@
       "durationInFrames": 180,
       "layer": 0,
       "trimStart": 0,
-      "name": "07 · Imported 3D camera",
+      "name": "07 \u00b7 Imported 3D camera",
       "content": {
         "type": "nested",
         "composition": "HeroPlane3D.uizoom"
@@ -102,7 +102,7 @@
       "durationInFrames": 180,
       "layer": 0,
       "trimStart": 0,
-      "name": "08 · Audio and delivery",
+      "name": "08 \u00b7 Audio and delivery",
       "content": {
         "type": "nested",
         "composition": "EndCard"
@@ -128,16 +128,6 @@
       "content": {
         "type": "layers",
         "label": "Production chapter HUD"
-      }
-    },
-    {
-      "id": "nested-blah",
-      "from": 0,
-      "durationInFrames": 150,
-      "name": "Blah",
-      "content": {
-        "type": "nested",
-        "composition": "Blah"
       }
     }
   ]

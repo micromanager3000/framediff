@@ -26,19 +26,25 @@
     { key: "render", glyph: "◉", title: "Hit Render", body: "Deterministic export in the browser. Same input, same bytes, every time." },
   ];
 
-  function dismiss(): void {
+  /**
+   * The exit is scheduled before anything else can fail. An overture that cannot be closed is
+   * the worst possible first impression, so nothing optional — sound, in particular — is allowed
+   * to run before the timer that removes it.
+   */
+  function leave(then: () => void, voice: "tap" | "select"): void {
     if (stage === "leaving") return;
     stage = "leaving";
-    sound.play("tap");
     // Long enough for the curtain to actually lift; short enough that nobody waits on it.
-    timers.push(setTimeout(ondismiss, motion ? 620 : 0));
+    timers.push(setTimeout(then, motion ? 620 : 0));
+    sound.play(voice);
+  }
+
+  function dismiss(): void {
+    leave(ondismiss, "tap");
   }
 
   function openGuide(): void {
-    if (stage === "leaving") return;
-    stage = "leaving";
-    sound.play("select");
-    timers.push(setTimeout(() => { onopenguide(); ondismiss(); }, motion ? 620 : 0));
+    leave(() => { onopenguide(); ondismiss(); }, "select");
   }
 
   function onKeyDown(event: KeyboardEvent): void {
@@ -65,7 +71,7 @@
   });
 </script>
 
-<svelte:window on:keydown={onKeyDown} />
+<svelte:window onkeydown={onKeyDown} />
 
 <div
   class="studio-overture {stage}"
