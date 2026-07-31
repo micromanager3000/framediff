@@ -704,12 +704,27 @@ export interface ProjectOperationResult {
   conflicts?: ProjectEditConflict[];
 }
 
+/** A labelled option whose display name differs from its stored value, optionally
+ *  auditionable — provider voice ids are the motivating case. */
+export interface GenerativeChoiceSnapshot {
+  value: string;
+  label: string;
+  group?: string;
+  description?: string;
+  /** Sample audio the Studio can play without spending a generation. */
+  previewUrl?: string;
+}
+
 export interface GenerativeParamSnapshot {
   key: string;
   label: string;
   type: "enum" | "number";
   value: string | number | boolean;
   options?: (string | number | boolean)[];
+  /** Populated at snapshot time from the provider account; takes precedence over `options`. */
+  choices?: GenerativeChoiceSnapshot[];
+  /** Set when choices could not be loaded, so the UI can explain rather than show an empty list. */
+  choicesError?: string;
   min?: number;
   max?: number;
   step?: number;
