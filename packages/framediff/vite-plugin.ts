@@ -1014,6 +1014,13 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
             if (provider !== "fal" && provider !== "byteplus" && provider !== "elevenlabs") {
               return json(res, 400, { error: "unsupported generation provider" });
             }
+            if (
+              provider === "elevenlabs"
+              && endpoint !== "v1/text-to-voice/design"
+              && !/^v1\/text-to-speech\/[a-zA-Z0-9_-]+$/.test(endpoint)
+            ) {
+              return json(res, 400, { error: "unsupported ElevenLabs endpoint" });
+            }
             const k = providerKey(root, provider);
             if (!k) return json(res, 400, { error: `no ${provider} key — add one under SERVICES` });
             const falStorageKey = provider === "fal" ? k : providerKey(root, "fal");
@@ -1079,6 +1086,7 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
               recipeHash,
               status: "queued",
               take: nextJobTake(jobs, gen),
+              ...(typeof input.seed === "number" ? { seed: input.seed } : {}),
               at: new Date().toISOString(),
               recipe: body.recipe,
               inputs,
@@ -1188,7 +1196,13 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
               };
 
               if (!isDesign) {
-                landTake(attempt, Buffer.from(await r.arrayBuffer()), "mp3");
+                const contentType = r.headers.get("content-type")?.split(";", 1)[0];
+                if (contentType && !contentType.startsWith("audio/")) {
+                  throw new Error(`ElevenLabs TTS returned ${contentType}, not audio`);
+                }
+                const audio = Buffer.from(await r.arrayBuffer());
+                if (!audio.length) throw new Error("ElevenLabs TTS returned empty audio");
+                landTake(attempt, audio, "mp3");
                 saveJob(root, attempt);
                 return json(res, 200, { job: attempt });
               }
@@ -1317,15 +1331,18 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
             name?: string;
             description?: string;
           };
-          if (!body.generatedVoiceId || !body.name) {
-            return json(res, 400, { error: "generatedVoiceId and name required" });
+          if (!body.generatedVoiceId || !body.name || !body.description) {
+            return json(res, 400, { error: "generatedVoiceId, name, and description required" });
+          }
+          if (body.description.length < 20 || body.description.length > 1000) {
+            return json(res, 400, { error: "description must be between 20 and 1000 characters" });
           }
           const r = await fetch(`${ELEVENLABS_BASE}/v1/text-to-voice`, {
             method: "POST",
             headers: { "xi-api-key": k.key, "content-type": "application/json" },
             body: JSON.stringify({
               voice_name: body.name,
-              voice_description: body.description ?? body.name,
+              voice_description: body.description,
               generated_voice_id: body.generatedVoiceId,
             }),
           });

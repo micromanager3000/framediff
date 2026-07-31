@@ -694,7 +694,7 @@ const elevenDirect: GenModelDef = {
   accepts: { video: false, image: false, endImage: false, audio: false },
   caps: [
     "any voice_id — full library, cloned voices, or Voice Design output",
-    "seeded reads — same text + seed reproduces the take",
+    "best-effort seeded reads for more repeatable takes",
     "inline audio tags — [whispers] [excited] [pause]…",
     "speed control via voice_settings",
     "mp3 output",
@@ -731,7 +731,8 @@ const elevenDirect: GenModelDef = {
         use_speaker_boost: true,
         ...(r.speed != null ? { speed: r.speed } : {}),
       },
-      ...(r.seed ? { seed: r.seed } : {}),
+      // Zero is a valid deterministic seed, not the "random" sentinel.
+      ...(r.seed != null ? { seed: r.seed } : {}),
     };
   },
   refFieldsOf() {
@@ -776,7 +777,8 @@ const elevenVoiceDesign: GenModelDef = {
     { key: "duration", label: "TIMELINE", type: "number", min: 2, max: 30, step: 1, def: 10, canonical: false },
     // guidance_scale: how literally the design follows the description.
     { key: "cfg", label: "GUIDANCE", type: "number", min: 0, max: 100, step: 1, def: 5 },
-    { key: "seed", label: "SEED", type: "number", min: 0, max: 4294967295, step: 1, def: 0 },
+    // Voice Design uses a signed 31-bit upper bound, unlike TTS's uint32 seed.
+    { key: "seed", label: "SEED", type: "number", min: 0, max: 2147483647, step: 1, def: 0 },
   ],
   dropHint: "no reference inputs — describe the voice in the prompt",
   modeOf() {
@@ -790,7 +792,8 @@ const elevenVoiceDesign: GenModelDef = {
       voice_description: r.prompt,
       auto_generate_text: true,
       guidance_scale: r.cfg ?? 5,
-      ...(r.seed ? { seed: r.seed } : {}),
+      // Zero is accepted by Voice Design and must remain reproducible.
+      ...(r.seed != null ? { seed: r.seed } : {}),
     };
   },
   refFieldsOf() {
