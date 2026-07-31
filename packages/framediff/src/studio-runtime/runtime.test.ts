@@ -109,6 +109,43 @@ describe("HtmlStudioRuntime Inspector batches", () => {
     }));
   });
 
+  it("identifies ElevenLabs and blocks direct speech until a voice id is set", async () => {
+    const generated = generative({
+      id: "Narration",
+      output: "audio",
+      model: "elevenlabs-direct",
+      prompt: "A quiet introduction.",
+    });
+    const project = {
+      getAssets: vi.fn(async () => ({ version: 1, assets: {} })),
+      getGenerationJobs: vi.fn(async () => ({ jobs: [], takes: [] })),
+      getSecrets: vi.fn(async () => ({ providers: { elevenlabs: { set: true } } })),
+      submitGeneration: vi.fn(),
+    };
+    const runtime = createStudioRuntime({ generated } as CompRegistry, project as never);
+
+    await expect(runtime.getGenerativeWorkspace("generated")).resolves.toMatchObject({
+      providerName: "ElevenLabs",
+      providerReady: true,
+      blockedReason: expect.stringContaining("voice_id"),
+    });
+    await expect(runtime.getProviderCredentials()).resolves.toMatchObject({
+      providers: expect.arrayContaining([
+        expect.objectContaining({
+          provider: "elevenlabs",
+          name: "ElevenLabs direct",
+          integration: "active",
+          set: true,
+        }),
+      ]),
+    });
+    await expect(runtime.submitGeneration("generated")).resolves.toMatchObject({
+      ok: false,
+      message: expect.stringContaining("voice_id"),
+    });
+    expect(project.submitGeneration).not.toHaveBeenCalled();
+  });
+
   it("uses an injected project adapter without replacing the browser fetch implementation", async () => {
     const request = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);

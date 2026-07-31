@@ -3587,6 +3587,8 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const missingRefs = (definition.requiredRefs ?? []).filter((kind) => !(recipe.refs ?? []).some((ref) => ref.kind === kind));
     const blockedReason = blockedInputs.length
       ? `Pin an approved take in ${[...new Set(blockedInputs)].join(", ")} before generating this composition.`
+      : definition.id === "elevenlabs-direct" && !recipe.voice?.trim()
+        ? "Set an ElevenLabs voice_id in the recipe before generating this composition."
       : missingRefs.length
         ? `Add a required ${missingRefs.map((kind) => kind === "endImage" ? "end-frame" : kind).join(" and ")} reference before generating with ${definition.name}.`
         : undefined;
@@ -3713,7 +3715,11 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       liveHash,
       status,
       providerReady: !!secrets?.providers[provider]?.set,
-      providerName: provider === "byteplus" ? "BytePlus ModelArk" : "fal.ai",
+      providerName: provider === "byteplus"
+        ? "BytePlus ModelArk"
+        : provider === "elevenlabs"
+          ? "ElevenLabs"
+          : "fal.ai",
       blockedReason,
     };
   }
@@ -3964,6 +3970,9 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         message: `${definition.name} produces ${definition.output}; this composition is locked to ${outputKind}.`,
       };
     }
+    if (definition.id === "elevenlabs-direct" && !recipe.voice?.trim()) {
+      return { ok: false, message: "Set an ElevenLabs voice_id in the recipe before generating." };
+    }
     const missingRefs = (definition.requiredRefs ?? []).filter((kind) => !(recipe.refs ?? []).some((ref) => ref.kind === kind));
     if (missingRefs.length) {
       return {
@@ -4131,7 +4140,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         provider: "elevenlabs",
         name: "ElevenLabs direct",
         envVar: "ELEVENLABS_API_KEY",
-        description: "Runs text-to-speech and Voice Design against ElevenLabs' own API. fal's key does not work here, and going direct unlocks any voice_id — the full library, cloned voices, and designed ones — plus a reproducible seed.",
+        description: "Runs text-to-speech and Voice Design against ElevenLabs' own API. fal's key does not work here, and going direct unlocks any voice_id — the full library, cloned voices, and designed ones — plus seeded generation.",
         integration: "active",
         ...(secrets.providers.elevenlabs ?? { set: false }),
       },

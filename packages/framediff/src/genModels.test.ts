@@ -39,6 +39,29 @@ describe("multi-media generative models", () => {
     expect(recipeCanonical(value)).not.toHaveProperty("duration");
   });
 
+  it("preserves zero as a valid deterministic seed for ElevenLabs", () => {
+    const direct = recipe({
+      output: "audio",
+      model: "elevenlabs-direct",
+      voice: "voice-123",
+      seed: 0,
+    });
+    const directModel = genModelOf(direct);
+    expect(directModel.buildInput(direct)).toMatchObject({ seed: 0 });
+
+    const design = recipe({
+      output: "audio",
+      model: "elevenlabs-voice-design",
+      seed: 0,
+    });
+    const designModel = genModelOf(design);
+    expect(designModel.buildInput(design)).toMatchObject({ seed: 0 });
+    expect(designModel.params.find((param) => param.key === "seed")).toMatchObject({
+      min: 0,
+      max: 2147483647,
+    });
+  });
+
   it("keeps existing video models explicitly typed as video output", () => {
     expect(genModelOf(recipe({ model: "seedance-2.0" })).output).toBe("video");
   });

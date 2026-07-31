@@ -64,11 +64,11 @@ export interface GenRecipe {
   speed?: number;
   /** Voice pitch shift in semitones for audio models. */
   pitch?: number;
-  /** Named voice preset for TTS models that offer one (ElevenLabs). */
+  /** Voice preset or provider-specific voice id for TTS models that offer one. */
   voice?: string;
   /** Guidance strength 0–1 (Kling). */
   cfg?: number;
-  /** Reproducibility seed (Veo/Wan — Seedance has no seed input). */
+  /** Provider seed for reproducible or best-effort repeatable generation. */
   seed?: number;
   fps?: number;
   /** Optional post-generation visual contract. Omit to preserve the model's native shape. */

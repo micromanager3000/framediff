@@ -236,8 +236,8 @@ describe("framediffDev local cache folder", () => {
         gen: "voiceJimmy",
         endpoint: "v1/text-to-speech/vox-jimmy-01",
         recipeHash: "sha256:recipe",
-        input: { text: "Red Hook, Brooklyn. Nineteen thirty-two.", model_id: "eleven_v3" },
-        recipe: { id: "voiceJimmy", provider: "elevenlabs", model: "elevenlabs-direct", prompt: "Red Hook, Brooklyn. Nineteen thirty-two." },
+        input: { text: "Red Hook, Brooklyn. Nineteen thirty-two.", model_id: "eleven_v3", seed: 0 },
+        recipe: { id: "voiceJimmy", provider: "elevenlabs", model: "elevenlabs-direct", prompt: "Red Hook, Brooklyn. Nineteen thirty-two.", seed: 0 },
       })),
       { "content-type": "application/json" },
     );
@@ -248,6 +248,7 @@ describe("framediffDev local cache folder", () => {
       provider: "elevenlabs",
       status: "done",
       take: 1,
+      seed: 0,
       outputKind: "audio",
     });
     expect(JSON.parse(submitted.body).job.assetId).toBeTruthy();
@@ -258,7 +259,7 @@ describe("framediffDev local cache folder", () => {
     const jobs = JSON.parse((await request("/__framediff/gen/jobs?gen=voiceJimmy")).body);
     expect(jobs.takes[0]).toMatchObject({
       mime: "audio/mpeg",
-      generator: { gen: "voiceJimmy", take: 1, outputKind: "audio" },
+      generator: { gen: "voiceJimmy", take: 1, seed: 0, outputKind: "audio" },
     });
   });
 
@@ -334,7 +335,29 @@ describe("framediffDev local cache folder", () => {
     expect(JSON.parse(submitted.body).error).not.toContain("unsupported");
   });
 
-  it("exposes voice discovery and promotion routes for ElevenLabs", async () => {
+  it("restricts ElevenLabs submits to the two supported endpoint shapes", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "framediff-vite-"));
+    const request = devBridge(root);
+
+    const submitted = await request(
+      "/__framediff/gen/submit",
+      "POST",
+      new TextEncoder().encode(JSON.stringify({
+        provider: "elevenlabs",
+        gen: "unsafe",
+        endpoint: "v1/user",
+        recipeHash: "sha256:recipe",
+        input: { text: "not really speech" },
+        recipe: { model: "elevenlabs-direct", prompt: "not really speech" },
+      })),
+      { "content-type": "application/json" },
+    );
+
+    expect(submitted.status).toBe(400);
+    expect(JSON.parse(submitted.body).error).toBe("unsupported ElevenLabs endpoint");
+  });
+
+  it("exposes voice discovery and validates promotion inputs for ElevenLabs", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "framediff-vite-"));
     const request = devBridge(root);
 
@@ -343,14 +366,26 @@ describe("framediffDev local cache folder", () => {
     expect(voices.status).toBe(400);
     expect(JSON.parse(voices.body).error).toContain("elevenlabs key");
 
-    // Promotion validates its inputs before spending a provider call.
+    await request(
+      "/__framediff/secrets",
+      "PUT",
+      new TextEncoder().encode(JSON.stringify({ provider: "elevenlabs", key: "xi-test-key-1234" })),
+      { "content-type": "application/json" },
+    );
+
+    // Promotion validates the documented API minimum before spending a provider call.
     const created = await request(
       "/__framediff/gen/voice/create",
       "POST",
-      new TextEncoder().encode(JSON.stringify({ name: "Jimmy Monster" })),
+      new TextEncoder().encode(JSON.stringify({
+        generatedVoiceId: "generated-voice-1",
+        name: "Jimmy Monster",
+        description: "too short",
+      })),
       { "content-type": "application/json" },
     );
     expect(created.status).toBe(400);
+    expect(JSON.parse(created.body).error).toContain("between 20 and 1000");
   });
 
   it("writes to the visible default without reading the former hidden cache", async () => {

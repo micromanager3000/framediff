@@ -65,7 +65,8 @@ registration.
 **Symptom.** Casting four characters, we found the voice list was exactly ten presets —
 Rachel, Aria, Sarah, Charlotte, Matilda, Laura, Jessica, Brian, Daniel, George — with only
 three male voices and no child voice. Anything outside that list fails at submit with
-`Voice not found`. There was also no `seed`, so a narration take could never be reproduced.
+`Voice not found`. There was also no `seed`, so a narration take could not request
+ElevenLabs' best-effort repeatability.
 
 **Cause.** Every ElevenLabs model in the registry was `vendor: "ElevenLabs · fal"`, routed
 through fal's wrapper, which exposes a preset subset. `elevenlabs` existed in the plugin's
@@ -108,7 +109,7 @@ so a static enum would be fiction — the same mistake that produced the `Voice 
 failure in the first place. The id lives in the recipe JSON, and real ones are discoverable:
 
 ```
-GET /__framediff/gen/voices → [{ voice_id, name, category, description }]
+GET /__framediff/gen/voices → { voices: [{ voice_id, name, category, description }] }
 ```
 
 A follow-up could let the Studio populate a picker from that route.
@@ -137,8 +138,9 @@ source of truth.
 
 ## Verification
 
-Full suite green: **503 tests across 75 files**, workspace typecheck clean. Beyond routing
-assertions, two end-to-end tests stub the provider and prove the behaviour that is easy to
+Full suite green after review: **514 tests across 75 files**, workspace typecheck and build
+clean. Beyond routing
+assertions, two bridge integration tests stub the provider and prove the behaviour that is easy to
 get wrong:
 
 - a TTS submit lands a finished take — status `done`, an `assetId`, `audio/mpeg` in the
@@ -148,6 +150,13 @@ get wrong:
 
 The `optimizeDeps` fix was verified by baking a 240-frame previz composition to MP4 in a
 consuming project — the exact path that failed before.
+
+The follow-up review also hardened the direct adapter: seed `0` is now sent and recorded in
+take provenance, Voice Design uses ElevenLabs' smaller documented seed ceiling, missing
+voice ids are blocked before submit, only the supported API endpoint shapes are accepted,
+non-audio/empty TTS responses are rejected, voice promotion validates the provider's
+description-length requirement, and Studio identifies the active provider as ElevenLabs
+rather than fal.
 
 ---
 
