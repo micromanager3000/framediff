@@ -16,7 +16,9 @@
     referenceKindForMime,
     type GenerativeViewModel,
   } from "../viewmodels/Generative.ViewModel";
+  import { sessionStore } from "../viewmodels/store";
   import PreviewHost from "./PreviewHost.svelte";
+  import SynchronizedCompositionPreview from "./SynchronizedCompositionPreview.svelte";
   import VisualAdaptationEditor from "./VisualAdaptationEditor.svelte";
 
   export let viewModel: GenerativeViewModel;
@@ -24,6 +26,7 @@
   export let session: StudioSession;
   export let onservices: () => void;
   const store = viewModel.store;
+  const sessionState = sessionStore(session);
   let promptDraft = "";
   let negativeDraft = "";
   let previousRecipe = "";
@@ -43,6 +46,7 @@
   let outputSaveTimer: ReturnType<typeof setTimeout> | undefined;
   let refSaveTimer: ReturnType<typeof setTimeout> | undefined;
   let promptEditor: HTMLTextAreaElement | undefined;
+  let takeVideo: HTMLVideoElement | undefined;
   $: if ($store.workspace && $store.workspace.liveHash !== previousRecipe) {
     previousRecipe = $store.workspace.liveHash;
     promptDraft = $store.workspace.prompt;
@@ -50,10 +54,25 @@
   }
   $: if ($store.workspace && $store.workspace.compositionKey !== previewCompositionKey) {
     previewCompositionKey = $store.workspace.compositionKey;
-    previewTake = null;
+    previewTake = $store.workspace.takes.reduce<number | null>(
+      (latest, take) => latest == null || take.take > latest ? take.take : latest,
+      null,
+    );
     failedDraftStarted = "";
   }
   $: previewedTake = $store.workspace?.takes.find((take) => take.take === previewTake) ?? null;
+  $: previewRefs = previewedTake?.settings?.refs ?? $store.workspace?.refs ?? [];
+  $: previewVideoRef = previewedTake?.outputKind === "video"
+    ? previewRefs.find((ref) => ref.kind === "video" && !!$store.workspace && inputCompositionKey($store.workspace, ref.src) != null)
+    : undefined;
+  $: previewVideoCompositionKey = previewVideoRef && $store.workspace
+    ? inputCompositionKey($store.workspace, previewVideoRef.src)
+    : null;
+  $: currentComposition = $sessionState.compositions.find((composition) => composition.key === $sessionState.currentKey);
+  $: previewFps = currentComposition?.fps ?? 24;
+  $: previewFrom = currentComposition?.render?.from ?? 0;
+  $: previewTo = currentComposition?.render?.to ?? currentComposition?.durationInFrames ?? 1;
+  $: previewLastFrame = Math.max(previewFrom, previewTo - 1);
   $: nextTake = nextGenerationTake($store.workspace);
   $: latestJobId = $store.workspace?.jobs.at(-1)?.id ?? "";
   $: latestFailedTake = $store.failedTakes.find((take) => take.id === latestJobId) ?? null;
@@ -206,6 +225,19 @@
     else void viewModel.addAssetRef(assetId, refKind);
     assetId = "";
   }
+  function syncTakeVideo(): void {
+    if (!takeVideo) return;
+    const target = Math.max(0, ($sessionState.frame - previewFrom) / Math.max(1, previewFps));
+    if (takeVideo.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      const last = Number.isFinite(takeVideo.duration) ? Math.max(0, takeVideo.duration - 0.001) : target;
+      const time = Math.min(target, last);
+      if (Math.abs(takeVideo.currentTime - time) > Math.max(0.04, 1 / Math.max(1, previewFps))) {
+        takeVideo.currentTime = time;
+      }
+    }
+    if ($sessionState.playing) void takeVideo.play().catch(() => undefined);
+    else takeVideo.pause();
+  }
   async function startFromSelectedTake(): Promise<void> {
     if (!previewedTake) return;
     if (await viewModel.startFrom(previewedTake.take)) await editDraft();
@@ -229,6 +261,7 @@
       await editDraft();
     }
   }
+  $: $sessionState.frame, $sessionState.playing, previewFps, previewFrom, syncTakeVideo();
 </script>
 
 <section class="gen-workbench">
@@ -466,16 +499,67 @@
                 <audio src={takeUrl(previewedTake.contentHash)} controls autoplay aria-label={`Preview of take ${previewedTake.take}`}></audio>
               </div>
             {:else}
-              <!-- svelte-ignore a11y_media_has_caption -->
-              <video
-                src={takeUrl(previewedTake.contentHash)}
-                controls
-                autoplay
-                playsinline
-                aria-label={`Preview of take ${previewedTake.take}`}
-              ></video>
+              {#if previewVideoCompositionKey}
+                <section class="gen-compare" aria-label={`Synchronized comparison of ${previewVideoRef?.label ?? "previz"} and take ${previewedTake.take}`}>
+                  <header>
+                    <span>SYNCED COMPARISON</span>
+                    <small><i aria-hidden="true"></i> one playhead · frame locked</small>
+                  </header>
+                  <div class="compare-panes">
+                    <figure>
+                      <div class="compare-monitor">
+                        <SynchronizedCompositionPreview {runtime} {session} compositionKey={previewVideoCompositionKey} />
+                      </div>
+                      <figcaption><b>PREVIZ</b><span>{previewVideoRef?.label}</span></figcaption>
+                    </figure>
+                    <figure>
+                      <div class="compare-monitor">
+                        <!-- svelte-ignore a11y_media_has_caption -->
+                        <video
+                          bind:this={takeVideo}
+                          src={takeUrl(previewedTake.contentHash)}
+                          muted
+                          playsinline
+                          preload="auto"
+                          aria-label={`Generated take ${previewedTake.take}`}
+                          onloadedmetadata={syncTakeVideo}
+                        ></video>
+                      </div>
+                      <figcaption><b>TAKE {previewedTake.take}</b><span>generated output</span></figcaption>
+                    </figure>
+                  </div>
+                  <div class="compare-transport">
+                    <button onclick={() => session.togglePlaying()} aria-label={$sessionState.playing ? "Pause synchronized comparison" : "Play synchronized comparison"}>
+                      {$sessionState.playing ? "❚❚" : "▶"}
+                    </button>
+                    <input
+                      aria-label="Synchronized comparison frame"
+                      type="range"
+                      min={previewFrom}
+                      max={previewLastFrame}
+                      step="1"
+                      value={$sessionState.frame}
+                      oninput={(event) => session.setFrame(Number(event.currentTarget.value))}
+                    />
+                    <output>{String($sessionState.frame - previewFrom).padStart(4, "0")}f</output>
+                  </div>
+                </section>
+              {:else}
+                <!-- svelte-ignore a11y_media_has_caption -->
+                <video
+                  bind:this={takeVideo}
+                  src={takeUrl(previewedTake.contentHash)}
+                  controls
+                  autoplay
+                  playsinline
+                  aria-label={`Preview of take ${previewedTake.take}`}
+                  onloadedmetadata={syncTakeVideo}
+                ></video>
+              {/if}
             {/if}
-            <span class="preview-label">PREVIEWING TAKE {previewedTake.take}</span>
+            {#if !previewVideoCompositionKey}
+              <span class="preview-label">PREVIEWING TAKE {previewedTake.take}</span>
+            {/if}
           {:else}
             <PreviewHost {runtime} {session} interactive={false} />
           {/if}

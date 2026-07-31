@@ -9,6 +9,21 @@ test("a draft take is an obvious, repeatable path back to editing", async ({ pag
 
   await expect(page.getByRole("button", { name: "Add Take", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "↳ Draft from latest", exact: true })).toHaveCount(0);
+  await expect(page.getByText("HISTORICAL TAKE 5", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Preview take 5", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("slider", { name: "Synchronized comparison frame", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Generated take 5", { exact: true })).toBeVisible();
+  await expect(
+    page.getByLabel("Synchronized comparison of HarborPreviz and take 5").getByText("HarborPreviz", { exact: true }),
+  ).toBeVisible();
+  const synchronizedFrame = page.getByRole("slider", { name: "Synchronized comparison frame", exact: true });
+  await synchronizedFrame.fill("90");
+  await expect(synchronizedFrame).toHaveValue("90");
+  await expect.poll(() => page.getByLabel("Generated take 5", { exact: true }).evaluate(
+    (video: HTMLVideoElement) => Math.round(video.currentTime * 10) / 10,
+  )).toBe(3);
+
+  await page.getByRole("button", { name: "Back to current draft", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Generation model", exact: true })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Reference type", exact: true })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Reference source", exact: true })).toBeVisible();
@@ -40,6 +55,7 @@ test("generative rows advertise their output kind and input comps link to their 
 
   // A comp-backed input reference is a link into its source composition; the geometry
   // line stays behind as the input-handling toggle.
+  await page.getByRole("button", { name: "Back to current draft", exact: true }).click();
   await expect(page.getByRole("button", { name: "Adjust how HarborPreviz is adapted for the model", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Open composition HarborPreviz", exact: true }).click();
   await expect(page.locator('.composition-row[data-composition-key="harbor-previz"]').first()).toHaveClass(/active/);
