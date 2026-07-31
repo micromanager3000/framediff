@@ -1,11 +1,26 @@
 import { describe, expect, it } from "vitest";
 import type { GenerativeWorkspaceSnapshot } from "@framediff/studio-model";
-import { failedTakeViews, generatingTakeViews, nextGenerationTake, readableGenerationError } from "./Generative.ViewModel";
+import {
+  failedTakeViews,
+  generatingTakeViews,
+  nextGenerationTake,
+  readableGenerationError,
+  referenceKindForMime,
+} from "./Generative.ViewModel";
 
 const workspace = {
   takes: [],
   jobs: [],
 } as unknown as GenerativeWorkspaceSnapshot;
+
+describe("referenceKindForMime", () => {
+  it("infers reference kinds from imported media MIME types", () => {
+    expect(referenceKindForMime("image/png")).toBe("image");
+    expect(referenceKindForMime("video/quicktime")).toBe("video");
+    expect(referenceKindForMime("audio/wav")).toBe("audio");
+    expect(referenceKindForMime("application/octet-stream")).toBeNull();
+  });
+});
 
 describe("generatingTakeViews", () => {
   it("turns queued and running jobs into numbered in-flight takes", () => {
