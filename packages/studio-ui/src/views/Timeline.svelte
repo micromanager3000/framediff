@@ -2,6 +2,9 @@
   import { tick } from "svelte";
   import { packTimelineVisualRows, timelineItemLabel, type TimelineItemSnapshot, type TimelineLaneSnapshot } from "@framediff/studio-model";
   import type { TimelineViewModel } from "../viewmodels/Timeline.ViewModel";
+  import { studioSound } from "../design/sound";
+
+  const sound = studioSound();
 
   export let viewModel: TimelineViewModel;
   export let onselect: () => void = () => {};
@@ -224,13 +227,24 @@
 
   // --- scrubbing (the timeline is the one scrub surface) ---
   let scrubbing = false;
+  let lastTickFrame = Number.NaN;
   function seekFromPointer(event: PointerEvent): void {
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     const frame = (event.clientX - rect.left) / ppf + axisStart;
     // the playable domain covers the render window too (incl. a negative pre-roll)
     const lo = Math.min(0, $store.render.from);
     const hi = Math.max(duration, $store.render.to);
-    viewModel.seek(Math.max(lo, Math.min(hi - 1, frame)));
+    const next = Math.max(lo, Math.min(hi - 1, frame));
+    viewModel.seek(next);
+
+    // A detent per frame crossed, pitched to position in the composition — scrubbing becomes a
+    // rising or falling run you can hear. The engine rate-limits, so a fast drag across a long
+    // timeline thins out into a texture instead of a machine gun.
+    const whole = Math.round(next);
+    if (whole !== lastTickFrame) {
+      lastTickFrame = whole;
+      sound.play("detent", { position: (whole - lo) / Math.max(1, hi - lo) });
+    }
   }
   function beginScrub(event: PointerEvent): void {
     if (event.button !== 0) return;

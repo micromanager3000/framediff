@@ -16,6 +16,12 @@
   import StudioGuide from "./views/StudioGuide.svelte";
   import DedicatedRenderWindow from "./views/DedicatedRenderWindow.svelte";
   import CompositionFrameBar from "./views/CompositionFrameBar.svelte";
+  import FeelControl from "./views/FeelControl.svelte";
+  import StudioOverture from "./views/StudioOverture.svelte";
+  import { feelPreferences } from "./design/preferences";
+  import { studioSound } from "./design/sound";
+  import { formatDuration, formatTimecode } from "./design/timecode";
+  import { splitVariantName } from "./design/names";
   import { StudioShellViewModel } from "./viewmodels/StudioShell.ViewModel";
   import { CompositionRailViewModel } from "./viewmodels/CompositionRail.ViewModel";
   import { TimelineViewModel } from "./viewmodels/Timeline.ViewModel";
@@ -30,8 +36,9 @@
   import { ServicesViewModel } from "./viewmodels/Services.ViewModel";
   import { restoreStudioSelection, serializeStudioSelection } from "./viewmodels/selectionPersistence";
   import { buildRenderWindowUrl, postRenderWindowError, postRenderWindowState, renderWindowRequest } from "./renderWindow";
-  import { observableStore } from "./viewmodels/store";
+  import { observableStore, sessionStore } from "./viewmodels/store";
   import "./studio.css";
+  import "./design/feel.css";
 
   export let application: StudioApplication;
   export let gitStatusLabel: string | null = null;
@@ -56,6 +63,8 @@
   const chromeStore = chrome.store;
   const mediaStore = media.store;
   const operationsStore = operations.store;
+  const renderStore = render.store;
+  const sessionState = sessionStore(session);
   const historyStore = observableStore(application.history.state);
   const dedicatedRenderRequest = typeof window === "undefined" ? null : renderWindowRequest(window.name);
   const compositionStorageKey = typeof window === "undefined" ? "" : `framediff:composition:${window.location.pathname}`;
@@ -81,6 +90,46 @@
   let guideLoadedId = "";
   let guideCompletedIds: string[] = [];
   let activeGuideStep: StudioGuideStep | null = null;
+
+  // ---- feel: motion, sound, and the first-run overture -------------------------------
+  const sound = studioSound();
+  const preferences = feelPreferences();
+  const overtureStorageKey = typeof window === "undefined" ? "" : `framediff:overture:${window.location.pathname}`;
+  let motionEnabled = true;
+  let booting = true;
+  let overtureOpen = false;
+  let renderBurst = false;
+  let unsubscribeFeel: (() => void) | null = null;
+  let bootTimer: ReturnType<typeof setTimeout> | null = null;
+  let burstTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastRenderStatus: string | null = null;
+  let lastPlaying = false;
+
+  function showOverture(): void {
+    overtureOpen = true;
+  }
+
+  function dismissOverture(): void {
+    overtureOpen = false;
+    if (overtureStorageKey) {
+      try {
+        window.localStorage.setItem(overtureStorageKey, "seen");
+      } catch {
+        // Without storage the overture reappears next visit; that is better than failing to open.
+      }
+    }
+  }
+
+  function replayOverture(): void {
+    if (overtureStorageKey) {
+      try {
+        window.localStorage.removeItem(overtureStorageKey);
+      } catch {
+        // Nothing to clear.
+      }
+    }
+    showOverture();
+  }
 
   $: currentTimelineItems = $timelineStore.lanes.flatMap((lane) => lane.items);
   $: authoring = resolveCompositionAuthoring($store.current, currentTimelineItems, $timelineStore.animations, $timelineStore.unrollGroups);
@@ -185,6 +234,71 @@
 
   $: loadGuideProgress();
 
+  // A finished render is the product's payoff: chime, ring, and hand the sound engine back.
+  $: {
+    const status = $renderStore.status;
+    if (status !== lastRenderStatus) {
+      if (status === "rendering") sound.setDucked(true);
+      else sound.setDucked(false);
+      if (lastRenderStatus === "rendering" && status === "done") {
+        sound.play("chime");
+        renderBurst = true;
+        if (burstTimer) clearTimeout(burstTimer);
+        burstTimer = setTimeout(() => { renderBurst = false; }, 950);
+      } else if (status === "error") {
+        sound.play("alert");
+      }
+      lastRenderStatus = status;
+    }
+  }
+
+  $: if ($store.playing !== lastPlaying) {
+    sound.play($store.playing ? "play" : "pause");
+    lastPlaying = $store.playing;
+  }
+
+  /**
+   * Collapse a deep composition path to first · … · parent · current.
+   *
+   * Nesting three or four levels deep is normal in this product, and the flex row used to shrink
+   * every crumb until the whole trail read "Stu… › Ed… › Her… › H… › Her…". Dropping the middle
+   * entries behind a single "…" (which still navigates, and names what it hides) keeps the
+   * crumbs that answer "where am I" legible at full length.
+   */
+  type Crumb = { key: string; label: string; title: string; separator: boolean; ellipsis?: boolean };
+  $: breadcrumbCrumbs = ((path: typeof $store.path): Crumb[] => {
+    const crumb = (composition: (typeof path)[number], separator: boolean): Crumb => ({
+      key: composition.key,
+      label: composition.id,
+      title: composition.file ? `${composition.id}\n${composition.file}` : composition.id,
+      separator,
+    });
+    if (path.length <= 3) return path.map((composition, index) => crumb(composition, index > 0));
+    const hidden = path.slice(1, -2);
+    return [
+      crumb(path[0], false),
+      {
+        key: hidden[hidden.length - 1].key,
+        label: "…",
+        title: `${hidden.length} more: ${hidden.map((composition) => composition.id).join(" › ")}`,
+        separator: true,
+        ellipsis: true,
+      },
+      crumb(path[path.length - 2], true),
+      crumb(path[path.length - 1], true),
+    ];
+  })($store.path);
+
+  $: currentFps = $store.current?.fps ?? 24;
+  $: relativeFrame = $store.frame - ($store.current?.render?.from ?? 0);
+  $: outputFrames = $store.current?.render
+    ? $store.current.render.to - $store.current.render.from
+    : $store.current?.durationInFrames ?? 0;
+  $: busyStatus = $historyStore.applying || $store.editing || $store.loading;
+  $: renderProgressRatio = $renderStore.status === "rendering" && $renderStore.progress
+    ? Math.min(1, Math.max(0, $renderStore.progress.completed / Math.max(1, $renderStore.progress.total)))
+    : null;
+
   /** Land in a just-created comp: remember it for the full-reload path (source writes reload
    *  the page), and open it as soon as the registry replace delivers it in-page. The open is
    *  deferred to a microtask — navigating from inside a state notification would re-enter it. */
@@ -226,11 +340,16 @@
       shell.togglePlaying();
     } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
       event.preventDefault();
-      shell.setFrame($store.frame + (event.key === "ArrowLeft" ? -1 : 1) * (event.shiftKey ? 10 : 1));
+      const next = $store.frame + (event.key === "ArrowLeft" ? -1 : 1) * (event.shiftKey ? 10 : 1);
+      shell.setFrame(next);
+      // Pitch tracks position in the composition, so holding an arrow key reads as a rising or
+      // falling run rather than a repeated click.
+      sound.play("detent", { position: next / Math.max(1, $store.current?.durationInFrames ?? 1) });
     } else if (event.key === "Home" || event.key === "End") {
       event.preventDefault();
       const render = $store.current?.render;
       shell.setFrame(event.key === "Home" ? render?.from ?? 0 : (render?.to ?? $store.current?.durationInFrames ?? 1) - 1);
+      sound.play("detent", { position: event.key === "Home" ? 0 : 1 });
     } else if (event.key === "," || event.key === ".") {
       // nudge the selected clip by a frame (shift = 10)
       const item = selectedTimelineItem();
@@ -287,9 +406,20 @@
         .catch((error) => postRenderWindowError(dedicatedRenderRequest.token, error));
       return;
     }
+    unsubscribeFeel = preferences.subscribe((value) => { motionEnabled = value.motion; });
+    // The assembly animation is a one-shot; leaving the class on would replay it on every
+    // layout-affecting state change.
+    bootTimer = setTimeout(() => { booting = false; }, 900);
+    // Audio hardware stays untouched until a real gesture, which is both the browser's rule and
+    // the polite one. Arming here means the first click is already in tune.
+    const unlock = () => sound.unlock();
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+
     agentSurface = exposeStudioAgentApi(application);
     const rememberedComposition = window.sessionStorage.getItem(compositionStorageKey);
     void application.start().then(() => {
+      if (overtureStorageKey && !window.localStorage.getItem(overtureStorageKey)) showOverture();
       if (rememberedComposition && session.state.get().compositions.some((composition) => composition.key === rememberedComposition)) {
         shell.open(rememberedComposition);
       }
@@ -312,6 +442,9 @@
     window.removeEventListener("keydown", onKeyDown);
     unsubscribeSelection?.();
     unsubscribeRenderWindow?.();
+    unsubscribeFeel?.();
+    if (bootTimer) clearTimeout(bootTimer);
+    if (burstTimer) clearTimeout(burstTimer);
     agentSurface?.dispose();
     application.destroy();
   });
@@ -320,7 +453,21 @@
 {#if dedicatedRenderRequest}
   <DedicatedRenderWindow viewModel={render} compositionName={$store.current?.id ?? ""} />
 {:else}
-<div class="framediff-studio">
+<div
+  class="framediff-studio"
+  class:booting
+  class:transport-playing={$store.playing}
+  data-feel-motion={motionEnabled ? "on" : "off"}
+>
+  {#if overtureOpen}
+    <StudioOverture
+      projectName={$store.path[0]?.id ?? $store.current?.id ?? ""}
+      compositionCount={$sessionState.compositions.length}
+      hasGuide={!!$store.guide}
+      onopenguide={() => chrome.showRight("guide")}
+      ondismiss={dismissOverture}
+    />
+  {/if}
   <header class="topbar">
     <div class="studio-brand"><span class="mark"></span><strong>FRAMEDIFF</strong><span class="edition">STUDIO</span></div>
     <button class="compact-left-button" onclick={() => chrome.openLeft()} aria-label="Open compositions and media" title="Open compositions and media" aria-expanded={$chromeStore.leftOpen}>
@@ -331,16 +478,26 @@
     </button>
     <div class="current breadcrumb">
       {#if $store.current}
-        {#each $store.path as composition, index (composition.key)}
-          {#if index > 0}<span class="crumb-separator">›</span>{/if}
-          <button class:active={composition.key === $store.current.key} onclick={() => shell.open(composition.key)}>{composition.id}</button>
+        <!-- A deep path used to shrink every crumb into an unreadable stub ("Stu… › Ed… › Her…").
+             Collapsing the middle instead keeps the two crumbs that carry meaning — where you
+             started and where you are — at full length. -->
+        {#each breadcrumbCrumbs as crumb (crumb.key)}
+          {#if crumb.separator}<span class="crumb-separator">›</span>{/if}
+          {#if crumb.ellipsis}
+            <button class="crumb-more" title={crumb.title} onclick={() => shell.open(crumb.key)}>…</button>
+          {:else}
+            {@const name = splitVariantName(crumb.label)}
+            <button class:active={crumb.key === $store.current.key} title={crumb.title} onclick={() => shell.open(crumb.key)}>
+              <span class="name-stem">{name.stem}</span>{#if name.suffix}<span class="name-suffix">{name.suffix}</span>{/if}
+            </button>
+          {/if}
         {/each}
         <span class="kind kind-{$store.current.kind}">{$store.current.kind}</span>
         {#if $store.current.file}<span class="file">{$store.current.file}</span>{/if}
       {/if}
     </div>
-    <div class="top-status" class:error={$store.error || $operationsStore.error || $historyStore.error}>
-      {#if $historyStore.applying}restoring source…{:else if $store.editing}writing source…{:else if $store.loading}reading the composition…{:else if $store.error}{$store.error}{:else if $historyStore.error}{$historyStore.error}{:else if $operationsStore.error}{$operationsStore.error}{:else if $operationsStore.message}{$operationsStore.message}{:else}ready{/if}
+    <div class="top-status" class:busy={busyStatus} class:error={$store.error || $operationsStore.error || $historyStore.error}>
+      <span class="status-pulse" aria-hidden="true"></span>{#if $historyStore.applying}restoring source…{:else if $store.editing}writing source…{:else if $store.loading}reading the composition…{:else if $store.error}{$store.error}{:else if $historyStore.error}{$historyStore.error}{:else if $operationsStore.error}{$operationsStore.error}{:else if $operationsStore.message}{$operationsStore.message}{:else}ready{/if}
     </div>
     <GitStatus viewModel={git} statusLabel={gitStatusLabel} />
     {#if $store.guide}
@@ -357,12 +514,16 @@
     <div class="top-group" role="group" aria-label="Project actions">
       <button class="top-action" onclick={() => void application.history.undo()} disabled={!$historyStore.undo.length || $historyStore.applying} title={$historyStore.undo.length ? `Undo ${$historyStore.undo[$historyStore.undo.length - 1].label} (⌘/Ctrl+Z)` : "Nothing to undo"}>Undo</button>
       <button class="top-action" onclick={() => void application.history.redo()} disabled={!$historyStore.redo.length || $historyStore.applying} title={$historyStore.redo.length ? `Redo ${$historyStore.redo[$historyStore.redo.length - 1].label} (⌘/Ctrl+Shift+Z)` : "Nothing to redo"}>Redo</button>
-      <button class="top-action" onclick={() => chrome.setServicesOpen(true)} title="Configure generative service credentials">Services</button>
-      <button class="top-action" onclick={() => chrome.setCacheOpen(true)} title="Cached renders and bakes">Cache</button>
-      <button class="refresh" onclick={() => void shell.refresh()} title="Reload compositions from source" aria-label="Reload compositions">
+      <button class="top-action" onclick={() => { sound.play("open"); chrome.setServicesOpen(true); }} title="Configure generative service credentials">Services</button>
+      <button class="top-action" onclick={() => { sound.play("open"); chrome.setCacheOpen(true); }} title="Cached renders and bakes">Cache</button>
+      <button class="refresh" onclick={() => { sound.play("tap"); void shell.refresh(); }} title="Reload compositions from source" aria-label="Reload compositions">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13.5 8a5.5 5.5 0 1 1-2-4.24"/><path d="M13.7 2.3v3.2h-3.2"/></svg>
       </button>
-      <RenderControl viewModel={render} />
+      <FeelControl onreplayintro={replayOverture} />
+      <div class="render-anchor">
+        <RenderControl viewModel={render} />
+        <span class="render-burst" class:firing={renderBurst} aria-hidden="true"></span>
+      </div>
     </div>
   </header>
 
@@ -430,14 +591,14 @@
   <main>
     <section class="left-panel" class:compact-open={$chromeStore.leftOpen}>
       <nav class="panel-tabs" aria-label="Left panel">
-        <button class:active={$chromeStore.left === "compositions"} onclick={() => chrome.showLeft("compositions")}>COMPS</button>
-        <button class:active={$chromeStore.left === "media"} onclick={() => chrome.showLeft("media")}>MEDIA</button>
-        <button class="panel-close" onclick={() => chrome.closeLeft()} aria-label="Close compositions panel">×</button>
+        <button class:active={$chromeStore.left === "compositions"} onclick={() => { sound.play("open"); chrome.showLeft("compositions"); }}>COMPS</button>
+        <button class:active={$chromeStore.left === "media"} onclick={() => { sound.play("open"); chrome.showLeft("media"); }}>MEDIA</button>
+        <button class="panel-close" onclick={() => { sound.play("close"); chrome.closeLeft(); }} aria-label="Close compositions panel">×</button>
       </nav>
       {#if $chromeStore.left === "compositions"}
         <CompositionRail
           viewModel={rail}
-          onnewcomposition={() => chrome.setNewCompositionOpen(true)}
+          onnewcomposition={() => { sound.play("open"); chrome.setNewCompositionOpen(true); }}
           onopen={() => chrome.closeLeft()}
           onduplicate={(key) => void operations.copy(key)}
           oncopytolibrary={(key) => void operations.copy(key, { library: true })}
@@ -480,7 +641,9 @@
             ? $operationsStore.currentBake.artifact
             : undefined}
           directManipulation={authoring.directManipulation}
-          onselect={() => chrome.showRight("inspector")}
+          renderProgress={renderProgressRatio}
+          faulted={!!($store.error || $renderStore.error)}
+          onselect={() => { sound.play("select"); chrome.showRight("inspector"); }}
         />
       </div>
 
@@ -516,8 +679,11 @@
           </label>
         {/if}
         <span class="spacer"></span>
-        <span class="timecode" title="Output time — 0 is the render window's start">{String($store.frame - ($store.current?.render?.from ?? 0)).padStart(4, "0")}f</span>
-        <span class="duration">/ {$store.current?.render ? $store.current.render.to - $store.current.render.from : $store.current?.durationInFrames ?? 0}</span>
+        <span class="timecode-group" title={`Output time — 0 is the render window's start · ${currentFps}fps`}>
+          <span class="tc">{formatTimecode(relativeFrame, currentFps)}</span>
+          <span class="tc-frames">{String(relativeFrame).padStart(4, "0")}f</span>
+          <span class="tc-total">/ {outputFrames} · {formatDuration(outputFrames, currentFps)}</span>
+        </span>
       </div>
 
       {#if showTimeline}
@@ -537,10 +703,10 @@
 
     <section class="right-panel" class:compact-open={$chromeStore.rightOpen}>
       <nav class="panel-tabs" aria-label="Right panel">
-        <button class:active={$chromeStore.right === "inspector"} onclick={() => chrome.showRight("inspector")}>INSPECT</button>
-        <button class:active={$chromeStore.right === "code"} onclick={() => chrome.showRight("code")}>CODE</button>
-        {#if $store.guide}<button class:active={$chromeStore.right === "guide"} onclick={() => chrome.showRight("guide")}>GUIDE</button>{/if}
-        <button class="panel-close" onclick={() => chrome.closeRight()} aria-label="Close side panel">×</button>
+        <button class:active={$chromeStore.right === "inspector"} onclick={() => { sound.play("open"); chrome.showRight("inspector"); }}>INSPECT</button>
+        <button class:active={$chromeStore.right === "code"} onclick={() => { sound.play("open"); chrome.showRight("code"); }}>CODE</button>
+        {#if $store.guide}<button class:active={$chromeStore.right === "guide"} onclick={() => { sound.play("open"); chrome.showRight("guide"); }}>GUIDE</button>{/if}
+        <button class="panel-close" onclick={() => { sound.play("close"); chrome.closeRight(); }} aria-label="Close side panel">×</button>
       </nav>
       {#if $chromeStore.right === "inspector"}
         <Inspector viewModel={inspector} mediaViewModel={media} />

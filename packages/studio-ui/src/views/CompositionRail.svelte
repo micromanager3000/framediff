@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { CompositionKind } from "@framediff/studio-model";
   import { compositionMatchesSearch, type CompositionRailViewModel } from "../viewmodels/CompositionRail.ViewModel";
+  import { splitVariantName } from "../design/names";
 
   export let viewModel: CompositionRailViewModel;
   export let onnewcomposition: () => void;
@@ -124,6 +125,7 @@
   <div class="composition-list" role="list">
       {#each filteredPrimary as row (row.composition.key)}
         {@const composition = row.composition}
+        {@const name = splitVariantName(composition.id)}
       <div
         class="composition-item"
         role="listitem"
@@ -141,11 +143,11 @@
           class:active={composition.key === $store.currentKey}
           class="composition-row kind-{composition.kind}"
           onclick={() => { viewModel.open(composition.key); onopen(); }}
-          title={composition.file ?? composition.id}
+          title={composition.file ? `${composition.id}\n${composition.file}` : composition.id}
           style:padding-left={`${7 + row.depth * 15}px`}
         >
           <span class="glyph">{glyph[composition.kind]}</span>
-          <span class="name">{composition.id}</span>
+          <span class="name"><span class="name-stem">{name.stem}</span>{#if name.suffix}<span class="name-suffix">{name.suffix}</span>{/if}</span>
           {#if composition.guide}<span class="tour-badge">START</span>{/if}
           <span class="kind">{composition.kind}</span>
           {#if composition.kind === "generate"}<span class="out-badge out-{composition.outputKind}">{composition.outputKind}</span>{/if}
@@ -179,6 +181,7 @@
     {#if filteredLibrary.length}
       <div class="composition-list" role="list">
         {#each filteredLibrary as composition (composition.key)}
+          {@const name = splitVariantName(composition.id)}
           <div
             class="composition-item"
             role="listitem"
@@ -196,10 +199,10 @@
               class:active={composition.key === $store.currentKey}
               class="composition-row kind-{composition.kind}"
               onclick={() => { viewModel.open(composition.key); onopen(); }}
-              title={composition.file ?? composition.id}
+              title={composition.file ? `${composition.id}\n${composition.file}` : composition.id}
             >
               <span class="glyph">{glyph[composition.kind]}</span>
-              <span class="name">{composition.id}</span>
+              <span class="name"><span class="name-stem">{name.stem}</span>{#if name.suffix}<span class="name-suffix">{name.suffix}</span>{/if}</span>
               <span class="kind">{composition.kind}</span>
               {#if composition.kind === "generate"}<span class="out-badge out-{composition.outputKind}">{composition.outputKind}</span>{/if}
             </button>

@@ -1,0 +1,506 @@
+/*
+ * Feel: the motion, depth and sound-adjacent surface of the Studio.
+ *
+ * Loaded after studio.css so it can layer on top of the existing structural styles without
+ * rewriting them. Everything here is either (a) a state that used to have no visual at all, or
+ * (b) continuity — making a change of state something you can watch happen instead of something
+ * you have to notice after the fact.
+ *
+ * Every animated rule is gated on `[data-feel-motion="on"]`, which the shell sets from the user's
+ * preference and the OS `prefers-reduced-motion` setting. With motion off the Studio still looks
+ * like this; it just stops moving.
+ */
+
+.framediff-studio {
+  /* Motion tokens. Durations are short — this is a tool, not a presentation. */
+  --feel-quick: 110ms;
+  --feel-base: 200ms;
+  --feel-slow: 380ms;
+  --feel-curtain: 620ms;
+  /* A gentle overshoot for things that should feel physical (panels, selections, chips). */
+  --feel-spring: linear(
+    0, 0.0053 1.6%, 0.0211 3.3%, 0.0851 6.7%, 0.1917 10.1%, 0.3401 13.6%,
+    0.5266 17.3%, 0.7429 21.2%, 0.8998 24.4%, 1.0186 27.6%, 1.0761 30%,
+    1.1073 32.6%, 1.1123 35.5%, 1.0982 38.4%, 1.0716 41.7%, 1.0301 46.2%,
+    0.9954 50.9%, 0.9825 54.4%, 0.9787 58.7%, 0.9866 66%, 1.0018 80.7%, 1
+  );
+  --feel-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --feel-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* ---------------------------------------------------------------- stage ambience */
+
+.stage-ambience {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: 10px;
+  /* The fallback the canvas sits on top of — and all a browser without WebGL2 ever sees. */
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgb(45 40 72 / 55%), transparent 62%),
+    radial-gradient(90% 70% at 50% 108%, rgb(240 180 95 / 9%), transparent 68%),
+    #0a0c10;
+}
+.stage-ambience canvas { width: 100%; height: 100%; display: block; opacity: 0; }
+.stage-ambience.gpu canvas { opacity: 1; }
+[data-feel-motion="on"] .stage-ambience.gpu canvas { transition: opacity var(--feel-slow) ease; }
+
+.preview-panel { background: transparent; }
+.preview-surface > .preview-host,
+.preview-surface > .canvas-overlay { position: relative; z-index: 1; }
+
+/* ------------------------------------------------------- the composition frame */
+
+/*
+ * The single highest-leverage change in this file. A composition whose first frame is black used
+ * to be pixel-identical to a crash. Giving the fitted frame a hairline, a shadow and corner ticks
+ * makes it a visible physical object on a lit surface — you can always see that it is *there*,
+ * and how big it is, before you can see anything in it.
+ */
+.preview-runtime-host .ms-stagebox {
+  position: relative;
+  border-radius: 3px;
+  box-shadow:
+    0 0 0 1px rgb(232 235 242 / 14%),
+    0 24px 70px -12px rgb(0 0 0 / 72%),
+    0 2px 10px rgb(0 0 0 / 45%);
+}
+.preview-runtime-host .ms-stagebox::before,
+.preview-runtime-host .ms-stagebox::after {
+  content: "";
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border: 1px solid color-mix(in srgb, var(--accent) 52%, transparent);
+  pointer-events: none;
+}
+.preview-runtime-host .ms-stagebox::before { top: -5px; left: -5px; border-right: 0; border-bottom: 0; border-radius: 3px 0 0 0; }
+.preview-runtime-host .ms-stagebox::after { right: -5px; bottom: -5px; border-top: 0; border-left: 0; border-radius: 0 0 3px 0; }
+
+[data-feel-motion="on"] .preview-runtime-host .ms-stagebox { transition: box-shadow var(--feel-base) ease, opacity var(--feel-base) ease; }
+[data-feel-motion="on"] .preview-runtime-host.settling .ms-stagebox { opacity: 0; }
+.framediff-studio.transport-playing .preview-runtime-host .ms-stagebox {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 30%, rgb(232 235 242 / 14%)),
+    0 26px 80px -12px rgb(0 0 0 / 74%),
+    0 0 40px -8px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/* ------------------------------------------------------------ stage placeholder */
+
+.stage-placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 3px;
+  border: 1px solid rgb(232 235 242 / 9%);
+  background: rgb(16 18 24 / 72%);
+  pointer-events: none;
+}
+
+.stage-shimmer { position: absolute; inset: 0; opacity: 0; }
+[data-feel-motion="on"] .stage-shimmer {
+  opacity: 1;
+  background: linear-gradient(105deg, transparent 38%, rgb(240 180 95 / 8%) 50%, transparent 62%);
+  background-size: 280% 100%;
+  animation: feel-shimmer 1.9s ease-in-out infinite;
+}
+@keyframes feel-shimmer { from { background-position: 160% 0; } to { background-position: -60% 0; } }
+
+.stage-placeholder-body { position: relative; display: flex; flex-direction: column; align-items: center; gap: 9px; padding: 22px; text-align: center; }
+.stage-placeholder-body strong { color: var(--muted); font: 700 11px/1 var(--mono); letter-spacing: .06em; }
+.stage-placeholder-body small { max-width: 34ch; color: var(--faint); font: 9px/1.55 var(--mono); }
+
+.stage-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  /* An aperture rather than a spinner ring: a quarter of the circle is lit. */
+  background: conic-gradient(from 0deg, var(--accent) 0 22%, rgb(232 235 242 / 10%) 22% 100%);
+  mask: radial-gradient(circle, transparent 56%, #000 58%);
+}
+[data-feel-motion="on"] .stage-spinner { animation: feel-spin 1.15s var(--feel-in-out) infinite; }
+@keyframes feel-spin { to { transform: rotate(360deg); } }
+
+/* ------------------------------------------------------------------- the overture */
+
+.studio-overture {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: grid;
+  place-items: center;
+  overflow: hidden auto;
+  background: #08090d;
+}
+.studio-overture .stage-ambience { border-radius: 0; }
+/* Just enough falloff to hold the type legible; the field has to survive it. */
+.studio-overture .stage-ambience::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(72% 58% at 50% 46%, rgb(6 7 10 / 62%), rgb(6 7 10 / 30%) 72%, transparent);
+}
+
+.overture-body {
+  position: relative;
+  z-index: 1;
+  width: min(720px, calc(100vw - 48px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 0;
+  text-align: center;
+}
+
+.overture-mark { width: 56px; height: 56px; margin-bottom: 26px; }
+.overture-mark svg { width: 100%; height: 100%; fill: none; stroke-linecap: round; }
+.overture-mark .ring { stroke: rgb(232 235 242 / 20%); stroke-width: 1.5; }
+.overture-mark .blade { fill: #f0b45f; opacity: .92; }
+.overture-mark .sweep { stroke: #f0b45f; stroke-width: 2.5; opacity: .55; }
+
+.overture-kicker { margin: 0 0 14px; color: #f0b45f; font: 800 9px/1 "SFMono-Regular", Consolas, monospace; letter-spacing: .34em; }
+.overture-title {
+  max-width: 15ch;
+  margin: 0 0 18px;
+  color: #f6f4ee;
+  font-size: clamp(30px, 5.4vw, 50px);
+  font-weight: 680;
+  line-height: 1.02;
+  letter-spacing: -0.032em;
+}
+.overture-title span { display: block; }
+.overture-title span:last-child { color: #b9b3ff; }
+.overture-lede { max-width: 52ch; margin: 0 0 22px; color: #c6c8cd; font-size: 13.5px; line-height: 1.6; }
+
+.overture-facts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 30px; }
+.overture-facts span {
+  padding: 5px 11px;
+  border: 1px solid rgb(232 235 242 / 12%);
+  border-radius: 999px;
+  background: rgb(232 235 242 / 4%);
+  color: #969ba7;
+  font: 8px/1 "SFMono-Regular", Consolas, monospace;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.overture-facts b { color: #f4f2ec; font-weight: 800; }
+
+.overture-cards { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 30px; }
+.overture-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 15px 14px;
+  border: 1px solid rgb(232 235 242 / 10%);
+  border-radius: 10px;
+  background: linear-gradient(rgb(232 235 242 / 5%), rgb(232 235 242 / 2%));
+  text-align: left;
+}
+.overture-card .card-glyph { color: #f0b45f; font-size: 13px; line-height: 1; }
+.overture-card strong { color: #f4f2ec; font-size: 12px; font-weight: 700; }
+.overture-card p { margin: 0; color: #969ba7; font-size: 10.5px; line-height: 1.5; }
+
+.overture-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px; }
+/*
+ * These need to out-specify studio.css's `.framediff-studio button { color: inherit }`, which
+ * otherwise paints the primary button's label in the shell's light text colour — on the primary
+ * button's light background. Every colour rule here is anchored to the shell class for that
+ * reason; the layout rules do not need to be.
+ */
+.overture-primary, .overture-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 20px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+.framediff-studio .overture-primary { border: 1px solid transparent; background: #f4f2ec; color: #171410; }
+.framediff-studio .overture-primary kbd { padding: 1px 5px; border-radius: 4px; background: rgb(23 20 16 / 12%); color: #171410; font: 700 9px/1.4 "SFMono-Regular", Consolas, monospace; }
+.framediff-studio .overture-secondary { border: 1px solid rgb(232 235 242 / 16%); background: transparent; color: #c6c8cd; }
+.framediff-studio .overture-secondary:hover { border-color: rgb(232 235 242 / 34%); color: #f4f2ec; }
+.overture-escape { margin: 20px 0 0; color: rgb(150 155 167 / 72%); font: 8px/1 "SFMono-Regular", Consolas, monospace; letter-spacing: .12em; }
+
+/* -- overture choreography. Each element arrives on its own beat, fastest first. -- */
+[data-feel-motion="on"] .studio-overture:not(.still) .overture-body > *,
+[data-feel-motion="on"] .studio-overture:not(.still) .overture-card {
+  animation: feel-rise 700ms var(--feel-out) backwards;
+}
+[data-feel-motion="on"] .studio-overture:not(.still) .overture-mark { animation-delay: 60ms; }
+[data-feel-motion="on"] .studio-overture:not(.still) .overture-kicker { animation-delay: 220ms; }
+[data-feel-motion="on"] .studio-overture:not(.still) .overture-title { animation-delay: 320ms; }
+[data-feel-motion="on"] .studio-overture:not(.still) .overture-lede { animation-delay: 460ms; }
+[data-feel-motion="on"] .studio-overture:not(.still) .overture-facts { animation-delay: 580ms; }
+[data-feel-motion="on"] .studio-overture:not(.still) .overture-cards { animation: none; }
+[data-feel-motion="on"] .studio-overture:not(.still) .overture-card { animation-delay: calc(680ms + var(--stagger) * 90ms); }
+[data-feel-motion="on"] .studio-overture:not(.still) .overture-actions { animation-delay: 1000ms; }
+[data-feel-motion="on"] .studio-overture:not(.still) .overture-escape { animation-delay: 1160ms; }
+
+@keyframes feel-rise {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+
+/* The mark draws itself: the ring traces, the blade wipes in behind it. */
+[data-feel-motion="on"] .studio-overture:not(.still) .overture-mark .ring {
+  stroke-dasharray: 164;
+  animation: feel-trace 1100ms var(--feel-out) 120ms backwards;
+}
+[data-feel-motion="on"] .studio-overture:not(.still) .overture-mark .sweep {
+  stroke-dasharray: 82;
+  animation: feel-trace 900ms var(--feel-out) 420ms backwards;
+}
+[data-feel-motion="on"] .studio-overture:not(.still) .overture-mark .blade {
+  transform-origin: 32px 32px;
+  animation: feel-aperture 900ms var(--feel-out) 520ms backwards;
+}
+@keyframes feel-trace { from { stroke-dashoffset: 164; } to { stroke-dashoffset: 0; } }
+@keyframes feel-aperture { from { opacity: 0; transform: rotate(-120deg) scale(.6); } to { opacity: .92; transform: none; } }
+
+/* Once settled, the mark keeps a slow rotation — the only thing on screen still breathing. */
+[data-feel-motion="on"] .studio-overture.settled .overture-mark svg { animation: feel-spin 26s linear infinite; }
+
+/* Leaving: the curtain lifts rather than cutting. */
+[data-feel-motion="on"] .studio-overture.leaving { animation: feel-curtain var(--feel-curtain) var(--feel-in-out) forwards; }
+[data-feel-motion="on"] .studio-overture.leaving .overture-body { animation: feel-depart 420ms var(--feel-in-out) forwards; }
+@keyframes feel-curtain { to { opacity: 0; transform: scale(1.045); visibility: hidden; } }
+@keyframes feel-depart { to { opacity: 0; transform: translate3d(0, -16px, 0); filter: blur(8px); } }
+.studio-overture.still.leaving { display: none; }
+
+@media (max-width: 720px) {
+  .overture-cards { grid-template-columns: minmax(0, 1fr); }
+  .overture-body { width: min(560px, calc(100vw - 32px)); padding: 32px 0; }
+}
+
+/* ------------------------------------------------------------------ feel control */
+
+.feel-control { position: relative; display: flex; align-items: center; }
+.feel-chip {
+  width: 30px;
+  height: 27px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--panel-raised);
+  cursor: pointer;
+}
+/* Anchored for the same reason as the overture buttons: studio.css sets `color: inherit` on
+   every button in the shell at a higher specificity than a bare class. */
+.framediff-studio .feel-chip { color: var(--muted); }
+.framediff-studio .feel-chip:hover, .framediff-studio .feel-chip.open { border-color: var(--accent); color: var(--text); }
+
+/* Four bars that idle flat and dance while sound is on — the control shows its own state. */
+.feel-bars { display: flex; align-items: center; gap: 2px; height: 12px; }
+.feel-bars i { width: 2px; height: 3px; border-radius: 1px; background: currentColor; }
+[data-feel-motion="on"] .feel-chip:not(.muted) .feel-bars i { animation: feel-eq 1.1s var(--feel-in-out) infinite; }
+.feel-bars i:nth-child(1) { animation-delay: 0ms; }
+.feel-bars i:nth-child(2) { animation-delay: 140ms; }
+.feel-bars i:nth-child(3) { animation-delay: 70ms; }
+.feel-bars i:nth-child(4) { animation-delay: 210ms; }
+@keyframes feel-eq { 0%, 100% { height: 3px; } 50% { height: 11px; } }
+.feel-chip.muted { color: var(--faint); }
+.feel-chip.muted .feel-bars i:nth-child(2), .feel-chip.muted .feel-bars i:nth-child(3) { height: 3px; opacity: .45; }
+
+.feel-menu {
+  position: absolute;
+  z-index: 120;
+  top: calc(100% + 7px);
+  right: 0;
+  width: 236px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: rgb(19 17 16 / 99%);
+  box-shadow: 0 22px 68px rgb(0 0 0 / 62%);
+}
+[data-feel-motion="on"] .feel-menu { animation: feel-pop 240ms var(--feel-out); transform-origin: top right; }
+@keyframes feel-pop { from { opacity: 0; transform: translateY(-6px) scale(.96); } to { opacity: 1; transform: none; } }
+
+.feel-menu-label { padding: 3px 5px 7px; color: var(--faint); font: 800 8px/1 var(--mono); letter-spacing: .14em; }
+.feel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 11px;
+  text-align: left;
+}
+.framediff-studio .feel-row { color: var(--muted); }
+.framediff-studio .feel-row:hover { background: var(--panel-raised); color: var(--text); }
+.feel-row b { color: var(--faint); font: 800 8px/1 var(--mono); letter-spacing: .1em; }
+.feel-row b.on { color: var(--green); }
+.feel-note { margin: 0 0 6px; padding: 0 8px; color: var(--faint); font: 8px/1.5 var(--mono); }
+.feel-slider { display: flex; align-items: center; gap: 10px; padding: 4px 8px 10px; color: var(--faint); font: 800 8px/1 var(--mono); letter-spacing: .1em; }
+.feel-slider input { flex: 1; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.feel-slider.disabled { opacity: .42; }
+.feel-menu-divider { height: 1px; margin: 5px 4px; background: var(--line); }
+.feel-scrim { position: fixed; inset: 0; z-index: 110; border: 0; background: transparent; cursor: default; }
+
+/* ------------------------------------------------------- shell assembly on boot */
+
+/*
+ * The Studio used to appear all at once, fully formed, which reads as a screenshot. Bringing the
+ * regions in over ~400ms in reading order — chrome, canvas, then the panels that frame it — makes
+ * the layout legible as a layout before anyone has to parse its contents.
+ */
+[data-feel-motion="on"] .framediff-studio.booting > .topbar { animation: feel-drop 460ms var(--feel-out) backwards; }
+[data-feel-motion="on"] .framediff-studio.booting .workspace { animation: feel-rise 560ms var(--feel-out) 90ms backwards; }
+[data-feel-motion="on"] .framediff-studio.booting .left-panel { animation: feel-slide-left 520ms var(--feel-out) 180ms backwards; }
+[data-feel-motion="on"] .framediff-studio.booting .right-panel { animation: feel-slide-right 520ms var(--feel-out) 240ms backwards; }
+@keyframes feel-drop { from { opacity: 0; transform: translate3d(0, -100%, 0); } to { opacity: 1; transform: none; } }
+@keyframes feel-slide-left { from { opacity: 0; transform: translate3d(-16px, 0, 0); } to { opacity: 1; transform: none; } }
+@keyframes feel-slide-right { from { opacity: 0; transform: translate3d(16px, 0, 0); } to { opacity: 1; transform: none; } }
+
+/* -------------------------------------------------------------- micro-interactions */
+
+[data-feel-motion="on"] .framediff-studio :where(.top-action, .refresh, .mobile-menu-action, .rail-new, .feel-chip, .t-btn) {
+  transition:
+    border-color var(--feel-quick) ease,
+    background-color var(--feel-quick) ease,
+    color var(--feel-quick) ease,
+    transform var(--feel-base) var(--feel-spring),
+    box-shadow var(--feel-base) ease;
+}
+[data-feel-motion="on"] .framediff-studio :where(.top-action, .refresh, .rail-new, .feel-chip):hover { transform: translateY(-1px); }
+[data-feel-motion="on"] .framediff-studio :where(.top-action, .refresh, .rail-new, .feel-chip):active { transform: translateY(0) scale(.96); transition-duration: 60ms; }
+
+/* Transport buttons get real weight: they are the controls people hit hundreds of times. */
+[data-feel-motion="on"] .transport .t-play:hover { transform: scale(1.09); box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 11%, transparent); }
+[data-feel-motion="on"] .transport .t-play:active { transform: scale(.94); }
+[data-feel-motion="on"] .transport .t-step:hover { transform: translateY(-1px); }
+[data-feel-motion="on"] .transport .t-btn svg { transition: transform var(--feel-base) var(--feel-spring); }
+[data-feel-motion="on"] .transport .t-step:active svg { transform: scale(.82); }
+
+/* A selected composition row slides its accent bar in rather than blinking it on. */
+.composition-row { position: relative; }
+.composition-row::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--accent);
+  transform: scaleY(0);
+  transform-origin: center;
+  opacity: 0;
+}
+.composition-row.active::after { transform: scaleY(1); opacity: 1; }
+[data-feel-motion="on"] .composition-row::after { transition: transform var(--feel-base) var(--feel-spring), opacity var(--feel-quick) ease; }
+[data-feel-motion="on"] .composition-row { transition: background-color var(--feel-quick) ease; }
+
+/* Panels arrive from their own edge instead of appearing. */
+[data-feel-motion="on"] .agent-check-panel,
+[data-feel-motion="on"] .render-menu,
+[data-feel-motion="on"] .git-popover { animation: feel-pop 220ms var(--feel-out); transform-origin: top right; }
+[data-feel-motion="on"] .mobile-actions-menu { animation: feel-drop 280ms var(--feel-out); }
+
+/* The status readout gets a pulse while the Studio is actually doing something. */
+[data-feel-motion="on"] .top-status { transition: color var(--feel-base) ease; }
+.top-status .status-pulse {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: middle;
+}
+[data-feel-motion="on"] .top-status.busy .status-pulse { animation: feel-pulse 1.25s var(--feel-in-out) infinite; }
+@keyframes feel-pulse { 0%, 100% { opacity: .25; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.15); } }
+
+/* The brand mark is the studio's heartbeat: it turns while something is playing. */
+[data-feel-motion="on"] .framediff-studio.transport-playing .studio-brand .mark { animation: feel-spin 3.4s linear infinite; }
+[data-feel-motion="on"] .studio-brand .mark { transition: box-shadow var(--feel-base) ease; }
+.framediff-studio.transport-playing .studio-brand .mark { box-shadow: inset 0 0 0 1.5px rgb(232 235 242 / 30%), 0 0 22px rgb(240 180 95 / 26%); }
+
+/* Timecode: the frame number is the precise value, the timecode is the readable one. */
+.timecode-group { display: flex; align-items: baseline; gap: 8px; }
+.timecode-group .tc { color: var(--text); font: 700 12px/1 var(--mono); letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.timecode-group .tc-frames { color: var(--faint); font: 700 9px/1 var(--mono); font-variant-numeric: tabular-nums; }
+.timecode-group .tc-total { color: var(--faint); font: 9px/1 var(--mono); font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------------------ render finish */
+
+/*
+ * A finished render is the payoff of the entire product, and it used to be a line of small green
+ * text. This is a single ring that expands out of the render button and dissipates — celebratory
+ * enough to notice from across a desk, gone in under a second.
+ */
+/* ------------------------------------------------------------ truncation that informs */
+
+/*
+ * The stem shrinks; the variant suffix never does. `HeroPlane3D.june3d` becomes `HeroPl….june3d`
+ * rather than `HeroPla…`, so four sibling variants stay four distinguishable rows at any width.
+ * No measurement and no character budgets — flexbox decides how much of the stem survives.
+ */
+.composition-row .name,
+.breadcrumb button {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+}
+.composition-row .name .name-stem,
+.breadcrumb button .name-stem {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.composition-row .name .name-suffix,
+.breadcrumb button .name-suffix {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.composition-row .name .name-suffix { color: var(--faint); }
+.composition-row.active .name .name-suffix { color: var(--muted); }
+
+/* The collapsed middle of a breadcrumb. Still a real target — it opens the nearest hidden
+   ancestor — so collapsing never costs navigation. */
+.framediff-studio .breadcrumb .crumb-more { flex: 0 0 auto; padding: 3px 6px; color: var(--faint); font-weight: 800; letter-spacing: .06em; }
+.framediff-studio .breadcrumb .crumb-more:hover { color: var(--text); }
+
+.render-anchor { position: relative; display: flex; align-items: center; }
+.render-burst {
+  position: absolute;
+  inset: -2px;
+  border-radius: 9px;
+  border: 1.5px solid var(--green);
+  opacity: 0;
+  pointer-events: none;
+}
+[data-feel-motion="on"] .render-burst.firing { animation: feel-burst 900ms var(--feel-out); }
+@keyframes feel-burst {
+  0% { opacity: .9; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+
+/* -------------------------------------------------------------------- motion off */
+
+/*
+ * With motion off nothing above applies, but two things still must not regress: the ambient
+ * canvas holds a single frame rather than disappearing (the void problem is structural, not
+ * decorative), and the placeholder keeps its text.
+ */
+[data-feel-motion="off"] .stage-shimmer { display: none; }
+[data-feel-motion="off"] .studio-overture { animation: none; }
+[data-feel-motion="off"] .studio-overture.leaving { display: none; }

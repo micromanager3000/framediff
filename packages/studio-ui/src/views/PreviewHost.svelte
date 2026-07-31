@@ -15,6 +15,8 @@
     type StudioSession,
   } from "@framediff/studio-model";
   import { sessionStore } from "../viewmodels/store";
+  import StageAmbience from "./StageAmbience.svelte";
+  import { formatDuration } from "../design/timecode";
 
   export let runtime: CompositionRuntimePort;
   export let session: StudioSession;
@@ -22,6 +24,10 @@
   export let interactive = true;
   export let directManipulation = true;
   export let onselect: () => void = () => {};
+  /** 0–1 render progress driving the ambient sweep, or null when nothing is rendering. */
+  export let renderProgress: number | null = null;
+  /** Surfaced by the shell so a failed render tints the stage instead of only the status text. */
+  export let faulted = false;
 
   type Guide = { axis: "x" | "y"; position: number };
   type DragState = {
@@ -60,6 +66,42 @@
   const store = sessionStore(session);
 
   const groupId = (): string => globalThis.crypto?.randomUUID?.() ?? `gesture-${Date.now()}-${Math.random()}`;
+
+  /**
+   * Stage readiness.
+   *
+   * `mountPreview` resolves and builds a composition asynchronously, and until this existed the
+   * stage was an unlabelled black rectangle the entire time — indistinguishable from a broken
+   * project or a legitimately dark first frame. Watching the host for its first child tells us
+   * exactly when real content arrived, with no runtime API change required.
+   */
+  type StageStatus = "preparing" | "slow" | "ready";
+  let stageStatus: StageStatus = "preparing";
+  let stageObserver: MutationObserver | null = null;
+  let slowTimer: ReturnType<typeof setTimeout> | null = null;
+  let mountedStageKey = "";
+
+  function markStageReady(): void {
+    if (stageStatus === "ready") return;
+    stageStatus = "ready";
+    if (slowTimer) clearTimeout(slowTimer);
+    slowTimer = null;
+  }
+
+  function watchStage(compositionKey: string): void {
+    if (!host || mountedStageKey === compositionKey) return;
+    mountedStageKey = compositionKey;
+    stageStatus = "preparing";
+    if (slowTimer) clearTimeout(slowTimer);
+    // A composition that takes this long is usually pulling media or compiling a shader. Say so
+    // rather than leaving the user to guess whether anything is happening.
+    slowTimer = setTimeout(() => { if (stageStatus === "preparing") stageStatus = "slow"; }, 2600);
+
+    if (host.querySelector(".ms-stage")) return markStageReady();
+    stageObserver?.disconnect();
+    stageObserver = new MutationObserver(() => { if (host.querySelector(".ms-stage")) markStageReady(); });
+    stageObserver.observe(host, { childList: true, subtree: true });
+  }
 
   function attachNodeSubscription(): void {
     unsubscribeNodes?.();
@@ -441,6 +483,10 @@
   onDestroy(() => {
     mounted = false;
     destroyLivePreview();
+    stageObserver?.disconnect();
+    stageObserver = null;
+    if (slowTimer) clearTimeout(slowTimer);
+    slowTimer = null;
   });
 
   // A momentary grade bypass needs the source layers; normal playback stays entirely on the bake.
@@ -464,13 +510,59 @@
   $: pathObjectId = $store.gestureDraft?.objectId ?? animationObjectId;
   $: pathNode = pathObjectId ? nodes.find((node) => node.ref.objectId === pathObjectId) : undefined;
   $: gestureSamples = $store.gestureDraft?.samples ?? [];
+
+  // A cached artifact paints immediately; only a live mount has a stage to wait on.
+  $: if (mounted && !cachedUrl && $store.currentKey) watchStage($store.currentKey);
+  $: if (cachedUrl) markStageReady();
+  $: stageBusy = !cachedUrl && stageStatus !== "ready";
+  $: compositionDuration = currentComposition
+    ? formatDuration(
+        (currentComposition.render ? currentComposition.render.to - currentComposition.render.from : currentComposition.durationInFrames),
+        currentComposition.fps ?? 24,
+      )
+    : "";
+  // The stage doubles as an ambient status light: calm at rest, livelier under playback, amber
+  // while a render sweeps across it, desaturated red on a fault.
+  $: ambienceEnergy = faulted ? 0.3 : renderProgress != null ? 0.9 : $store.playing ? 0.55 : stageBusy ? 0.7 : 0.18;
+  $: ambienceHue = renderProgress != null
+    ? 0.02
+    : $store.playing && currentComposition
+      ? ($store.frame / Math.max(1, currentComposition.durationInFrames)) * 0.3
+      : 0.12;
 </script>
 
 <svelte:window onkeydown={onKeyDown} />
 
 <div class="preview-surface">
+  <StageAmbience energy={ambienceEnergy} hue={ambienceHue} progress={renderProgress} fault={faulted ? 1 : 0} />
   <div class="preview-host" aria-label="Composition preview">
-    <div class="preview-runtime-host" class:cached={!!cachedUrl} bind:this={host}></div>
+    <div class="preview-runtime-host" class:cached={!!cachedUrl} class:settling={stageBusy} bind:this={host}></div>
+
+    {#if stageBusy}
+      <!-- Standing in for the composition at its real aspect ratio, so the frame never jumps
+           into existence at a different size than the placeholder that preceded it. -->
+      <div
+        class="stage-placeholder"
+        role="status"
+        aria-live="polite"
+        style={currentComposition ? `aspect-ratio:${currentComposition.width} / ${currentComposition.height}` : ""}
+      >
+        <div class="stage-shimmer"></div>
+        <div class="stage-placeholder-body">
+          <span class="stage-spinner" aria-hidden="true"></span>
+          <strong>{stageStatus === "slow" ? "Still building this composition" : "Building the composition"}</strong>
+          <small>
+            {#if stageStatus === "slow"}
+              Large media and shaders resolve on first open — this is cached from here on.
+            {:else if currentComposition}
+              {currentComposition.width}×{currentComposition.height} · {compositionDuration} · {currentComposition.fps ?? 24}fps
+            {:else}
+              Reading the composition registry…
+            {/if}
+          </small>
+        </div>
+      </div>
+    {/if}
     {#if cachedUrl}
       <div class="cached-composition-frame">
         {#if currentComposition?.outputKind === "image"}
