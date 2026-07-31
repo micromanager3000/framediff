@@ -94,7 +94,9 @@
     refAdaptation = selectedRef?.adaptation;
   }
   // Voice auditioning plays the provider's own hosted sample — no generation, no spend.
-  let auditioning = $state<string | undefined>(undefined);
+  // Plain `let`: this component is legacy-mode (export let props), so a rune here would
+  // flip the whole file into runes mode and invalidate every prop declaration.
+  let auditioning: string | undefined;
   let auditionAudio: HTMLAudioElement | undefined;
   const previewUrlFor = (param: { choices?: { value: string; previewUrl?: string }[]; value: unknown }) =>
     param.choices?.find((choice) => choice.value === String(param.value))?.previewUrl;
