@@ -1,4 +1,5 @@
 import { ObservableValue } from "./observable";
+import { errorMessage } from "./errors";
 import { frontTrimPlacement } from "./timeline";
 import { fitGesturePath, makeArcSegment, motionPathToSvg, sampleGestureByFrame, type MotionPoint } from "./motionPath";
 import { compositionByReference } from "./compositionRef";
@@ -222,19 +223,29 @@ export class StudioSession {
     });
     const animatedProperties = new Set(animationRequests.flatMap((request) => request.mutation.type === "upsert-key" ? [request.mutation.property] : []));
     if (animationRequests.length && this.runtime.editAnimations) {
-      const animationResult = await this.runtime.editAnimations(animationRequests);
+      const animationResult = await this.runEdit(
+        () => this.runtime.editAnimations!(animationRequests),
+        "Could not update animation keys.",
+      );
+      if (!animationResult) return false;
       if (!animationResult.ok) {
         this.state.update((current) => ({ ...current, editing: false, error: animationResult.message ?? "Could not update animation keys." }));
         return false;
       }
     }
     const staticPatch = Object.fromEntries(Object.entries(patch).filter(([property]) => !animatedProperties.has(property))) as PreviewElementPatch;
-    const result = Object.keys(staticPatch).length ? await this.runtime.editElementProperties({
-      compositionKey: state.selection.compositionKey,
-      objectId,
-      patch: staticPatch,
-      ...options,
-    }) : { ok: true };
+    const result = Object.keys(staticPatch).length
+      ? await this.runEdit(
+        () => this.runtime.editElementProperties!({
+          compositionKey: state.selection!.compositionKey,
+          objectId,
+          patch: staticPatch,
+          ...options,
+        }),
+        "Could not update the selected element.",
+      )
+      : { ok: true };
+    if (!result) return false;
     this.state.update((current) => ({
       ...current,
       editing: false,
@@ -254,9 +265,13 @@ export class StudioSession {
     if ((!this.runtime.editAnimations && !this.runtime.editAnimation) || state.editing || !mutations.length) return false;
     this.state.update((current) => ({ ...current, editing: true, error: null, notice: null }));
     const requests = mutations.map((mutation) => ({ compositionKey: state.currentKey, animationId, mutation, ...options }));
-    const result = this.runtime.editAnimations
-      ? await this.runtime.editAnimations(requests)
-      : await this.runtime.editAnimation!(requests[0]);
+    const result = await this.runEdit(
+      () => this.runtime.editAnimations
+        ? this.runtime.editAnimations(requests)
+        : this.runtime.editAnimation!(requests[0]),
+      "Could not update animation source.",
+    );
+    if (!result) return false;
     this.state.update((current) => ({
       ...current,
       editing: false,
@@ -271,7 +286,11 @@ export class StudioSession {
     const state = this.state.get();
     if (!this.runtime.createAnimation || state.editing) return false;
     this.state.update((current) => ({ ...current, editing: true, error: null, notice: null }));
-    const result = await this.runtime.createAnimation({ ...request, compositionKey: state.currentKey });
+    const result = await this.runEdit(
+      () => this.runtime.createAnimation!({ ...request, compositionKey: state.currentKey }),
+      "Could not create animation.",
+    );
+    if (!result) return false;
     this.state.update((current) => ({
       ...current,
       editing: false,
@@ -286,7 +305,11 @@ export class StudioSession {
     const state = this.state.get();
     if (!this.runtime.editMotionPath || state.editing) return false;
     this.state.update((current) => ({ ...current, editing: true, error: null, notice: null }));
-    const result = await this.runtime.editMotionPath({ compositionKey: state.currentKey, animationId, path, ...options });
+    const result = await this.runEdit(
+      () => this.runtime.editMotionPath!({ compositionKey: state.currentKey, animationId, path, ...options }),
+      "Could not update the motion path.",
+    );
+    if (!result) return false;
     this.state.update((current) => ({
       ...current,
       editing: false,
@@ -357,14 +380,18 @@ export class StudioSession {
     } else if (this.runtime.createMotionPath) {
       this.state.update((current) => ({ ...current, editing: true, error: null }));
       const frames = draft.samples.map((sample) => sample.frame);
-      const result = await this.runtime.createMotionPath({
-        compositionKey: state.currentKey,
-        objectId: draft.objectId,
-        path: draft.path,
-        startFrame: Math.min(...frames),
-        durationInFrames: Math.max(1, Math.max(...frames) - Math.min(...frames)),
-        label: `Record ${draft.objectId} gesture`,
-      });
+      const result = await this.runEdit(
+        () => this.runtime.createMotionPath!({
+          compositionKey: state.currentKey,
+          objectId: draft.objectId,
+          path: draft.path!,
+          startFrame: Math.min(...frames),
+          durationInFrames: Math.max(1, Math.max(...frames) - Math.min(...frames)),
+          label: `Record ${draft.objectId} gesture`,
+        }),
+        "Could not commit gesture.",
+      );
+      if (!result) return false;
       ok = result.ok;
       this.state.update((current) => ({ ...current, editing: false, error: result.ok ? null : result.message ?? "Could not commit gesture." }));
       if (ok) await this.probeAll();
@@ -385,7 +412,11 @@ export class StudioSession {
     const state = this.state.get();
     if (!this.runtime.unrollAnimationGroup || state.editing) return false;
     this.state.update((current) => ({ ...current, editing: true, error: null, notice: null }));
-    const result = await this.runtime.unrollAnimationGroup({ compositionKey: state.currentKey, groupId });
+    const result = await this.runEdit(
+      () => this.runtime.unrollAnimationGroup!({ compositionKey: state.currentKey, groupId }),
+      "Could not unroll the helper.",
+    );
+    if (!result) return false;
     this.state.update((current) => ({
       ...current,
       editing: false,
@@ -410,12 +441,16 @@ export class StudioSession {
   public async editElementText(target: { compositionKey: string; objectId: string }, text: string): Promise<boolean> {
     if (this.state.get().editing) return false;
     this.state.update((current) => ({ ...current, editing: true, error: null, notice: null }));
-    const result = await this.runtime.editInspectorField({
-      compositionKey: target.compositionKey,
-      itemId: target.objectId,
-      fieldId: "html:data-fd-text",
-      value: text,
-    });
+    const result = await this.runEdit(
+      () => this.runtime.editInspectorField({
+        compositionKey: target.compositionKey,
+        itemId: target.objectId,
+        fieldId: "html:data-fd-text",
+        value: text,
+      }),
+      "Could not update text.",
+    );
+    if (!result) return false;
     this.state.update((current) => ({
       ...current,
       editing: false,
@@ -474,12 +509,16 @@ export class StudioSession {
     if (!canEdit) return false;
 
     this.state.update((current) => ({ ...current, editing: true, error: null, notice: null }));
-    const result = await this.runtime.editPlacement({
-      compositionKey: state.currentKey,
-      itemId: item.id,
-      field,
-      value: Math.round(value),
-    });
+    const result = await this.runEdit(
+      () => this.runtime.editPlacement({
+        compositionKey: state.currentKey,
+        itemId: item.id,
+        field,
+        value: Math.round(value),
+      }),
+      "Could not update the composition source.",
+    );
+    if (!result) return false;
     if (!result.ok) {
       this.state.update((current) => ({
         ...current,
@@ -512,7 +551,11 @@ export class StudioSession {
     const state = this.state.get();
     if (!state.currentKey || state.editing) return false;
     this.state.update((current) => ({ ...current, editing: true, error: null, notice: null }));
-    const result = await this.runtime.setRenderWindow(state.currentKey, from, to);
+    const result = await this.runEdit(
+      () => this.runtime.setRenderWindow(state.currentKey, from, to),
+      "Could not update the render window.",
+    );
+    if (!result) return false;
     if (!result.ok) {
       this.state.update((current) => ({ ...current, editing: false, error: result.message }));
       return false;
@@ -546,7 +589,11 @@ export class StudioSession {
     const state = this.state.get();
     if (!state.currentKey || state.editing || !this.runtime.editPlan) return false;
     this.state.update((current) => ({ ...current, editing: true, error: null, notice: null }));
-    const result = await this.runtime.editPlan({ ...request, compositionKey: state.currentKey } as PlanEditRequest);
+    const result = await this.runEdit(
+      () => this.runtime.editPlan!({ ...request, compositionKey: state.currentKey } as PlanEditRequest),
+      "Could not update the script.",
+    );
+    if (!result) return false;
     this.state.update((current) => ({
       ...current,
       editing: false,
@@ -593,11 +640,15 @@ export class StudioSession {
     }
     if (!requests.length) return { ok: false, message: "The placement patch did not change an editable field." };
     this.state.update((current) => ({ ...current, editing: true, error: null, notice: null }));
-    const result = await this.runtime.editPlacements(requests.map((request) => ({
-      compositionKey: state.currentKey,
-      itemId,
-      ...request,
-    })));
+    const result = await this.runEdit(
+      () => this.runtime.editPlacements(requests.map((request) => ({
+        compositionKey: state.currentKey,
+        itemId,
+        ...request,
+      }))),
+      "Could not update placement.",
+    );
+    if (!result) return { ok: false, message: this.state.get().error ?? "Could not update placement." };
     if (!result.ok) {
       this.state.update((current) => ({ ...current, editing: false, error: result.message ?? "Could not update placement." }));
       return result;
@@ -641,11 +692,15 @@ export class StudioSession {
     if (selected.length !== ids.length || selected.some((item) => !item.editable?.delete)) return false;
 
     this.state.update((current) => ({ ...current, editing: true, error: null, notice: null }));
-    const result = await this.runtime.deleteTimelineItems({
-      compositionKey: state.currentKey,
-      itemIds: ids,
-      ...(compactLayer ? { compactLayer } : {}),
-    });
+    const result = await this.runEdit(
+      () => this.runtime.deleteTimelineItems!({
+        compositionKey: state.currentKey,
+        itemIds: ids,
+        ...(compactLayer ? { compactLayer } : {}),
+      }),
+      "Could not delete timeline items.",
+    );
+    if (!result) return false;
     if (!result.ok) {
       this.state.update((current) => ({ ...current, editing: false, error: result.message ?? "Could not delete timeline items." }));
       return false;
@@ -719,11 +774,15 @@ export class StudioSession {
     const state = this.state.get();
     if (!state.currentKey || state.editing || !this.runtime.createTimelineShape) return false;
     this.state.update((current) => ({ ...current, editing: true, error: null, notice: null }));
-    const result = await this.runtime.createTimelineShape({
-      compositionKey: state.currentKey,
-      shape,
-      from: Math.round(from),
-    });
+    const result = await this.runEdit(
+      () => this.runtime.createTimelineShape!({
+        compositionKey: state.currentKey,
+        shape,
+        from: Math.round(from),
+      }),
+      "Could not add the shape.",
+    );
+    if (!result) return false;
     if (!result.ok) {
       this.state.update((current) => ({ ...current, editing: false, error: result.message ?? "Could not add the shape." }));
       return false;
@@ -774,6 +833,20 @@ export class StudioSession {
         loading: false,
         error: error instanceof Error ? error.message : String(error),
       }));
+    }
+  }
+
+  private async runEdit<T>(operation: () => Promise<T>, fallback: string): Promise<T | undefined> {
+    try {
+      return await operation();
+    } catch (error) {
+      this.state.update((state) => ({
+        ...state,
+        editing: false,
+        notice: null,
+        error: errorMessage(error, fallback),
+      }));
+      return undefined;
     }
   }
 

@@ -8,7 +8,7 @@
 <aside class="code-panel" aria-label="Source code">
   <header class="code-header">
     <span title={$store.file ?? ""}>{$store.file?.split("/").pop() ?? "NO SOURCE"}</span>
-    <button onclick={() => void viewModel.refresh()} title="Refresh source">↻</button>
+    <button onclick={() => void viewModel.refresh()} title="Refresh source" aria-label="Refresh source">↻</button>
   </header>
   {#if $store.loading && !$store.text}
     <div class="panel-empty">Reading source…</div>

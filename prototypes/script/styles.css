@@ -289,7 +289,7 @@ body.reordering { cursor: grabbing; user-select: none; }
   padding: 15px 24px; border-bottom: 1px solid var(--line);
   color: var(--faint); font: 700 10px var(--mono); letter-spacing: .14em; text-align: left;
 }
-.add-scene:hover { color: var(--accent); background: rgb(240 180 95 / 5%); box-shadow: inset 3px 0 0 rgb(240 180 95 / 45%); }
+.add-scene:hover { color: var(--accent); background: rgb(240 180 95 / 9%); }
 .sheet-empty { padding: 40px 24px; color: var(--faint); font-size: 12px; }
 .sheet-foot { max-width: 760px; padding: 20px 24px 8px; color: var(--faint); font-size: 10.5px; line-height: 1.6; }
 

@@ -144,7 +144,7 @@ test("a comp drags into the portrait generative recipe as a comp reference", asy
     await openComposition(page, "vertical-atmosphere", verticalBase);
     const primaryCompositions = page.locator('.composition-list[role="list"]').first();
     const main = primaryCompositions.locator(".composition-row").filter({ hasText: "VerticalMain" });
-    const references = page.getByRole("group", { name: "Generation input references; drop a composition to add it" });
+    const references = page.getByRole("group", { name: "Generation input references; drop media or a composition to add it" });
 
     await main.dragTo(references);
     await expect(page.getByRole("button", { name: "Remove video reference VerticalMain", exact: true })).toBeVisible();
