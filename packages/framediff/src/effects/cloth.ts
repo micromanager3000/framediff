@@ -1,4 +1,9 @@
-import type { CompositionSetup } from "../composition";
+import {
+  defineComposition,
+  type CompositionConfig,
+  type CompositionMetadata,
+  type CompositionSetup,
+} from "../composition";
 import { isVisualElementActive } from "../render/activeElement";
 import { registerCanvasCapture } from "../runtime";
 import { getFontEmbedCSS, toCanvas } from "../vendor/html-to-image";
@@ -467,6 +472,15 @@ export interface ClothMaterialOptions {
   metalness?: number;
   emissive?: number | string;
   emissiveIntensity?: number;
+  /** Thin-film, view-dependent color shift. Set from 0–1. */
+  iridescence?: number;
+  iridescenceIOR?: number;
+  iridescenceThicknessRange?: readonly [number, number];
+  clearcoat?: number;
+  clearcoatRoughness?: number;
+  sheen?: number;
+  sheenRoughness?: number;
+  sheenColor?: number | string;
   transparent?: boolean;
 }
 
@@ -532,13 +546,21 @@ export async function createClothRenderer(
   texture.generateMipmaps = false;
 
   const materialOptions = options.material ?? {};
-  const material = new THREE.MeshStandardMaterial({
+  const material = new THREE.MeshPhysicalMaterial({
     map: texture,
     color: materialOptions.color ?? 0xffffff,
     roughness: clamp01(materialOptions.roughness ?? 0.72),
     metalness: clamp01(materialOptions.metalness ?? 0.05),
     emissive: materialOptions.emissive ?? 0x000000,
     emissiveIntensity: materialOptions.emissiveIntensity ?? 0,
+    iridescence: clamp01(materialOptions.iridescence ?? 0),
+    iridescenceIOR: materialOptions.iridescenceIOR ?? 1.3,
+    iridescenceThicknessRange: [...(materialOptions.iridescenceThicknessRange ?? [100, 400])],
+    clearcoat: clamp01(materialOptions.clearcoat ?? 0),
+    clearcoatRoughness: clamp01(materialOptions.clearcoatRoughness ?? 0),
+    sheen: clamp01(materialOptions.sheen ?? 0),
+    sheenRoughness: clamp01(materialOptions.sheenRoughness ?? 1),
+    sheenColor: materialOptions.sheenColor ?? 0xffffff,
     side: THREE.DoubleSide,
     transparent: materialOptions.transparent ?? true,
   });
@@ -625,6 +647,142 @@ export interface ClothSetupOptions {
   clearAlpha?: number;
   ambientLight?: ClothRendererOptions["ambientLight"];
   directionalLight?: ClothRendererOptions["directionalLight"];
+}
+
+export interface ClothCompositionOptions {
+  /** Registry key used to mount the input composition. Defaults to the input composition id. */
+  sourceKey?: string;
+  id?: string;
+  width?: number;
+  height?: number;
+  fps?: number;
+  durationInFrames?: number;
+  fit?: "cover" | "contain" | "fill";
+  background?: string;
+  document?: unknown;
+  meta?: CompositionMetadata;
+  /**
+   * Static cloth settings, or a resolver used when the wrapper owns an editable document.
+   * Document changes rebuild only the cloth resources and keep the composition mounted.
+   */
+  cloth?: ClothSetupOptions | ((document: unknown) => ClothSetupOptions);
+}
+
+const htmlAttribute = (value: string): string => value
+  .replaceAll("&", "&amp;")
+  .replaceAll('"', "&quot;")
+  .replaceAll("<", "&lt;")
+  .replaceAll(">", "&gt;");
+
+/**
+ * Turn any registered visual composition into a deterministic cloth composition.
+ * The child stays mounted on the parent clock and is rasterized as the cloth texture,
+ * so authored animation, nested media, preview, and exact capture all share one frame.
+ */
+export function createClothComposition(
+  sourceComposition: CompositionConfig,
+  options: ClothCompositionOptions = {},
+): CompositionConfig {
+  const id = options.id ?? `${sourceComposition.id}Cloth`;
+  const width = options.width ?? sourceComposition.width;
+  const height = options.height ?? sourceComposition.height;
+  const fps = options.fps ?? sourceComposition.fps;
+  const durationInFrames = options.durationInFrames ?? sourceComposition.durationInFrames;
+  const sourceKey = options.sourceKey ?? sourceComposition.id;
+  const fit = options.fit ?? "contain";
+  const background = options.background ?? "#090a08";
+  const source = `<!doctype html>
+<html>
+<head>
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden}
+    [data-fd-composition]{position:relative;overflow:hidden;background:${htmlAttribute(background)}}
+    [data-fd-cloth-input]{position:absolute;inset:0;overflow:hidden}
+    [data-fd-cloth-output]{position:absolute;inset:0;width:100%;height:100%}
+    .fd-cloth-error{display:none;position:absolute;z-index:5;left:50%;top:50%;max-width:min(520px,calc(100% - 40px));padding:14px 16px;transform:translate(-50%,-50%);border:1px solid rgba(255,186,160,.34);border-radius:10px;background:rgba(26,12,9,.92);color:#ffd9cb;font:600 13px/1.4 system-ui,sans-serif;box-shadow:0 18px 60px rgba(0,0,0,.5)}
+    [data-fd-error] .fd-cloth-error{display:block}
+  </style>
+</head>
+<body>
+  <main data-fd-composition data-fd-id="${htmlAttribute(id)}" data-fd-width="${width}" data-fd-height="${height}" data-fd-fps="${fps}" data-fd-duration="${durationInFrames}" data-fd-kind="3d">
+    <section id="fd-cloth-input" data-fd-cloth-input data-fd-type="nested" data-fd-comp="${htmlAttribute(sourceKey)}" data-fd-layout-space="composition" data-fd-x="0" data-fd-y="0" data-fd-width="${width}" data-fd-height="${height}" data-fd-fit="${fit}" aria-hidden="true"></section>
+    <canvas data-fd-cloth-output data-fd-cloth data-fd-cloth-source="#fd-cloth-input" data-fd-cloth-refresh="frame" aria-label="${htmlAttribute(sourceComposition.id)} rendered as animated cloth"></canvas>
+    <div class="fd-cloth-error" role="alert"></div>
+  </main>
+</body>
+</html>`;
+
+  const clothOptions = options.cloth;
+  const resolveOptions: (document: unknown) => ClothSetupOptions = typeof clothOptions === "function"
+    ? clothOptions
+    : () => clothOptions ?? {};
+  const setup: CompositionSetup = async (context) => {
+    let generation = 0;
+    let disposed = false;
+    let activeCleanups: Array<() => void> = [];
+    let reconfiguration = Promise.resolve();
+    const disposeCleanups = (cleanups: Array<() => void>) => {
+      for (let index = cleanups.length - 1; index >= 0; index -= 1) cleanups[index]();
+    };
+    const configure = (document: unknown): Promise<void> => {
+      const currentGeneration = ++generation;
+      reconfiguration = reconfiguration.catch(() => {}).then(async () => {
+        if (disposed || currentGeneration !== generation) return;
+        disposeCleanups(activeCleanups);
+        activeCleanups = [];
+        const nextCleanups: Array<() => void> = [];
+        try {
+          await createClothSetup(resolveOptions(document))({
+            ...context,
+            document,
+            onCleanup: (cleanup) => nextCleanups.push(cleanup),
+          });
+        } catch (error) {
+          disposeCleanups(nextCleanups);
+          const message = error instanceof Error ? error.message : String(error);
+          context.root.dataset.fdError = message;
+          const errorElement = context.root.querySelector<HTMLElement>(".fd-cloth-error");
+          if (errorElement) errorElement.textContent = `Cloth preview failed. ${message}`;
+          throw error;
+        }
+        if (disposed || currentGeneration !== generation) disposeCleanups(nextCleanups);
+        else {
+          delete context.root.dataset.fdError;
+          const errorElement = context.root.querySelector<HTMLElement>(".fd-cloth-error");
+          if (errorElement) errorElement.textContent = "";
+          activeCleanups = nextCleanups;
+        }
+      });
+      return reconfiguration;
+    };
+
+    await configure(context.document);
+    const stopDocument = context.onDocument((document) => configure(document));
+    context.onCleanup(() => {
+      disposed = true;
+      generation += 1;
+      stopDocument();
+      disposeCleanups(activeCleanups);
+      activeCleanups = [];
+    });
+  };
+
+  return defineComposition(source, {
+    setup,
+    document: options.document,
+    meta: {
+      ...options.meta,
+      kind: "3d",
+      deps: [...new Set([...(options.meta?.deps ?? []), sourceComposition.meta?.module].filter((value): value is string => !!value))],
+      authoring: {
+        timeline: "hidden",
+        transport: "always",
+        directManipulation: false,
+        ...options.meta?.authoring,
+      },
+    },
+  });
 }
 
 const numericAttribute = (element: Element, name: string, fallback: number): number => {

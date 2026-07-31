@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createClothSimulation } from "./cloth";
+import { createClothComposition, createClothSimulation } from "./cloth";
+import type { CompositionConfig } from "../composition";
 
 const base = {
   fps: 30,
@@ -124,5 +125,55 @@ describe("cloth simulation", () => {
       expect(Number.isFinite(length)).toBe(true);
       expect(length).toBeCloseTo(1, 5);
     }
+  });
+});
+
+describe("cloth composition", () => {
+  const source: CompositionConfig = {
+    id: "TitleCard",
+    html: '<main data-fd-composition data-fd-id="TitleCard" data-fd-width="960" data-fd-height="540" data-fd-fps="24" data-fd-duration="120"></main>',
+    width: 960,
+    height: 540,
+    fps: 24,
+    durationInFrames: 120,
+    meta: { module: "src/compositions/TitleCard.ts" },
+  };
+
+  it("wraps a registered composition as the animated texture source", () => {
+    const cloth = createClothComposition(source, {
+      id: "TitleCardMaterial",
+      sourceKey: "title-card",
+      width: 1280,
+      height: 720,
+      fit: "cover",
+    });
+
+    expect(cloth).toMatchObject({
+      id: "TitleCardMaterial",
+      width: 1280,
+      height: 720,
+      fps: 24,
+      durationInFrames: 120,
+      meta: {
+        kind: "3d",
+        deps: ["src/compositions/TitleCard.ts"],
+        authoring: { timeline: "hidden", transport: "always", directManipulation: false },
+      },
+    });
+    expect(cloth.html).toContain('data-fd-comp="title-card"');
+    expect(cloth.html).toContain('data-fd-fit="cover"');
+    expect(cloth.html).toContain('data-fd-cloth-source="#fd-cloth-input"');
+    expect(cloth.setup).toBeTypeOf("function");
+  });
+
+  it("escapes authored wrapper attributes", () => {
+    const cloth = createClothComposition(source, {
+      id: 'Material "One"',
+      sourceKey: "title&card",
+      background: "linear-gradient(#111, #222)",
+    });
+
+    expect(cloth.html).toContain('data-fd-id="Material &quot;One&quot;"');
+    expect(cloth.html).toContain('data-fd-comp="title&amp;card"');
   });
 });

@@ -175,6 +175,7 @@ export {
   createClothSimulation,
   createClothRenderer,
   createClothSetup,
+  createClothComposition,
   type ClothVec3,
   type ClothUv,
   type ClothPins,
@@ -194,6 +195,7 @@ export {
   type ClothRenderer,
   type ClothTextureRefresh,
   type ClothSetupOptions,
+  type ClothCompositionOptions,
 } from "./effects/cloth";
 export {
   cameraPoseAtFrame,
