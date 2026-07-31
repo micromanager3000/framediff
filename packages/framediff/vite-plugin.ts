@@ -1309,13 +1309,17 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
           const r = await fetch(`${ELEVENLABS_BASE}/v1/voices`, { headers: { "xi-api-key": k.key } });
           const text = await r.text();
           if (!r.ok) return json(res, r.status, { error: text.slice(0, 300) });
-          const out = JSON.parse(text) as { voices?: { voice_id?: string; name?: string; category?: string; description?: string }[] };
+          const out = JSON.parse(text) as {
+            voices?: { voice_id?: string; name?: string; category?: string; description?: string; preview_url?: string }[];
+          };
           return json(res, 200, {
             voices: (out.voices ?? []).map((v) => ({
               voice_id: v.voice_id,
               name: v.name,
               category: v.category,
               description: v.description,
+              // ElevenLabs hosts a sample per voice, so auditioning costs nothing.
+              preview_url: v.preview_url,
             })),
           });
         }

@@ -139,6 +139,7 @@ export type {
   InspectorSectionSnapshot,
   GenerativeJobSnapshot,
   GenerativeCompositionInputSnapshot,
+  GenerativeChoiceSnapshot,
   GenerativeParamSnapshot,
   GenerativeRefSnapshot,
   GenerativeTakeSettingsSnapshot,

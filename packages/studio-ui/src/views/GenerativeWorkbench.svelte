@@ -93,6 +93,20 @@
     refDraftKey = currentRefKey;
     refAdaptation = selectedRef?.adaptation;
   }
+  // Voice auditioning plays the provider's own hosted sample — no generation, no spend.
+  let auditioning = $state<string | undefined>(undefined);
+  let auditionAudio: HTMLAudioElement | undefined;
+  const previewUrlFor = (param: { choices?: { value: string; previewUrl?: string }[]; value: unknown }) =>
+    param.choices?.find((choice) => choice.value === String(param.value))?.previewUrl;
+  function audition(url?: string) {
+    auditionAudio?.pause();
+    if (!url || auditioning === url) { auditioning = undefined; return; }
+    auditionAudio = new Audio(url);
+    auditionAudio.onended = () => { auditioning = undefined; };
+    auditionAudio.onerror = () => { auditioning = undefined; };
+    auditioning = url;
+    void auditionAudio.play().catch(() => { auditioning = undefined; });
+  }
   const converted = (raw: string, original: unknown) => typeof original === "boolean" ? raw === "true" : typeof original === "number" ? Number(raw) : raw;
   // A comp:// ref is a link into its source composition — but only while that comp still exists.
   function inputCompositionKey(workspace: GenerativeWorkspaceSnapshot, src: string): string | null {
@@ -350,7 +364,26 @@
           <div class="gen-params">
             {#each workspace.params as param (param.key)}
               <label><span>{param.label}</span>
-                {#if param.type === "enum"}
+                {#if param.choices || param.choicesError}
+                  <!-- Account-scoped options (voice ids): the label is the human name, the
+                       value the opaque id, and each can be auditioned from the provider's
+                       own sample rather than by paying for a take. -->
+                  <div class="gen-choice">
+                    <select disabled={!param.enabled || $store.busy || !param.choices?.length} value={String(param.value)} onchange={(event) => void viewModel.update({ [param.key]: event.currentTarget.value })}>
+                      {#if !param.choices?.length}<option value="">{param.choicesError ?? "none available"}</option>{/if}
+                      {#if param.choices?.length && !param.choices.some((choice) => choice.value === String(param.value))}
+                        <option value={String(param.value)}>{String(param.value) || "— pick a voice —"}</option>
+                      {/if}
+                      {#each param.choices ?? [] as choice}
+                        <option value={choice.value}>{choice.label}{choice.group && choice.group !== "premade" ? ` · ${choice.group}` : ""}</option>
+                      {/each}
+                    </select>
+                    {#if previewUrlFor(param)}
+                      <button type="button" class="gen-audition" title="Play a sample of this voice" aria-label="Play a sample of this voice" onclick={() => audition(previewUrlFor(param))}>{auditioning === previewUrlFor(param) ? "■" : "▶"}</button>
+                    {/if}
+                  </div>
+                  {#if param.choicesError}<small class="gen-choice-error">{param.choicesError}</small>{/if}
+                {:else if param.type === "enum"}
                   <select disabled={!param.enabled || $store.busy} value={String(param.value)} onchange={(event) => void viewModel.update({ [param.key]: converted(event.currentTarget.value, param.value) })}>
                     {#each param.options ?? [] as option}<option value={String(option)}>{String(option)}</option>{/each}
                   </select>

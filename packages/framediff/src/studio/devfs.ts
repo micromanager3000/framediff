@@ -250,6 +250,35 @@ export interface SecretsInfo {
   file?: string;
 }
 
+export interface ProviderVoice {
+  voice_id: string;
+  name?: string;
+  category?: string;
+  description?: string;
+  preview_url?: string;
+}
+
+/** The account's real voice ids. Ids are provider-account specific, so they can only be
+ *  discovered — never hardcoded. Returns null when the provider key is missing or scoped
+ *  without read access, so callers can explain instead of showing an empty list. */
+export async function getProviderVoices(
+  request: StudioProjectRequest = globalThis.fetch.bind(globalThis),
+): Promise<{ voices: ProviderVoice[] } | { error: string }> {
+  try {
+    const r = await request("/__framediff/gen/voices");
+    const raw = (await r.json().catch(() => ({}))) as { voices?: ProviderVoice[]; error?: unknown };
+    if (!r.ok) {
+      const detail = typeof raw.error === "string" ? raw.error : JSON.stringify(raw.error ?? {});
+      return { error: /voices_read/.test(detail)
+        ? "The ElevenLabs key is missing the voices_read permission."
+        : detail.slice(0, 200) || `voices request failed (${r.status})` };
+    }
+    return { voices: (raw.voices ?? []).filter((v) => v.voice_id) };
+  } catch (error) {
+    return { error: String((error as Error).message) };
+  }
+}
+
 export async function getSecrets(
   request: StudioProjectRequest = globalThis.fetch.bind(globalThis),
 ): Promise<SecretsInfo | null> {

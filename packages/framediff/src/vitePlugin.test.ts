@@ -357,6 +357,40 @@ describe("framediffDev local cache folder", () => {
     expect(JSON.parse(submitted.body).error).toBe("unsupported ElevenLabs endpoint");
   });
 
+  it("passes each voice's hosted sample through so the Studio can audition without generating", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "framediff-vite-voicelist-"));
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      if (String(input) === "https://api.elevenlabs.io/v1/voices") {
+        return new globalThis.Response(JSON.stringify({
+          voices: [{
+            voice_id: "vox-jimmy",
+            name: "Jimmy Monster",
+            category: "generated",
+            description: "Gravel under warm butter.",
+            preview_url: "https://media.elevenlabs.io/jimmy.mp3",
+          }],
+        }), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      throw new Error(`unexpected fetch ${String(input)}`);
+    }));
+    const request = devBridge(root);
+    await request(
+      "/__framediff/secrets",
+      "PUT",
+      new TextEncoder().encode(JSON.stringify({ provider: "elevenlabs", key: "xi-test-key-1234" })),
+      { "content-type": "application/json" },
+    );
+
+    const listed = await request("/__framediff/gen/voices");
+    expect(listed.status).toBe(200);
+    expect(JSON.parse(listed.body).voices[0]).toMatchObject({
+      voice_id: "vox-jimmy",
+      name: "Jimmy Monster",
+      category: "generated",
+      preview_url: "https://media.elevenlabs.io/jimmy.mp3",
+    });
+  });
+
   it("exposes voice discovery and validates promotion inputs for ElevenLabs", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "framediff-vite-"));
     const request = devBridge(root);

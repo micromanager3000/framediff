@@ -23,6 +23,9 @@ export interface GenParamDef {
   def: GenParamValue;
   /** Subset of options currently allowed (e.g. seedance fast tier caps resolution). */
   gate?: (recipe: GenRecipe) => GenParamValue[] | null;
+  /** Options come from the provider account at snapshot time, not this definition.
+   *  Account-specific ids (voices) can only be discovered, never hardcoded. */
+  dynamicOptions?: "voices";
   /** Param currently applies (e.g. kling aspect is t2v-only — i2v inherits the image). */
   enabledIf?: (recipe: GenRecipe) => boolean;
   /** Exclude from the recipe hash (e.g. seedance tier — the endpoint already encodes it).
@@ -701,13 +704,15 @@ const elevenDirect: GenModelDef = {
   ],
   limits: [
     "needs an ELEVENLABS key under SERVICES (fal's key does not work)",
-    "`voice` is a voice_id, not a display name — list real ids with GET /__framediff/gen/voices",
+    "`voice` is a voice_id, not a display name — the picker lists the voices on your account",
     "no comp:// voice anchor — the voice_id IS the anchor, so reuse it across reads",
   ],
   negativePrompt: false,
   params: [
-    // No voice picker: ids are account-specific, so a static enum would be fiction.
-    // The id lives in the recipe JSON; the bridge's /gen/voices route lists real ones.
+    // Options are fetched from the account — a hardcoded enum would be fiction, but an
+    // empty picker would be useless. The Studio fills this from /gen/voices and can
+    // audition each one from the provider's own hosted sample.
+    { key: "voice", label: "VOICE", type: "enum", options: [], def: "", dynamicOptions: "voices" },
     { key: "duration", label: "TIMELINE", type: "number", min: 2, max: 60, step: 1, def: 10, canonical: false },
     { key: "speed", label: "SPEED", type: "number", min: 0.7, max: 1.2, step: 0.05, def: 1 },
     { key: "seed", label: "SEED", type: "number", min: 0, max: 4294967295, step: 1, def: 0 },

@@ -1,4 +1,5 @@
 import { HttpFolderCAS } from "../assets/httpCas";
+import type { ProviderVoice } from "./devfs";
 import type { Hash } from "../graph/hash";
 import {
   applySourceEdit,
@@ -8,6 +9,7 @@ import {
   genSubmit,
   getAssets,
   getSecrets,
+  getProviderVoices,
   gitCommit,
   gitDirty,
   listCache,
@@ -73,6 +75,7 @@ export interface StudioProjectAdapter {
   gitDirty(): Promise<string[] | null>;
   gitCommit(message: string): Promise<string | null>;
   getSecrets(): Promise<SecretsInfo | null>;
+  getProviderVoices(): Promise<{ voices: ProviderVoice[] } | { error: string }>;
   putSecret(provider: string, key: string): Promise<{ ok: boolean; error?: string }>;
   deleteSecret(provider: string): Promise<{ ok: boolean; error?: string }>;
   verifyProvider(provider: string): Promise<VerifyResult>;
@@ -105,6 +108,7 @@ export function createHttpStudioProjectAdapter(
     gitDirty: () => gitDirty(request),
     gitCommit: (message) => gitCommit(message, request),
     getSecrets: () => getSecrets(request),
+    getProviderVoices: () => getProviderVoices(request),
     putSecret: (provider, key) => putSecret(provider, key, request),
     deleteSecret: (provider) => deleteSecret(provider, request),
     verifyProvider: (provider) => verifyProvider(provider, request),

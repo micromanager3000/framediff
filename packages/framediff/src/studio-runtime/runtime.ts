@@ -27,6 +27,7 @@ import type {
   PreviewHandle,
   PreviewNodeSnapshot,
   PreviewOptions,
+  GenerativeChoiceSnapshot,
   ProviderCredentialsSnapshot,
   RenderProgressSnapshot,
   RenderResult,
@@ -3537,6 +3538,27 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     };
   }
 
+  /** The account's voices as pickable, auditionable choices. Generated voices sort first:
+   *  a project that designed its own cast cares about those, not the stock presets. */
+  private async loadVoiceChoices(): Promise<{ choices: GenerativeChoiceSnapshot[]; error?: string }> {
+    // The adapter method is newer than the interface's other members: an older or partial
+    // project adapter simply has no voice discovery, which is not an error.
+    if (typeof this.project.getProviderVoices !== "function") return { choices: [] };
+    const result = await this.project.getProviderVoices();
+    if ("error" in result) return { choices: [], error: result.error };
+    const rank = (category?: string) => (category === "generated" ? 0 : category === "cloned" ? 1 : 2);
+    const choices = result.voices
+      .map((voice) => ({
+        value: voice.voice_id,
+        label: voice.name ?? voice.voice_id,
+        group: voice.category ?? "voice",
+        description: voice.description,
+        previewUrl: voice.preview_url,
+      }))
+      .sort((a, b) => rank(a.group) - rank(b.group) || a.label.localeCompare(b.label));
+    return { choices };
+  }
+
   public async getGenerativeWorkspace(compositionKey: string): Promise<GenerativeWorkspaceSnapshot | null> {
     const composition = this.registry[compositionKey];
     if (!composition || !("recipe" in composition)) return null;
@@ -3661,6 +3683,10 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
           ),
         }
       : undefined;
+    // Only pay for account discovery when a param actually needs it.
+    const voiceChoices = definition.params.some((param) => param.dynamicOptions === "voices")
+      ? await this.loadVoiceChoices()
+      : { choices: [] as GenerativeChoiceSnapshot[] };
     return {
       compositionKey,
       recipeId: recipe.id,
@@ -3680,6 +3706,12 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         key: param.key, label: param.label, type: param.type, value: genParamValue(recipe, param),
         options: param.gate?.(recipe) ?? param.options, min: param.min, max: param.max, step: param.step,
         enabled: param.enabledIf?.(recipe) ?? true,
+        // Account-scoped options (voice ids) are discovered, never declared.
+        ...(param.dynamicOptions === "voices"
+          ? voiceChoices.error
+            ? { choicesError: voiceChoices.error }
+            : { choices: voiceChoices.choices }
+          : {}),
       })),
       refs: (recipe.refs ?? []).map((ref) => refSnapshot(ref)),
       compositions: Object.entries(this.registry)
