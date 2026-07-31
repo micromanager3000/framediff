@@ -2,6 +2,23 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "first-light",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--workspace",
+        "examples/first-light",
+        "--",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "4177",
+        "--strictPort"
+      ],
+      "port": 4177
+    },
+    {
       "name": "previz-to-gen",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
