@@ -7,6 +7,8 @@
     "gravityY": -2.35,
     "windBase": 3.4,
     "windGust": 2.2,
+    "windSpeed": 1,
+    "flutter": 0.55,
     "damping": 0.044,
     "stiffness": 0.94,
     "shearStiffness": 0.82,
@@ -14,8 +16,12 @@
     "substeps": 3,
     "iterations": 6,
     "pins": "corners",
-    "roughness": 0.76,
-    "metalness": 0.04,
+    "roughness": 0.34,
+    "metalness": 0.18,
+    "iridescence": 0.82,
+    "clearcoat": 0.76,
+    "clearcoatRoughness": 0.18,
+    "sheen": 0.24,
     "cameraFov": 32
   },
   "art": {

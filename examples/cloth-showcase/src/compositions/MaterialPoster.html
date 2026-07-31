@@ -1,0 +1,154 @@
+<!doctype html>
+<html>
+<head>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; }
+    [data-fd-composition] {
+      --lime: #dfff4f;
+      --coral: #ff6243;
+      --paper: #f4f0df;
+      --ink: #10120e;
+      position: relative;
+      overflow: hidden;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 83% 14%, rgba(255,255,255,.72), transparent 17%),
+        linear-gradient(132deg, var(--lime) 0 49%, var(--paper) 49% 72%, var(--coral) 72%);
+      font-family: Inter, "Helvetica Neue", Arial, sans-serif;
+    }
+    [data-fd-composition]::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      opacity: .18;
+      background-image:
+        linear-gradient(rgba(16,18,14,.24) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(16,18,14,.24) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+    [data-fd-composition]::after {
+      content: "";
+      position: absolute;
+      left: 50.8%;
+      top: -120px;
+      width: 3px;
+      height: 820px;
+      transform: rotate(-13deg);
+      background: rgba(16,18,14,.72);
+      box-shadow: 13px 0 0 rgba(244,240,223,.58);
+    }
+    .kicker {
+      position: absolute;
+      left: 36px;
+      top: 29px;
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      font: 800 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    .kicker::before { content: ""; width: 44px; height: 4px; background: currentColor; }
+    .index {
+      position: absolute;
+      right: 34px;
+      top: 27px;
+      font: 700 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .12em;
+    }
+    .title {
+      position: absolute;
+      left: 32px;
+      top: 102px;
+      z-index: 1;
+      font-size: 126px;
+      font-weight: 900;
+      line-height: .72;
+      letter-spacing: -.08em;
+      text-transform: uppercase;
+    }
+    .title span { display: block; }
+    .title span:nth-child(2) {
+      margin-left: 116px;
+      color: var(--paper);
+      -webkit-text-stroke: 2px var(--ink);
+    }
+    .phase {
+      position: absolute;
+      right: 27px;
+      bottom: 68px;
+      z-index: 2;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      color: var(--paper);
+      font: 900 66px/.8 Arial, sans-serif;
+      letter-spacing: -.05em;
+      text-transform: uppercase;
+      -webkit-text-stroke: 1.5px var(--ink);
+    }
+    .copy {
+      position: absolute;
+      left: 40px;
+      bottom: 34px;
+      width: 430px;
+      font: 700 14px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: .055em;
+      text-transform: uppercase;
+    }
+    .copy b { display: block; margin-bottom: 8px; font-size: 11px; letter-spacing: .2em; }
+    .meter {
+      position: absolute;
+      left: 520px;
+      bottom: 35px;
+      width: 284px;
+      height: 13px;
+      border: 2px solid var(--ink);
+      padding: 2px;
+    }
+    .meter i { display: block; width: calc(var(--progress, 0) * 100%); height: 100%; background: var(--ink); }
+    .target {
+      position: absolute;
+      left: 570px;
+      top: 208px;
+      width: 104px;
+      height: 104px;
+      border: 3px solid var(--ink);
+      border-radius: 50%;
+      background: rgba(244,240,223,.28);
+      transform: rotate(calc(var(--progress, 0) * 90deg));
+    }
+    .target::before, .target::after { content: ""; position: absolute; background: var(--ink); }
+    .target::before { left: 50%; top: -18px; width: 2px; height: 136px; }
+    .target::after { top: 50%; left: -18px; width: 136px; height: 2px; }
+  </style>
+</head>
+<body>
+  <main data-fd-composition data-fd-id="MaterialPoster" data-fd-width="944" data-fd-height="560" data-fd-fps="30" data-fd-duration="240" data-fd-library="true" data-fd-source="src/compositions/MaterialPoster.html" data-fd-module="src/compositions/MaterialPoster.ts" data-fd-export="materialPosterComposition">
+    <div class="kicker">Composition input / 001</div>
+    <div class="index">FD—<span class="frame">000</span></div>
+    <div class="title"><span>Make</span><span>HTML</span><span>Move</span></div>
+    <div class="target"></div>
+    <div class="phase">Form</div>
+    <div class="copy"><b>Frame-accurate kinetic matter</b>One composition. One clock.<br>Infinite surface behavior.</div>
+    <div class="meter"><i></i></div>
+    <script>
+      const phases = [
+        { until: 54, word: "Form" },
+        { until: 112, word: "Force" },
+        { until: 178, word: "Fold" },
+        { until: 240, word: "Flow" },
+      ];
+      onFrame(({ frame, durationInFrames }) => {
+        const wholeFrame = Math.max(0, Math.min(durationInFrames - 1, Math.round(frame)));
+        const progress = wholeFrame / (durationInFrames - 1);
+        const phase = phases.find((item) => wholeFrame < item.until) || phases[phases.length - 1];
+        const root = query(".title").parentElement;
+        root.style.setProperty("--progress", progress.toFixed(5));
+        query(".frame").textContent = String(wholeFrame).padStart(3, "0");
+        query(".phase").textContent = phase.word;
+      });
+    </script>
+  </main>
+</body>
+</html>

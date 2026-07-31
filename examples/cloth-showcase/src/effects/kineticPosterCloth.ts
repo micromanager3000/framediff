@@ -20,6 +20,8 @@ interface KineticClothDocument {
     gravityY: number;
     windBase: number;
     windGust: number;
+    windSpeed: number;
+    flutter: number;
     damping: number;
     stiffness: number;
     shearStiffness: number;
@@ -29,6 +31,10 @@ interface KineticClothDocument {
     pins: "none" | "top" | "corners";
     roughness: number;
     metalness: number;
+    iridescence: number;
+    clearcoat: number;
+    clearcoatRoughness: number;
+    sheen: number;
     cameraFov: number;
   };
   art: { accent: string; secondary: string; showGrid: boolean };
@@ -50,9 +56,12 @@ function optionsFor(document: KineticClothDocument): ClothSetupOptions {
       mass: 0.86,
       gravity: [0, settings.gravityY, 0],
       wind: (time) => [
-        Math.sin(time * 1.35) * settings.windBase * 0.34 + Math.sin(time * 3.2) * 0.24,
-        Math.cos(time * 0.82) * 0.18,
-        settings.windBase + Math.sin(time * 1.8) * settings.windGust + Math.sin(time * 5.1) * 0.55,
+        Math.sin(time * 1.35 * settings.windSpeed) * settings.windBase * 0.34
+          + Math.sin(time * 3.2 * settings.windSpeed) * settings.flutter,
+        Math.cos(time * 0.82 * settings.windSpeed) * 0.18,
+        settings.windBase
+          + Math.sin(time * 1.8 * settings.windSpeed) * settings.windGust
+          + Math.sin(time * 5.1 * settings.windSpeed) * settings.flutter,
       ],
       damping: settings.damping,
       stiffness: settings.stiffness,
@@ -85,6 +94,14 @@ function optionsFor(document: KineticClothDocument): ClothSetupOptions {
     material: {
       roughness: settings.roughness,
       metalness: settings.metalness,
+      iridescence: settings.iridescence,
+      iridescenceIOR: 1.42,
+      iridescenceThicknessRange: [120, 520],
+      clearcoat: settings.clearcoat,
+      clearcoatRoughness: settings.clearcoatRoughness,
+      sheen: settings.sheen,
+      sheenRoughness: 0.34,
+      sheenColor: 0xc8f7ff,
       emissive: 0x111408,
       emissiveIntensity: 0.1,
       transparent: true,
@@ -104,29 +121,50 @@ function applyArt(root: HTMLElement, document: KineticClothDocument): void {
 /** JSON changes reconfigure this comp's solver in place without rebuilding the project. */
 export const kineticPosterClothSetup: CompositionSetup = async (context) => {
   let revision = 0;
+  let disposed = false;
   let activeCleanups: Array<() => void> = [];
+  let reconfiguration = Promise.resolve();
   const dispose = (cleanups: Array<() => void>) => {
     for (let index = cleanups.length - 1; index >= 0; index -= 1) cleanups[index]();
   };
-  const configure = async (value: unknown) => {
+  const configure = (value: unknown): Promise<void> => {
     const document = (value ?? fallbackDocument) as KineticClothDocument;
     const currentRevision = ++revision;
-    dispose(activeCleanups);
-    activeCleanups = [];
-    applyArt(context.root, document);
-    const nextCleanups: Array<() => void> = [];
-    await createClothSetup(optionsFor(document))({
-      ...context,
-      document,
-      onCleanup: (cleanup) => nextCleanups.push(cleanup),
+    reconfiguration = reconfiguration.catch(() => {}).then(async () => {
+      if (disposed || currentRevision !== revision) return;
+      dispose(activeCleanups);
+      activeCleanups = [];
+      applyArt(context.root, document);
+      const nextCleanups: Array<() => void> = [];
+      try {
+        await createClothSetup(optionsFor(document))({
+          ...context,
+          document,
+          onCleanup: (cleanup) => nextCleanups.push(cleanup),
+        });
+      } catch (error) {
+        dispose(nextCleanups);
+        const message = error instanceof Error ? error.message : String(error);
+        context.root.dataset.fdError = message;
+        const errorElement = context.root.querySelector<HTMLElement>(".runtime-error");
+        if (errorElement) errorElement.textContent = `Cloth preview failed. ${message}`;
+        throw error;
+      }
+      if (disposed || currentRevision !== revision) dispose(nextCleanups);
+      else {
+        delete context.root.dataset.fdError;
+        const errorElement = context.root.querySelector<HTMLElement>(".runtime-error");
+        if (errorElement) errorElement.textContent = "";
+        activeCleanups = nextCleanups;
+      }
     });
-    if (currentRevision === revision) activeCleanups = nextCleanups;
-    else dispose(nextCleanups);
+    return reconfiguration;
   };
 
   await configure(context.document);
   const stopDocument = context.onDocument(configure);
   context.onCleanup(() => {
+    disposed = true;
     revision += 1;
     stopDocument();
     dispose(activeCleanups);

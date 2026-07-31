@@ -3,6 +3,7 @@
   import { StudioShell, browserAnimationClock } from "@framediff/studio-ui";
   import { studioRuntime } from "$lib/studio-runtime";
   import { composition } from "../config";
+  import ClothControls from "$lib/ClothControls.svelte";
 
   const application = new StudioApplication(studioRuntime, browserAnimationClock, "kinetic-cloth");
   const showCaptureCheck = new URLSearchParams(location.search).has("capture-check");
@@ -25,6 +26,7 @@
 </svelte:head>
 
 <StudioShell {application} />
+<ClothControls {application} />
 
 {#if showCaptureCheck}
   <aside class="capture-check" data-testid="capture-check">
