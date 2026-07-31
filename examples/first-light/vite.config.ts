@@ -5,7 +5,12 @@ import { framediffDev } from "../../packages/framediff/vite-plugin";
 
 export default defineConfig({
   plugins: [sveltekit(), framediffDev()],
-  server: { watch: { ignored: ["**/.svelte-kit/**", "**/build/**"] } },
+  server: {
+    watch: { ignored: ["**/.svelte-kit/**", "**/build/**"] },
+    // Vite rejects Host headers it does not know, which 403s the mDNS name this
+    // is meant to be opened by from another device on the LAN.
+    allowedHosts: [".local"],
+  },
   resolve: {
     dedupe: ["svelte"],
     alias: [
