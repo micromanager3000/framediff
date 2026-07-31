@@ -1,0 +1,49 @@
+{
+  "violet": {
+    "x": 300,
+    "y": 210,
+    "width": 900,
+    "height": 900,
+    "opacity": 0.82,
+    "fill": "radial-gradient",
+    "fillColor": "#7d5cff",
+    "gradientStops": "#9b7dff@0|#7d5cff@0.4|#7d5cff00@1"
+  },
+  "amber": {
+    "x": 1150,
+    "y": 120,
+    "width": 760,
+    "height": 760,
+    "opacity": 0.55,
+    "fill": "radial-gradient",
+    "fillColor": "#f0b45f",
+    "gradientStops": "#ffd08f@0|#f0b45f@0.38|#f0b45f00@1"
+  },
+  "teal": {
+    "x": 820,
+    "y": 560,
+    "width": 820,
+    "height": 700,
+    "opacity": 0.42,
+    "fill": "radial-gradient",
+    "fillColor": "#66cfda",
+    "gradientStops": "#8fe6ef@0|#66cfda@0.36|#66cfda00@1"
+  },
+  "deep": {
+    "x": 40,
+    "y": 620,
+    "width": 1100,
+    "height": 820,
+    "opacity": 0.66,
+    "fill": "radial-gradient",
+    "fillColor": "#2a2160",
+    "gradientStops": "#3b2f86@0|#2a2160@0.44|#2a216000@1"
+  },
+  "horizon": {
+    "y": 742
+  },
+  "motion": {
+    "drift": 74,
+    "pulse": 0.1
+  }
+}

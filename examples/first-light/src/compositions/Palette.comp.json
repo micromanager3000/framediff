@@ -1,0 +1,29 @@
+{
+  "eyebrow": {
+    "text": "THE STUDIO HAS A VOICE",
+    "x": 170,
+    "y": 200,
+    "fontSize": 19,
+    "letterSpacing": 7,
+    "color": "#f0b45f"
+  },
+  "title": {
+    "text": "Eight sounds. One scale.",
+    "x": 170,
+    "y": 238,
+    "width": 1200,
+    "fontSize": 64,
+    "lineHeight": 1.04,
+    "letterSpacing": -2.4,
+    "color": "#f6f4ee"
+  },
+  "body": {
+    "text": "Every sound in the Studio is synthesized in the browser from a single A-minor\npentatonic set. There are no audio files to ship, and no two voices can ever clash.",
+    "x": 170,
+    "y": 330,
+    "width": 900,
+    "fontSize": 24,
+    "lineHeight": 1.55,
+    "color": "#c6c8cd"
+  }
+}

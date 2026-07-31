@@ -3,6 +3,11 @@
 Examples are standalone consumer projects. They should demonstrate public `framediff` APIs rather
 than accumulating a parallel library of effect and composition helpers.
 
+**Start with [`first-light`](./first-light).** It is the only example with no media dependencies —
+nothing to `git lfs pull` before it runs — and its walkthrough teaches the Studio itself rather
+than a craft, which is what someone opening FrameDiff for the first time actually needs. Every
+other example here is a good second project.
+
 Each example selects the project-local Git LFS asset store in `framediff.config.json`. Binary assets
 belong in its top-level `assets/` directory and are covered by the example's `.gitattributes`; run
 `git lfs pull` after cloning before starting an asset-backed example.

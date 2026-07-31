@@ -1,0 +1,56 @@
+<!doctype html>
+<html><head><style>
+  [data-fd-composition]{position:relative;overflow:hidden;background:#080a0f;color:#f4f2ec;font-family:Inter,"SF Pro Display",system-ui,sans-serif}
+  /* Four large, heavily blurred blobs are enough to read as an aurora, and they cost a fraction
+     of what a per-pixel noise field would per rendered frame. */
+  .blob{position:absolute;border-radius:50%;filter:blur(90px);will-change:transform,opacity}
+  .grid{position:absolute;inset:0;background-image:linear-gradient(rgba(244,242,236,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(244,242,236,.05) 1px,transparent 1px);background-size:96px 96px;mask-image:radial-gradient(120% 90% at 50% 42%,#000 20%,transparent 76%)}
+  .grain{position:absolute;inset:-50%;opacity:.055;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E")}
+  .vignette{position:absolute;inset:0;background:radial-gradient(78% 68% at 50% 45%,transparent 32%,rgba(4,5,8,.86) 100%)}
+  .horizon{position:absolute;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(244,242,236,.22),transparent)}
+</style></head><body>
+<main data-fd-composition data-fd-id="Field" data-fd-name="Aurora field" data-fd-width="1920" data-fd-height="1080" data-fd-fps="30" data-fd-duration="400" data-fd-kind="scene" data-fd-library="true" data-fd-source="src/compositions/Field.html" data-fd-module="src/compositions/Field.ts" data-fd-export="fieldComp" data-fd-document="src/compositions/Field.comp.json" data-fd-schema="src/compositions/Field.schema.json">
+  <div class="blob" data-fd-id="field-violet"></div>
+  <div class="blob" data-fd-id="field-amber"></div>
+  <div class="blob" data-fd-id="field-teal"></div>
+  <div class="blob" data-fd-id="field-deep"></div>
+  <div class="grid"></div>
+  <div class="horizon" data-fd-id="field-horizon"></div>
+  <div class="grain"></div>
+  <div class="vignette"></div>
+  <script>
+    let settings = document;
+    onDocument((next) => { settings = next; });
+
+    // Each blob rides its own Lissajous figure. Coprime-ish frequency pairs mean the whole field
+    // takes far longer to repeat than the composition lasts, so nothing visibly loops.
+    const PATHS = [
+      { id: "field-violet", fx: 1.0, fy: 0.7, phase: 0.0 },
+      { id: "field-amber",  fx: 0.7, fy: 1.3, phase: 1.7 },
+      { id: "field-teal",   fx: 1.3, fy: 0.9, phase: 3.1 },
+      { id: "field-deep",   fx: 0.5, fy: 1.1, phase: 4.6 }
+    ];
+
+    onFrame(({ frame, durationInFrames }) => {
+      const t = frame / Math.max(1, durationInFrames - 1);
+      const turn = t * Math.PI * 2;
+      const drift = settings.motion.drift;
+
+      for (const path of PATHS) {
+        const node = query('[data-fd-id="' + path.id + '"]');
+        if (!node) continue;
+        const x = Math.sin(turn * path.fx + path.phase) * drift;
+        const y = Math.cos(turn * path.fy + path.phase) * drift * 0.62;
+        node.style.translate = x.toFixed(2) + 'px ' + y.toFixed(2) + 'px';
+        // A slow breath in brightness, offset per blob so they never pulse in unison.
+        const breath = 1 + settings.motion.pulse * Math.sin(turn * path.fx * 2 + path.phase);
+        node.style.filter = 'blur(90px) brightness(' + breath.toFixed(3) + ')';
+      }
+
+      // The horizon sweeps once across the whole piece — the only element that tells you,
+      // without reading a timecode, roughly how far through you are.
+      const horizon = query('[data-fd-id="field-horizon"]');
+      if (horizon) horizon.style.opacity = String(0.25 + 0.75 * Math.sin(Math.PI * t));
+    });
+  </script>
+</main></body></html>

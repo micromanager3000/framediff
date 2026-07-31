@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "violet": { "$ref": "#/$defs/blob", "title": "Violet light" },
+    "amber": { "$ref": "#/$defs/blob", "title": "Amber light" },
+    "teal": { "$ref": "#/$defs/blob", "title": "Teal light" },
+    "deep": { "$ref": "#/$defs/blob", "title": "Deep shadow" },
+    "horizon": {
+      "type": "object",
+      "title": "Horizon",
+      "properties": {
+        "y": { "type": "number", "title": "Height", "minimum": 0, "maximum": 1080 }
+      }
+    },
+    "motion": {
+      "type": "object",
+      "title": "Motion",
+      "properties": {
+        "drift": { "type": "number", "title": "Drift", "minimum": 0, "maximum": 240, "multipleOf": 1 },
+        "pulse": { "type": "number", "title": "Breath", "minimum": 0, "maximum": 0.4, "multipleOf": 0.01 }
+      }
+    }
+  },
+  "$defs": {
+    "blob": {
+      "type": "object",
+      "properties": {
+        "x": { "type": "number", "minimum": -960, "maximum": 1920 },
+        "y": { "type": "number", "minimum": -540, "maximum": 1080 },
+        "width": { "type": "number", "minimum": 80, "maximum": 1800 },
+        "height": { "type": "number", "minimum": 80, "maximum": 1800 },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "multipleOf": 0.01 },
+        "fillColor": { "type": "string", "format": "color" }
+      }
+    }
+  }
+}

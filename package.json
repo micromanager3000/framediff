@@ -10,7 +10,8 @@
     "examples/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace @framediff/example-studio-playground",
+    "dev": "npm run dev --workspace @framediff/example-first-light",
+    "dev:playground": "npm run dev --workspace @framediff/example-studio-playground",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "vitest run",

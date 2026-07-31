@@ -1,0 +1,67 @@
+<!doctype html>
+<html><head><style>
+  [data-fd-composition]{position:relative;overflow:hidden;background:transparent;color:#f4f2ec;font-family:Inter,"SF Pro Display",system-ui,sans-serif}
+  .copy{position:absolute;margin:0;white-space:pre-line}
+  .eyebrow{font-family:ui-monospace,"SFMono-Regular",monospace;font-weight:700}
+  .title{font-weight:700}
+  .body{font-weight:420}
+  .rack{position:absolute;left:170px;top:606px;display:flex;gap:18px;align-items:flex-end}
+  .voice{width:186px;display:flex;flex-direction:column;gap:14px}
+  /* The bar is the envelope: it rises on attack and falls on decay, exactly like the gain ramp
+     the sound engine schedules for that voice. */
+  .meter{position:relative;height:150px;border-radius:8px;background:rgba(244,242,236,.05);border:1px solid rgba(244,242,236,.09);overflow:hidden}
+  .fill{position:absolute;left:0;right:0;bottom:0;height:6px;border-radius:0 0 7px 7px}
+  .label{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  .label b{font-size:19px;font-weight:700}
+  .label span{color:#8e93a0;font-family:ui-monospace,"SFMono-Regular",monospace;font-size:15px;font-weight:700}
+</style></head><body>
+<main data-fd-composition data-fd-id="Palette" data-fd-name="Sound palette" data-fd-width="1920" data-fd-height="1080" data-fd-fps="30" data-fd-duration="130" data-fd-kind="scene" data-fd-library="true" data-fd-alpha="true" data-fd-source="src/compositions/Palette.html" data-fd-module="src/compositions/Palette.ts" data-fd-export="paletteComp" data-fd-document="src/compositions/Palette.comp.json" data-fd-schema="src/compositions/Palette.schema.json">
+  <p class="copy eyebrow" data-fd-id="palette-eyebrow"></p>
+  <h2 class="copy title" data-fd-id="palette-title"></h2>
+  <p class="copy body" data-fd-id="palette-body"></p>
+  <div class="rack" data-fd-id="palette-rack">
+    <div class="voice"><div class="meter"><i class="fill" style="background:linear-gradient(#f0b45f,#f0b45f40)"></i></div><div class="label"><b>tap</b><span>E5</span></div></div>
+    <div class="voice"><div class="meter"><i class="fill" style="background:linear-gradient(#f0b45f,#f0b45f40)"></i></div><div class="label"><b>select</b><span>A4·C5</span></div></div>
+    <div class="voice"><div class="meter"><i class="fill" style="background:linear-gradient(#8e93a0,#8e93a040)"></i></div><div class="label"><b>detent</b><span>noise</span></div></div>
+    <div class="voice"><div class="meter"><i class="fill" style="background:linear-gradient(#66cfda,#66cfda40)"></i></div><div class="label"><b>open</b><span>sweep</span></div></div>
+    <div class="voice"><div class="meter"><i class="fill" style="background:linear-gradient(#66cfda,#66cfda40)"></i></div><div class="label"><b>close</b><span>sweep</span></div></div>
+    <div class="voice"><div class="meter"><i class="fill" style="background:linear-gradient(#9b8dff,#9b8dff40)"></i></div><div class="label"><b>commit</b><span>Am</span></div></div>
+    <div class="voice"><div class="meter"><i class="fill" style="background:linear-gradient(#72d39c,#72d39c40)"></i></div><div class="label"><b>chime</b><span>A·C·E·A</span></div></div>
+    <div class="voice"><div class="meter"><i class="fill" style="background:linear-gradient(#f07470,#f0747040)"></i></div><div class="label"><b>alert</b><span>E4·C4</span></div></div>
+  </div>
+  <script>
+    // Decay per voice, in seconds — the same values the sound engine schedules.
+    const DECAY = [0.10, 0.20, 0.04, 0.19, 0.16, 0.34, 0.90, 0.34];
+
+    const fills = queryAll(".fill");
+    const columns = queryAll(".voice");
+    const heads = queryAll(".copy");
+    const easeOut = (v) => 1 - Math.pow(1 - Math.min(1, Math.max(0, v)), 3);
+
+    onFrame(({ frame, fps, durationInFrames }) => {
+      const out = easeOut((durationInFrames - frame) / 12);
+
+      heads.forEach((node, index) => {
+        const show = Math.min(easeOut((frame - index * 4) / 18), out);
+        node.style.opacity = show.toFixed(3);
+        node.style.translate = "0 " + (18 * (1 - show)).toFixed(2) + "px";
+      });
+
+      columns.forEach((column, index) => {
+        const show = Math.min(easeOut((frame - 20 - index * 4) / 16), out);
+        column.style.opacity = show.toFixed(3);
+        column.style.translate = "0 " + (22 * (1 - show)).toFixed(2) + "px";
+      });
+
+      // Each voice fires in turn, then the whole rack fires together on the last beat — the same
+      // shape as the chime that plays when a render finishes.
+      fills.forEach((fill, index) => {
+        const decay = DECAY[index];
+        const envelope = (age) => (age < 0 ? 0 : Math.min(1, age / 0.02) * Math.exp(-age / decay));
+        const level = Math.max(envelope((frame - (34 + index * 7)) / fps), envelope((frame - 104) / fps) * 0.85);
+        fill.style.height = (6 + 144 * level).toFixed(2) + "px";
+        fill.style.opacity = (0.35 + 0.65 * level).toFixed(3);
+      });
+    });
+  </script>
+</main></body></html>

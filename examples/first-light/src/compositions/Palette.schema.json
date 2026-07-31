@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "eyebrow": { "$ref": "#/$defs/textBlock", "title": "Eyebrow" },
+    "title": { "$ref": "#/$defs/textBlock", "title": "Title" },
+    "body": { "$ref": "#/$defs/textBlock", "title": "Body" }
+  },
+  "$defs": {
+    "textBlock": {
+      "type": "object",
+      "properties": {
+        "text": { "type": "string", "title": "Copy", "format": "multiline" },
+        "x": { "type": "number", "minimum": -960, "maximum": 1920 },
+        "y": { "type": "number", "minimum": -540, "maximum": 1080 },
+        "width": { "type": "number", "minimum": 80, "maximum": 1920 },
+        "fontSize": { "type": "number", "minimum": 10, "maximum": 200 },
+        "lineHeight": { "type": "number", "minimum": 0.7, "maximum": 2, "multipleOf": 0.01 },
+        "letterSpacing": { "type": "number", "minimum": -12, "maximum": 24 },
+        "color": { "type": "string", "format": "color" }
+      }
+    }
+  }
+}

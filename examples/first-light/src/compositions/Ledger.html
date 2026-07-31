@@ -1,0 +1,65 @@
+<!doctype html>
+<html><head><style>
+  [data-fd-composition]{position:relative;overflow:hidden;background:transparent;color:#f4f2ec;font-family:Inter,"SF Pro Display",system-ui,sans-serif}
+  .copy{position:absolute;margin:0;white-space:pre-line}
+  .eyebrow{font-family:ui-monospace,"SFMono-Regular",monospace;font-weight:700}
+  .title{font-weight:700}
+  .note{font-weight:420}
+  .strip{position:absolute;left:170px;top:462px;display:flex;gap:16px}
+  .cell{width:288px;border-radius:12px;border:1px solid rgba(244,242,236,.1);background:rgba(244,242,236,.035);overflow:hidden}
+  .plate{position:relative;height:162px;background:linear-gradient(140deg,#161a2c,#0c0e18)}
+  /* A stand-in "rendered frame": one lit disc per cell, stepped across the strip so the five
+     stills read as one continuous move sampled five times. */
+  .dot{position:absolute;width:66px;height:66px;border-radius:50%;top:48px;filter:blur(1px)}
+  .meta{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:14px 16px}
+  .meta b{font-family:ui-monospace,"SFMono-Regular",monospace;font-size:17px;font-weight:700}
+  .meta span{color:#72d39c;font-family:ui-monospace,"SFMono-Regular",monospace;font-size:15px;font-weight:700}
+  .hash{margin:0;padding:0 16px 15px;color:#8e93a0;font-family:ui-monospace,"SFMono-Regular",monospace;font-size:14px;letter-spacing:.4px}
+  .pip{position:absolute;width:11px;height:11px;border-radius:50%;background:#72d39c;box-shadow:0 0 22px rgba(114,211,156,.75)}
+</style></head><body>
+<main data-fd-composition data-fd-id="Ledger" data-fd-name="Determinism ledger" data-fd-width="1920" data-fd-height="1080" data-fd-fps="30" data-fd-duration="140" data-fd-kind="scene" data-fd-library="true" data-fd-alpha="true" data-fd-source="src/compositions/Ledger.html" data-fd-module="src/compositions/Ledger.ts" data-fd-export="ledgerComp" data-fd-document="src/compositions/Ledger.comp.json" data-fd-schema="src/compositions/Ledger.schema.json">
+  <p class="copy eyebrow" data-fd-id="ledger-eyebrow"></p>
+  <h2 class="copy title" data-fd-id="ledger-title"></h2>
+  <div class="strip" data-fd-id="ledger-strip">
+    <div class="cell"><div class="plate"><i class="dot" style="left:28px;background:#f0b45f;box-shadow:0 0 54px 12px rgba(240,180,95,.6)"></i></div><div class="meta"><b>frame 000</b><span>stable ×2</span></div><p class="hash">sha256:25ef66861c…</p></div>
+    <div class="cell"><div class="plate"><i class="dot" style="left:70px;background:#c8d95f;box-shadow:0 0 54px 12px rgba(200,217,95,.55)"></i></div><div class="meta"><b>frame 015</b><span>stable ×2</span></div><p class="hash">sha256:bda10d19a4…</p></div>
+    <div class="cell"><div class="plate"><i class="dot" style="left:112px;background:#72d39c;box-shadow:0 0 54px 12px rgba(114,211,156,.55)"></i></div><div class="meta"><b>frame 030</b><span>stable ×2</span></div><p class="hash">sha256:210addffb7…</p></div>
+    <div class="cell"><div class="plate"><i class="dot" style="left:154px;background:#66cfda;box-shadow:0 0 54px 12px rgba(102,207,218,.55)"></i></div><div class="meta"><b>frame 045</b><span>stable ×2</span></div><p class="hash">sha256:a2070ba241…</p></div>
+    <div class="cell"><div class="plate"><i class="dot" style="left:196px;background:#9b8dff;box-shadow:0 0 54px 12px rgba(155,141,255,.55)"></i></div><div class="meta"><b>frame 059</b><span>stable ×2</span></div><p class="hash">sha256:c9f7f76f5e…</p></div>
+  </div>
+  <i class="pip" data-fd-id="ledger-pip"></i>
+  <h3 class="copy title" data-fd-id="ledger-verdict"></h3>
+  <p class="copy note" data-fd-id="ledger-note"></p>
+  <script>
+    const cells = queryAll(".cell");
+    const easeOut = (v) => 1 - Math.pow(1 - Math.min(1, Math.max(0, v)), 3);
+
+    onFrame(({ frame, durationInFrames }) => {
+      const out = easeOut((durationInFrames - frame) / 12);
+
+      for (const id of ["ledger-eyebrow", "ledger-title"]) {
+        const node = query('[data-fd-id="' + id + '"]');
+        if (!node) continue;
+        const show = Math.min(easeOut(frame / 18), out);
+        node.style.opacity = show.toFixed(3);
+        node.style.translate = "0 " + (18 * (1 - show)).toFixed(2) + "px";
+      }
+
+      // The cells stamp in one at a time, left to right, like frames landing in an encoder.
+      cells.forEach((cell, index) => {
+        const show = Math.min(easeOut((frame - 22 - index * 9) / 18), out);
+        cell.style.opacity = show.toFixed(3);
+        cell.style.translate = "0 " + (26 * (1 - show)).toFixed(2) + "px";
+        cell.style.scale = (0.965 + 0.035 * show).toFixed(4);
+      });
+
+      for (const id of ["ledger-pip", "ledger-verdict", "ledger-note"]) {
+        const node = query('[data-fd-id="' + id + '"]');
+        if (!node) continue;
+        const show = Math.min(easeOut((frame - 84) / 20), out);
+        node.style.opacity = show.toFixed(3);
+        node.style.translate = "0 " + (16 * (1 - show)).toFixed(2) + "px";
+      }
+    });
+  </script>
+</main></body></html>

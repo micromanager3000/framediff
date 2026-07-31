@@ -1,0 +1,45 @@
+{
+  "eyebrow": {
+    "text": "RENDERED IN THIS BROWSER",
+    "x": 170,
+    "y": 190,
+    "fontSize": 19,
+    "letterSpacing": 7,
+    "color": "#f0b45f"
+  },
+  "title": {
+    "text": "Same input, same bytes.",
+    "x": 170,
+    "y": 228,
+    "width": 1200,
+    "fontSize": 64,
+    "lineHeight": 1.04,
+    "letterSpacing": -2.4,
+    "color": "#f6f4ee"
+  },
+  "pip": {
+    "x": 172,
+    "y": 806,
+    "width": 11,
+    "height": 11
+  },
+  "verdict": {
+    "text": "Deterministic.",
+    "x": 202,
+    "y": 790,
+    "width": 700,
+    "fontSize": 30,
+    "lineHeight": 1.1,
+    "letterSpacing": -0.6,
+    "color": "#f6f4ee"
+  },
+  "note": {
+    "text": "Rasterize the same frame twice, hash both, compare. That is the whole test —\nand it is a real, runnable example in this repository.",
+    "x": 202,
+    "y": 834,
+    "width": 980,
+    "fontSize": 21,
+    "lineHeight": 1.5,
+    "color": "#8e93a0"
+  }
+}

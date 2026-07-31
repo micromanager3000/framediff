@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "light-field",
+      "from": 0,
+      "durationInFrames": 400,
+      "layer": 0,
+      "trimStart": 0,
+      "name": "Aurora field",
+      "content": {
+        "type": "nested",
+        "composition": "field"
+      }
+    },
+    {
+      "id": "light-aperture",
+      "from": 0,
+      "durationInFrames": 150,
+      "layer": 2,
+      "trimStart": 0,
+      "name": "Aperture title",
+      "content": {
+        "type": "nested",
+        "composition": "aperture"
+      }
+    },
+    {
+      "id": "light-palette",
+      "from": 140,
+      "durationInFrames": 130,
+      "layer": 2,
+      "trimStart": 0,
+      "name": "Sound palette",
+      "content": {
+        "type": "nested",
+        "composition": "palette"
+      }
+    },
+    {
+      "id": "light-ledger",
+      "from": 260,
+      "durationInFrames": 140,
+      "layer": 2,
+      "trimStart": 0,
+      "name": "Determinism ledger",
+      "content": {
+        "type": "nested",
+        "composition": "ledger"
+      }
+    }
+  ]
+}

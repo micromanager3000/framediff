@@ -17,8 +17,9 @@ npm install
 npm run dev
 ```
 
-The default command opens the standalone Studio Playground example. You can also run
-an individual example:
+The default command opens First Light, the smallest complete project. `npm run dev:playground`
+opens the Studio Playground, which covers every capability at once. You can also run an
+individual example:
 
 ```sh
 npm run dev --workspace @framediff/example-first-light

@@ -1,0 +1,46 @@
+{
+  "mark": {
+    "x": 168,
+    "y": 300,
+    "width": 92,
+    "height": 92
+  },
+  "kicker": {
+    "text": "FRAMEDIFF · FIRST LIGHT",
+    "x": 170,
+    "y": 442,
+    "fontSize": 20,
+    "letterSpacing": 7,
+    "color": "#f0b45f"
+  },
+  "titleWipe": {
+    "x": 168,
+    "y": 480,
+    "width": 1180,
+    "height": 210
+  },
+  "title": {
+    "text": "Every frame is\na file you own.",
+    "x": 0,
+    "y": 0,
+    "width": 1180,
+    "fontSize": 96,
+    "lineHeight": 1.02,
+    "letterSpacing": -4,
+    "color": "#f6f4ee"
+  },
+  "rule": {
+    "x": 170,
+    "y": 716,
+    "width": 380
+  },
+  "lede": {
+    "text": "Nothing in this project is a proprietary timeline format. Drag anything you can\nsee and the change lands in HTML, CSS or JSON on disk — readable in a diff.",
+    "x": 170,
+    "y": 752,
+    "width": 900,
+    "fontSize": 25,
+    "lineHeight": 1.55,
+    "color": "#c6c8cd"
+  }
+}

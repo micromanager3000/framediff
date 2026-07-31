@@ -13,7 +13,8 @@
       "content": {
         "type": "video",
         "src": "asset://proxy-blazer"
-      }
+      },
+      "volume": 0.35
     },
     {
       "id": "editorial-wash",
