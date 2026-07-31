@@ -44,6 +44,16 @@ test("a draft take is an obvious, repeatable path back to editing", async ({ pag
   await expect(prompt).toBeFocused();
 });
 
+test("failed attempts stay in take-number order with generated takes", async ({ page }) => {
+  await openComposition(page, "lighthouse-dialogue", "http://127.0.0.1:4175/");
+
+  const takes = page.locator(".gen-output .gen-take");
+  await expect(takes).toHaveCount(3);
+  await expect(takes.nth(0)).toContainText("take 3 · draft");
+  await expect(takes.nth(1).getByRole("button", { name: "Preview take 2", exact: true })).toBeVisible();
+  await expect(takes.nth(2)).toContainText("take 1 · failed");
+});
+
 test("generative rows advertise their output kind and input comps link to their source", async ({ page }) => {
   await openComposition(page, "harborShot", "http://127.0.0.1:4175/");
 

@@ -12,6 +12,7 @@
     type VisualAdaptation,
   } from "@framediff/studio-model";
   import {
+    historicalTakeViews,
     nextGenerationTake,
     referenceKindForMime,
     type GenerativeViewModel,
@@ -585,24 +586,6 @@
             </div>
           </div>
         {/each}
-        {#each $store.failedTakes.slice().reverse() as failedTake (failedTake.id)}
-          <div class="gen-take failed" role="alert">
-            <div class="take-preview">
-              <b>take {failedTake.take} · failed</b>
-              <strong>{failedTake.policyRejection ? "Provider content policy" : "Provider error"}</strong>
-              <span>{failedTake.error}</span>
-              <small>Attempt saved in framediff.generations.json.</small>
-            </div>
-            <div class="failed-take-actions">
-              <code title={failedTake.id}>{failedTake.id.slice(0, 8)}…</code>
-              {#if failedTake.id !== failedDraftStarted}
-                <button onclick={() => void startFromFailedTake(failedTake.id)}>Start take {nextTake} from this</button>
-              {:else}
-                <small>take {nextTake} draft started</small>
-              {/if}
-            </div>
-          </div>
-        {/each}
         {#if !$store.generationActive && !failedAttemptBlocksDraft}
           <button
             type="button"
@@ -618,35 +601,56 @@
             </span>
           </button>
         {/if}
-        {#each workspace.takes.slice().reverse() as take (take.take)}
-          <div class:pinned={take.take === workspace.pinnedTake} class:selected={take.take === previewTake} class="gen-take">
-            <button
-              class="take-preview"
-              aria-pressed={take.take === previewTake}
-              aria-label={`Preview take ${take.take}`}
-              onclick={() => previewTake = take.take}
-            >
-              <b>take {take.take}</b>
-              <span>{(take.bytes / 1_000_000).toFixed(1)} MB · seed {take.seed ?? "—"}</span>
-            </button>
-            <button
-              class="take-use"
-              disabled={$store.busy || take.take === workspace.pinnedTake}
-              aria-label={take.take === workspace.pinnedTake ? `Take ${take.take} in use` : `Use take ${take.take}`}
-              title={take.take === workspace.pinnedTake ? "This take is used by the composition" : `Use take ${take.take} in the composition`}
-              onclick={() => { previewTake = take.take; void viewModel.pin(take.take); }}
-            >{take.take === workspace.pinnedTake ? "In use" : "Use take"}</button>
-            <a
-              class="take-download"
-              href={takeUrl(take.contentHash)}
-              download={`${workspace.recipeId}-take-${take.take}.${takeExtension(take.outputKind)}`}
-              aria-label={`Download take ${take.take}`}
-              title={`Download take ${take.take}`}
-            >
-              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 15.5h12" /></svg>
-              <span>Download</span>
-            </a>
-          </div>
+        {#each historicalTakeViews(workspace, $store.failedTakes) as historicalTake (`${historicalTake.kind}:${historicalTake.take}`)}
+          {#if historicalTake.kind === "failed"}
+            {@const failedTake = historicalTake.failedTake}
+            <div class="gen-take failed" role="alert">
+              <div class="take-preview">
+                <b>take {failedTake.take} · failed</b>
+                <strong>{failedTake.policyRejection ? "Provider content policy" : "Provider error"}</strong>
+                <span>{failedTake.error}</span>
+                <small>Attempt saved in framediff.generations.json.</small>
+              </div>
+              <div class="failed-take-actions">
+                <code title={failedTake.id}>{failedTake.id.slice(0, 8)}…</code>
+                {#if failedTake.id !== failedDraftStarted}
+                  <button onclick={() => void startFromFailedTake(failedTake.id)}>Start take {nextTake} from this</button>
+                {:else}
+                  <small>take {nextTake} draft started</small>
+                {/if}
+              </div>
+            </div>
+          {:else}
+            {@const take = historicalTake.generatedTake}
+            <div class:pinned={take.take === workspace.pinnedTake} class:selected={take.take === previewTake} class="gen-take">
+              <button
+                class="take-preview"
+                aria-pressed={take.take === previewTake}
+                aria-label={`Preview take ${take.take}`}
+                onclick={() => previewTake = take.take}
+              >
+                <b>take {take.take}</b>
+                <span>{(take.bytes / 1_000_000).toFixed(1)} MB · seed {take.seed ?? "—"}</span>
+              </button>
+              <button
+                class="take-use"
+                disabled={$store.busy || take.take === workspace.pinnedTake}
+                aria-label={take.take === workspace.pinnedTake ? `Take ${take.take} in use` : `Use take ${take.take}`}
+                title={take.take === workspace.pinnedTake ? "This take is used by the composition" : `Use take ${take.take} in the composition`}
+                onclick={() => { previewTake = take.take; void viewModel.pin(take.take); }}
+              >{take.take === workspace.pinnedTake ? "In use" : "Use take"}</button>
+              <a
+                class="take-download"
+                href={takeUrl(take.contentHash)}
+                download={`${workspace.recipeId}-take-${take.take}.${takeExtension(take.outputKind)}`}
+                aria-label={`Download take ${take.take}`}
+                title={`Download take ${take.take}`}
+              >
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 15.5h12" /></svg>
+                <span>Download</span>
+              </a>
+            </div>
+          {/if}
         {/each}
         {#if !workspace.takes.length && !$store.generatingTakes.length && !$store.failedTakes.length}
           <div class="panel-empty">Generated takes land here and are pinned into source.</div>

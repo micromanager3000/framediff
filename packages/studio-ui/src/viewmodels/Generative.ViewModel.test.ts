@@ -3,6 +3,7 @@ import type { GenerativeWorkspaceSnapshot } from "@framediff/studio-model";
 import {
   failedTakeViews,
   generatingTakeViews,
+  historicalTakeViews,
   nextGenerationTake,
   readableGenerationError,
   referenceKindForMime,
@@ -97,6 +98,35 @@ describe("failedTakeViews", () => {
     expect(readableGenerationError(
       'result 422: [{"loc":["body"],"msg":"A clear provider message.","ctx":{"reason":"truncated',
     )).toBe("A clear provider message.");
+  });
+});
+
+describe("historicalTakeViews", () => {
+  it("interleaves failed and generated attempts in descending take order", () => {
+    const generatedTake = {
+      take: 2,
+      assetId: "take-2",
+      contentHash: "sha256:take-2",
+      bytes: 400_000,
+      recipeHash: "sha256:done",
+      endpoint: "provider/model",
+      outputKind: "audio",
+    } as const;
+    const failedTake = {
+      id: "failed-job",
+      take: 1,
+      error: "Voice not found",
+      policyRejection: false,
+      matchesCurrentRecipe: false,
+    };
+
+    expect(historicalTakeViews({
+      ...workspace,
+      takes: [generatedTake],
+    } as GenerativeWorkspaceSnapshot, [failedTake])).toEqual([
+      { kind: "generated", take: 2, generatedTake },
+      { kind: "failed", take: 1, failedTake },
+    ]);
   });
 });
 
