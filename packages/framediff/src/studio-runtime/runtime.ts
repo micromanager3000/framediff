@@ -73,8 +73,6 @@ import {
 import type { CacheEntry, CompRegistry, StudioComposition } from "../studio/types";
 import { CAMERA3D_FIELD_KEYS } from "../studio/editableData";
 import { inspectorFieldsFromJsonDocument, jsonPointerValue, setJsonPointerValue } from "../studio/jsonDocument";
-import { exportVideo } from "../render/exportVideo";
-import { captureCompositeFrame } from "../render/captureComposite";
 import { downloadBuffer } from "../save";
 import { hashBlob, hashString } from "../graph/hash";
 import { camelName, kebabName, pascalName } from "../studio/compose";
@@ -116,9 +114,8 @@ import {
   type CompositionTimelineDocument,
   type CompositionTimelinePlacement,
 } from "../composition";
-import { analyzeGsapSource, analyzeGsapUnrollGroups, ensureGsapTimelineSource, insertGsapTweenSource, rewriteGsapAnimationSource, rewriteGsapMotionPathSource, rewriteGsapUnrollSource } from "../gsap/source";
 import { parseMotionPathSvg } from "@framediff/studio-model";
-import { getGsapRuntimeTraces } from "../gsap";
+import { getGsapRuntimeTraces } from "../gsap/traces";
 import {
   findHtmlElementById,
   htmlGradeAttributes,
@@ -132,6 +129,15 @@ import {
   timelineFromHtml,
 } from "../studio/htmlSource";
 import "./preview.css";
+
+let gsapSourcePromise: Promise<typeof import("../gsap/source")> | undefined;
+const loadGsapSource = () => (gsapSourcePromise ??= import("../gsap/source"));
+
+let videoExporterPromise: Promise<typeof import("../render/exportVideo")> | undefined;
+const loadVideoExporter = () => (videoExporterPromise ??= import("../render/exportVideo"));
+
+let frameCapturePromise: Promise<typeof import("../render/captureComposite")> | undefined;
+const loadFrameCapture = () => (frameCapturePromise ??= import("../render/captureComposite"));
 
 type PreviewRecord = {
   host: HTMLElement;
@@ -1239,6 +1245,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   public async probeAnimations(compositionKey: string): Promise<AnimationProbeSnapshot> {
     const composition = this.registry[compositionKey];
     if (!composition) throw new Error(`Unknown composition: ${compositionKey}`);
+    const { analyzeGsapSource, analyzeGsapUnrollGroups } = await loadGsapSource();
     const files = await this.loadCompositionSources(compositionKey);
     const candidates = [composition.meta?.module, ...(composition.meta?.deps ?? [])]
       .filter((file): file is string => !!file && /\.[cm]?[jt]sx?$/.test(file));
@@ -1296,6 +1303,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (!group.safe) return { ok: false, file, message: group.issues.join("; ") || "The helper trace is not serializable." };
     const revision = await this.project.readSourceRevision(file);
     if (!revision?.text) return { ok: false, file, message: `Could not read ${file}.` };
+    const { rewriteGsapUnrollSource } = await loadGsapSource();
     const rewritten = rewriteGsapUnrollSource(revision.text, {
       fps: composition.fps,
       file,
@@ -1321,6 +1329,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     }
     const composition = this.registry[compositionKey];
     if (!composition) return { ok: false, message: `Unknown composition: ${compositionKey}` };
+    const { analyzeGsapSource, rewriteGsapAnimationSource } = await loadGsapSource();
     const files = await this.loadCompositionSources(compositionKey);
     const candidates = [composition.meta?.module, ...(composition.meta?.deps ?? [])]
       .filter((file): file is string => !!file && /\.[cm]?[jt]sx?$/.test(file));
@@ -1368,6 +1377,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const revision = await this.project.readSourceRevision(file);
     if (!revision?.text) return { ok: false, file, message: `Could not read ${file}.` };
     const id = `${request.objectId}-${request.property}`.replace(/[^A-Za-z0-9_-]+/g, "-");
+    const { ensureGsapTimelineSource, insertGsapTweenSource } = await loadGsapSource();
     const prepared = ensureGsapTimelineSource(revision.text, {
       fps: composition.fps,
       file,
@@ -1396,6 +1406,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   public async editMotionPath(request: MotionPathEditRequest): Promise<PlacementEditResult> {
     const composition = this.registry[request.compositionKey];
     if (!composition) return { ok: false, message: `Unknown composition: ${request.compositionKey}` };
+    const { analyzeGsapSource, rewriteGsapMotionPathSource } = await loadGsapSource();
     const files = await this.loadCompositionSources(request.compositionKey);
     const candidates = [composition.meta?.module, ...(composition.meta?.deps ?? [])].filter((file): file is string => !!file);
     const file = candidates.find((candidate) => files[candidate]
@@ -1427,6 +1438,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const id = `${request.objectId}-motion-path`.replace(/[^A-Za-z0-9_-]+/g, "-");
     const from = segments[0].from;
     const to = segments.at(-1)!.to;
+    const { ensureGsapTimelineSource, insertGsapTweenSource, rewriteGsapMotionPathSource } = await loadGsapSource();
     const prepared = ensureGsapTimelineSource(revision.text, {
       fps: composition.fps,
       file,
@@ -2748,6 +2760,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const composition = this.registry[compositionKey];
     if (!composition) throw new Error(`Unknown composition: ${compositionKey}`);
     await this.assetsReady;
+    const { exportVideo } = await loadVideoExporter();
     const window = composition.meta?.render;
     const buffer = await exportVideo(composition, {
       width: composition.width,
@@ -2786,6 +2799,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (!composition) throw new Error(`Unknown composition: ${compositionKey}`);
     await this.assetsReady;
     const frame = Math.round(requestedFrame);
+    const { captureCompositeFrame } = await loadFrameCapture();
     const canvas = await captureCompositeFrame(composition, frame, {
       width: composition.width,
       height: composition.height,
@@ -2928,6 +2942,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     } else if (kind === "image") {
       onProgress({ phase: "prepare", completed: 0, total: 1 });
       const frame = Math.max(0, Math.min(composition.durationInFrames - 1, Math.floor(composition.meta?.outputFrame ?? 0)));
+      const { captureCompositeFrame } = await loadFrameCapture();
       const canvas = await captureCompositeFrame(composition, frame, {
         width: composition.width,
         height: composition.height,
@@ -2941,6 +2956,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       });
       onProgress({ phase: "finalize", completed: 1, total: 1 });
     } else {
+      const { exportVideo } = await loadVideoExporter();
       const buffer = await exportVideo(composition, {
         width: composition.width,
         height: composition.height,
@@ -3013,6 +3029,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     });
     let blob: Blob;
     if (options.kind === "image") {
+      const { captureCompositeFrame } = await loadFrameCapture();
       const canvas = await captureCompositeFrame(composition, 0, {
         width: options.targetWidth,
         height: options.targetHeight,
@@ -3023,6 +3040,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         canvas.toBlob((result) => result ? resolve(result) : reject(new Error("PNG encoding failed")), "image/png");
       });
     } else {
+      const { exportVideo } = await loadVideoExporter();
       const buffer = await exportVideo(composition, {
         width: options.targetWidth,
         height: options.targetHeight,

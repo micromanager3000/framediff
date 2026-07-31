@@ -26,6 +26,8 @@
 
   let endpoint: CameraEndpoint = "start";
   let rigOpen = false;
+  let rigLoading = false;
+  let rigLoadError = "";
   let RigEditor: typeof import("./CameraRigEditor.svelte").default | undefined;
   let inlineSvg: SVGSVGElement;
   let inlineDrag: { pointerId: number; handle: CameraRigHandle; x: number; z: number } | null = null;
@@ -68,7 +70,18 @@
   }
 
   async function setRigOpen(open: boolean): Promise<void> {
-    if (open && !RigEditor) RigEditor = (await import("./CameraRigEditor.svelte")).default;
+    if (open && !RigEditor) {
+      rigLoading = true;
+      rigLoadError = "";
+      try {
+        RigEditor = (await import("./CameraRigEditor.svelte")).default;
+      } catch (error) {
+        rigLoadError = error instanceof Error ? error.message : "The editor module could not be loaded.";
+        return;
+      } finally {
+        rigLoading = false;
+      }
+    }
     rigOpen = open;
     saveRigState();
   }
@@ -175,9 +188,15 @@
     </svg>
   </div>
 
-  <button class="camera-open-rig" onclick={() => void setRigOpen(true)}>
-    <span>OPEN 3D RIG EDITOR</span><small>video plane · camera · look direction · focus</small><b>↗</b>
+  <button class="camera-open-rig" disabled={rigLoading} onclick={() => void setRigOpen(true)}>
+    <span>{rigLoading ? "LOADING 3D EDITOR…" : "OPEN 3D RIG EDITOR"}</span><small>video plane · camera · look direction · focus</small><b>↗</b>
   </button>
+  {#if rigLoadError}
+    <div class="camera-rig-load-error" role="alert">
+      <span>Could not load the 3D editor: {rigLoadError}</span>
+      <button onclick={() => location.reload()}>Reload Studio</button>
+    </div>
+  {/if}
 
   <div class="camera-readout">
     <div><span>FRAME</span><strong>{rounded(frame, 0)}f</strong></div>

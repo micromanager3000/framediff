@@ -25,6 +25,15 @@ export interface FrameDiffDevPlugin {
   config(): {
     optimizeDeps: { include: string[]; exclude: string[] };
     server: { fs: { allow: string[] } };
+    build: {
+      chunkSizeWarningLimit: number;
+      rollupOptions: {
+        output: {
+          onlyExplicitManualChunks: boolean;
+          manualChunks(id: string): string | undefined;
+        };
+      };
+    };
   };
   configureServer(server: DevServer): void;
 }
@@ -529,6 +538,21 @@ const ELEVENLABS_BASE = "https://api.elevenlabs.io";
 /** Jobs mid-finalization — two overlapping /gen/jobs polls must not ingest a take twice. */
 const finalizing = new Set<string>();
 
+function framediffManualChunk(id: string): string | undefined {
+  const normalized = id.replaceAll("\\", "/");
+  if (normalized.includes("/node_modules/gsap/")) return "vendor-gsap";
+  if (/\/(?:packages|node_modules\/@framediff)\/studio-ui\/src\//.test(normalized)) return "framediff-studio-ui";
+  if (/\/(?:packages|node_modules\/@framediff)\/studio-model\/src\//.test(normalized)) return "framediff-studio-model";
+  if (
+    /\/(?:packages|node_modules)\/framediff\/src\/studio-runtime\//.test(normalized) ||
+    /\/(?:packages|node_modules)\/framediff\/src\/studio\//.test(normalized) ||
+    /\/(?:packages|node_modules)\/framediff\/src\/gsap\/traces\.ts$/.test(normalized)
+  ) {
+    return "framediff-studio-runtime";
+  }
+  return undefined;
+}
+
 /** `git status --porcelain` lines → paths (strip status columns, rename arrows, quotes). */
 function parsePorcelain(out: string): string[] {
   return out
@@ -571,6 +595,18 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
           ],
         },
         server: { fs: { allow: [PLUGIN_DIR] } },
+        build: {
+          // Optional heavyweight capabilities are lazy chunks. Keep the warning ceiling high
+          // enough for the media decoder while package-level chunks below keep the eager Studio
+          // surface comfortably bounded.
+          chunkSizeWarningLimit: 800,
+          rollupOptions: {
+            output: {
+              onlyExplicitManualChunks: false,
+              manualChunks: framediffManualChunk,
+            },
+          },
+        },
       };
     },
     configureServer(server) {

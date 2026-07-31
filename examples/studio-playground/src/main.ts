@@ -1,6 +1,4 @@
 import {
-  exportVideo,
-  exportVideoToSink,
   HttpFolderCAS,
   hashBlob,
   createAssetResolver,
@@ -9,6 +7,9 @@ import {
 } from "framediff";
 import { COMPOSITIONS } from "./config";
 import { preloadLuts } from "./effects/luts";
+
+let renderToolsPromise: Promise<typeof import("framediff/render")> | undefined;
+const loadRenderTools = () => (renderToolsPromise ??= import("framediff/render"));
 
 let liveCompositions = COMPOSITIONS;
 let composition = liveCompositions["studio-playground"];
@@ -57,6 +58,7 @@ const writeOutChunk = async (name: string, data: Uint8Array, position: number) =
   name = "render.mp4",
   bitrate = 40_000_000,
 ) => {
+  const { exportVideoToSink } = await loadRenderTools();
   await fetch(`/__out/${encodeURIComponent(name)}`, { method: "DELETE" });
   const result = await exportVideoToSink(composition, {
     width: composition.width,
@@ -86,6 +88,7 @@ const writeOutChunk = async (name: string, data: Uint8Array, position: number) =
 (window as unknown as Record<string, unknown>).__bake = async (id = "lower-third") => {
   const comp = liveCompositions[id];
   if (!comp) throw new Error(`unknown comp "${id}"`);
+  const { exportVideo } = await loadRenderTools();
   const cas = new HttpFolderCAS();
   const buf = await exportVideo(comp, {
     width: comp.width,
@@ -105,7 +108,7 @@ const writeOutChunk = async (name: string, data: Uint8Array, position: number) =
 /** Bake specific frames through the REAL export path and persist PNGs to out/probe/ —
  *  the compare loop diffs them against the reference. __probe("hero-raw", [0, 60, 120]) */
 (window as unknown as Record<string, unknown>).__probe = async (id = "hero-raw", frames: number[] = [0]) => {
-  const { captureCompositeFrame } = await import("framediff");
+  const { captureCompositeFrame } = await loadRenderTools();
   const comp = liveCompositions[id];
   if (!comp) throw new Error(`unknown comp "${id}"`);
   for (const f of frames) {
