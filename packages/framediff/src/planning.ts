@@ -5,8 +5,14 @@
 
 import { defineComposition, type CompositionConfig } from "./composition";
 import {
+  findHtmlElementById,
   flattenHtmlElements,
+  htmlElementText,
+  moveHtmlElement,
+  moveHtmlElementAfter,
   parseHtmlSource,
+  removeHtmlAttribute,
+  removeHtmlElement,
   rewriteHtmlAttribute,
   rewriteHtmlAttributes,
   type HtmlSourceElement,
@@ -32,6 +38,37 @@ export interface PlanRow {
   durationInFrames: number;
   /** data-fd-prop-* attributes verbatim (keys without the prefix, kebab-case). */
   props: Record<string, string>;
+}
+
+export type ScriptSheetField = "title" | "narration" | "visual" | "sfx";
+
+export interface ScriptSheetSource {
+  elementId: string;
+  type: "nested" | "video" | "image" | "audio";
+  compId?: string;
+  src?: string;
+  trimStart?: number;
+}
+
+export interface ScriptSheetRow extends PlanRow {
+  fields: Record<ScriptSheetField, { elementId: string; text: string }>;
+  source?: ScriptSheetSource;
+}
+
+export interface ScriptSheetDocument {
+  summary?: { elementId: string; text: string };
+  rows: ScriptSheetRow[];
+}
+
+export type PlanRowSource =
+  | { type: "nested"; compId: string }
+  | { type: "video" | "image" | "audio"; src: string };
+
+export interface InsertPlanRowOptions {
+  id?: string;
+  beforeId?: string | null;
+  name?: string;
+  durationInFrames?: number;
 }
 
 const value = (element: HtmlSourceElement, name: string): string | undefined =>
@@ -72,6 +109,193 @@ export function parsePlanRows(source: string): PlanRow[] {
       props,
     };
   });
+}
+
+const scriptField = (source: string, row: HtmlSourceElement, field: ScriptSheetField) => {
+  const element = flattenHtmlElements(row.children).find(
+    (candidate) => value(candidate, "data-fd-script-field") === field && value(candidate, "data-fd-id"),
+  );
+  const elementId = element ? value(element, "data-fd-id") : undefined;
+  return elementId ? { elementId, text: htmlElementText(source, elementId) ?? "" } : { elementId: "", text: "" };
+};
+
+/** Project the authored script row contract into the studio's document-shaped editor. */
+export function parseScriptSheet(source: string): ScriptSheetDocument {
+  const roots = flattenHtmlElements(parseHtmlSource(source));
+  const summaryElement = roots.find(
+    (element) => value(element, "data-fd-script-field") === "summary" && value(element, "data-fd-id"),
+  );
+  const summaryId = summaryElement ? value(summaryElement, "data-fd-id") : undefined;
+  const rows = planClips(source).map((row): ScriptSheetRow => {
+    const id = value(row, "data-fd-id") as string;
+    const props: Record<string, string> = {};
+    for (const [name, location] of row.attributes) {
+      if (name.startsWith("data-fd-prop-")) props[name.slice("data-fd-prop-".length)] = location.value;
+    }
+    const sourceElement = flattenHtmlElements(row.children).find(
+      (element) => element.attributes.has("data-fd-script-source") && value(element, "data-fd-id"),
+    );
+    const sourceType = sourceElement
+      ? (value(sourceElement, "data-fd-type") ?? (value(sourceElement, "data-fd-comp") ? "nested" : undefined))
+      : undefined;
+    const sourceSlot = sourceElement && ["nested", "video", "image", "audio"].includes(sourceType ?? "")
+      ? {
+          elementId: value(sourceElement, "data-fd-id") as string,
+          type: sourceType as ScriptSheetSource["type"],
+          ...(value(sourceElement, "data-fd-comp") ? { compId: value(sourceElement, "data-fd-comp") } : {}),
+          ...(value(sourceElement, "data-fd-src") ? { src: value(sourceElement, "data-fd-src") } : {}),
+          ...(numberValue(sourceElement, "data-fd-trim-start") != null
+            ? { trimStart: numberValue(sourceElement, "data-fd-trim-start") }
+            : {}),
+        }
+      : undefined;
+    return {
+      id,
+      name: value(row, "data-fd-name"),
+      from: numberValue(row, "data-fd-from") ?? 0,
+      durationInFrames: numberValue(row, "data-fd-duration") ?? 0,
+      props,
+      fields: {
+        title: scriptField(source, row, "title"),
+        narration: scriptField(source, row, "narration"),
+        visual: scriptField(source, row, "visual"),
+        sfx: scriptField(source, row, "sfx"),
+      },
+      ...(sourceSlot ? { source: sourceSlot } : {}),
+    };
+  });
+  return {
+    ...(summaryId ? { summary: { elementId: summaryId, text: htmlElementText(source, summaryId) ?? "" } } : {}),
+    rows,
+  };
+}
+
+/**
+ * Normalize script rows into one contiguous timeline. A duration edit also updates
+ * each row's source slot and the composition duration in the same source value.
+ */
+export function retimePlanRows(
+  source: string,
+  durationEdits: Readonly<Record<string, number>> = {},
+  startFrame = 0,
+): string | null {
+  const rows = parsePlanRows(source);
+  let next = source;
+  let from = Math.round(startFrame);
+  for (const row of rows) {
+    const duration = Math.max(1, Math.round(durationEdits[row.id] ?? row.durationInFrames));
+    const rewritten = rewriteHtmlAttributes(next, row.id, {
+      "data-fd-from": from,
+      "data-fd-duration": duration,
+    });
+    if (rewritten == null) return null;
+    next = rewritten;
+    const parsed = parseScriptSheet(next).rows.find((candidate) => candidate.id === row.id);
+    if (parsed?.source) {
+      const synced = rewriteHtmlAttributes(next, parsed.source.elementId, {
+        "data-fd-from": from,
+        "data-fd-duration": duration,
+      });
+      if (synced == null) return null;
+      next = synced;
+    }
+    from += duration;
+  }
+  const root = flattenHtmlElements(parseHtmlSource(next)).find((element) => element.attributes.has("data-fd-composition"));
+  const rootId = root ? value(root, "data-fd-id") : undefined;
+  return rootId ? rewriteHtmlAttribute(next, rootId, "data-fd-duration", Math.max(1, from)) : next;
+}
+
+/** Move a row in source order, then derive every row and source-slot start again. */
+export function movePlanRow(source: string, rowId: string, beforeId: string | null): string | null {
+  const rows = parsePlanRows(source);
+  if (!rows.some((row) => row.id === rowId)) return null;
+  if (beforeId && !rows.some((row) => row.id === beforeId)) return null;
+  const lastOther = rows.filter((row) => row.id !== rowId).at(-1);
+  const moved = beforeId
+    ? moveHtmlElement(source, rowId, beforeId)
+    : lastOther
+      ? moveHtmlElementAfter(source, rowId, lastOther.id)
+      : source;
+  return moved == null ? null : retimePlanRows(moved);
+}
+
+/** Delete a row and close the timing gap in the same source value. */
+export function deletePlanRow(source: string, rowId: string): string | null {
+  if (!parsePlanRows(source).some((row) => row.id === rowId)) return null;
+  const removed = removeHtmlElement(source, rowId);
+  return removed == null ? null : retimePlanRows(removed);
+}
+
+/** Change a row's source slot without leaving stale comp/media attributes behind. */
+export function setPlanRowSource(source: string, rowId: string, nextSource: PlanRowSource): string | null {
+  const row = parseScriptSheet(source).rows.find((candidate) => candidate.id === rowId);
+  if (!row?.source) return null;
+  let next = rewriteHtmlAttribute(source, row.source.elementId, "data-fd-type", nextSource.type);
+  if (next == null) return null;
+  if (nextSource.type === "nested") {
+    next = rewriteHtmlAttribute(next, row.source.elementId, "data-fd-comp", nextSource.compId);
+    if (next == null) return null;
+    next = removeHtmlAttribute(next, row.source.elementId, "data-fd-src");
+  } else {
+    next = rewriteHtmlAttribute(next, row.source.elementId, "data-fd-src", nextSource.src);
+    if (next == null) return null;
+    next = removeHtmlAttribute(next, row.source.elementId, "data-fd-comp");
+    if (next != null) next = removeHtmlAttribute(next, row.source.elementId, "data-fd-nested-scale");
+    if (nextSource.type === "image" && next != null) {
+      for (const attribute of ["data-fd-trim-start", "data-fd-playback-rate", "data-fd-volume", "data-fd-muted"]) {
+        next = removeHtmlAttribute(next, row.source.elementId, attribute);
+        if (next == null) return null;
+      }
+    }
+  }
+  return next;
+}
+
+/** Insert a contract-complete script row before another row, or append it. */
+export function insertPlanRow(source: string, options: InsertPlanRowOptions = {}): string | null {
+  const rows = parsePlanRows(source);
+  const root = flattenHtmlElements(parseHtmlSource(source)).find((element) => element.attributes.has("data-fd-composition"));
+  const rootId = root ? value(root, "data-fd-id") : undefined;
+  if (!root || !rootId) return null;
+  const ids = new Set(flattenHtmlElements([root]).map((element) => value(element, "data-fd-id")).filter(Boolean));
+  const base = (options.id ?? `scene-${rows.length + 1}`).replace(/[^a-zA-Z0-9_-]+/g, "-");
+  let id = base;
+  for (let suffix = 2; ids.has(id); suffix += 1) id = `${base}-${suffix}`;
+  const duration = Math.max(1, Math.round(options.durationInFrames ?? 90));
+  const title = options.name ?? `${rows.length + 1} · Untitled scene`;
+  const indent = "  ";
+  const block = [
+    `${indent}<section class="row" data-fd-clip data-fd-id="${escapeAttr(id)}" data-fd-name="${escapeAttr(title)}" data-fd-from="0" data-fd-duration="${duration}" data-fd-prop-status="board">`,
+    `${indent}  <h3 data-fd-id="${escapeAttr(id)}-title" data-fd-script-field="title">${escapeText(title)}</h3>`,
+    `${indent}  <p data-fd-id="${escapeAttr(id)}-narration" data-fd-script-field="narration"></p>`,
+    `${indent}  <p data-fd-id="${escapeAttr(id)}-visual" data-fd-script-field="visual"></p>`,
+    `${indent}  <p data-fd-id="${escapeAttr(id)}-sfx" data-fd-script-field="sfx"></p>`,
+    `${indent}  <div data-fd-clip data-fd-id="${escapeAttr(id)}-source" data-fd-script-source data-fd-type="nested" data-fd-comp="" data-fd-from="0" data-fd-duration="${duration}"></div>`,
+    `${indent}</section>`,
+    "",
+  ].join("\n");
+  const beforeId = options.beforeId ?? null;
+  let inserted: string;
+  if (beforeId) {
+    const before = findHtmlElementById(source, beforeId);
+    if (!before || value(before.parent ?? before, "data-fd-id") !== rootId) return null;
+    const lineStart = source.lastIndexOf("\n", before.start - 1) + 1;
+    inserted = `${source.slice(0, lineStart)}${block}${source.slice(lineStart)}`;
+  } else {
+    const lastRow = rows.length ? findHtmlElementById(source, rows.at(-1)!.id) : undefined;
+    if (lastRow) {
+      const lineEnd = source.indexOf("\n", lastRow.end);
+      const insertAt = lineEnd < 0 ? lastRow.end : lineEnd + 1;
+      inserted = `${source.slice(0, insertAt)}${block}${source.slice(insertAt)}`;
+    } else {
+      const closeStart = source.toLowerCase().lastIndexOf(`</${root.tagName}`, root.end);
+      if (closeStart < root.startTagEnd) return null;
+      const lineStart = source.lastIndexOf("\n", closeStart - 1) + 1;
+      inserted = `${source.slice(0, lineStart)}${block}${source.slice(lineStart)}`;
+    }
+  }
+  return retimePlanRows(inserted);
 }
 
 export interface GenerateEditSkeletonOptions {
@@ -142,6 +366,10 @@ export function generateEditSkeleton(planSource: string, options: GenerateEditSk
 
 function escapeAttr(input: string): string {
   return input.replaceAll("&", "&amp;").replaceAll('"', "&quot;");
+}
+
+function escapeText(input: string): string {
+  return input.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
 
 export interface PlanDriftRow {

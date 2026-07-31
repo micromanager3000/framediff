@@ -10,6 +10,7 @@
   import GitStatus from "./views/GitStatus.svelte";
   import RenderControl from "./views/RenderControl.svelte";
   import GenerativeWorkbench from "./views/GenerativeWorkbench.svelte";
+  import ScriptSheet from "./views/ScriptSheet.svelte";
   import NewCompositionSheet from "./views/NewCompositionSheet.svelte";
   import CacheDrawer from "./views/CacheDrawer.svelte";
   import ServicesDrawer from "./views/ServicesDrawer.svelte";
@@ -26,6 +27,7 @@
   import { GitViewModel } from "./viewmodels/Git.ViewModel";
   import { RenderViewModel } from "./viewmodels/Render.ViewModel";
   import { GenerativeViewModel } from "./viewmodels/Generative.ViewModel";
+  import { ScriptViewModel } from "./viewmodels/Script.ViewModel";
   import { OperationsViewModel } from "./viewmodels/Operations.ViewModel";
   import { ServicesViewModel } from "./viewmodels/Services.ViewModel";
   import { restoreStudioSelection, serializeStudioSelection } from "./viewmodels/selectionPersistence";
@@ -49,6 +51,7 @@
   const git = new GitViewModel(application.git);
   const render = new RenderViewModel(application.render, session);
   const generative = new GenerativeViewModel(application.generative, application.assets);
+  const script = new ScriptViewModel(session, application.assets);
   const operations = new OperationsViewModel(application.operations);
   const services = new ServicesViewModel(application.credentials);
   const store = shell.store;
@@ -313,6 +316,7 @@
     unsubscribeSelection?.();
     unsubscribeRenderWindow?.();
     agentSurface?.dispose();
+    script.destroy();
     application.destroy();
   });
 </script>
@@ -458,7 +462,7 @@
       {/if}
     </section>
 
-    <section class="workspace" class:guided={!!activeGuideStep} class:generate-workspace={$store.current?.kind === "generate"} class:timeline-hidden={!showTimeline} class:transport-hidden={!authoring.transport}>
+    <section class="workspace" class:guided={!!activeGuideStep} class:generate-workspace={$store.current?.kind === "generate"} class:script-workspace={$store.current?.kind === "script"} class:timeline-hidden={!showTimeline} class:transport-hidden={!authoring.transport}>
       {#if activeGuideStep}
         <aside class="guide-task-bar" aria-label={`Guided task: ${activeGuideStep.title}`}>
           <div><span>{activeGuideStep.phase} · GUIDED TASK</span><strong>{activeGuideStep.title}</strong></div>
@@ -471,6 +475,8 @@
       <CompositionFrameBar composition={$store.current} operations={$operationsStore} onbake={() => void operations.bakeCurrent()} />
       {#if $store.current?.kind === "generate"}
         <GenerativeWorkbench viewModel={generative} {runtime} {session} onservices={() => chrome.setServicesOpen(true)} />
+      {:else if $store.current?.kind === "script"}
+        <ScriptSheet viewModel={script} {runtime} />
       {:else}
       <div class="preview-panel">
         <PreviewHost

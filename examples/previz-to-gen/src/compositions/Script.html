@@ -17,29 +17,29 @@
  .chip.gen{color:#ffc276;border-color:rgba(255,194,118,.4)}
  .foot{position:absolute;left:52px;bottom:18px;font-size:11px;color:#a6b0b5}.foot code{font-family:ui-monospace;color:#69d6c0}
 </style></head><body>
-<main data-fd-composition data-fd-id="Script" data-fd-name="Harbor short — run of show" data-fd-width="1280" data-fd-height="720" data-fd-fps="30" data-fd-duration="240" data-fd-kind="script" data-fd-source="src/compositions/Script.html" data-fd-module="src/compositions/Script.ts" data-fd-export="scriptComp" data-fd-document="src/compositions/Script.comp.json" data-fd-schema="src/compositions/ReferenceTitle.schema.json">
+<main data-fd-composition data-fd-id="Script" data-fd-name="Harbor short — run of show" data-fd-width="1280" data-fd-height="720" data-fd-fps="30" data-fd-duration="240" data-fd-kind="script" data-fd-source="src/compositions/Script.html" data-fd-module="src/compositions/Script.ts" data-fd-export="scriptComp" data-fd-document="src/compositions/Script.comp.json">
  <h1 data-fd-id="script-title"></h1>
- <p class="sub">Rows share timing with <b>Main</b>. Who/where chips resolve to the <b>Cast</b> and <b>Locations</b> comps; reference thumbs nest the take or previz that realizes each scene.</p>
+ <p class="sub" data-fd-id="script-summary" data-fd-script-field="summary">Rows share timing with Main. Who/where ids resolve to Cast and Locations; each source slot points at the take or previz that realizes its scene.</p>
  <div class="cols"><span>TIME</span><span>SCENE / VO</span><span>REFERENCE</span><span>WHO · WHERE · PIPELINE</span></div>
  <section class="row" data-fd-clip data-fd-id="scene-approach" data-fd-name="1 · Open-water approach" data-fd-from="0" data-fd-duration="90"
    data-fd-prop-cast="cast-boat cast-lamp" data-fd-prop-location="loc-harbor-mouth" data-fd-prop-status="generated">
   <div><div class="tc"></div><div class="dur"></div></div>
-  <div><div class="shot">1 · Open-water approach</div><p class="vo">“Any light will do, when it’s the only one.”</p><p class="beat">Low over the swell toward the harbor mouth; the lamp holds frame right.</p></div>
-  <div class="thumb" data-fd-clip data-fd-id="scene-approach-ref" data-fd-name="approach · pinned take" data-fd-from="0" data-fd-duration="90" data-fd-type="nested" data-fd-comp="harborShot" data-fd-nested-scale="0.15625"></div>
+  <div><div class="shot" data-fd-id="scene-approach-title" data-fd-script-field="title">1 · Open-water approach</div><p class="vo" data-fd-id="scene-approach-narration" data-fd-script-field="narration">“Any light will do, when it’s the only one.”</p><p class="beat" data-fd-id="scene-approach-visual" data-fd-script-field="visual">Low over the swell toward the harbor mouth; the lamp holds frame right.</p><p data-fd-id="scene-approach-sfx" data-fd-script-field="sfx">swell, distant bell buoy</p></div>
+  <div class="thumb" data-fd-clip data-fd-script-source data-fd-id="scene-approach-ref" data-fd-name="approach · pinned take" data-fd-from="0" data-fd-duration="90" data-fd-type="nested" data-fd-comp="harborShot" data-fd-nested-scale="0.15625"></div>
   <div class="chips"><span class="chip cast">⛵ cast-boat</span><span class="chip loc">📍 loc-harbor-mouth</span><span class="chip gen">take: pinned</span></div>
  </section>
  <section class="row" data-fd-clip data-fd-id="scene-chase" data-fd-name="2 · Boat chase" data-fd-from="90" data-fd-duration="80"
-   data-fd-prop-cast="cast-boat cast-sea" data-fd-prop-location="loc-breakwater" data-fd-prop-status="generated" data-fd-x="0" data-fd-y="4">
+   data-fd-prop-cast="cast-boat cast-sea" data-fd-prop-location="loc-breakwater" data-fd-prop-status="generated">
   <div><div class="tc"></div><div class="dur"></div></div>
-  <div><div class="shot">2 · Boat chase</div><p class="vo">(no VO — engine, chop, one gull)</p><p class="beat">Tracking with the boat along the breakwater; wake crosses the lens.</p></div>
-  <div class="thumb" data-fd-clip data-fd-id="scene-chase-ref" data-fd-name="chase · pinned take" data-fd-from="90" data-fd-duration="80" data-fd-type="nested" data-fd-comp="harborShot" data-fd-trim-start="3" data-fd-nested-scale="0.15625"></div>
+  <div><div class="shot" data-fd-id="scene-chase-title" data-fd-script-field="title">2 · Boat chase</div><p class="vo" data-fd-id="scene-chase-narration" data-fd-script-field="narration"></p><p class="beat" data-fd-id="scene-chase-visual" data-fd-script-field="visual">Tracking with the boat along the breakwater; wake crosses the lens.</p><p data-fd-id="scene-chase-sfx" data-fd-script-field="sfx">engine, chop, one gull</p></div>
+  <div class="thumb" data-fd-clip data-fd-script-source data-fd-id="scene-chase-ref" data-fd-name="chase · pinned take" data-fd-from="90" data-fd-duration="80" data-fd-type="nested" data-fd-comp="harborShot" data-fd-trim-start="3" data-fd-nested-scale="0.15625"></div>
   <div class="chips"><span class="chip cast">⛵ cast-boat</span><span class="chip cast">🌊 cast-sea</span><span class="chip loc">📍 loc-breakwater</span><span class="chip gen">take: pinned</span></div>
  </section>
  <section class="row" data-fd-clip data-fd-id="scene-gallery" data-fd-name="3 · From the lamp" data-fd-from="170" data-fd-duration="70"
    data-fd-prop-cast="cast-lamp cast-boat" data-fd-prop-location="loc-gallery" data-fd-prop-status="previz">
   <div><div class="tc"></div><div class="dur"></div></div>
-  <div><div class="shot">3 · From the lamp</div><p class="vo">“Home is whatever answers.”</p><p class="beat">Reverse from the gallery rail as the boat clears the breakwater.</p></div>
-  <div class="thumb" data-fd-clip data-fd-id="scene-gallery-ref" data-fd-name="gallery · previz" data-fd-from="170" data-fd-duration="70" data-fd-type="nested" data-fd-comp="HarborPreviz" data-fd-trim-start="5.67" data-fd-nested-scale="0.15625"></div>
+  <div><div class="shot" data-fd-id="scene-gallery-title" data-fd-script-field="title">3 · From the lamp</div><p class="vo" data-fd-id="scene-gallery-narration" data-fd-script-field="narration">“Home is whatever answers.”</p><p class="beat" data-fd-id="scene-gallery-visual" data-fd-script-field="visual">Reverse from the gallery rail as the boat clears the breakwater.</p><p data-fd-id="scene-gallery-sfx" data-fd-script-field="sfx">gallery wind, lamp mechanism</p></div>
+  <div class="thumb" data-fd-clip data-fd-script-source data-fd-id="scene-gallery-ref" data-fd-name="gallery · previz" data-fd-from="170" data-fd-duration="70" data-fd-type="nested" data-fd-comp="HarborPreviz" data-fd-trim-start="5.67" data-fd-nested-scale="0.15625"></div>
   <div class="chips"><span class="chip cast">💡 cast-lamp</span><span class="chip loc">📍 loc-gallery</span><span class="chip previz">previz · take not generated</span></div>
  </section>
  <p class="foot">kind=<code>script</code> — <code>generateEditSkeleton(source)</code> derives the edit; boards for these scenes live in <code>Storyboard</code>; who/where ids live in <code>Cast</code> / <code>Locations</code>.</p>

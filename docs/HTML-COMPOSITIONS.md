@@ -235,9 +235,10 @@ replay the same state. Canvas attributes can override the common physical contro
 
 Pre-production documents are ordinary compositions with `data-fd-kind="plan"`: scripts,
 rundowns, and shot lists whose timed rows are `data-fd-clip` elements. Because rows are
-clips, a plan scrubs like a timeline and its timing edits in the timeline. There is no
-special planning surface — a plan sits in the same composition graph as everything
-else: rows nest the comps they reference (`data-fd-type="nested"` + `data-fd-comp`
+clips, a plan scrubs like a timeline and sits in the same composition graph as everything
+else. `data-fd-kind="script"` additionally opens the Studio's full-height script sheet:
+duration is the timing input, starts are derived contiguously, and each edit is one
+reversible source transaction. Rows nest the comps they reference (`data-fd-type="nested"` + `data-fd-comp`
 inside a row renders a live thumbnail of the scene, take, or library card that
 realizes it, and the rail tree follows those references like any other nesting), and
 lighter cross-links ride on `data-fd-prop-*` attributes (scene, cast, location, status
@@ -248,6 +249,11 @@ new-composition sheet offers a plan scaffold.
 The `framediff` planning module gives plans verbs:
 
 - `parsePlanRows(source)` — read the timed rows and their `data-fd-prop-*` refs.
+- `parseScriptSheet(source)` — read addressable script prose and source slots.
+- `retimePlanRows`, `movePlanRow`, `insertPlanRow`, and `deletePlanRow` — mutate the
+  row sequence while deriving contiguous starts, source-slot timing, and total duration.
+- `setPlanRowSource(source, rowId, source)` — atomically switch a marked source slot
+  between a nested comp and image/video/audio media without stale attributes.
 - `generateEditSkeleton(planSource, options)` — derive a master edit with one nested
   placement per row (the animatic/recording-skeleton transform); timing is shared by
   construction. `defineEditSkeleton()` returns it as a ready composition.
@@ -265,6 +271,23 @@ The `framediff` planning module gives plans verbs:
 - `swapNestedComp(source, clipId, compId, status?)` — progress a slot by rewriting its
   `data-fd-comp` (board → previz → final), optionally advancing
   `data-fd-prop-status` (see `PLANNING_STATUSES`).
+
+A script-sheet row uses stable child ids and role markers:
+
+```html
+<section data-fd-clip data-fd-id="scene-approach"
+  data-fd-from="0" data-fd-duration="90">
+  <h3 data-fd-id="scene-approach-title" data-fd-script-field="title">Approach</h3>
+  <p data-fd-id="scene-approach-narration" data-fd-script-field="narration">Any light will do.</p>
+  <p data-fd-id="scene-approach-visual" data-fd-script-field="visual">Low over the swell.</p>
+  <p data-fd-id="scene-approach-sfx" data-fd-script-field="sfx">Bell buoy</p>
+  <div data-fd-clip data-fd-script-source data-fd-id="scene-approach-source"
+    data-fd-type="nested" data-fd-comp="approachShot"></div>
+</section>
+```
+
+An optional addressable element with `data-fd-script-field="summary"` supplies the
+sheet header notes. The source slot stays the same element when its type changes.
 
 Each pre-production document is its own first-class kind — `moodboard`, `script`,
 `storyboard`, `locations`, `cast` (with `plan` as the generic fallback) — and

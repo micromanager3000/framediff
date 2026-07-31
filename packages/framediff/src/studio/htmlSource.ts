@@ -156,6 +156,13 @@ function literalText(source: string, element: HtmlSourceElement): string | undef
   return text || undefined;
 }
 
+/** Read the literal or materialized text owned by one stable authored element. */
+export function htmlElementText(source: string, elementId: string): string | undefined {
+  const element = findHtmlElementById(source, elementId);
+  if (!element) return undefined;
+  return value(element, "data-fd-text") ?? literalText(source, element);
+}
+
 function isTimelineElement(element: HtmlSourceElement): boolean {
   return has(element, "data-fd-clip")
     || has(element, "data-fd-from")
@@ -434,6 +441,74 @@ export function removeHtmlElement(source: string, elementId: string): string | n
     end = lineEnd < 0 ? source.length : lineEnd + 1;
   }
   return `${source.slice(0, start)}${source.slice(end)}`;
+}
+
+interface HtmlElementRange {
+  start: number;
+  end: number;
+  text: string;
+}
+
+function htmlElementLineRange(source: string, element: HtmlSourceElement): HtmlElementRange {
+  let start = element.start;
+  let end = element.end;
+  const lineStart = source.lastIndexOf("\n", start - 1) + 1;
+  const lineEnd = source.indexOf("\n", end);
+  if (/^[ \t]*$/.test(source.slice(lineStart, start)) && (lineEnd < 0 || /^[ \t]*$/.test(source.slice(end, lineEnd)))) {
+    start = lineStart;
+    end = lineEnd < 0 ? source.length : lineEnd + 1;
+  }
+  return { start, end, text: source.slice(start, end) };
+}
+
+/**
+ * Move one stable authored element before a sibling, or to the end of its parent when
+ * beforeId is null. The source fragment is preserved byte-for-byte.
+ */
+export function moveHtmlElement(source: string, elementId: string, beforeId: string | null): string | null {
+  const elements = flattenHtmlElements(parseHtmlSource(source));
+  const element = elements.find((candidate) => value(candidate, "data-fd-id") === elementId);
+  const before = beforeId ? elements.find((candidate) => value(candidate, "data-fd-id") === beforeId) : undefined;
+  if (!element || elementId === beforeId) return element ? source : null;
+  if (before && before.parent !== element.parent) return null;
+  const parent = element.parent;
+  if (!parent) return null;
+
+  const range = htmlElementLineRange(source, element);
+  const without = `${source.slice(0, range.start)}${source.slice(range.end)}`;
+  if (before) {
+    const target = findHtmlElementById(without, beforeId!);
+    if (!target) return null;
+    const targetStart = htmlElementLineRange(without, target).start;
+    return `${without.slice(0, targetStart)}${range.text}${without.slice(targetStart)}`;
+  }
+
+  const parentId = value(parent, "data-fd-id");
+  if (!parentId) return null;
+  const nextParent = findHtmlElementById(without, parentId);
+  if (!nextParent) return null;
+  const closeStart = without.toLowerCase().lastIndexOf(`</${nextParent.tagName}`, nextParent.end);
+  if (closeStart < nextParent.startTagEnd) return null;
+  const closeLineStart = without.lastIndexOf("\n", closeStart - 1) + 1;
+  const insertAt = /^[ \t]*$/.test(without.slice(closeLineStart, closeStart)) ? closeLineStart : closeStart;
+  const separator = range.text.endsWith("\n") || insertAt === closeStart ? "" : "\n";
+  return `${without.slice(0, insertAt)}${range.text}${separator}${without.slice(insertAt)}`;
+}
+
+/** Move one stable authored element immediately after a sibling. */
+export function moveHtmlElementAfter(source: string, elementId: string, afterId: string): string | null {
+  const elements = flattenHtmlElements(parseHtmlSource(source));
+  const element = elements.find((candidate) => value(candidate, "data-fd-id") === elementId);
+  const after = elements.find((candidate) => value(candidate, "data-fd-id") === afterId);
+  if (!element || !after) return null;
+  if (element === after) return source;
+  if (element.parent !== after.parent) return null;
+  const range = htmlElementLineRange(source, element);
+  const without = `${source.slice(0, range.start)}${source.slice(range.end)}`;
+  const nextAfter = findHtmlElementById(without, afterId);
+  if (!nextAfter) return null;
+  const insertAt = htmlElementLineRange(without, nextAfter).end;
+  return `${without.slice(0, insertAt)}${range.text}${without.slice(insertAt)}`;
 }
 
 /** Add a nested composition as the last layer inside an authored HTML composition. */
