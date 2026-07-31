@@ -4063,6 +4063,14 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         ...(secrets.providers.byteplus ?? { set: false }),
       },
       {
+        provider: "elevenlabs",
+        name: "ElevenLabs direct",
+        envVar: "ELEVENLABS_API_KEY",
+        description: "Runs text-to-speech and Voice Design against ElevenLabs' own API. fal's key does not work here, and going direct unlocks any voice_id — the full library, cloned voices, and designed ones — plus a reproducible seed.",
+        integration: "active",
+        ...(secrets.providers.elevenlabs ?? { set: false }),
+      },
+      {
         provider: "midjourney",
         name: "Midjourney",
         envVar: "MIDJOURNEY_API_KEY",
