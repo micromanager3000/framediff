@@ -28,6 +28,15 @@
       "port": 4179
     },
     {
+      "name": "script-lab",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "prototypes/script/server.py",
+        "4181"
+      ],
+      "port": 4181
+    },
+    {
       "name": "evolv-studio",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
