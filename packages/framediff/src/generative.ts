@@ -21,7 +21,7 @@ import type { StudioComposition } from "./studio/types";
 import { defineComposition } from "./composition";
 
 export type GenRefKind = "image" | "endImage" | "video" | "audio";
-export type GenProvider = "fal" | "byteplus";
+export type GenProvider = "fal" | "byteplus" | "elevenlabs";
 
 /** A reference input: `asset://<manifest-id>`, a `/__framediff-cache/<hash>` URL, an http(s)
  *  URL, or a data: URI. asset:// and cache refs are resolved server-side at submit time. */

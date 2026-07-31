@@ -205,6 +205,154 @@ describe("framediffDev local cache folder", () => {
     expect(config.server.fs.allow).toHaveLength(1);
   });
 
+  it("lands a synchronous ElevenLabs read as a finished take", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "framediff-vite-eleven-"));
+    const calls: { url: string; init?: RequestInit }[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      calls.push({ url, init });
+      if (url === "https://api.elevenlabs.io/v1/text-to-speech/vox-jimmy-01") {
+        // ElevenLabs answers with audio bytes directly — no queue, no polling.
+        return new globalThis.Response(new TextEncoder().encode("ID3 jimmy narration"), {
+          status: 200,
+          headers: { "content-type": "audio/mpeg" },
+        });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    }));
+    const request = devBridge(root);
+    await request(
+      "/__framediff/secrets",
+      "PUT",
+      new TextEncoder().encode(JSON.stringify({ provider: "elevenlabs", key: "xi-test-key-1234" })),
+      { "content-type": "application/json" },
+    );
+
+    const submitted = await request(
+      "/__framediff/gen/submit",
+      "POST",
+      new TextEncoder().encode(JSON.stringify({
+        provider: "elevenlabs",
+        gen: "voiceJimmy",
+        endpoint: "v1/text-to-speech/vox-jimmy-01",
+        recipeHash: "sha256:recipe",
+        input: { text: "Red Hook, Brooklyn. Nineteen thirty-two.", model_id: "eleven_v3" },
+        recipe: { id: "voiceJimmy", provider: "elevenlabs", model: "elevenlabs-direct", prompt: "Red Hook, Brooklyn. Nineteen thirty-two." },
+      })),
+      { "content-type": "application/json" },
+    );
+
+    expect(submitted.status).toBe(200);
+    // Done at submit time, with the take already pinned to an asset.
+    expect(JSON.parse(submitted.body).job).toMatchObject({
+      provider: "elevenlabs",
+      status: "done",
+      take: 1,
+      outputKind: "audio",
+    });
+    expect(JSON.parse(submitted.body).job.assetId).toBeTruthy();
+
+    const post = calls.find((call) => call.init?.method === "POST");
+    expect(post?.init?.headers).toMatchObject({ "xi-api-key": "xi-test-key-1234" });
+
+    const jobs = JSON.parse((await request("/__framediff/gen/jobs?gen=voiceJimmy")).body);
+    expect(jobs.takes[0]).toMatchObject({
+      mime: "audio/mpeg",
+      generator: { gen: "voiceJimmy", take: 1, outputKind: "audio" },
+    });
+  });
+
+  it("turns Voice Design candidates into one take each", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "framediff-vite-vdesign-"));
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url === "https://api.elevenlabs.io/v1/text-to-voice/design") {
+        return new globalThis.Response(JSON.stringify({
+          text: "A neighborhood's like a pie.",
+          previews: [
+            { audio_base_64: Buffer.from("candidate one").toString("base64"), generated_voice_id: "gen-a", media_type: "audio/mp3", duration_secs: 6 },
+            { audio_base_64: Buffer.from("candidate two").toString("base64"), generated_voice_id: "gen-b", media_type: "audio/mp3", duration_secs: 6 },
+            { audio_base_64: Buffer.from("candidate three").toString("base64"), generated_voice_id: "gen-c", media_type: "audio/mp3", duration_secs: 6 },
+          ],
+        }), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    }));
+    const request = devBridge(root);
+    await request(
+      "/__framediff/secrets",
+      "PUT",
+      new TextEncoder().encode(JSON.stringify({ provider: "elevenlabs", key: "xi-test-key-1234" })),
+      { "content-type": "application/json" },
+    );
+
+    await request(
+      "/__framediff/gen/submit",
+      "POST",
+      new TextEncoder().encode(JSON.stringify({
+        provider: "elevenlabs",
+        gen: "designJimmy",
+        endpoint: "v1/text-to-voice/design",
+        recipeHash: "sha256:design",
+        input: { voice_description: "Sixty-three, Brooklyn, gravel under warm butter." },
+        recipe: { id: "designJimmy", provider: "elevenlabs", model: "elevenlabs-voice-design", prompt: "Sixty-three, Brooklyn, gravel under warm butter." },
+      })),
+      { "content-type": "application/json" },
+    );
+
+    const jobs = JSON.parse((await request("/__framediff/gen/jobs?gen=designJimmy")).body);
+    // Three candidates, three takes — the takes rail becomes the audition.
+    expect(jobs.jobs).toHaveLength(3);
+    expect(jobs.jobs.map((j: { take: number }) => j.take)).toEqual([1, 2, 3]);
+    expect(jobs.jobs.every((j: { status: string }) => j.status === "done")).toBe(true);
+    // Each take remembers the candidate id needed to promote it to a real voice.
+    const generated = jobs.takes.map((t: { generator?: { generatedVoiceId?: string } }) => t.generator?.generatedVoiceId);
+    expect(generated).toEqual(expect.arrayContaining(["gen-a", "gen-b", "gen-c"]));
+  });
+
+  it("routes ElevenLabs recipes to the provider's own API instead of rejecting them", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "framediff-vite-"));
+    const request = devBridge(root);
+
+    // No key yet: the provider is recognised, so the error is about credentials rather
+    // than "unsupported generation provider" (the pre-ElevenLabs behaviour).
+    const submitted = await request(
+      "/__framediff/gen/submit",
+      "POST",
+      new TextEncoder().encode(JSON.stringify({
+        provider: "elevenlabs",
+        gen: "voiceJimmy",
+        endpoint: "v1/text-to-speech/abc123",
+        recipeHash: "sha256:recipe",
+        input: { text: "Red Hook, nineteen thirty-two." },
+        recipe: { id: "voiceJimmy", prompt: "Red Hook, nineteen thirty-two.", provider: "elevenlabs" },
+      })),
+      { "content-type": "application/json" },
+    );
+    expect(submitted.status).toBe(400);
+    expect(JSON.parse(submitted.body).error).toContain("elevenlabs key");
+    expect(JSON.parse(submitted.body).error).not.toContain("unsupported");
+  });
+
+  it("exposes voice discovery and promotion routes for ElevenLabs", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "framediff-vite-"));
+    const request = devBridge(root);
+
+    // Voice ids are account-specific, so the bridge lists them rather than hardcoding.
+    const voices = await request("/__framediff/gen/voices");
+    expect(voices.status).toBe(400);
+    expect(JSON.parse(voices.body).error).toContain("elevenlabs key");
+
+    // Promotion validates its inputs before spending a provider call.
+    const created = await request(
+      "/__framediff/gen/voice/create",
+      "POST",
+      new TextEncoder().encode(JSON.stringify({ name: "Jimmy Monster" })),
+      { "content-type": "application/json" },
+    );
+    expect(created.status).toBe(400);
+  });
+
   it("writes to the visible default without reading the former hidden cache", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "framediff-vite-"));
     const legacy = path.join(root, ".framediff-cache");
