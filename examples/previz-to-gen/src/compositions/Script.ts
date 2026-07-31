@@ -6,7 +6,6 @@ export const scriptComp = defineComposition(source, {
   document,
   meta: { document: {
     file: "src/compositions/Script.comp.json",
-    schema: "src/compositions/ReferenceTitle.schema.json",
     bindings: { "script-title": "/title" },
   } },
 });

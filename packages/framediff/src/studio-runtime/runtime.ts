@@ -20,6 +20,7 @@ import type {
   ProjectEditReceipt,
   ProjectEditResult,
   ProjectOperationResult,
+  PlanEditRequest,
   PlacementEditRequest,
   PlacementEditResult,
   PreviewElementEditRequest,
@@ -29,6 +30,7 @@ import type {
   ProviderCredentialsSnapshot,
   RenderProgressSnapshot,
   RenderResult,
+  ScriptSheetSnapshot,
   TimelineDeleteRequest,
   TimelineItemSnapshot,
   TimelineLaneSnapshot,
@@ -98,6 +100,14 @@ import {
   type GenRef,
   type GenerativeComposition,
 } from "../generative";
+import {
+  deletePlanRow,
+  insertPlanRow,
+  movePlanRow,
+  parseScriptSheet,
+  retimePlanRows,
+  setPlanRowSource,
+} from "../planning";
 import { mountComposition, type CompositionHandle } from "../runtime";
 import {
   defineComposition,
@@ -1452,6 +1462,14 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     return this.editPlacements([request]);
   }
 
+  public async probeScriptSheet(compositionKey: string): Promise<ScriptSheetSnapshot | null> {
+    const composition = this.registry[compositionKey];
+    const file = composition?.meta?.sourceFormat !== "generated" ? composition.meta?.file : undefined;
+    if (!composition || composition.meta?.kind !== "script" || !file) return null;
+    const source = await this.project.readSource(file);
+    return source == null ? null : parseScriptSheet(source);
+  }
+
   private async refreshEditedComposition(compositionKey: string): Promise<void> {
     this.probed.delete(compositionKey);
     await this.probe(compositionKey);
@@ -1462,6 +1480,46 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       preview.mountedKey = undefined;
       this.renderPreview(preview);
     }
+  }
+
+  public async editPlan(request: PlanEditRequest): Promise<PlacementEditResult> {
+    const composition = this.registry[request.compositionKey];
+    const file = composition?.meta?.sourceFormat !== "generated" ? composition.meta?.file : undefined;
+    if (!composition || !file || (composition.meta?.kind !== "script" && composition.meta?.kind !== "plan")) {
+      return { ok: false, message: "This composition is not a writable plan document." };
+    }
+    const revision = await this.project.readSourceRevision(file);
+    if (!revision || revision.text == null) {
+      return { ok: false, file, message: `Could not read ${file} through the project adapter.` };
+    }
+    const next = request.type === "retime"
+      ? retimePlanRows(revision.text, { [request.rowId]: request.durationInFrames })
+      : request.type === "move"
+        ? movePlanRow(revision.text, request.rowId, request.beforeId)
+        : request.type === "delete"
+          ? deletePlanRow(revision.text, request.rowId)
+          : request.type === "insert"
+            ? insertPlanRow(revision.text, {
+                beforeId: request.beforeId,
+                durationInFrames: request.durationInFrames,
+              })
+            : setPlanRowSource(revision.text, request.rowId, request.source);
+    if (next == null) return { ok: false, file, message: "The plan edit could not be applied to the authored row contract." };
+    const label = request.type === "retime"
+      ? "Retime script scene"
+      : request.type === "move"
+        ? "Reorder script scene"
+        : request.type === "delete"
+          ? "Delete script scene"
+          : request.type === "insert"
+            ? "Add script scene"
+            : "Change script scene source";
+    const committed = await this.commitSourceText(label, revision, next);
+    if (!committed.ok) {
+      return { ok: false, file, message: committed.message, receipt: committed.receipt, conflicts: committed.conflicts };
+    }
+    await this.refreshEditedComposition(request.compositionKey);
+    return { ok: true, file, receipt: committed.receipt };
   }
 
   public async editPlacements(requests: PlacementEditRequest[]): Promise<PlacementEditResult> {
@@ -2662,6 +2720,13 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const assetId = await this.project.uploadAsset(file);
     if (assetId) {
       await this.loadAssets();
+      // Mounted compositions capture their resolver at setup time. Force them through a
+      // fresh mount so a just-imported asset:// id is available immediately rather than
+      // only after the next composition switch or page reload.
+      for (const preview of this.previews) {
+        preview.mountedKey = undefined;
+        this.renderPreview(preview);
+      }
       for (const listener of this.bakeInputListeners) listener();
     }
     return assetId;

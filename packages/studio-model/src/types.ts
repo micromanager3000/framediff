@@ -484,6 +484,53 @@ export interface TimelineDeleteRequest {
   };
 }
 
+export interface ScriptSheetFieldSnapshot {
+  elementId: string;
+  text: string;
+}
+
+export interface ScriptSheetSourceSnapshot {
+  elementId: string;
+  type: "nested" | "video" | "image" | "audio";
+  compId?: string;
+  src?: string;
+  trimStart?: number;
+}
+
+export interface ScriptSheetRowSnapshot {
+  id: string;
+  name?: string;
+  from: number;
+  durationInFrames: number;
+  props: Record<string, string>;
+  fields: {
+    title: ScriptSheetFieldSnapshot;
+    narration: ScriptSheetFieldSnapshot;
+    visual: ScriptSheetFieldSnapshot;
+    sfx: ScriptSheetFieldSnapshot;
+  };
+  source?: ScriptSheetSourceSnapshot;
+}
+
+export interface ScriptSheetSnapshot {
+  summary?: ScriptSheetFieldSnapshot;
+  rows: ScriptSheetRowSnapshot[];
+}
+
+export type ScriptSourceEdit =
+  | { type: "nested"; compId: string }
+  | { type: "video" | "image" | "audio"; src: string };
+
+export type PlanEditRequest =
+  | { compositionKey: string; type: "retime"; rowId: string; durationInFrames: number }
+  | { compositionKey: string; type: "move"; rowId: string; beforeId: string | null }
+  | { compositionKey: string; type: "delete"; rowId: string }
+  | { compositionKey: string; type: "insert"; beforeId?: string | null; durationInFrames?: number }
+  | { compositionKey: string; type: "source"; rowId: string; source: ScriptSourceEdit };
+export type PlanEditIntent = PlanEditRequest extends infer Request
+  ? Request extends { compositionKey: string } ? Omit<Request, "compositionKey"> : never
+  : never;
+
 export interface TimelineShapeCreateRequest {
   compositionKey: string;
   shape: "rect" | "ellipse" | "line" | "path";
@@ -575,6 +622,9 @@ export interface CompositionRuntimePort {
   captureFrame?(compositionKey: string, frame: number): Promise<AgentFrameSnapshot>;
   editPlacement(request: PlacementEditRequest): Promise<PlacementEditResult>;
   editPlacements(requests: PlacementEditRequest[]): Promise<PlacementEditResult>;
+  /** Read and atomically mutate a timed script document without exposing source parsing to the UI. */
+  probeScriptSheet?(compositionKey: string): Promise<ScriptSheetSnapshot | null>;
+  editPlan?(request: PlanEditRequest): Promise<PlacementEditResult>;
   /** Remove source-backed timeline objects as one reversible source transaction. */
   deleteTimelineItems?(request: TimelineDeleteRequest): Promise<PlacementEditResult>;
   /** Add a JSON-authored vector shape to an edit timeline. */

@@ -94,6 +94,62 @@ describe("HtmlStudioRuntime Inspector batches", () => {
   });
 });
 
+describe("HtmlStudioRuntime script sheets", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("projects the row contract and commits a ripple as one source transaction", async () => {
+    const html = `<main data-fd-composition data-fd-id="Script" data-fd-duration="60">
+  <section data-fd-clip data-fd-id="a" data-fd-from="0" data-fd-duration="30">
+    <h3 data-fd-id="a-title" data-fd-script-field="title">A</h3>
+    <p data-fd-id="a-narration" data-fd-script-field="narration">Line</p>
+    <p data-fd-id="a-visual" data-fd-script-field="visual">View</p>
+    <p data-fd-id="a-sfx" data-fd-script-field="sfx">Bell</p>
+    <div data-fd-clip data-fd-script-source data-fd-id="a-source" data-fd-type="nested" data-fd-comp="shot" data-fd-from="0" data-fd-duration="30"></div>
+  </section>
+  <section data-fd-clip data-fd-id="b" data-fd-from="30" data-fd-duration="30"></section>
+</main>`;
+    const script = {
+      id: "Script",
+      width: 1920,
+      height: 1080,
+      fps: 30,
+      durationInFrames: 60,
+      html,
+      meta: { kind: "script" as const, file: "src/Script.html", sourceFormat: "html" as const },
+    } satisfies StudioComposition;
+    let transaction: { label: string; files: Array<{ file: string; text: string }> } | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/__framediff/assets") return new Response("missing", { status: 404 });
+      if (url.startsWith("/__framediff/src?")) {
+        return Response.json({ file: "src/Script.html", text: html, hash: "script:1" });
+      }
+      if (url === "/__framediff/edit" && init?.method === "POST") {
+        transaction = JSON.parse(String(init.body));
+        return Response.json({ ok: true, receipt: { id: "script-1", label: transaction!.label, before: [], after: [] } });
+      }
+      return new Response("not found", { status: 404 });
+    }));
+    const runtime = createStudioRuntime({ script } as CompRegistry);
+
+    await expect(runtime.probeScriptSheet("script")).resolves.toMatchObject({
+      rows: [{ id: "a", fields: { narration: { text: "Line" } } }, { id: "b" }],
+    });
+    const result = await runtime.editPlan({
+      compositionKey: "script",
+      type: "retime",
+      rowId: "a",
+      durationInFrames: 45,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(transaction?.label).toBe("Retime script scene");
+    expect(transaction?.files).toHaveLength(1);
+    expect(transaction?.files[0].text).toContain('data-fd-id="b" data-fd-from="45"');
+    expect(transaction?.files[0].text).toContain('data-fd-id="Script" data-fd-duration="75"');
+  });
+});
+
 describe("HtmlStudioRuntime document-backed composition duration", () => {
   afterEach(() => vi.unstubAllGlobals());
 

@@ -11,6 +11,8 @@ import type {
   CompositionRuntimePort,
   PlacementEditResult,
   PlacementField,
+  PlanEditIntent,
+  PlanEditRequest,
   PreviewElementPatch,
   StudioSessionState,
   TimelineDeleteRequest,
@@ -538,6 +540,21 @@ export class StudioSession {
     patch: Partial<Pick<TimelineItemSnapshot, "from" | "durationInFrames" | "layer">>,
   ): Promise<boolean> {
     return (await this.editTimelineItemResult(itemId, patch)).ok;
+  }
+
+  public async editPlan(request: PlanEditIntent): Promise<boolean> {
+    const state = this.state.get();
+    if (!state.currentKey || state.editing || !this.runtime.editPlan) return false;
+    this.state.update((current) => ({ ...current, editing: true, error: null, notice: null }));
+    const result = await this.runtime.editPlan({ ...request, compositionKey: state.currentKey } as PlanEditRequest);
+    this.state.update((current) => ({
+      ...current,
+      editing: false,
+      error: result.ok ? null : result.message ?? "Could not update the script.",
+      notice: result.ok ? `${result.receipt?.label ?? "Updated script"}${result.file ? ` in ${result.file}` : ""}.` : null,
+    }));
+    if (result.ok) await this.probeAll();
+    return result.ok;
   }
 
   /** Same placement kernel as the timeline UI, with the exact receipt/conflict result for agents. */
