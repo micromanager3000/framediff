@@ -313,6 +313,12 @@ test("a composition can be dragged into a generative recipe and undone", async (
   await rows.filter({ hasText: "skyTimelapse" }).click();
   await expect(page.locator(".breadcrumb button.active")).toHaveText("skyTimelapse");
 
+  // Opening a recipe auto-previews its latest saved take, and skyTimelapse ships with one.
+  // That view is read only — input references only exist on the editable draft.
+  const backToDraft = page.getByRole("button", { name: "Back to current draft", exact: true });
+  if (await backToDraft.count()) await backToDraft.click();
+  await expect(page.getByRole("combobox", { name: "Generation model", exact: true })).toBeVisible();
+
   const endCard = rows.filter({ hasText: "EndCard" });
   const references = page.getByRole("group", { name: "Generation input references; drop media or a composition to add it" });
   await expect(endCard).toHaveCount(1);
