@@ -48,15 +48,19 @@ RUN apt-get update \
       gpgsm \
       keyboxd \
       gstreamer1.0-libav \
+      gstreamer1.0-plugins-bad \
       libavcodec60 \
       libavfilter9 \
       libavformat60 \
       libavutil58 \
       libcjson1 \
+      libgstreamer-plugins-bad1.0-0 \
+      libopenexr-3-1-30 \
       libpostproc57 \
       librist4 \
       libswresample4 \
       libswscale7 \
+      libzvbi0t64 \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 

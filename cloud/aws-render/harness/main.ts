@@ -227,11 +227,12 @@ async function captureCase(name: string, composition: CompositionConfig, frame: 
 
 async function exportCase(name: string, composition: CompositionConfig, frames: number): Promise<CapabilityResult> {
   const started = performance.now();
+  const video = await supportedMp4Codec();
   const output = new Uint8Array(await exportVideo(composition, {
     width: composition.width,
     height: composition.height,
-    codec: "avc1.42001f",
-    muxerCodec: "avc",
+    codec: video.codec,
+    muxerCodec: video.muxerCodec,
     bitrate: 2_500_000,
     hardwareAcceleration: "prefer-hardware",
     startFrame: 0,
@@ -245,7 +246,7 @@ async function exportCase(name: string, composition: CompositionConfig, frames: 
     durationMs: Math.round(performance.now() - started),
     hash: await sha256(output),
     bytes: output.byteLength,
-    detail: { frames },
+    detail: { frames, codec: video.codec },
   };
 }
 
@@ -261,14 +262,28 @@ async function browserCapabilities() {
   const h264 = typeof VideoEncoder !== "undefined"
     ? await VideoEncoder.isConfigSupported({ codec: "avc1.42001f", width: 640, height: 360, bitrate: 2_500_000, framerate: 30, hardwareAcceleration: "prefer-hardware" })
     : null;
+  const av1 = typeof VideoEncoder !== "undefined"
+    ? await VideoEncoder.isConfigSupported({ codec: "av01.0.08M.08", width: 640, height: 360, bitrate: 2_500_000, framerate: 30, hardwareAcceleration: "prefer-hardware" })
+    : null;
   return {
     userAgent: navigator.userAgent,
     gpuApi,
     adapterInfo,
     h264Supported: h264?.supported ?? false,
+    av1Supported: av1?.supported ?? false,
     audioEncoder: typeof AudioEncoder !== "undefined",
     videoDecoder: typeof VideoDecoder !== "undefined",
   };
+}
+
+async function supportedMp4Codec(): Promise<{
+  codec: "avc1.42001f" | "av01.0.08M.08";
+  muxerCodec: "avc" | "av1";
+}> {
+  const capabilities = await browserCapabilities();
+  if (capabilities.h264Supported) return { codec: "avc1.42001f", muxerCodec: "avc" };
+  if (capabilities.av1Supported) return { codec: "av01.0.08M.08", muxerCodec: "av1" };
+  throw new Error("Chrome exposes neither H.264 nor AV1 MP4 encoding.");
 }
 
 function assertHardwareWebGpu(browser: Awaited<ReturnType<typeof browserCapabilities>>) {
@@ -673,11 +688,12 @@ async function runHostedRender(request: HostedRenderRequest) {
     filename = "render.png";
     contentType = "image/png";
   } else {
+    const video = await supportedMp4Codec();
     bytes = new Uint8Array(await exportVideo(composition, {
       width: request.settings.width,
       height: request.settings.height,
-      codec: "avc1.640028",
-      muxerCodec: "avc",
+      codec: video.codec,
+      muxerCodec: video.muxerCodec,
       bitrate: request.settings.bitrate && request.settings.bitrate > 0 ? request.settings.bitrate : 8_000_000,
       hardwareAcceleration: "prefer-hardware",
       startFrame: request.settings.from,
@@ -721,7 +737,9 @@ async function runSuite() {
   const startedAt = new Date().toISOString();
   const browser = await browserCapabilities();
   assertHardwareWebGpu(browser);
-  if (!browser.h264Supported) throw new Error("Chrome does not expose H.264 VideoEncoder support.");
+  if (!browser.h264Supported && !browser.av1Supported) {
+    throw new Error("Chrome exposes neither H.264 nor AV1 MP4 encoding.");
+  }
   if (!browser.videoDecoder) throw new Error("Chrome does not expose VideoDecoder.");
 
   const results: CapabilityResult[] = [];
