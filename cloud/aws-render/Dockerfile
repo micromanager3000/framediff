@@ -69,6 +69,7 @@ COPY cloud/aws-render ./cloud/aws-render
 
 RUN npm ci --ignore-scripts \
     && npm --prefix cloud/aws-render ci --omit=dev \
+    && test -f cloud/aws-render/node_modules/vite/bin/vite.js \
     && mkdir -p cloud/aws-render/harness/public/fixtures \
     && node cloud/aws-render/scripts/cache-models.mjs
 

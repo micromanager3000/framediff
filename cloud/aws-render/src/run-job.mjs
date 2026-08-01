@@ -5,6 +5,7 @@ import process from "node:process";
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { chromium } from "playwright";
 import { validateJobSpec } from "./job-spec.mjs";
+import { viteExecutablePath } from "./runtime-paths.mjs";
 
 const workspace = process.env.FD_WORKSPACE || resolve(import.meta.dirname, "../../..");
 const bucket = process.env.FD_ARTIFACT_BUCKET || "";
@@ -177,7 +178,7 @@ async function runCloudWorkload(spec, prefix) {
   const port = Number(process.env.FD_HARNESS_PORT || 4179);
   const url = `http://127.0.0.1:${port}`;
   const vite = spawn("node", [
-    resolve(workspace, "node_modules/vite/bin/vite.js"),
+    viteExecutablePath(),
     "--config", resolve(workspace, "cloud/aws-render/harness/vite.config.ts"),
     "--host", "127.0.0.1",
     "--port", String(port),
