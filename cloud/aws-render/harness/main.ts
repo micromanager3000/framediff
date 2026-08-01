@@ -28,6 +28,27 @@ type CapabilityResult = {
 
 type InferenceKind = "depth-map" | "segmentation" | "background-removal";
 
+type HostedSourceFile = {
+  sha256: string;
+  contentBase64: string;
+  executable?: boolean;
+};
+
+type HostedRenderRequest = {
+  compositionKey: string;
+  source: { files: Record<string, HostedSourceFile> };
+  settings: {
+    width: number;
+    height: number;
+    fps?: { numerator?: number; denominator?: number };
+    from: number;
+    to: number;
+    outputKind: "video" | "image";
+    codec?: string;
+    bitrate?: number;
+  };
+};
+
 const DEPTH_MODEL = {
   id: "onnx-community/depth-anything-v2-small",
   revision: "4472b7362082ad9968fee890ca0f1e5aca36b93d",
@@ -569,6 +590,132 @@ async function runInference(kind: InferenceKind, inputDataUrl?: string) {
   }
 }
 
+function decodeBase64(value: string): Uint8Array {
+  const binary = atob(value);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+function hostedDocumentSetup(): CompositionSetup {
+  return ({ root, document }) => {
+    if (!document || typeof document !== "object" || Array.isArray(document)) return;
+    const elements = [root, ...Array.from(root.querySelectorAll<HTMLElement>("[data-fd-id]"))];
+    for (const [key, value] of Object.entries(document)) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+      const record = value as Record<string, unknown>;
+      const element = elements.find((candidate) => candidate.dataset.fdId === key);
+      if (element && typeof record.text === "string") {
+        element.dataset.fdText = record.text;
+        element.textContent = record.text;
+      }
+      if (typeof record.color === "string") {
+        root.style.setProperty(`--${key.replace(/[^a-zA-Z0-9_-]/g, "-")}`, record.color);
+      }
+    }
+  };
+}
+
+async function runHostedRender(request: HostedRenderRequest) {
+  artifacts.clear();
+  const startedAt = new Date().toISOString();
+  const started = performance.now();
+  const browser = await browserCapabilities();
+  const decoded = new Map<string, Uint8Array>();
+  for (const [path, file] of Object.entries(request.source.files)) {
+    const bytes = decodeBase64(file.contentBase64);
+    const digest = await sha256(bytes);
+    if (`sha256:${digest}` !== file.sha256) throw new Error(`Hosted source digest mismatch: ${path}`);
+    decoded.set(path, bytes);
+  }
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  const htmlCandidates = Array.from(decoded.entries())
+    .filter(([path]) => path.toLowerCase().endsWith(".html"))
+    .map(([path, bytes]) => ({ path, source: decoder.decode(bytes) }))
+    .filter(({ source }) => source.includes("data-fd-composition"));
+  const requested = request.compositionKey.toLowerCase();
+  const candidates = htmlCandidates.map((candidate) => ({
+    ...candidate,
+    composition: defineComposition(candidate.source, { file: candidate.path }),
+  }));
+  const selected = candidates.find(({ composition }) => composition.id.toLowerCase() === requested)
+    ?? candidates.find(({ path }) => basenameWithoutExtension(path).toLowerCase() === requested)
+    ?? (candidates.length === 1 ? candidates[0] : undefined);
+  if (!selected) throw new Error(`Hosted composition was not found: ${request.compositionKey}`);
+  const readJson = (path?: string): unknown => {
+    if (!path) return undefined;
+    const bytes = decoded.get(path);
+    if (!bytes) throw new Error(`Hosted composition dependency is missing: ${path}`);
+    return JSON.parse(decoder.decode(bytes));
+  };
+  const document = readJson(selected.composition.meta?.document?.file);
+  const timeline = readJson(selected.composition.meta?.timelineFile) as CompositionConfig["timeline"];
+  const configured = defineComposition(selected.source, {
+    file: selected.path,
+    document,
+    timeline,
+    setup: hostedDocumentSetup(),
+  });
+  const fpsNumerator = request.settings.fps?.numerator;
+  const fpsDenominator = request.settings.fps?.denominator;
+  const composition = fpsNumerator && fpsDenominator
+    ? { ...configured, fps: fpsNumerator / fpsDenominator }
+    : configured;
+  const renderRegistry: CompositionRegistry = { [request.compositionKey]: composition };
+  let filename: string;
+  let contentType: string;
+  let bytes: Uint8Array;
+  if (request.settings.outputKind === "image") {
+    const canvas = await captureCompositeFrame(composition, request.settings.from, {
+      width: request.settings.width,
+      height: request.settings.height,
+      registry: renderRegistry,
+    });
+    bytes = await canvasPng(canvas);
+    filename = "render.png";
+    contentType = "image/png";
+  } else {
+    bytes = new Uint8Array(await exportVideo(composition, {
+      width: request.settings.width,
+      height: request.settings.height,
+      codec: "avc1.640028",
+      muxerCodec: "avc",
+      bitrate: request.settings.bitrate && request.settings.bitrate > 0 ? request.settings.bitrate : 8_000_000,
+      hardwareAcceleration: "prefer-hardware",
+      startFrame: request.settings.from,
+      endFrame: request.settings.to,
+      registry: renderRegistry,
+    }));
+    filename = "render.mp4";
+    contentType = "video/mp4";
+  }
+  if (bytes.byteLength < 256) throw new Error("Hosted render output was unexpectedly small.");
+  artifacts.set(filename, { contentType, bytes });
+  return {
+    version: 1,
+    kind: "hosted-render",
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    durationMs: Math.round(performance.now() - started),
+    browser,
+    result: {
+      filename,
+      contentType,
+      bytes: bytes.byteLength,
+      sha256: await sha256(bytes),
+      width: request.settings.width,
+      height: request.settings.height,
+      durationSeconds: request.settings.outputKind === "video"
+        ? (request.settings.to - request.settings.from) / composition.fps
+        : undefined,
+    },
+    artifactNames: Array.from(artifacts.keys()),
+  };
+}
+
+function basenameWithoutExtension(path: string): string {
+  const name = path.split("/").at(-1) || path;
+  return name.replace(/\.[^.]+$/, "");
+}
+
 async function runSuite() {
   artifacts.clear();
   const startedAt = new Date().toISOString();
@@ -609,12 +756,14 @@ declare global {
   interface Window {
     __runFrameDiffCloudSuite: typeof runSuite;
     __runFrameDiffInference: typeof runInference;
+    __runFrameDiffHostedRender: typeof runHostedRender;
     __readFrameDiffCloudArtifact: (name: string) => { contentType: string; base64: string };
   }
 }
 
 window.__runFrameDiffCloudSuite = runSuite;
 window.__runFrameDiffInference = runInference;
+window.__runFrameDiffHostedRender = runHostedRender;
 window.__readFrameDiffCloudArtifact = (name) => {
   const artifact = artifacts.get(name);
   if (!artifact) throw new Error(`Unknown cloud harness artifact: ${name}`);
