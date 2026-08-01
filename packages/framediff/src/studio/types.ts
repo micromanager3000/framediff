@@ -7,7 +7,7 @@ import type { StudioGuideDescriptor } from "@framediff/studio-model";
 /** What a comp declares about itself beyond what introspection can see. */
 export interface CompMeta extends CompositionMetadata {
   /** Coarse kind — drives the chip color/icon. Default "edit". */
-  kind?: "edit" | "custom" | "3d" | "generate" | "audio" | "doc" | "plan" | "scene" | "board" | "moodboard" | "script" | "storyboard" | "locations" | "cast";
+  kind?: "edit" | "custom" | "3d" | "generate" | "processing" | "audio" | "doc" | "plan" | "scene" | "board" | "moodboard" | "script" | "storyboard" | "locations" | "cast";
   /** Project-relative HTML source file backing this comp (e.g. "src/HeroMain.html"). */
   file?: string;
   /** Extra project-relative files whose literals this comp's timing resolves through

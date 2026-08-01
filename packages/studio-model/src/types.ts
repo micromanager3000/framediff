@@ -1,8 +1,9 @@
 import type { CanonicalTweenKind, NormalizedTweenOperation, ParamBinding } from "./animation";
 import type { VisualAdaptation, VisualGeometryClassification } from "./generativeGeometry";
 import type { CubicMotionSegment, GestureSample } from "./motionPath";
+import type { ProcessingRecipe, ProcessingWorkspacePort } from "./processing";
 
-export type CompositionKind = "edit" | "custom" | "3d" | "generate" | "audio" | "doc" | "plan" | "scene" | "board" | "moodboard" | "script" | "storyboard" | "locations" | "cast";
+export type CompositionKind = "edit" | "custom" | "3d" | "generate" | "processing" | "audio" | "doc" | "plan" | "scene" | "board" | "moodboard" | "script" | "storyboard" | "locations" | "cast";
 export type CompositionOutputKind = "video" | "image" | "audio";
 export type CompositionTimelineMode = "auto" | "always" | "hidden";
 export type CompositionTransportMode = "auto" | "always" | "hidden";
@@ -698,6 +699,8 @@ export interface NewCompositionRequest {
   durationInFrames: number;
   /** Required by the runtime when kind is generate. It becomes the composition's locked contract. */
   outputKind?: CompositionOutputKind;
+  /** Optional for processing. When omitted, the runtime derives a pinned RVM recipe from the selected composition. */
+  processingRecipe?: ProcessingRecipe;
 }
 
 export interface ProjectOperationResult {
@@ -892,7 +895,7 @@ export interface ProjectWorkspacePort {
   clearProvider(provider: string): Promise<ProjectOperationResult>;
 }
 
-export type StudioRuntimePort = CompositionRuntimePort & ProjectWorkspacePort;
+export type StudioRuntimePort = CompositionRuntimePort & ProjectWorkspacePort & ProcessingWorkspacePort;
 
 export interface AnimationClock {
   now(): number;

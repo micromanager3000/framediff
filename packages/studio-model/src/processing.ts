@@ -4,6 +4,9 @@ import type { ProjectOperationResult } from "./types";
 export const PROCESSING_COMPOSITION_KIND = "processing" as const;
 export const PROCESSING_RECIPE_VERSION = 1 as const;
 export const PROCESSING_ARTIFACT_VERSION = 1 as const;
+export const RVM_PROCESSOR = "rvm" as const;
+export const RVM_FOREGROUND_CHANNEL = "foreground" as const;
+export const RVM_MATTE_CHANNEL = "matte" as const;
 
 export type ProcessingScalar = string | number | boolean | null;
 export type ProcessingParameters = Record<string, ProcessingScalar | ProcessingScalar[]>;
@@ -60,6 +63,15 @@ export interface ProcessingArtifactManifest {
   channels: Record<string, ProcessingChannelDescriptor>;
 }
 
+/** Source-owned processing state. Artifacts are immutable; changing a recipe clears its pin. */
+export interface ProcessingCompositionDocument {
+  recipe: ProcessingRecipe;
+  /** Fingerprint of `recipe`; writers update this atomically with recipe changes. */
+  recipeFingerprint: string | null;
+  artifact: ProcessingArtifactManifest | null;
+  pinnedRecipeFingerprint: string | null;
+}
+
 export type ProcessingStatus = "missing" | "running" | "current" | "stale" | "failed";
 
 export interface ProcessingWorkspaceSnapshot {
@@ -88,6 +100,15 @@ export interface ProcessingChannelResolution {
   ok: boolean;
   channel?: ProcessingChannelDescriptor;
   message?: string;
+}
+
+/** Stable reference suitable for persisting a named-channel selection in another composition. */
+export interface ProcessingChannelPin {
+  compositionKey: string;
+  channelName: string;
+  recipeFingerprint: string;
+  contentHash: string;
+  mime: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -204,6 +225,28 @@ export function validateProcessingArtifactManifest(value: unknown): string[] {
   return errors;
 }
 
+/** RVM always produces a color foreground and a separately addressable opacity matte. */
+export function validateRvmArtifactManifest(value: unknown): string[] {
+  const errors = validateProcessingArtifactManifest(value);
+  if (!isRecord(value)) return errors;
+  const provenance = isRecord(value.provenance) ? value.provenance : null;
+  if (provenance?.processor !== RVM_PROCESSOR) errors.push(`artifact.provenance.processor must be ${RVM_PROCESSOR}`);
+  const channels = isRecord(value.channels) ? value.channels : {};
+  const foreground = isRecord(channels[RVM_FOREGROUND_CHANNEL]) ? channels[RVM_FOREGROUND_CHANNEL] : null;
+  const matte = isRecord(channels[RVM_MATTE_CHANNEL]) ? channels[RVM_MATTE_CHANNEL] : null;
+  if (!foreground) errors.push(`artifact.channels.${RVM_FOREGROUND_CHANNEL} is required for RVM`);
+  if (!matte) errors.push(`artifact.channels.${RVM_MATTE_CHANNEL} is required for RVM`);
+  if (foreground && matte) {
+    if (JSON.stringify(foreground.dimensions) !== JSON.stringify(matte.dimensions)) {
+      errors.push("RVM foreground and matte dimensions must match");
+    }
+    if (JSON.stringify(foreground.timing) !== JSON.stringify(matte.timing)) {
+      errors.push("RVM foreground and matte timing must match");
+    }
+  }
+  return [...new Set(errors)];
+}
+
 /** Deterministic recipe bytes; object-key order and input declaration order do not affect it. */
 export function canonicalProcessingRecipe(recipe: ProcessingRecipe): string {
   const sort = (value: unknown): unknown => {
@@ -226,6 +269,7 @@ export function resolvePinnedProcessingChannel(
   channelName: string,
 ): ProcessingChannelResolution {
   if (!workspace) return { ok: false, message: "No processing composition is selected." };
+  if (!channelName) return { ok: false, message: "A processing channel name is required." };
   if (workspace.status !== "current") {
     const action = workspace.status === "failed"
       ? "run processing again"
@@ -236,6 +280,8 @@ export function resolvePinnedProcessingChannel(
   }
   if (!workspace.pinnedRecipeFingerprint) return { ok: false, message: "Run processing and pin an artifact before using its channels." };
   if (!workspace.artifact || workspace.artifact.recipeFingerprint !== workspace.pinnedRecipeFingerprint) return { ok: false, message: "The pinned processing artifact is stale; run processing again and pin the new artifact." };
+  const artifactErrors = validateProcessingArtifactManifest(workspace.artifact);
+  if (artifactErrors.length) return { ok: false, message: `The pinned processing artifact is invalid: ${artifactErrors.join("; ")}` };
   if (workspace.recipeFingerprint && workspace.recipeFingerprint !== workspace.pinnedRecipeFingerprint) return { ok: false, message: "The selected processing recipe changed; run processing again and pin the new artifact." };
   const recipeInputs = new Map(workspace.recipe.inputs.map((input) => [input.name, input.contentHash]));
   if (workspace.artifact.inputs.length !== recipeInputs.size || workspace.artifact.inputs.some((input) => recipeInputs.get(input.name) !== input.contentHash)) {
@@ -243,6 +289,24 @@ export function resolvePinnedProcessingChannel(
   }
   const channel = workspace.artifact.channels[channelName];
   return channel ? { ok: true, channel } : { ok: false, message: `The pinned processing artifact has no channel named “${channelName}”.` };
+}
+
+export function resolvePinnedProcessingChannelPin(
+  workspace: ProcessingWorkspaceSnapshot | null,
+  channelName: string,
+): { ok: true; pin: ProcessingChannelPin } | { ok: false; message: string } {
+  const resolution = resolvePinnedProcessingChannel(workspace, channelName);
+  if (!resolution.ok || !resolution.channel) return { ok: false, message: resolution.message ?? "The processing channel is unavailable." };
+  return {
+    ok: true,
+    pin: {
+      compositionKey: workspace!.compositionKey,
+      channelName,
+      recipeFingerprint: workspace!.pinnedRecipeFingerprint!,
+      contentHash: resolution.channel.contentHash,
+      mime: resolution.channel.mime,
+    },
+  };
 }
 
 export interface ProcessingManagerState {
@@ -257,8 +321,33 @@ export class ProcessingManager {
   public readonly state = new ObservableValue<ProcessingManagerState>({ workspace: null, loading: false, busy: false, error: null, message: null });
   private refreshGeneration = 0;
   private operationGeneration = 0;
+  private unsubscribe: (() => void) | null = null;
+  private timer: ReturnType<typeof setInterval> | null = null;
 
   public constructor(private readonly compositionKey: () => string, private readonly workspacePort: ProcessingWorkspacePort) {}
+
+  public start(subscribeSelection: (listener: () => void) => () => void): void {
+    if (this.unsubscribe) return;
+    let previous = "";
+    this.unsubscribe = subscribeSelection(() => {
+      const current = this.compositionKey();
+      if (current === previous) return;
+      previous = current;
+      void this.refresh();
+    });
+    this.timer = setInterval(() => {
+      if (this.state.get().workspace?.status === "running") void this.refresh();
+    }, 3_000);
+  }
+
+  public destroy(): void {
+    this.unsubscribe?.();
+    this.unsubscribe = null;
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+    this.refreshGeneration += 1;
+    this.operationGeneration += 1;
+  }
 
   public async refresh(): Promise<void> {
     const generation = ++this.refreshGeneration;

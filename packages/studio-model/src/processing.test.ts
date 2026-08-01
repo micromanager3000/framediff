@@ -4,8 +4,10 @@ import {
   fingerprintProcessingRecipe,
   ProcessingManager,
   resolvePinnedProcessingChannel,
+  resolvePinnedProcessingChannelPin,
   validateProcessingArtifactManifest,
   validateProcessingRecipe,
+  validateRvmArtifactManifest,
   type ProcessingRecipe,
   type ProcessingOperationResult,
   type ProcessingWorkspacePort,
@@ -69,6 +71,32 @@ describe("processing recipe and named-channel contracts", () => {
     expect(resolvePinnedProcessingChannel({ ...current, recipeFingerprint: "sha256:new" }, "depth").message).toContain("recipe changed");
     expect(resolvePinnedProcessingChannel({ ...current, artifact: { ...valid, inputs: [{ name: "source", contentHash: "sha256:other" }] } }, "depth").message).toContain("inputs are stale");
     expect(resolvePinnedProcessingChannel(current, "matte").message).toContain("no channel named");
+    expect(resolvePinnedProcessingChannelPin(current, "depth")).toEqual({
+      ok: true,
+      pin: {
+        compositionKey: "processing",
+        channelName: "depth",
+        recipeFingerprint: current.recipeFingerprint,
+        contentHash: "sha256:depth",
+        mime: "application/octet-stream",
+      },
+    });
+  });
+
+  it("enforces RVM foreground and matte channel semantics", async () => {
+    const valid = await manifest();
+    const timing = { fps: 30, frameCount: 2 };
+    const rvm = {
+      ...valid,
+      provenance: { ...valid.provenance, processor: "rvm" },
+      channels: {
+        foreground: { name: "foreground", contentHash: "sha256:fg", mime: "video/webm", bytes: 10, dimensions: { width: 2, height: 1 }, timing },
+        matte: { name: "matte", contentHash: "sha256:matte", mime: "video/webm", bytes: 4, dimensions: { width: 2, height: 1 }, timing },
+      },
+    };
+    expect(validateRvmArtifactManifest(rvm)).toEqual([]);
+    expect(validateRvmArtifactManifest({ ...rvm, channels: { foreground: rvm.channels.foreground } })).toContain("artifact.channels.matte is required for RVM");
+    expect(validateRvmArtifactManifest({ ...rvm, channels: { ...rvm.channels, matte: { ...rvm.channels.matte, dimensions: { width: 1, height: 1 } } } })).toContain("RVM foreground and matte dimensions must match");
   });
 
   it("restores busy state on run failure and ignores stale refresh results", async () => {
@@ -139,6 +167,25 @@ describe("processing recipe and named-channel contracts", () => {
     finish({ ok: true, message: "pinned old selection" });
     expect(await pin).toBe(false);
     expect(manager.state.get()).toMatchObject({ busy: false, workspace: null, message: null });
+  });
+
+  it("refreshes on selection lifecycle events and stops after destroy", async () => {
+    const listeners = new Set<() => void>();
+    let selected = "processing-a";
+    const getProcessingWorkspace = vi.fn(async () => null);
+    const manager = new ProcessingManager(() => selected, {
+      getProcessingWorkspace,
+      runProcessing: vi.fn(),
+      pinProcessingArtifact: vi.fn(),
+    });
+    manager.start((listener) => { listeners.add(listener); listener(); return () => listeners.delete(listener); });
+    await vi.waitFor(() => expect(getProcessingWorkspace).toHaveBeenCalledTimes(1));
+    selected = "processing-b";
+    listeners.forEach((listener) => listener());
+    await vi.waitFor(() => expect(getProcessingWorkspace).toHaveBeenCalledTimes(2));
+    manager.destroy();
+    listeners.forEach((listener) => listener());
+    expect(getProcessingWorkspace).toHaveBeenCalledTimes(2);
   });
 });
 
