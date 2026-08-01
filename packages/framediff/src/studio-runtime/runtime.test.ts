@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CompRegistry, StudioComposition } from "../studio/types";
 import { generative } from "../generative";
+import { processing } from "../processingComposition";
+import { fingerprintProcessingRecipe, type ProcessingRecipe } from "@framediff/studio-model";
 import {
   compositionAssetIds,
   compositionRenderKeys,
@@ -205,6 +207,56 @@ describe("HtmlStudioRuntime Inspector batches", () => {
     expect(transaction?.files[0].text).toContain("startCameraX: 10");
     expect(transaction?.files[0].text).toContain("startCameraY: 2");
     expect(transaction?.files[0].text).toContain("startCameraZ: 30");
+  });
+});
+
+describe("HtmlStudioRuntime processing lifecycle", () => {
+  it("projects current pinned processing state and fails closed without an executor", async () => {
+    const recipe: ProcessingRecipe = {
+      version: 1,
+      kind: "processing",
+      id: "subject-rvm",
+      inputs: [{ name: "source", contentHash: "sha256:source", mime: "video/mp4" }],
+      parameters: { outputChannels: ["foreground", "matte"] },
+      provenance: { processor: "rvm", model: "rvm", modelRevision: "weights-1", runtime: "worker", runtimeRevision: "1" },
+    };
+    const recipeFingerprint = await fingerprintProcessingRecipe(recipe);
+    const timing = { fps: 24, frameCount: 48 };
+    const processed = processing({
+      id: "Subject",
+      file: "src/Subject.process.ts",
+      dataFile: "src/Subject.process.json",
+      width: 1920,
+      height: 1080,
+      fps: 24,
+      durationInFrames: 48,
+      document: {
+        recipe,
+        recipeFingerprint,
+        pinnedRecipeFingerprint: recipeFingerprint,
+        artifact: {
+          version: 1,
+          kind: "processing-artifact",
+          recipeFingerprint,
+          inputs: recipe.inputs,
+          provenance: recipe.provenance,
+          channels: {
+            foreground: { name: "foreground", contentHash: "sha256:foreground", mime: "video/webm", bytes: 10, dimensions: { width: 1920, height: 1080 }, timing },
+            matte: { name: "matte", contentHash: "sha256:matte", mime: "video/webm", bytes: 5, dimensions: { width: 1920, height: 1080 }, timing },
+          },
+        },
+      },
+    });
+    const runtime = createStudioRuntime({ subject: processed }, { getAssets: vi.fn(async () => ({ version: 1, assets: {} })) } as never);
+
+    await expect(runtime.getProcessingWorkspace("subject")).resolves.toMatchObject({
+      compositionKey: "subject",
+      recipeFingerprint,
+      pinnedRecipeFingerprint: recipeFingerprint,
+      status: "current",
+      artifact: { channels: { foreground: { contentHash: "sha256:foreground" }, matte: { contentHash: "sha256:matte" } } },
+    });
+    await expect(runtime.runProcessing("subject")).resolves.toMatchObject({ ok: false, message: expect.stringContaining("No processing executor") });
   });
 });
 
@@ -1278,6 +1330,47 @@ describe("HtmlStudioRuntime composition creation", () => {
       duration: 5,
       take: 0,
     });
+  });
+
+  it("creates a top-level RVM processing composition from the selected composition fingerprint", async () => {
+    const parentHtml = '<!doctype html><main data-fd-composition data-fd-id="Main" data-fd-width="1920" data-fd-height="1080" data-fd-fps="24" data-fd-duration="240" data-fd-kind="edit" data-fd-source="src/Main.html"></main>';
+    const parent = { ...composition, id: "Main", html: parentHtml, meta: { file: "src/Main.html", sourceFormat: "html" as const } };
+    const sources: Record<string, string> = {
+      "src/Main.html": parentHtml,
+      "src/config.ts": 'import { composition } from "./Main";\nexport const COMPOSITIONS = { main: composition };\n',
+    };
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/__framediff/assets") return new Response("missing", { status: 404 });
+      if (url === "/__framediff/cache") return Response.json({ entries: [] });
+      if (url.startsWith("/__framediff/src?")) {
+        const file = new URL(url, "http://local").searchParams.get("file")!;
+        if (init?.method === "PUT") { sources[file] = String(init.body); return new Response("ok"); }
+        return file in sources ? Response.json({ file, text: sources[file], hash: `hash:${file}` }) : new Response("missing", { status: 404 });
+      }
+      return new Response("not found", { status: 404 });
+    }));
+    const runtime = createStudioRuntime({ main: parent } as CompRegistry);
+
+    const result = await runtime.createComposition({ name: "Background Removal", kind: "processing", durationInFrames: 240 }, "main");
+
+    expect(result).toMatchObject({ ok: true, compositionKey: "background-removal" });
+    expect(result.message).toContain("top level");
+    const document = JSON.parse(sources["src/BackgroundRemoval.process.json"]);
+    expect(document).toMatchObject({
+      artifact: null,
+      recipeFingerprint: expect.stringMatching(/^sha256:/),
+      pinnedRecipeFingerprint: null,
+      recipe: {
+        kind: "processing",
+        parameters: { sourceCompositionKey: "main", outputChannels: ["foreground", "matte"] },
+        provenance: { processor: "rvm", model: "robust-video-matting-mobilenetv3" },
+      },
+    });
+    expect(document.recipe.inputs[0].contentHash).toMatch(/^sha256:/);
+    expect(sources["src/BackgroundRemoval.process.ts"]).toContain('import { processing, type ProcessingCompositionDocument } from "framediff";');
+    expect(sources["src/config.ts"]).toContain('import { backgroundRemovalComp } from "./BackgroundRemoval.process";');
+    expect(sources["src/Main.html"]).toBe(parentHtml);
   });
 
   it("keeps a new composition top-level when no parent is selected", async () => {

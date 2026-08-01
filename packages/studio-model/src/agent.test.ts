@@ -132,6 +132,9 @@ class AgentRuntime implements StudioRuntimePort {
   async renderComposition() { return { bytes: 0, filename: "none" }; }
   async bakeComposition() { return { bytes: 0, filename: "none" }; }
   async createComposition() { return { ok: false, message: "not used" }; }
+  async getProcessingWorkspace() { return null; }
+  async runProcessing() { return { ok: false, message: "not used" }; }
+  async pinProcessingArtifact() { return { ok: false, message: "not used" }; }
   async copyComposition() { return { ok: false, message: "not used" }; }
   async setCompositionLibrary() { return { ok: false, message: "not used" }; }
   async nestComposition() { return { ok: false, message: "not used" }; }
