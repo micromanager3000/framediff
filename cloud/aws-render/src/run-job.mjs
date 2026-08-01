@@ -140,14 +140,17 @@ async function evaluateWorkload(page, spec, inputDataUrl) {
     await page.waitForLoadState("networkidle");
     await page.waitForFunction(() =>
       typeof window.__runFrameDiffCloudSuite === "function"
-      && typeof window.__runFrameDiffInference === "function");
+      && typeof window.__runFrameDiffInference === "function"
+      && typeof window.__runFrameDiffHostedRender === "function");
     await page.waitForTimeout(1_500);
     try {
       return await page.evaluate(
-        ({ kind, input }) => kind === "capability-suite"
+        ({ kind, input, renderRequest }) => kind === "capability-suite"
           ? window.__runFrameDiffCloudSuite()
-          : window.__runFrameDiffInference(kind, input),
-        { kind: spec.kind, input: inputDataUrl },
+          : kind === "hosted-render"
+            ? window.__runFrameDiffHostedRender(renderRequest)
+            : window.__runFrameDiffInference(kind, input),
+        { kind: spec.kind, input: inputDataUrl, renderRequest: spec.renderRequest },
       );
     } catch (error) {
       lastError = error;
