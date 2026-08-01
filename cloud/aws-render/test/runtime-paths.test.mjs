@@ -25,6 +25,8 @@ test("Linux cloud rendering negotiates software VP9 WebM when hardware MP4 encod
   assert.match(harness, /vp09\.00\.10\.08/);
   assert.match(harness, /container: "webm"/);
   assert.match(harness, /\["prefer-hardware", "no-preference"\]/);
+  assert.match(harness, /probeVideoCodec\("vp09\.00\.10\.08", true\)/);
+  assert.match(harness, /probeVideoCodec\("av01\.0\.08M\.08", false\)/);
   assert.match(harness, /hardwareAcceleration: video\.hardwareAcceleration/);
   assert.match(encoder, /new WebMOutputFormat\(\)/);
   assert.match(encoder, /codec: "vp9"/);
