@@ -32,9 +32,18 @@ docker buildx build \
   --file "$BUILD_DIR/cloud/aws-render/Dockerfile" \
   --build-arg "FRAMEDIFF_REVISION=$REVISION" \
   --tag "$REPOSITORY_URI:$IMAGE_TAG" \
-  --tag "$REPOSITORY_URI:latest" \
   --push \
   "$BUILD_DIR"
 
-"$SCRIPT_DIR/deploy.sh" "$IMAGE_TAG"
-echo "$REPOSITORY_URI:$IMAGE_TAG"
+IMAGE_DIGEST="$(aws_fd ecr describe-images \
+  --repository-name "${REPOSITORY_URI#*/}" \
+  --image-ids "imageTag=$IMAGE_TAG" \
+  --query 'imageDetails[0].imageDigest' \
+  --output text)"
+if [[ ! "$IMAGE_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+  echo "ECR did not return an immutable digest for $REPOSITORY_URI:$IMAGE_TAG." >&2
+  exit 46
+fi
+
+"$SCRIPT_DIR/deploy.sh" "$IMAGE_TAG" "$IMAGE_DIGEST"
+echo "$REPOSITORY_URI@$IMAGE_DIGEST"

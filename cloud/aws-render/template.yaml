@@ -5,7 +5,11 @@ Parameters:
   ImageTag:
     Type: String
     Default: bootstrap
-    AllowedPattern: "[A-Za-z0-9._-]+"
+    AllowedPattern: "[A-Za-z0-9][A-Za-z0-9._-]{0,127}"
+  ImageDigest:
+    Type: String
+    Default: ""
+    AllowedPattern: "^$|^sha256:[a-f0-9]{64}$"
   InstanceType:
     Type: String
     Default: g6.2xlarge
@@ -21,6 +25,9 @@ Parameters:
     Type: AWS::EC2::VPC::Id
   SubnetIds:
     Type: List<AWS::EC2::Subnet::Id>
+
+Conditions:
+  HasImageDigest: !Not [!Equals [!Ref ImageDigest, ""]]
 
 Resources:
   ArtifactBucket:
@@ -67,7 +74,7 @@ Resources:
       EmptyOnDelete: false
       ImageScanningConfiguration:
         ScanOnPush: true
-      ImageTagMutability: MUTABLE
+      ImageTagMutability: IMMUTABLE
       LifecyclePolicy:
         LifecyclePolicyText: |
           {
@@ -226,7 +233,10 @@ Resources:
       Timeout:
         AttemptDurationSeconds: 3600
       ContainerProperties:
-        Image: !Sub "${WorkerRepository.RepositoryUri}:${ImageTag}"
+        Image: !If
+          - HasImageDigest
+          - !Sub "${WorkerRepository.RepositoryUri}@${ImageDigest}"
+          - !Sub "${WorkerRepository.RepositoryUri}:${ImageTag}"
         JobRoleArn: !GetAtt JobRole.Arn
         ResourceRequirements:
           - Type: VCPU
@@ -256,6 +266,11 @@ Resources:
         ManagedBy: cloudformation
 
 Outputs:
+  WorkerImageReference:
+    Value: !If
+      - HasImageDigest
+      - !Sub "${WorkerRepository.RepositoryUri}@${ImageDigest}"
+      - !Sub "${WorkerRepository.RepositoryUri}:${ImageTag}"
   ArtifactBucketName:
     Value: !Ref ArtifactBucket
   ComputeEnvironmentArn:
