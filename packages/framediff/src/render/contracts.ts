@@ -1,21 +1,8 @@
-export {
-  exportVideo,
-  exportVideoToFileSystemWritable,
-  exportVideoToSink,
-  exportVideoToWritable,
-  type ExportOptions,
-  type ExportPhase,
-  type ExportProgress,
-  type ExportVideoFileSystemOptions,
-  type ExportVideoSinkOptions,
-  type ExportVideoStreamResult,
-  type ExportVideoWritableOptions,
-} from "./exportVideo";
-export {
-  createAppendWritableSink,
-  createFileSystemWritableSink,
-  type ExportChunkSink,
-} from "./exportSinks";
+/**
+ * Public, provider-neutral render contracts. The Studio model owns the UI
+ * manager that consumes these types; this boundary exposes only the reusable
+ * render seam to project adapters and hosted integrations.
+ */
 export {
   canonicalRenderRequest,
   createRemoteRenderExecutor,
@@ -44,6 +31,4 @@ export {
   type RenderSourceRevision,
   type SanitizedRenderError,
   type WaitForRemoteRenderOptions,
-} from "./contracts";
-export { renderFrameToCanvas, type RenderFrameOptions } from "./renderFrame";
-export { captureCompositeFrame, type CaptureFrameOptions } from "./captureComposite";
+} from "@framediff/studio-model";
