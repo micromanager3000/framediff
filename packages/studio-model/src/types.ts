@@ -658,14 +658,18 @@ export interface AssetDescriptor {
 }
 
 export interface RenderProgressSnapshot {
-  phase: "prepare" | "audio" | "render" | "finalize";
+  phase: "queued" | "starting" | "prepare" | "audio" | "render" | "rendering" | "uploading" | "finalize";
   completed: number;
   total: number;
+  jobId?: string;
+  message?: string;
 }
 
 export interface RenderResult {
   bytes: number;
   filename: string;
+  artifact?: import("./renderContracts").RenderArtifactMetadata;
+  provenance?: import("./renderContracts").RenderProvenance;
 }
 
 export interface CacheEntryDescriptor {
