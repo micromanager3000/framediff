@@ -235,7 +235,7 @@ async function exportCase(name: string, composition: CompositionConfig, frames: 
     muxerCodec: video.muxerCodec,
     container: video.container,
     bitrate: 2_500_000,
-    hardwareAcceleration: "prefer-hardware",
+    hardwareAcceleration: video.hardwareAcceleration,
     startFrame: 0,
     endFrame: frames,
     registry,
@@ -260,15 +260,24 @@ async function browserCapabilities() {
     device: adapter.info.device,
     description: adapter.info.description,
   } : null;
-  const h264 = typeof VideoEncoder !== "undefined"
-    ? await VideoEncoder.isConfigSupported({ codec: "avc1.42001f", width: 640, height: 360, bitrate: 2_500_000, framerate: 30, hardwareAcceleration: "prefer-hardware" })
-    : null;
-  const av1 = typeof VideoEncoder !== "undefined"
-    ? await VideoEncoder.isConfigSupported({ codec: "av01.0.08M.08", width: 640, height: 360, bitrate: 2_500_000, framerate: 30, hardwareAcceleration: "prefer-hardware" })
-    : null;
-  const vp9 = typeof VideoEncoder !== "undefined"
-    ? await VideoEncoder.isConfigSupported({ codec: "vp09.00.10.08", width: 640, height: 360, bitrate: 2_500_000, framerate: 30, hardwareAcceleration: "prefer-hardware" })
-    : null;
+  const probeVideoCodec = async (codec: string) => {
+    if (typeof VideoEncoder === "undefined") return null;
+    for (const hardwareAcceleration of ["prefer-hardware", "no-preference"] as const) {
+      const result = await VideoEncoder.isConfigSupported({
+        codec,
+        width: 640,
+        height: 360,
+        bitrate: 2_500_000,
+        framerate: 30,
+        hardwareAcceleration,
+      });
+      if (result.supported) return { supported: true, hardwareAcceleration };
+    }
+    return { supported: false, hardwareAcceleration: "no-preference" as const };
+  };
+  const h264 = await probeVideoCodec("avc1.42001f");
+  const av1 = await probeVideoCodec("av01.0.08M.08");
+  const vp9 = await probeVideoCodec("vp09.00.10.08");
   return {
     userAgent: navigator.userAgent,
     gpuApi,
@@ -276,6 +285,9 @@ async function browserCapabilities() {
     h264Supported: h264?.supported ?? false,
     av1Supported: av1?.supported ?? false,
     vp9Supported: vp9?.supported ?? false,
+    h264Acceleration: h264?.hardwareAcceleration,
+    av1Acceleration: av1?.hardwareAcceleration,
+    vp9Acceleration: vp9?.hardwareAcceleration,
     audioEncoder: typeof AudioEncoder !== "undefined",
     videoDecoder: typeof VideoDecoder !== "undefined",
   };
@@ -287,11 +299,12 @@ async function supportedVideoEncoding(): Promise<{
   container: "mp4" | "webm";
   extension: "mp4" | "webm";
   contentType: "video/mp4" | "video/webm";
+  hardwareAcceleration: "prefer-hardware" | "no-preference";
 }> {
   const capabilities = await browserCapabilities();
-  if (capabilities.h264Supported) return { codec: "avc1.42001f", muxerCodec: "avc", container: "mp4", extension: "mp4", contentType: "video/mp4" };
-  if (capabilities.av1Supported) return { codec: "av01.0.08M.08", muxerCodec: "av1", container: "mp4", extension: "mp4", contentType: "video/mp4" };
-  if (capabilities.vp9Supported) return { codec: "vp09.00.10.08", muxerCodec: "vp9", container: "webm", extension: "webm", contentType: "video/webm" };
+  if (capabilities.h264Supported) return { codec: "avc1.42001f", muxerCodec: "avc", container: "mp4", extension: "mp4", contentType: "video/mp4", hardwareAcceleration: capabilities.h264Acceleration ?? "no-preference" };
+  if (capabilities.av1Supported) return { codec: "av01.0.08M.08", muxerCodec: "av1", container: "mp4", extension: "mp4", contentType: "video/mp4", hardwareAcceleration: capabilities.av1Acceleration ?? "no-preference" };
+  if (capabilities.vp9Supported) return { codec: "vp09.00.10.08", muxerCodec: "vp9", container: "webm", extension: "webm", contentType: "video/webm", hardwareAcceleration: capabilities.vp9Acceleration ?? "no-preference" };
   throw new Error("Chrome exposes no supported cloud video encoder.");
 }
 
@@ -705,7 +718,7 @@ async function runHostedRender(request: HostedRenderRequest) {
       muxerCodec: video.muxerCodec,
       container: video.container,
       bitrate: request.settings.bitrate && request.settings.bitrate > 0 ? request.settings.bitrate : 8_000_000,
-      hardwareAcceleration: "prefer-hardware",
+      hardwareAcceleration: video.hardwareAcceleration,
       startFrame: request.settings.from,
       endFrame: request.settings.to,
       registry: renderRegistry,
