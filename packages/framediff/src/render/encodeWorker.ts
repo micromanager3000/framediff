@@ -3,6 +3,14 @@
 // to MP4 — off the main thread. Messages are processed strictly in order via an async queue.
 
 import { Muxer, ArrayBufferTarget, StreamTarget } from "mp4-muxer";
+import {
+  AudioSample,
+  AudioSampleSource,
+  BufferTarget as MediaBufferTarget,
+  CanvasSource,
+  Output as MediaOutput,
+  WebMOutputFormat,
+} from "mediabunny";
 import { zeroMp4Timestamps } from "./mp4Timestamps";
 
 const ctx = self as unknown as Worker;
@@ -14,7 +22,8 @@ interface InitMsg {
   height: number;
   fps: number;
   codec: string;
-  muxerCodec: "avc" | "av1";
+  muxerCodec: "avc" | "av1" | "vp9";
+  container: "mp4" | "webm";
   bitrate: number;
   hardwareAcceleration?: "no-preference" | "prefer-hardware" | "prefer-software";
   audio: { sampleRate: number; numberOfChannels: number } | null;
@@ -30,6 +39,10 @@ let muxer: Muxer<ArrayBufferTarget | StreamTarget> | null = null;
 let bufferTarget: ArrayBufferTarget | null = null;
 let vEncoder: VideoEncoder | null = null;
 let aEncoder: AudioEncoder | null = null;
+let mediaOutput: MediaOutput<WebMOutputFormat, MediaBufferTarget> | null = null;
+let mediaTarget: MediaBufferTarget | null = null;
+let mediaVideo: CanvasSource | null = null;
+let mediaAudio: AudioSampleSource | null = null;
 let canvas: OffscreenCanvas | null = null;
 let c2d: OffscreenCanvasRenderingContext2D | null = null;
 let W = 0;
@@ -142,6 +155,26 @@ async function handle(msg: InMsg) {
     canvas = new OffscreenCanvas(W, H);
     c2d = canvas.getContext("2d");
     const output = msg.output ?? { mode: "buffer" };
+    if (msg.container === "webm") {
+      if (output.mode !== "buffer") throw new Error("WebM export currently requires an in-memory output.");
+      if (msg.muxerCodec !== "vp9") throw new Error("WebM export requires the VP9 muxer codec.");
+      mediaTarget = new MediaBufferTarget();
+      mediaOutput = new MediaOutput({ format: new WebMOutputFormat(), target: mediaTarget });
+      mediaVideo = new CanvasSource(canvas, {
+        codec: "vp9",
+        bitrate: msg.bitrate,
+        keyFrameInterval: 1,
+        hardwareAcceleration: msg.hardwareAcceleration,
+      });
+      mediaOutput.addVideoTrack(mediaVideo, { frameRate: FPS });
+      if (msg.audio) {
+        mediaAudio = new AudioSampleSource({ codec: "opus", bitrate: 192_000 });
+        mediaOutput.addAudioTrack(mediaAudio);
+      }
+      await mediaOutput.start();
+      ctx.postMessage({ type: "ready" });
+      return;
+    }
     streamMode = output.mode === "stream";
     bufferTarget = output.mode === "buffer" ? new ArrayBufferTarget() : null;
     const target =
@@ -150,7 +183,7 @@ async function handle(msg: InMsg) {
         : bufferTarget!;
     muxer = new Muxer({
       target,
-      video: { codec: msg.muxerCodec, width: W, height: H },
+      video: { codec: msg.muxerCodec as "avc" | "av1", width: W, height: H },
       ...(msg.audio ? { audio: { codec: "aac" as const, sampleRate: msg.audio.sampleRate, numberOfChannels: msg.audio.numberOfChannels } } : {}),
       fastStart: output.mode === "stream" ? (output.fastStart ?? false) : "in-memory",
     });
@@ -182,6 +215,11 @@ async function handle(msg: InMsg) {
     g.drawImage(msg.bitmap, 0, 0, W, H);
     msg.bitmap.close();
 
+    if (mediaVideo) {
+      await mediaVideo.add(msg.n / FPS, 1 / FPS, { keyFrame: msg.n % FPS === 0 });
+      ctx.postMessage({ type: "encoded", n: msg.n });
+      return;
+    }
     const frame = new VideoFrame(canvas!, {
       timestamp: Math.round((msg.n * 1_000_000) / FPS),
       duration: Math.round(1_000_000 / FPS),
@@ -195,10 +233,34 @@ async function handle(msg: InMsg) {
     await waitForStreamBackpressure();
     ctx.postMessage({ type: "encoded", n: msg.n });
   } else if (msg.type === "audio") {
+    if (mediaAudio) {
+      const left = new Float32Array(msg.channels[0]);
+      const right = new Float32Array(msg.channels[1]);
+      const data = new Float32Array(left.length + right.length);
+      data.set(left, 0);
+      data.set(right, left.length);
+      const sample = new AudioSample({
+        data,
+        format: "f32-planar",
+        numberOfChannels: 2,
+        sampleRate: msg.sampleRate,
+        timestamp: 0,
+      });
+      await mediaAudio.add(sample);
+      sample.close();
+      return;
+    }
     if (aEncoder) {
       await encodeAudioPCM(new Float32Array(msg.channels[0]), new Float32Array(msg.channels[1]), msg.sampleRate);
     }
   } else if (msg.type === "finish") {
+    if (mediaOutput && mediaTarget) {
+      await mediaOutput.finalize();
+      const out = mediaTarget.buffer;
+      if (!out) throw new Error("WebM muxer returned no output buffer.");
+      ctx.postMessage({ type: "done", buffer: out }, [out]);
+      return;
+    }
     await vEncoder!.flush();
     if (aEncoder) await aEncoder.flush();
     muxer!.finalize();
