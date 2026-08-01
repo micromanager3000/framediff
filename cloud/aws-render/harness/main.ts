@@ -455,6 +455,7 @@ async function runRvm(source: string) {
     { executionProviders: ["webgpu"] },
   );
   const recurrent = () => new ort.Tensor("float32", new Float32Array([0]), [1, 1, 1, 1]);
+  const downsampleRatio = Math.min(1, 512 / Math.max(canvas.width, canvas.height));
   try {
     const output = await session.run({
       src: new ort.Tensor("float32", sourceTensor, [1, 3, canvas.height, canvas.width]),
@@ -462,7 +463,7 @@ async function runRvm(source: string) {
       r2i: recurrent(),
       r3i: recurrent(),
       r4i: recurrent(),
-      downsample_ratio: new ort.Tensor("float32", new Float32Array([0.25]), [1]),
+      downsample_ratio: new ort.Tensor("float32", new Float32Array([downsampleRatio]), [1]),
     });
     const foreground = output.fgr?.data as Float32Array | undefined;
     const alpha = output.pha?.data as Float32Array | undefined;
@@ -500,6 +501,7 @@ async function runRvm(source: string) {
       width: canvas.width,
       height: canvas.height,
       alphaMean: alphaSum / plane,
+      downsampleRatio,
       channels: ["foreground", "matte"],
     };
   } finally {
