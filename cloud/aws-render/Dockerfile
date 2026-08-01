@@ -18,10 +18,6 @@ RUN apt-get update \
 
 FROM mcr.microsoft.com/playwright:v1.61.1-noble
 
-ARG FRAMEDIFF_REVISION=unknown
-LABEL org.opencontainers.image.title="FrameDiff AWS GPU render worker" \
-      org.opencontainers.image.revision="${FRAMEDIFF_REVISION}"
-
 ENV DEBIAN_FRONTEND=noninteractive \
     FD_CHROME_PATH=/usr/bin/google-chrome \
     FD_WORKSPACE=/workspace \
@@ -63,6 +59,10 @@ RUN apt-get update \
       libzvbi0t64 \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
+
+ARG FRAMEDIFF_REVISION=unknown
+LABEL org.opencontainers.image.title="FrameDiff AWS GPU render worker" \
+      org.opencontainers.image.revision="${FRAMEDIFF_REVISION}"
 
 WORKDIR /workspace
 COPY package.json package-lock.json ./
