@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
@@ -16,6 +17,14 @@ const models = [
   },
 ];
 
+const directFiles = [
+  {
+    path: "PeterL1n/RobustVideoMatting/rvm_mobilenetv3_fp32.onnx",
+    url: "https://github.com/PeterL1n/RobustVideoMatting/releases/download/v1.0.0/rvm_mobilenetv3_fp32.onnx",
+    sha256: "88d4531297118f595bf2fd60f6f566aec2e559393802d1f436c380f0cbbd2828",
+  },
+];
+
 for (const model of models) {
   for (const file of model.files) {
     const target = resolve(outputRoot, model.id, file);
@@ -28,4 +37,16 @@ for (const model of models) {
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, bytes);
   }
+}
+
+for (const file of directFiles) {
+  const target = resolve(outputRoot, file.path);
+  process.stdout.write(`Caching ${file.path}\n`);
+  const response = await fetch(file.url, { redirect: "follow" });
+  if (!response.ok) throw new Error(`Failed to cache ${file.url}: HTTP ${response.status}`);
+  const bytes = Buffer.from(await response.arrayBuffer());
+  const digest = createHash("sha256").update(bytes).digest("hex");
+  if (digest !== file.sha256) throw new Error(`Digest mismatch for ${file.url}: ${digest}`);
+  await mkdir(dirname(target), { recursive: true });
+  await writeFile(target, bytes);
 }

@@ -198,7 +198,10 @@ async function runCloudWorkload(spec, prefix) {
     const browserErrors = [];
     page.on("pageerror", (error) => browserErrors.push(`pageerror: ${error.message}`));
     page.on("console", (message) => {
-      if (message.type() === "error" && !message.text().startsWith("Failed to load resource:")) {
+      const text = message.text();
+      const knownOrtPlacementWarning = text.includes("[W:onnxruntime")
+        && text.includes("VerifyEachNodeIsAssignedToAnEp");
+      if (message.type() === "error" && !text.startsWith("Failed to load resource:") && !knownOrtPlacementWarning) {
         browserErrors.push(`console: ${message.text()}`);
       }
     });

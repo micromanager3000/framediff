@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 guard_account
 
-JOB_KIND="${1:?usage: submit.sh <capability-suite|depth-map|segmentation> [image]}"
+JOB_KIND="${1:?usage: submit.sh <capability-suite|depth-map|segmentation|background-removal> [image]}"
 INPUT_FILE="${2:-}"
 case "$JOB_KIND" in
   capability-suite)
@@ -14,7 +14,7 @@ case "$JOB_KIND" in
       exit 46
     fi
     ;;
-  depth-map|segmentation)
+  depth-map|segmentation|background-removal)
     if [[ -n "$INPUT_FILE" && ! -f "$INPUT_FILE" ]]; then
       echo "Input image does not exist: $INPUT_FILE" >&2
       exit 47
