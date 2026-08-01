@@ -62,6 +62,7 @@ RUN apt-get update \
 
 WORKDIR /workspace
 COPY package.json package-lock.json ./
+COPY tsconfig.base.json ./
 COPY packages ./packages
 COPY examples/determinism-check ./examples/determinism-check
 COPY examples/cloth-showcase ./examples/cloth-showcase
@@ -70,6 +71,7 @@ COPY cloud/aws-render ./cloud/aws-render
 RUN npm ci --ignore-scripts \
     && npm --prefix cloud/aws-render ci --omit=dev \
     && test -f cloud/aws-render/node_modules/vite/bin/vite.js \
+    && test -f tsconfig.base.json \
     && mkdir -p cloud/aws-render/harness/public/fixtures \
     && node cloud/aws-render/scripts/cache-models.mjs
 

@@ -1,5 +1,5 @@
 export const JOB_SPEC_VERSION = 1;
-export const JOB_KINDS = ["capability-suite", "depth-map", "segmentation"];
+export const JOB_KINDS = ["capability-suite", "depth-map", "segmentation", "background-removal"];
 
 function validateRelativeKey(value, field) {
   if (value != null && (

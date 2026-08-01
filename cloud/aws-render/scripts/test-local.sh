@@ -6,9 +6,9 @@ ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
 FIXTURES="$ROOT/cloud/aws-render/harness/public/fixtures"
 JOB_KIND="${1:-capability-suite}"
 case "$JOB_KIND" in
-  capability-suite|depth-map|segmentation) ;;
+  capability-suite|depth-map|segmentation|background-removal) ;;
   *)
-    echo "usage: test-local.sh [capability-suite|depth-map|segmentation]" >&2
+    echo "usage: test-local.sh [capability-suite|depth-map|segmentation|background-removal]" >&2
     exit 50
     ;;
 esac

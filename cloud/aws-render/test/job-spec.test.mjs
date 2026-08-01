@@ -16,8 +16,8 @@ test("accepts the versioned capability-suite job", () => {
   });
 });
 
-test("accepts depth and segmentation image jobs", () => {
-  for (const kind of ["depth-map", "segmentation"]) {
+test("accepts vision and background-removal image jobs", () => {
+  for (const kind of ["depth-map", "segmentation", "background-removal"]) {
     assert.deepEqual(validateJobSpec({
       version: 1,
       kind,

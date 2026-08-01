@@ -26,7 +26,7 @@ type CapabilityResult = {
   detail?: Record<string, unknown>;
 };
 
-type InferenceKind = "depth-map" | "segmentation";
+type InferenceKind = "depth-map" | "segmentation" | "background-removal";
 
 const DEPTH_MODEL = {
   id: "onnx-community/depth-anything-v2-small",
@@ -35,6 +35,12 @@ const DEPTH_MODEL = {
 const SEGMENTATION_MODEL = {
   id: "Xenova/segformer-b0-finetuned-ade-512-512",
   revision: "d3e5499fa8701ff0453ca940a8dfeae39b2f1504",
+};
+const RVM_MODEL = {
+  id: "PeterL1n/RobustVideoMatting",
+  revision: "v1.0.0",
+  file: "rvm_mobilenetv3_fp32.onnx",
+  sha256: "88d4531297118f595bf2fd60f6f566aec2e559393802d1f436c380f0cbbd2828",
 };
 const artifacts = new Map<string, Artifact>();
 
@@ -345,6 +351,101 @@ async function normalizeInferenceInput(inputDataUrl?: string): Promise<string> {
   return blobDataUrl(blob);
 }
 
+async function imageCanvas(source: string): Promise<HTMLCanvasElement> {
+  const image = new Image();
+  image.src = source;
+  await image.decode();
+  const scale = Math.min(1, 1280 / image.naturalWidth, 720 / image.naturalHeight);
+  const width = Math.max(32, Math.floor((image.naturalWidth * scale) / 32) * 32);
+  const height = Math.max(32, Math.floor((image.naturalHeight * scale) / 32) * 32);
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) throw new Error("Canvas 2D is unavailable for RVM input.");
+  context.drawImage(image, 0, 0, width, height);
+  return canvas;
+}
+
+async function canvasPng(canvas: HTMLCanvasElement): Promise<Uint8Array> {
+  const blob = await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob((value) => value ? resolve(value) : reject(new Error("PNG encoding failed.")), "image/png"),
+  );
+  return blobBytes(blob);
+}
+
+async function runRvm(source: string) {
+  const ort = await import("onnxruntime-web/webgpu");
+  ort.env.logLevel = "error";
+  ort.env.wasm.wasmPaths = "/ort/";
+  const canvas = await imageCanvas(source);
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) throw new Error("Canvas 2D is unavailable for RVM input.");
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+  const plane = canvas.width * canvas.height;
+  const sourceTensor = new Float32Array(plane * 3);
+  for (let index = 0; index < plane; index += 1) {
+    sourceTensor[index] = pixels[index * 4]! / 255;
+    sourceTensor[plane + index] = pixels[index * 4 + 1]! / 255;
+    sourceTensor[plane * 2 + index] = pixels[index * 4 + 2]! / 255;
+  }
+  const session = await ort.InferenceSession.create(
+    `/models/${RVM_MODEL.id}/${RVM_MODEL.file}`,
+    { executionProviders: ["webgpu"] },
+  );
+  const recurrent = () => new ort.Tensor("float32", new Float32Array([0]), [1, 1, 1, 1]);
+  try {
+    const output = await session.run({
+      src: new ort.Tensor("float32", sourceTensor, [1, 3, canvas.height, canvas.width]),
+      r1i: recurrent(),
+      r2i: recurrent(),
+      r3i: recurrent(),
+      r4i: recurrent(),
+      downsample_ratio: new ort.Tensor("float32", new Float32Array([0.25]), [1]),
+    });
+    const foreground = output.fgr?.data as Float32Array | undefined;
+    const alpha = output.pha?.data as Float32Array | undefined;
+    if (!foreground || !alpha || foreground.length !== plane * 3 || alpha.length !== plane) {
+      throw new Error("RVM returned an unexpected foreground or matte shape.");
+    }
+    const foregroundCanvas = document.createElement("canvas");
+    const matteCanvas = document.createElement("canvas");
+    foregroundCanvas.width = matteCanvas.width = canvas.width;
+    foregroundCanvas.height = matteCanvas.height = canvas.height;
+    const foregroundContext = foregroundCanvas.getContext("2d");
+    const matteContext = matteCanvas.getContext("2d");
+    if (!foregroundContext || !matteContext) throw new Error("Canvas 2D is unavailable for RVM output.");
+    const foregroundImage = foregroundContext.createImageData(canvas.width, canvas.height);
+    const matteImage = matteContext.createImageData(canvas.width, canvas.height);
+    let alphaSum = 0;
+    for (let index = 0; index < plane; index += 1) {
+      const matte = Math.max(0, Math.min(1, Number(alpha[index])));
+      const matteByte = Math.round(matte * 255);
+      alphaSum += matte;
+      foregroundImage.data[index * 4] = Math.round(Math.max(0, Math.min(1, Number(foreground[index]))) * 255);
+      foregroundImage.data[index * 4 + 1] = Math.round(Math.max(0, Math.min(1, Number(foreground[plane + index]))) * 255);
+      foregroundImage.data[index * 4 + 2] = Math.round(Math.max(0, Math.min(1, Number(foreground[plane * 2 + index]))) * 255);
+      foregroundImage.data[index * 4 + 3] = matteByte;
+      matteImage.data[index * 4] = matteByte;
+      matteImage.data[index * 4 + 1] = matteByte;
+      matteImage.data[index * 4 + 2] = matteByte;
+      matteImage.data[index * 4 + 3] = 255;
+    }
+    foregroundContext.putImageData(foregroundImage, 0, 0);
+    matteContext.putImageData(matteImage, 0, 0);
+    artifacts.set("foreground.png", { contentType: "image/png", bytes: await canvasPng(foregroundCanvas) });
+    artifacts.set("matte.png", { contentType: "image/png", bytes: await canvasPng(matteCanvas) });
+    return {
+      width: canvas.width,
+      height: canvas.height,
+      alphaMean: alphaSum / plane,
+      channels: ["foreground", "matte"],
+    };
+  } finally {
+    await session.release();
+  }
+}
+
 function colorForIndex(index: number): [number, number, number] {
   const palette: Array<[number, number, number]> = [
     [46, 196, 182], [255, 107, 107], [255, 209, 102], [76, 201, 240],
@@ -361,6 +462,20 @@ async function runInference(kind: InferenceKind, inputDataUrl?: string) {
   const browser = await browserCapabilities();
   assertHardwareWebGpu(browser);
   const source = await normalizeInferenceInput(inputDataUrl);
+  if (kind === "background-removal") {
+    const result = await runRvm(source);
+    return {
+      version: 1,
+      kind,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      durationMs: Math.round(performance.now() - started),
+      browser,
+      model: RVM_MODEL,
+      result,
+      artifactNames: Array.from(artifacts.keys()),
+    };
+  }
   const { env, pipeline } = await import("@huggingface/transformers");
   env.allowLocalModels = true;
   env.allowRemoteModels = false;
