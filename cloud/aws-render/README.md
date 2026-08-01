@@ -63,7 +63,8 @@ cloud/aws-render/scripts/watch.sh "$job_id"
 
 `build-and-push.sh` refuses dirty changes under `cloud/aws-render` and creates its Docker build
 context from `git archive HEAD`. Uncommitted workspace edits and local media are therefore never
-published to ECR.
+published to ECR. It resolves the pushed tag to an ECR digest, updates Batch to the digest reference,
+and the ECR repository rejects tag mutation.
 
 Results are written beneath `s3://<artifact-bucket>/jobs/<job-name>/`:
 
