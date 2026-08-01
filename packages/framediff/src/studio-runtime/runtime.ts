@@ -1119,6 +1119,21 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       });
   }
 
+  private voiceAnchoredRecipe(recipe: GenRecipe): GenRecipe {
+    if (!(recipe.model ?? "").startsWith("elevenlabs") || recipe.voice?.trim()) return recipe;
+    const anchorRef = (recipe.refs ?? []).find((ref) =>
+      ref.kind === "audio" && ref.src.startsWith("comp://")
+    );
+    if (!anchorRef) return recipe;
+    const reference = anchorRef.src.slice("comp://".length);
+    const anchorKey = resolveCompositionKey(this.registry, reference);
+    const anchor = anchorKey ? this.registry[anchorKey] : undefined;
+    const voice = anchor && "recipe" in anchor
+      ? (anchor as GenerativeComposition).recipe.voice?.trim()
+      : undefined;
+    return voice ? { ...recipe, voice } : recipe;
+  }
+
   public getCompositions(): CompositionDescriptor[] {
     return describeRegistry(this.registry);
   }
@@ -3757,7 +3772,8 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const definition = genModelOf(recipe);
     const native = genNativeDims(recipe);
     const provider = definition.provider ?? recipe.provider ?? "fal";
-    const liveHash = await recipeHashOf(recipe);
+    const effectiveRecipe = this.voiceAnchoredRecipe(recipe);
+    const liveHash = await recipeHashOf(effectiveRecipe);
     const data = await this.project.getGenerationJobs(recipe.id) ?? { jobs: [], takes: [] };
     primeGenTakes(data.takes);
     // Takes this session hasn't seen before just landed — let mounted previews re-resolve.
@@ -3799,7 +3815,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const missingRefs = (definition.requiredRefs ?? []).filter((kind) => !(recipe.refs ?? []).some((ref) => ref.kind === kind));
     const blockedReason = blockedInputs.length
       ? `Pin an approved take in ${[...new Set(blockedInputs)].join(", ")} before generating this composition.`
-      : definition.id === "elevenlabs-direct" && !recipe.voice?.trim()
+      : definition.id === "elevenlabs-direct" && !effectiveRecipe.voice?.trim()
         ? "Set an ElevenLabs voice_id in the recipe before generating this composition."
       : missingRefs.length
         ? `Add a required ${missingRefs.map((kind) => kind === "endImage" ? "end-frame" : kind).join(" and ")} reference before generating with ${definition.name}.`
@@ -4185,6 +4201,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (!composition || !("recipe" in composition)) return { ok: false, message: "This is not a generative composition." };
     const recipe = (composition as GenerativeComposition).recipe;
     const definition = genModelOf(recipe);
+    const effectiveRecipe = this.voiceAnchoredRecipe(recipe);
     const outputKind = genOutputKindOf(recipe);
     if (definition.output !== outputKind) {
       return {
@@ -4192,7 +4209,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         message: `${definition.name} produces ${definition.output}; this composition is locked to ${outputKind}.`,
       };
     }
-    if (definition.id === "elevenlabs-direct" && !recipe.voice?.trim()) {
+    if (definition.id === "elevenlabs-direct" && !effectiveRecipe.voice?.trim()) {
       return { ok: false, message: "Set an ElevenLabs voice_id in the recipe before generating." };
     }
     const missingRefs = (definition.requiredRefs ?? []).filter((kind) => !(recipe.refs ?? []).some((ref) => ref.kind === kind));
@@ -4208,7 +4225,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       if (!decision.ok) return { ok: false, message: decision.why ?? "That input reference is not supported." };
       accepted.push(ref);
     }
-    const liveHash = await recipeHashOf(recipe);
+    const liveHash = await recipeHashOf(effectiveRecipe);
     const resolved: (GenRef & { mime?: string; name?: string })[] = [];
     const target = genNativeDims(recipe);
     for (const ref of recipe.refs ?? []) {
@@ -4296,23 +4313,12 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       }
     }
     const fields = definition.refFieldsOf(recipe);
-    // Voice anchor: an ElevenLabs segment whose audio ref points at another ElevenLabs gen
-    // comp borrows that comp's voice settings, so one anchor defines the narrator for every
-    // segment that references it. (fal exposes preset voices only — this is reference-level
-    // consistency, not audio cloning.)
-    let inputRecipe = recipe;
-    if ((recipe.model ?? "").startsWith("elevenlabs") && recipe.voice == null) {
-      const anchorSrc = (recipe.refs ?? []).find((ref) => ref.kind === "audio" && ref.src.startsWith("comp://"))?.src;
-      const anchor = anchorSrc ? this.registry[anchorSrc.slice("comp://".length)] : undefined;
-      const anchorVoice = anchor && "recipe" in anchor ? (anchor as GenerativeComposition).recipe.voice : undefined;
-      if (anchorVoice) inputRecipe = { ...recipe, voice: anchorVoice };
-    }
     const result = await this.project.submitGeneration({
       provider: definition.provider ?? recipe.provider ?? "fal",
       gen: recipe.id,
-      endpoint: definition.endpointOf(recipe),
+      endpoint: definition.endpointOf(effectiveRecipe),
       recipeHash: liveHash,
-      input: definition.buildInput(inputRecipe),
+      input: definition.buildInput(effectiveRecipe),
       refs: resolved.map((ref, index) => ({
         kind: ref.kind,
         src: ref.src,
