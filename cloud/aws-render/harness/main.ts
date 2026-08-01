@@ -260,9 +260,12 @@ async function browserCapabilities() {
     device: adapter.info.device,
     description: adapter.info.description,
   } : null;
-  const probeVideoCodec = async (codec: string) => {
+  const probeVideoCodec = async (codec: string, allowSoftware: boolean) => {
     if (typeof VideoEncoder === "undefined") return null;
-    for (const hardwareAcceleration of ["prefer-hardware", "no-preference"] as const) {
+    const preferences = allowSoftware
+      ? (["prefer-hardware", "no-preference"] as const)
+      : (["prefer-hardware"] as const);
+    for (const hardwareAcceleration of preferences) {
       const result = await VideoEncoder.isConfigSupported({
         codec,
         width: 640,
@@ -275,9 +278,9 @@ async function browserCapabilities() {
     }
     return { supported: false, hardwareAcceleration: "no-preference" as const };
   };
-  const h264 = await probeVideoCodec("avc1.42001f");
-  const av1 = await probeVideoCodec("av01.0.08M.08");
-  const vp9 = await probeVideoCodec("vp09.00.10.08");
+  const h264 = await probeVideoCodec("avc1.42001f", false);
+  const av1 = await probeVideoCodec("av01.0.08M.08", false);
+  const vp9 = await probeVideoCodec("vp09.00.10.08", true);
   return {
     userAgent: navigator.userAgent,
     gpuApi,
