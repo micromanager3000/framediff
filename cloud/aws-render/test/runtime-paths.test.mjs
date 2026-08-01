@@ -16,7 +16,7 @@ test("the worker image includes the root TypeScript configuration required by Vi
   assert.match(dockerfile, /test -f tsconfig\.base\.json/);
 });
 
-test("Linux cloud rendering negotiates VP9 WebM when MP4 encoders are unavailable", async () => {
+test("Linux cloud rendering negotiates software VP9 WebM when hardware MP4 encoders are unavailable", async () => {
   const harness = await readFile(resolve(import.meta.dirname, "../harness/main.ts"), "utf8");
   const encoder = await readFile(
     resolve(import.meta.dirname, "../../../packages/framediff/src/render/encodeWorker.ts"),
@@ -24,6 +24,8 @@ test("Linux cloud rendering negotiates VP9 WebM when MP4 encoders are unavailabl
   );
   assert.match(harness, /vp09\.00\.10\.08/);
   assert.match(harness, /container: "webm"/);
+  assert.match(harness, /\["prefer-hardware", "no-preference"\]/);
+  assert.match(harness, /hardwareAcceleration: video\.hardwareAcceleration/);
   assert.match(encoder, /new WebMOutputFormat\(\)/);
   assert.match(encoder, /codec: "vp9"/);
 });
