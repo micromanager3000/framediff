@@ -7,6 +7,9 @@ guard_account
 
 JOB_KIND="${1:?usage: submit.sh <capability-suite|depth-map|segmentation|background-removal> [image]}"
 INPUT_FILE="${2:-}"
+if [[ "$JOB_KIND" == "background-removal" && -z "$INPUT_FILE" ]]; then
+  INPUT_FILE="$(repo_root)/examples/previz-to-gen/assets/lighthouseVisitor.image--sha256-4df193a3afb22d291cd39e35d0ef3c2b86bb4a8ef06de7ef9eb6479162da24ec.png"
+fi
 case "$JOB_KIND" in
   capability-suite)
     if [[ -n "$INPUT_FILE" ]]; then
