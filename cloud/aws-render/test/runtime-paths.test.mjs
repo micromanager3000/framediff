@@ -39,4 +39,8 @@ test("the background-removal smoke uses a human portrait by default", async () =
   assert.match(submit, /sha256-4df193a3afb22d291cd39e35d0ef3c2b86bb4a8ef06de7ef9eb6479162da24ec\.png/);
   assert.match(harness, /Math\.min\(1, 512 \/ Math\.max\(canvas\.width, canvas\.height\)\)/);
   assert.doesNotMatch(harness, /Float32Array\(\[0\.25\]\)/);
+  assert.match(harness, /executionProviders: \["wasm"\]/);
+  assert.match(harness, /ort\.env\.wasm\.numThreads = 1/);
+  const dockerfile = await readFile(resolve(import.meta.dirname, "../Dockerfile"), "utf8");
+  assert.match(dockerfile, /cloud\/aws-render\/node_modules\/onnxruntime-web\/dist\/\*\.wasm/);
 });

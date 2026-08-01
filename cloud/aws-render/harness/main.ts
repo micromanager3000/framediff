@@ -439,6 +439,7 @@ async function runRvm(source: string) {
   const ort = await import("onnxruntime-web/webgpu");
   ort.env.logLevel = "error";
   ort.env.wasm.wasmPaths = "/ort/";
+  ort.env.wasm.numThreads = 1;
   const canvas = await imageCanvas(source);
   const context = canvas.getContext("2d", { willReadFrequently: true });
   if (!context) throw new Error("Canvas 2D is unavailable for RVM input.");
@@ -452,7 +453,7 @@ async function runRvm(source: string) {
   }
   const session = await ort.InferenceSession.create(
     `/models/${RVM_MODEL.id}/${RVM_MODEL.file}`,
-    { executionProviders: ["webgpu"] },
+    { executionProviders: ["wasm"] },
   );
   const recurrent = () => new ort.Tensor("float32", new Float32Array([0]), [1, 1, 1, 1]);
   const downsampleRatio = Math.min(1, 512 / Math.max(canvas.width, canvas.height));
