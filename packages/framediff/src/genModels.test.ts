@@ -62,6 +62,28 @@ describe("multi-media generative models", () => {
     });
   });
 
+  it("accepts one audio composition as a direct ElevenLabs voice anchor", () => {
+    const direct = recipe({
+      output: "audio",
+      model: "elevenlabs-direct",
+      refs: [{ kind: "audio", src: "comp://voiceRef" }],
+    });
+    const model = genModelOf(direct);
+
+    expect(genRefAccept({ ...direct, refs: [] }, model, "audio")).toMatchObject({ ok: true });
+    expect(model.modeOf(direct)).toBe("anchored-text-to-audio");
+    expect(model.refFieldsOf(direct)).toEqual([]);
+
+    const multilingual = recipe({
+      output: "audio",
+      model: "elevenlabs-multilingual-v2",
+      refs: [{ kind: "audio", src: "comp://voiceRef" }],
+    });
+    const multilingualModel = genModelOf(multilingual);
+    expect(genRefAccept({ ...multilingual, refs: [] }, multilingualModel, "audio")).toMatchObject({ ok: true });
+    expect(multilingualModel.modeOf(multilingual)).toBe("anchored-text-to-audio");
+  });
+
   it("keeps existing video models explicitly typed as video output", () => {
     expect(genModelOf(recipe({ model: "seedance-2.0" })).output).toBe("video");
   });

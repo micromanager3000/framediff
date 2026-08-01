@@ -148,6 +148,77 @@ describe("HtmlStudioRuntime Inspector batches", () => {
     expect(project.submitGeneration).not.toHaveBeenCalled();
   });
 
+  it("inherits a direct ElevenLabs voice id from a pinned audio anchor", async () => {
+    const voiceRef = generative({
+      id: "VoiceRef",
+      output: "audio",
+      model: "elevenlabs-direct",
+      prompt: "The approved narrator reference.",
+      voice: "voice-123",
+      take: 4,
+    });
+    const narration = generative({
+      id: "Narration",
+      output: "audio",
+      model: "elevenlabs-direct",
+      prompt: "[calm] A measured introduction.",
+      refs: [{ kind: "audio", src: "comp://voiceRef" }],
+      speed: 1.1,
+      seed: 7,
+    });
+    const anchorTake = {
+      assetId: "voice-ref-take",
+      contentHash: "sha256:voice-ref",
+      bytes: 100,
+      mime: "audio/mpeg",
+      generator: {
+        gen: "VoiceRef",
+        take: 4,
+        recipeHash: "sha256:anchor-recipe",
+        endpoint: "v1/text-to-speech/voice-123",
+        recipe: {
+          output: "audio" as const,
+          model: "elevenlabs-direct",
+          prompt: "The approved narrator reference.",
+          refs: [],
+          voice: "voice-123",
+        },
+        inputs: [],
+        outputKind: "audio" as const,
+      },
+    };
+    const project = {
+      getAssets: vi.fn(async () => ({ version: 1, assets: {} })),
+      getGenerationJobs: vi.fn(async (gen: string) =>
+        gen === "VoiceRef" ? { jobs: [], takes: [anchorTake] } : { jobs: [], takes: [] }
+      ),
+      getSecrets: vi.fn(async () => ({ providers: { elevenlabs: { set: true } } })),
+      cacheUrl: vi.fn((contentHash: string) => `/cache/${encodeURIComponent(contentHash)}`),
+      submitGeneration: vi.fn(async () => ({ job: { id: "job-anchored", status: "queued" } })),
+    };
+    const runtime = createStudioRuntime({ voiceRef, narration } as CompRegistry, project as never);
+
+    const workspace = await runtime.getGenerativeWorkspace("narration");
+    expect(workspace?.blockedReason).toBeUndefined();
+    await expect(runtime.submitGeneration("narration")).resolves.toMatchObject({ ok: true });
+
+    expect(project.submitGeneration).toHaveBeenCalledWith(expect.objectContaining({
+      provider: "elevenlabs",
+      endpoint: "v1/text-to-speech/voice-123",
+      input: expect.objectContaining({
+        text: "[calm] A measured introduction.",
+        model_id: "eleven_v3",
+        seed: 7,
+        voice_settings: expect.objectContaining({ speed: 1.1 }),
+      }),
+      refs: [expect.objectContaining({
+        kind: "audio",
+        src: "/cache/sha256%3Avoice-ref",
+        authoredSrc: "comp://voiceRef",
+      })],
+    }));
+  });
+
   it("uses an injected project adapter without replacing the browser fetch implementation", async () => {
     const request = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
