@@ -77,6 +77,8 @@ RUN npm ci --ignore-scripts \
     && test -f cloud/aws-render/node_modules/vite/bin/vite.js \
     && test -f tsconfig.base.json \
     && mkdir -p cloud/aws-render/harness/public/fixtures \
+    && mkdir -p cloud/aws-render/harness/public/ort \
+    && cp cloud/aws-render/node_modules/onnxruntime-web/dist/*.wasm cloud/aws-render/harness/public/ort/ \
     && node cloud/aws-render/scripts/cache-models.mjs
 
 COPY --from=fixtures /fixtures/ cloud/aws-render/harness/public/fixtures/
