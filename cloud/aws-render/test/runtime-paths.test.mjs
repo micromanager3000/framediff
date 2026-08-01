@@ -31,3 +31,9 @@ test("Linux cloud rendering negotiates software VP9 WebM when hardware MP4 encod
   assert.match(encoder, /new WebMOutputFormat\(\)/);
   assert.match(encoder, /codec: "vp9"/);
 });
+
+test("the background-removal smoke uses a human portrait by default", async () => {
+  const submit = await readFile(resolve(import.meta.dirname, "../scripts/submit.sh"), "utf8");
+  assert.match(submit, /background-removal.*lighthouseVisitor\.image/s);
+  assert.match(submit, /sha256-4df193a3afb22d291cd39e35d0ef3c2b86bb4a8ef06de7ef9eb6479162da24ec\.png/);
+});
