@@ -11,12 +11,73 @@ export { SourceManager, type SourceState } from "./managers/SourceManager";
 export { AssetManager, type AssetState } from "./managers/AssetManager";
 export { GitManager, type GitState } from "./managers/GitManager";
 export { RenderManager, type RenderExecutor, type RenderState } from "./managers/RenderManager";
+export {
+  canonicalRenderRequest,
+  createRemoteRenderExecutor,
+  executeRemoteRender,
+  fingerprintRenderRequest,
+  RemoteRenderError,
+  resumeRemoteRender,
+  sanitizeRenderError,
+  type RemoteRenderBackend,
+  type RemoteRenderPhase,
+  type RemoteRenderExecutorOptions,
+  type RemoteRenderRequestFactory,
+  type RemoteRenderState,
+  type RemoteRenderStatus,
+  type RemoteRenderSubmission,
+  type RenderArtifactMetadata,
+  type RenderAssetInput,
+  type RenderOutputKind,
+  type RenderProgressLike,
+  type RenderRational,
+  type RenderProvenance,
+  type RenderRequest,
+  type RenderResultLike,
+  type RenderResultMetadata,
+  type RenderSettings,
+  type RenderSourceRevision,
+  type SanitizedRenderError,
+  type WaitForRemoteRenderOptions,
+} from "./renderContracts";
+export {
+  PROCESSING_ARTIFACT_VERSION,
+  PROCESSING_COMPOSITION_KIND,
+  PROCESSING_RECIPE_VERSION,
+  RVM_FOREGROUND_CHANNEL,
+  RVM_MATTE_CHANNEL,
+  RVM_PROCESSOR,
+  ProcessingManager,
+  canonicalProcessingRecipe,
+  fingerprintProcessingRecipe,
+  resolvePinnedProcessingChannel,
+  resolvePinnedProcessingChannelPin,
+  validateProcessingArtifactManifest,
+  validateProcessingRecipe,
+  validateRvmArtifactManifest,
+  type ProcessingArtifactManifest,
+  type ProcessingChannelPin,
+  type ProcessingChannelDescriptor,
+  type ProcessingChannelResolution,
+  type ProcessingChannelTiming,
+  type ProcessingCompositionDocument,
+  type ProcessingInput,
+  type ProcessingManagerState,
+  type ProcessingOperationResult,
+  type ProcessingParameters,
+  type ProcessingProvenance,
+  type ProcessingRecipe,
+  type ProcessingScalar,
+  type ProcessingStatus,
+  type ProcessingWorkspacePort,
+  type ProcessingWorkspaceSnapshot,
+} from "./processing";
 export { InspectorManager, type InspectorManagerState } from "./managers/InspectorManager";
 export { GenerativeManager, type GenerativeManagerState } from "./managers/GenerativeManager";
 export { CredentialsManager, type CredentialsManagerState } from "./managers/CredentialsManager";
 export { ProjectOperationsManager, type ProjectOperationsState } from "./managers/ProjectOperationsManager";
 export { HistoryManager, mergeGroupedReceipts, type HistoryState } from "./managers/HistoryManager";
-export { artifactStatusFromInputs, buildTimelineLanes, frontTrimPlacement, packTimelineVisualRows, timelineItemLabel, type FrontTrimResult } from "./timeline";
+export { artifactStatusFromInputs, buildTimelineLanes, frontTrimPlacement, packTimelineVisualRows, timelineItemLabel, timelineItemSilence, type FrontTrimResult } from "./timeline";
 export { canNestComposition, type NestVerdict } from "./nesting";
 export {
   COMMON_GUIDE_STEPS,

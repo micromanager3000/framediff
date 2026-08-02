@@ -41,7 +41,9 @@ export interface ExportOptions {
   width: number;
   height: number;
   codec: string;
-  muxerCodec: "avc" | "av1";
+  muxerCodec: "avc" | "av1" | "vp9";
+  /** Defaults to MP4. WebM enables VP9 on Linux browsers without H.264/AV1 encoders. */
+  container?: "mp4" | "webm";
   bitrate: number;
   /** Defaults to "prefer-hardware"; use "prefer-software" only when codec byte determinism matters. */
   hardwareAcceleration?: "no-preference" | "prefer-hardware" | "prefer-software";
@@ -369,6 +371,7 @@ async function exportVideoInternal(
       fps,
       codec,
       muxerCodec,
+      container: opts.container ?? "mp4",
       bitrate,
       hardwareAcceleration: hardwareAcceleration ?? "prefer-hardware",
       audio: mixed ? { sampleRate: SAMPLE_RATE, numberOfChannels: 2 } : null,

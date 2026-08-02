@@ -10,7 +10,9 @@
   "dependencies": {
     "@aws-sdk/client-s3": "3.1094.0",
     "@huggingface/transformers": "4.2.0",
-    "playwright": "1.61.1"
+    "onnxruntime-web": "1.26.0-dev.20260416-b7804b056c",
+    "playwright": "1.61.1",
+    "vite": "6.4.3"
   },
   "overrides": {
     "adm-zip": "0.6.0",

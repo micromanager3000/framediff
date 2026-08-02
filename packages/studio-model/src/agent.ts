@@ -1,5 +1,5 @@
 import type { StudioApplication } from "./StudioApplication";
-import { artifactStatusFromInputs } from "./timeline";
+import { artifactStatusFromInputs, timelineItemSilence } from "./timeline";
 import type {
   AgentCheckDiagnostic,
   AgentCheckResult,
@@ -10,6 +10,7 @@ import type {
   AgentProjectSnapshot,
   AgentSemanticCommand,
   AgentSourceRevisionSnapshot,
+  CompositionOutputKind,
   PlacementEditResult,
   ProjectEditReceipt,
   ProjectEditResult,
@@ -33,8 +34,23 @@ function sourceFiles(application: StudioApplication): Map<string, Set<string>> {
   }));
 }
 
+/** An audio-only source carries nothing but its performance — muting one is almost always a
+ *  placeholder that outlived its purpose, and it is invisible in the preview because there is
+ *  no picture to notice missing. Video keeps its own mute intent; only audio sources qualify.
+ *  Lane classification matches `buildTimelineLanes`, so the badge and this agree by construction. */
+function silentAudioSource(
+  object: AgentCompositionSnapshot["objects"][number],
+  outputKindByKey: Map<string, CompositionOutputKind>,
+): "muted" | "zero volume" | null {
+  const content = object.content;
+  const isAudio = content.type === "audio"
+    || (content.type === "nested" && outputKindByKey.get(object.production?.nestedCompositionKey ?? "") === "audio");
+  return timelineItemSilence(object, isAudio ? "audio" : "video");
+}
+
 function checkSnapshot(snapshot: AgentProjectSnapshot): AgentCheckResult {
   const diagnostics: AgentCheckDiagnostic[] = [];
+  const outputKindByKey = new Map(snapshot.compositions.map((entry) => [entry.composition.key, entry.composition.outputKind]));
   for (const entry of snapshot.compositions) {
     const key = entry.composition.key;
     for (const source of entry.sources) {
@@ -45,6 +61,8 @@ function checkSnapshot(snapshot: AgentProjectSnapshot): AgentCheckResult {
       if (object.editable && !Object.values(object.editable).some(Boolean)) diagnostics.push({ code: "read-only-object", severity: "info", compositionKey: key, objectId: object.id, message: `${object.id} is inspectable but its source authority is read-only.` });
       if (object.production?.availability === "missing") diagnostics.push({ code: "missing-asset", severity: "error", compositionKey: key, objectId: object.id, message: `${object.id} references media that is not available locally or remotely.` });
       if (object.production?.availability === "remote") diagnostics.push({ code: "remote-asset", severity: "info", compositionKey: key, objectId: object.id, message: `${object.id} will resolve its media remotely until it is cached locally.` });
+      const silence = silentAudioSource(object, outputKindByKey);
+      if (silence) diagnostics.push({ code: "silent-audio", severity: "warning", compositionKey: key, objectId: object.id, message: `${object.id} places an audio source but is ${silence} — it will render silent.` });
     }
     if (entry.opaqueAnimationCount) diagnostics.push({ code: "opaque-animation", severity: "warning", compositionKey: key, message: `${entry.opaqueAnimationCount} animation call${entry.opaqueAnimationCount === 1 ? " is" : "s are"} outside the registered editable subset.` });
     for (const diagnostic of entry.animationDiagnostics) {

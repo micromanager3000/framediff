@@ -16,6 +16,7 @@ The same versioned Batch/S3 job protocol also supports:
 
 - relative monocular depth maps with Depth Anything V2 Small
 - ADE20K semantic segmentation with SegFormer B0
+- foreground extraction plus alpha matte with Robust Video Matting (RVM) MobileNetV3
 
 Both model revisions and their ONNX weights are pinned into the worker image. Inference therefore
 runs inside the FrameDiff AWS worker over hardware WebGPU and does not call a hosted inference API
@@ -55,6 +56,9 @@ cloud/aws-render/scripts/watch.sh "$job_id"
 
 job_id="$(cloud/aws-render/scripts/submit-segmentation.sh ./input.png | head -n1)"
 cloud/aws-render/scripts/watch.sh "$job_id"
+
+job_id="$(cloud/aws-render/scripts/submit-background-removal.sh ./portrait.png | head -n1)"
+cloud/aws-render/scripts/watch.sh "$job_id"
 ```
 
 `watch.sh` prints the report and downloads the full result beneath
@@ -63,7 +67,8 @@ cloud/aws-render/scripts/watch.sh "$job_id"
 
 `build-and-push.sh` refuses dirty changes under `cloud/aws-render` and creates its Docker build
 context from `git archive HEAD`. Uncommitted workspace edits and local media are therefore never
-published to ECR.
+published to ECR. It resolves the pushed tag to an ECR digest, updates Batch to the digest reference,
+and the ECR repository rejects tag mutation.
 
 Results are written beneath `s3://<artifact-bucket>/jobs/<job-name>/`:
 
@@ -93,6 +98,7 @@ The two inference jobs have matching local preflights:
 node cloud/aws-render/scripts/cache-models.mjs
 cloud/aws-render/scripts/test-local.sh depth-map
 cloud/aws-render/scripts/test-local.sh segmentation
+cloud/aws-render/scripts/test-local.sh background-removal
 ```
 
 ## Cost and scaling behavior

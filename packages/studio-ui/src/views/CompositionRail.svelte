@@ -17,6 +17,7 @@
     custom: "⌘",
     "3d": "◇",
     generate: "✦",
+    processing: "◈",
     audio: "♒",
     doc: "¶",
     plan: "▤",

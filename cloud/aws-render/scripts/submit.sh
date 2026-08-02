@@ -5,8 +5,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 guard_account
 
-JOB_KIND="${1:?usage: submit.sh <capability-suite|depth-map|segmentation> [image]}"
+JOB_KIND="${1:?usage: submit.sh <capability-suite|depth-map|segmentation|background-removal> [image]}"
 INPUT_FILE="${2:-}"
+if [[ "$JOB_KIND" == "background-removal" && -z "$INPUT_FILE" ]]; then
+  INPUT_FILE="$(repo_root)/examples/previz-to-gen/assets/lighthouseVisitor.image--sha256-4df193a3afb22d291cd39e35d0ef3c2b86bb4a8ef06de7ef9eb6479162da24ec.png"
+fi
 case "$JOB_KIND" in
   capability-suite)
     if [[ -n "$INPUT_FILE" ]]; then
@@ -14,7 +17,7 @@ case "$JOB_KIND" in
       exit 46
     fi
     ;;
-  depth-map|segmentation)
+  depth-map|segmentation|background-removal)
     if [[ -n "$INPUT_FILE" && ! -f "$INPUT_FILE" ]]; then
       echo "Input image does not exist: $INPUT_FILE" >&2
       exit 47

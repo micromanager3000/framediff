@@ -29,6 +29,9 @@ import type {
   PreviewOptions,
   GenerativeChoiceSnapshot,
   ProviderCredentialsSnapshot,
+  ProcessingCompositionDocument,
+  ProcessingOperationResult,
+  ProcessingWorkspaceSnapshot,
   RenderProgressSnapshot,
   RenderResult,
   ScriptSheetSnapshot,
@@ -46,6 +49,11 @@ import {
   classifyVisualGeometry,
   cropRegionMatchesTargetAspect,
   normalizeCropRegion,
+  fingerprintProcessingRecipe,
+  RVM_PROCESSOR,
+  validateProcessingArtifactManifest,
+  validateProcessingRecipe,
+  validateRvmArtifactManifest,
   retargetCropRegion,
 } from "@framediff/studio-model";
 import { createAssetResolver, type AssetResolver } from "../assets/resolver";
@@ -101,6 +109,7 @@ import {
   type GenRef,
   type GenerativeComposition,
 } from "../generative";
+import type { ProcessingComposition } from "../processingComposition";
 import {
   deletePlanRow,
   insertPlanRow,
@@ -779,6 +788,36 @@ export const ${options.exportName} = generative({
 `;
 }
 
+function processingCompositionModule(options: {
+  id: string;
+  exportName: string;
+  file: string;
+  dataFile: string;
+  width: number;
+  height: number;
+  fps: number;
+  durationInFrames: number;
+}): string {
+  const directory = options.file.split("/").slice(0, -1).join("/") || ".";
+  const dataImport = options.dataFile.startsWith(`${directory}/`)
+    ? `./${options.dataFile.slice(directory.length + 1)}`
+    : options.dataFile;
+  return `import { processing, type ProcessingCompositionDocument } from "framediff";
+import document from ${JSON.stringify(dataImport)};
+
+export const ${options.exportName} = processing({
+  id: ${JSON.stringify(options.id)},
+  file: ${JSON.stringify(options.file)},
+  dataFile: ${JSON.stringify(options.dataFile)},
+  width: ${options.width},
+  height: ${options.height},
+  fps: ${options.fps},
+  durationInFrames: ${options.durationInFrames},
+  document: document as ProcessingCompositionDocument,
+});
+`;
+}
+
 function moodboardCompositionModule(options: {
   id: string;
   exportName: string;
@@ -1082,6 +1121,21 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         this.assetsLoaded = true;
         for (const preview of this.previews) this.renderPreview(preview);
       });
+  }
+
+  private voiceAnchoredRecipe(recipe: GenRecipe): GenRecipe {
+    if (!(recipe.model ?? "").startsWith("elevenlabs") || recipe.voice?.trim()) return recipe;
+    const anchorRef = (recipe.refs ?? []).find((ref) =>
+      ref.kind === "audio" && ref.src.startsWith("comp://")
+    );
+    if (!anchorRef) return recipe;
+    const reference = anchorRef.src.slice("comp://".length);
+    const anchorKey = resolveCompositionKey(this.registry, reference);
+    const anchor = anchorKey ? this.registry[anchorKey] : undefined;
+    const voice = anchor && "recipe" in anchor
+      ? (anchor as GenerativeComposition).recipe.voice?.trim()
+      : undefined;
+    return voice ? { ...recipe, voice } : recipe;
   }
 
   public getCompositions(): CompositionDescriptor[] {
@@ -3098,13 +3152,41 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (isGenerative && !request.outputKind) {
       return { ok: false, message: "Choose whether this generative composition outputs image, video, or audio." };
     }
+    const isProcessing = request.kind === "processing";
+    let processingRecipe = request.processingRecipe;
+    if (isProcessing) {
+      if (!processingRecipe) {
+        const sourceKey = selectedParent ? relativeToKey : Object.entries(this.registry).find(([, value]) => value === relative)?.[0];
+        if (!sourceKey) return { ok: false, message: "A processing composition needs a source composition." };
+        const source = await this.getCompositionBakeInputs(sourceKey);
+        if (source.missing.length) return { ok: false, message: `Cannot create processing from unresolved inputs: ${source.missing.join(", ")}.` };
+        const sourceFingerprint = await hashString(JSON.stringify(Object.entries(source.inputs).sort(([left], [right]) => left.localeCompare(right))));
+        processingRecipe = {
+          version: 1,
+          kind: "processing",
+          id: `${key}-rvm`,
+          inputs: [{ name: "source", contentHash: sourceFingerprint, mime: "application/vnd.framediff.composition+json" }],
+          parameters: { sourceCompositionKey: sourceKey, outputChannels: ["foreground", "matte"] },
+          provenance: {
+            processor: "rvm",
+            model: "robust-video-matting-mobilenetv3",
+            modelRevision: "worker:rvm-mobilenetv3-v1",
+            runtime: "framediff-processing-worker",
+            runtimeRevision: "1",
+          },
+        };
+      }
+      const errors = validateProcessingRecipe(processingRecipe);
+      if (errors.length) return { ok: false, message: `Invalid processing recipe: ${errors.join("; ")}` };
+    }
     const isMoodboard = request.kind === "moodboard";
-    const file = isGenerative ? `src/${pascal}.gen.ts` : isMoodboard ? `src/${pascal}.ts` : `src/${pascal}.html`;
-    const module = isGenerative || isMoodboard ? file : `src/${pascal}.ts`;
+    const file = isGenerative ? `src/${pascal}.gen.ts` : isProcessing ? `src/${pascal}.process.ts` : isMoodboard ? `src/${pascal}.ts` : `src/${pascal}.html`;
+    const module = isGenerative || isProcessing || isMoodboard ? file : `src/${pascal}.ts`;
     const generativeDataFile = `src/${pascal}.gen.json`;
+    const processingDataFile = `src/${pascal}.process.json`;
     const documentFile = `src/${pascal}.comp.json`;
     const schemaFile = `src/${pascal}.schema.json`;
-    const parentFile = (selectedParent?.meta?.kind ?? "edit") === "edit" && selectedParent?.meta?.file?.endsWith(".html")
+    const parentFile = !isProcessing && (selectedParent?.meta?.kind ?? "edit") === "edit" && selectedParent?.meta?.file?.endsWith(".html")
       ? selectedParent.meta.file
       : undefined;
     const finishCreation = async (): Promise<ProjectOperationResult> => {
@@ -3122,6 +3204,8 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
               for (let suffix = 2; ids.has(id); suffix += 1) id = `${baseId}-${suffix}`;
               const outputKind: CompositionOutputKind = isGenerative
                 ? request.outputKind!
+                : isProcessing
+                  ? "video"
                 : isMoodboard
                   ? "image"
                   : "video";
@@ -3165,6 +3249,34 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         compositionKey: key,
       };
     };
+    if (isProcessing) {
+      const recipeFingerprint = await fingerprintProcessingRecipe(processingRecipe!);
+      const document: ProcessingCompositionDocument = {
+        recipe: processingRecipe!,
+        recipeFingerprint,
+        artifact: null,
+        pinnedRecipeFingerprint: null,
+      };
+      if (!(await this.project.writeSource(processingDataFile, `${JSON.stringify(document, null, 2)}\n`))) {
+        return { ok: false, message: `Could not write ${processingDataFile}.` };
+      }
+      const source = processingCompositionModule({
+        id: pascal,
+        exportName: varName,
+        file,
+        dataFile: processingDataFile,
+        width: relative.width,
+        height: relative.height,
+        fps: relative.fps,
+        durationInFrames: request.durationInFrames,
+      });
+      if (!(await this.project.writeSource(file, source))) return { ok: false, message: `Wrote ${processingDataFile}, but could not write ${file}.` };
+      const inserted = insertRegistryEntry(registryFile, sources, { key, varName, importFrom: relModule(registryFile, file) });
+      if (!inserted || !(await this.project.writeSource(registryFile, inserted.text))) {
+        return { ok: false, message: `Wrote ${file}, but could not register it in ${registryFile}.` };
+      }
+      return finishCreation();
+    }
     if (isGenerative) {
       const duration = Number((request.durationInFrames / relative.fps).toFixed(6));
       const output = request.outputKind!;
@@ -3592,6 +3704,81 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     return { choices };
   }
 
+  public async getProcessingWorkspace(compositionKey: string): Promise<ProcessingWorkspaceSnapshot | null> {
+    const candidate = this.registry[compositionKey];
+    if (!candidate || candidate.meta?.kind !== "processing" || !("processing" in candidate)) return null;
+    const composition = candidate as ProcessingComposition;
+    const document = composition.processing;
+    const recipeFingerprint = await fingerprintProcessingRecipe(document.recipe);
+    const artifact = document.artifact;
+    const artifactErrors = artifact
+      ? document.recipe.provenance.processor === RVM_PROCESSOR
+        ? validateRvmArtifactManifest(artifact)
+        : validateProcessingArtifactManifest(artifact)
+      : [];
+    const recipeInputs = new Map(document.recipe.inputs.map((input) => [input.name, input.contentHash]));
+    const inputsMatch = !!artifact
+      && artifact.inputs.length === recipeInputs.size
+      && artifact.inputs.every((input) => recipeInputs.get(input.name) === input.contentHash);
+    const status = !artifact || !document.pinnedRecipeFingerprint
+      ? "missing"
+      : artifactErrors.length || !inputsMatch || document.recipeFingerprint !== recipeFingerprint || artifact.recipeFingerprint !== recipeFingerprint || document.pinnedRecipeFingerprint !== recipeFingerprint
+        ? "stale"
+        : "current";
+    return {
+      compositionKey,
+      recipe: document.recipe,
+      artifact,
+      pinnedRecipeFingerprint: document.pinnedRecipeFingerprint,
+      recipeFingerprint,
+      status,
+    };
+  }
+
+  public async runProcessing(compositionKey: string): Promise<ProcessingOperationResult> {
+    const workspace = await this.getProcessingWorkspace(compositionKey);
+    if (!workspace) return { ok: false, message: "The selected composition is not a processing recipe." };
+    return {
+      ok: false,
+      message: "No processing executor is configured for this project. Connect the hosted worker adapter, then run this pinned recipe again.",
+    };
+  }
+
+  public async pinProcessingArtifact(compositionKey: string, recipeFingerprint: string): Promise<ProcessingOperationResult> {
+    const candidate = this.registry[compositionKey];
+    if (!candidate || candidate.meta?.kind !== "processing" || !("processing" in candidate)) {
+      return { ok: false, message: "The selected composition is not a processing recipe." };
+    }
+    const composition = candidate as ProcessingComposition;
+    const current = await fingerprintProcessingRecipe(composition.processing.recipe);
+    if (recipeFingerprint !== current) return { ok: false, message: "The processing recipe changed; refresh before pinning." };
+    if (!composition.processing.artifact || composition.processing.artifact.recipeFingerprint !== current) {
+      return { ok: false, message: "No current processing artifact is available to pin." };
+    }
+    const artifactErrors = composition.processing.recipe.provenance.processor === RVM_PROCESSOR
+      ? validateRvmArtifactManifest(composition.processing.artifact)
+      : validateProcessingArtifactManifest(composition.processing.artifact);
+    if (artifactErrors.length) return { ok: false, message: `The processing artifact is invalid: ${artifactErrors.join("; ")}` };
+    const file = composition.processingDataFile;
+    if (!file) return { ok: false, message: "The processing composition does not declare a writable data file." };
+    const revision = await this.project.readSourceRevision(file);
+    if (!revision?.text) return { ok: false, message: `Could not read ${file}.` };
+    let parsed: ProcessingCompositionDocument;
+    try {
+      parsed = JSON.parse(revision.text) as ProcessingCompositionDocument;
+    } catch {
+      return { ok: false, message: `${file} is not valid JSON.` };
+    }
+    if (parsed.recipeFingerprint !== current) return { ok: false, message: "The processing recipe source changed; refresh before pinning." };
+    const committed = await this.commitSourceText(
+      `Pin ${candidate.id} processing artifact`,
+      revision,
+      `${JSON.stringify({ ...parsed, pinnedRecipeFingerprint: current }, null, 2)}\n`,
+    );
+    if (!committed.ok) return { ok: false, message: committed.message ?? "Could not pin the processing artifact.", conflicts: committed.conflicts };
+    return { ok: true, message: `Pinned ${candidate.id} processing artifact.`, manifest: composition.processing.artifact, receipt: committed.receipt };
+  }
+
   public async getGenerativeWorkspace(compositionKey: string): Promise<GenerativeWorkspaceSnapshot | null> {
     const composition = this.registry[compositionKey];
     if (!composition || !("recipe" in composition)) return null;
@@ -3600,7 +3787,8 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const definition = genModelOf(recipe);
     const native = genNativeDims(recipe);
     const provider = definition.provider ?? recipe.provider ?? "fal";
-    const liveHash = await recipeHashOf(recipe);
+    const effectiveRecipe = this.voiceAnchoredRecipe(recipe);
+    const liveHash = await recipeHashOf(effectiveRecipe);
     const data = await this.project.getGenerationJobs(recipe.id) ?? { jobs: [], takes: [] };
     primeGenTakes(data.takes);
     // Takes this session hasn't seen before just landed — let mounted previews re-resolve.
@@ -3642,7 +3830,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const missingRefs = (definition.requiredRefs ?? []).filter((kind) => !(recipe.refs ?? []).some((ref) => ref.kind === kind));
     const blockedReason = blockedInputs.length
       ? `Pin an approved take in ${[...new Set(blockedInputs)].join(", ")} before generating this composition.`
-      : definition.id === "elevenlabs-direct" && !recipe.voice?.trim()
+      : definition.id === "elevenlabs-direct" && !effectiveRecipe.voice?.trim()
         ? "Set an ElevenLabs voice_id in the recipe before generating this composition."
       : missingRefs.length
         ? `Add a required ${missingRefs.map((kind) => kind === "endImage" ? "end-frame" : kind).join(" and ")} reference before generating with ${definition.name}.`
@@ -3768,7 +3956,6 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       jobs: data.jobs.map((job) => ({
         id: job.id,
         providerJobId: job.providerJobId,
-        autoPinIfEmpty: job.autoPinIfEmpty,
         status: job.status,
         error: job.error,
         take: job.take,
@@ -4028,6 +4215,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (!composition || !("recipe" in composition)) return { ok: false, message: "This is not a generative composition." };
     const recipe = (composition as GenerativeComposition).recipe;
     const definition = genModelOf(recipe);
+    const effectiveRecipe = this.voiceAnchoredRecipe(recipe);
     const outputKind = genOutputKindOf(recipe);
     if (definition.output !== outputKind) {
       return {
@@ -4035,7 +4223,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         message: `${definition.name} produces ${definition.output}; this composition is locked to ${outputKind}.`,
       };
     }
-    if (definition.id === "elevenlabs-direct" && !recipe.voice?.trim()) {
+    if (definition.id === "elevenlabs-direct" && !effectiveRecipe.voice?.trim()) {
       return { ok: false, message: "Set an ElevenLabs voice_id in the recipe before generating." };
     }
     const missingRefs = (definition.requiredRefs ?? []).filter((kind) => !(recipe.refs ?? []).some((ref) => ref.kind === kind));
@@ -4051,7 +4239,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       if (!decision.ok) return { ok: false, message: decision.why ?? "That input reference is not supported." };
       accepted.push(ref);
     }
-    const liveHash = await recipeHashOf(recipe);
+    const liveHash = await recipeHashOf(effectiveRecipe);
     const resolved: (GenRef & { mime?: string; name?: string })[] = [];
     const target = genNativeDims(recipe);
     for (const ref of recipe.refs ?? []) {
@@ -4139,23 +4327,26 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       }
     }
     const fields = definition.refFieldsOf(recipe);
-    // Voice anchor: an ElevenLabs segment whose audio ref points at another ElevenLabs gen
-    // comp borrows that comp's voice settings, so one anchor defines the narrator for every
-    // segment that references it. (fal exposes preset voices only — this is reference-level
-    // consistency, not audio cloning.)
-    let inputRecipe = recipe;
-    if ((recipe.model ?? "").startsWith("elevenlabs") && recipe.voice == null) {
-      const anchorSrc = (recipe.refs ?? []).find((ref) => ref.kind === "audio" && ref.src.startsWith("comp://"))?.src;
-      const anchor = anchorSrc ? this.registry[anchorSrc.slice("comp://".length)] : undefined;
-      const anchorVoice = anchor && "recipe" in anchor ? (anchor as GenerativeComposition).recipe.voice : undefined;
-      if (anchorVoice) inputRecipe = { ...recipe, voice: anchorVoice };
+    // Hash, snapshot, and build provider input from the same effective recipe. This keeps
+    // inherited voice-anchor provenance replayable without expanding provider behavior.
+    const endpoint = definition.endpointOf(effectiveRecipe);
+    const input = definition.buildInput(effectiveRecipe);
+    const recipeSnapshot = genRecipeSnapshotOf(effectiveRecipe);
+    const snapshotRecipe = { ...recipeSnapshot, id: recipe.id } as GenRecipe;
+    const snapshotHash = await recipeHashOf(snapshotRecipe);
+    if (
+      snapshotHash !== liveHash
+      || endpoint !== definition.endpointOf(snapshotRecipe)
+      || JSON.stringify(input) !== JSON.stringify(definition.buildInput(snapshotRecipe))
+    ) {
+      return { ok: false, message: "The submitted generation recipe could not be verified as immutable." };
     }
     const result = await this.project.submitGeneration({
       provider: definition.provider ?? recipe.provider ?? "fal",
       gen: recipe.id,
-      endpoint: definition.endpointOf(recipe),
+      endpoint,
       recipeHash: liveHash,
-      input: definition.buildInput(inputRecipe),
+      input,
       refs: resolved.map((ref, index) => ({
         kind: ref.kind,
         src: ref.src,
@@ -4165,7 +4356,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         adapt: recipe.refs?.[index]?.adapt,
         ...fields.find((field) => field.kind === ref.kind),
       })),
-      recipe: genRecipeSnapshotOf(recipe),
+      recipe: recipeSnapshot,
     });
     return result.job && !result.error
       ? { ok: true, message: `Submitted generation ${result.job.id.slice(0, 8)}…` }

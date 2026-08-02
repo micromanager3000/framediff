@@ -26,7 +26,28 @@ type CapabilityResult = {
   detail?: Record<string, unknown>;
 };
 
-type InferenceKind = "depth-map" | "segmentation";
+type InferenceKind = "depth-map" | "segmentation" | "background-removal";
+
+type HostedSourceFile = {
+  sha256: string;
+  contentBase64: string;
+  executable?: boolean;
+};
+
+type HostedRenderRequest = {
+  compositionKey: string;
+  source: { files: Record<string, HostedSourceFile> };
+  settings: {
+    width: number;
+    height: number;
+    fps?: { numerator?: number; denominator?: number };
+    from: number;
+    to: number;
+    outputKind: "video" | "image";
+    codec?: string;
+    bitrate?: number;
+  };
+};
 
 const DEPTH_MODEL = {
   id: "onnx-community/depth-anything-v2-small",
@@ -35,6 +56,12 @@ const DEPTH_MODEL = {
 const SEGMENTATION_MODEL = {
   id: "Xenova/segformer-b0-finetuned-ade-512-512",
   revision: "d3e5499fa8701ff0453ca940a8dfeae39b2f1504",
+};
+const RVM_MODEL = {
+  id: "PeterL1n/RobustVideoMatting",
+  revision: "v1.0.0",
+  file: "rvm_mobilenetv3_fp32.onnx",
+  sha256: "88d4531297118f595bf2fd60f6f566aec2e559393802d1f436c380f0cbbd2828",
 };
 const artifacts = new Map<string, Artifact>();
 
@@ -200,25 +227,27 @@ async function captureCase(name: string, composition: CompositionConfig, frame: 
 
 async function exportCase(name: string, composition: CompositionConfig, frames: number): Promise<CapabilityResult> {
   const started = performance.now();
+  const video = await supportedVideoEncoding();
   const output = new Uint8Array(await exportVideo(composition, {
     width: composition.width,
     height: composition.height,
-    codec: "avc1.42001f",
-    muxerCodec: "avc",
+    codec: video.codec,
+    muxerCodec: video.muxerCodec,
+    container: video.container,
     bitrate: 2_500_000,
-    hardwareAcceleration: "prefer-hardware",
+    hardwareAcceleration: video.hardwareAcceleration,
     startFrame: 0,
     endFrame: frames,
     registry,
   }));
-  if (output.byteLength < 1024) throw new Error(`${name} MP4 output was unexpectedly small.`);
-  artifacts.set(`${name}.mp4`, { contentType: "video/mp4", bytes: output });
+  if (output.byteLength < 1024) throw new Error(`${name} video output was unexpectedly small.`);
+  artifacts.set(`${name}.${video.extension}`, { contentType: video.contentType, bytes: output });
   return {
     name,
     durationMs: Math.round(performance.now() - started),
     hash: await sha256(output),
     bytes: output.byteLength,
-    detail: { frames },
+    detail: { frames, codec: video.codec },
   };
 }
 
@@ -231,17 +260,55 @@ async function browserCapabilities() {
     device: adapter.info.device,
     description: adapter.info.description,
   } : null;
-  const h264 = typeof VideoEncoder !== "undefined"
-    ? await VideoEncoder.isConfigSupported({ codec: "avc1.42001f", width: 640, height: 360, bitrate: 2_500_000, framerate: 30, hardwareAcceleration: "prefer-hardware" })
-    : null;
+  const probeVideoCodec = async (codec: string, allowSoftware: boolean) => {
+    if (typeof VideoEncoder === "undefined") return null;
+    const preferences = allowSoftware
+      ? (["prefer-hardware", "no-preference"] as const)
+      : (["prefer-hardware"] as const);
+    for (const hardwareAcceleration of preferences) {
+      const result = await VideoEncoder.isConfigSupported({
+        codec,
+        width: 640,
+        height: 360,
+        bitrate: 2_500_000,
+        framerate: 30,
+        hardwareAcceleration,
+      });
+      if (result.supported) return { supported: true, hardwareAcceleration };
+    }
+    return { supported: false, hardwareAcceleration: "no-preference" as const };
+  };
+  const h264 = await probeVideoCodec("avc1.42001f", false);
+  const av1 = await probeVideoCodec("av01.0.08M.08", false);
+  const vp9 = await probeVideoCodec("vp09.00.10.08", true);
   return {
     userAgent: navigator.userAgent,
     gpuApi,
     adapterInfo,
     h264Supported: h264?.supported ?? false,
+    av1Supported: av1?.supported ?? false,
+    vp9Supported: vp9?.supported ?? false,
+    h264Acceleration: h264?.hardwareAcceleration,
+    av1Acceleration: av1?.hardwareAcceleration,
+    vp9Acceleration: vp9?.hardwareAcceleration,
     audioEncoder: typeof AudioEncoder !== "undefined",
     videoDecoder: typeof VideoDecoder !== "undefined",
   };
+}
+
+async function supportedVideoEncoding(): Promise<{
+  codec: "avc1.42001f" | "av01.0.08M.08" | "vp09.00.10.08";
+  muxerCodec: "avc" | "av1" | "vp9";
+  container: "mp4" | "webm";
+  extension: "mp4" | "webm";
+  contentType: "video/mp4" | "video/webm";
+  hardwareAcceleration: "prefer-hardware" | "no-preference";
+}> {
+  const capabilities = await browserCapabilities();
+  if (capabilities.h264Supported) return { codec: "avc1.42001f", muxerCodec: "avc", container: "mp4", extension: "mp4", contentType: "video/mp4", hardwareAcceleration: capabilities.h264Acceleration ?? "no-preference" };
+  if (capabilities.av1Supported) return { codec: "av01.0.08M.08", muxerCodec: "av1", container: "mp4", extension: "mp4", contentType: "video/mp4", hardwareAcceleration: capabilities.av1Acceleration ?? "no-preference" };
+  if (capabilities.vp9Supported) return { codec: "vp09.00.10.08", muxerCodec: "vp9", container: "webm", extension: "webm", contentType: "video/webm", hardwareAcceleration: capabilities.vp9Acceleration ?? "no-preference" };
+  throw new Error("Chrome exposes no supported cloud video encoder.");
 }
 
 function assertHardwareWebGpu(browser: Awaited<ReturnType<typeof browserCapabilities>>) {
@@ -345,6 +412,104 @@ async function normalizeInferenceInput(inputDataUrl?: string): Promise<string> {
   return blobDataUrl(blob);
 }
 
+async function imageCanvas(source: string): Promise<HTMLCanvasElement> {
+  const image = new Image();
+  image.src = source;
+  await image.decode();
+  const scale = Math.min(1, 1280 / image.naturalWidth, 720 / image.naturalHeight);
+  const width = Math.max(32, Math.floor((image.naturalWidth * scale) / 32) * 32);
+  const height = Math.max(32, Math.floor((image.naturalHeight * scale) / 32) * 32);
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) throw new Error("Canvas 2D is unavailable for RVM input.");
+  context.drawImage(image, 0, 0, width, height);
+  return canvas;
+}
+
+async function canvasPng(canvas: HTMLCanvasElement): Promise<Uint8Array> {
+  const blob = await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob((value) => value ? resolve(value) : reject(new Error("PNG encoding failed.")), "image/png"),
+  );
+  return blobBytes(blob);
+}
+
+async function runRvm(source: string) {
+  const ort = await import("onnxruntime-web/webgpu");
+  ort.env.logLevel = "error";
+  ort.env.wasm.wasmPaths = "/ort/";
+  ort.env.wasm.numThreads = 1;
+  const canvas = await imageCanvas(source);
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) throw new Error("Canvas 2D is unavailable for RVM input.");
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+  const plane = canvas.width * canvas.height;
+  const sourceTensor = new Float32Array(plane * 3);
+  for (let index = 0; index < plane; index += 1) {
+    sourceTensor[index] = pixels[index * 4]! / 255;
+    sourceTensor[plane + index] = pixels[index * 4 + 1]! / 255;
+    sourceTensor[plane * 2 + index] = pixels[index * 4 + 2]! / 255;
+  }
+  const session = await ort.InferenceSession.create(
+    `/models/${RVM_MODEL.id}/${RVM_MODEL.file}`,
+    { executionProviders: ["wasm"] },
+  );
+  const recurrent = () => new ort.Tensor("float32", new Float32Array([0]), [1, 1, 1, 1]);
+  const downsampleRatio = Math.min(1, 512 / Math.max(canvas.width, canvas.height));
+  try {
+    const output = await session.run({
+      src: new ort.Tensor("float32", sourceTensor, [1, 3, canvas.height, canvas.width]),
+      r1i: recurrent(),
+      r2i: recurrent(),
+      r3i: recurrent(),
+      r4i: recurrent(),
+      downsample_ratio: new ort.Tensor("float32", new Float32Array([downsampleRatio]), [1]),
+    });
+    const foreground = output.fgr?.data as Float32Array | undefined;
+    const alpha = output.pha?.data as Float32Array | undefined;
+    if (!foreground || !alpha || foreground.length !== plane * 3 || alpha.length !== plane) {
+      throw new Error("RVM returned an unexpected foreground or matte shape.");
+    }
+    const foregroundCanvas = document.createElement("canvas");
+    const matteCanvas = document.createElement("canvas");
+    foregroundCanvas.width = matteCanvas.width = canvas.width;
+    foregroundCanvas.height = matteCanvas.height = canvas.height;
+    const foregroundContext = foregroundCanvas.getContext("2d");
+    const matteContext = matteCanvas.getContext("2d");
+    if (!foregroundContext || !matteContext) throw new Error("Canvas 2D is unavailable for RVM output.");
+    const foregroundImage = foregroundContext.createImageData(canvas.width, canvas.height);
+    const matteImage = matteContext.createImageData(canvas.width, canvas.height);
+    let alphaSum = 0;
+    for (let index = 0; index < plane; index += 1) {
+      const matte = Math.max(0, Math.min(1, Number(alpha[index])));
+      const matteByte = Math.round(matte * 255);
+      alphaSum += matte;
+      foregroundImage.data[index * 4] = Math.round(Math.max(0, Math.min(1, Number(foreground[index]))) * 255);
+      foregroundImage.data[index * 4 + 1] = Math.round(Math.max(0, Math.min(1, Number(foreground[plane + index]))) * 255);
+      foregroundImage.data[index * 4 + 2] = Math.round(Math.max(0, Math.min(1, Number(foreground[plane * 2 + index]))) * 255);
+      foregroundImage.data[index * 4 + 3] = matteByte;
+      matteImage.data[index * 4] = matteByte;
+      matteImage.data[index * 4 + 1] = matteByte;
+      matteImage.data[index * 4 + 2] = matteByte;
+      matteImage.data[index * 4 + 3] = 255;
+    }
+    foregroundContext.putImageData(foregroundImage, 0, 0);
+    matteContext.putImageData(matteImage, 0, 0);
+    artifacts.set("foreground.png", { contentType: "image/png", bytes: await canvasPng(foregroundCanvas) });
+    artifacts.set("matte.png", { contentType: "image/png", bytes: await canvasPng(matteCanvas) });
+    return {
+      width: canvas.width,
+      height: canvas.height,
+      alphaMean: alphaSum / plane,
+      downsampleRatio,
+      channels: ["foreground", "matte"],
+    };
+  } finally {
+    await session.release();
+  }
+}
+
 function colorForIndex(index: number): [number, number, number] {
   const palette: Array<[number, number, number]> = [
     [46, 196, 182], [255, 107, 107], [255, 209, 102], [76, 201, 240],
@@ -361,6 +526,20 @@ async function runInference(kind: InferenceKind, inputDataUrl?: string) {
   const browser = await browserCapabilities();
   assertHardwareWebGpu(browser);
   const source = await normalizeInferenceInput(inputDataUrl);
+  if (kind === "background-removal") {
+    const result = await runRvm(source);
+    return {
+      version: 1,
+      kind,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      durationMs: Math.round(performance.now() - started),
+      browser,
+      model: RVM_MODEL,
+      result,
+      artifactNames: Array.from(artifacts.keys()),
+    };
+  }
   const { env, pipeline } = await import("@huggingface/transformers");
   env.allowLocalModels = true;
   env.allowRemoteModels = false;
@@ -454,12 +633,142 @@ async function runInference(kind: InferenceKind, inputDataUrl?: string) {
   }
 }
 
+function decodeBase64(value: string): Uint8Array {
+  const binary = atob(value);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+function hostedDocumentSetup(): CompositionSetup {
+  return ({ root, document }) => {
+    if (!document || typeof document !== "object" || Array.isArray(document)) return;
+    const elements = [root, ...Array.from(root.querySelectorAll<HTMLElement>("[data-fd-id]"))];
+    for (const [key, value] of Object.entries(document)) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+      const record = value as Record<string, unknown>;
+      const element = elements.find((candidate) => candidate.dataset.fdId === key);
+      if (element && typeof record.text === "string") {
+        element.dataset.fdText = record.text;
+        element.textContent = record.text;
+      }
+      if (typeof record.color === "string") {
+        root.style.setProperty(`--${key.replace(/[^a-zA-Z0-9_-]/g, "-")}`, record.color);
+      }
+    }
+  };
+}
+
+async function runHostedRender(request: HostedRenderRequest) {
+  artifacts.clear();
+  const startedAt = new Date().toISOString();
+  const started = performance.now();
+  const browser = await browserCapabilities();
+  const decoded = new Map<string, Uint8Array>();
+  for (const [path, file] of Object.entries(request.source.files)) {
+    const bytes = decodeBase64(file.contentBase64);
+    const digest = await sha256(bytes);
+    if (`sha256:${digest}` !== file.sha256) throw new Error(`Hosted source digest mismatch: ${path}`);
+    decoded.set(path, bytes);
+  }
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  const htmlCandidates = Array.from(decoded.entries())
+    .filter(([path]) => path.toLowerCase().endsWith(".html"))
+    .map(([path, bytes]) => ({ path, source: decoder.decode(bytes) }))
+    .filter(({ source }) => source.includes("data-fd-composition"));
+  const requested = request.compositionKey.toLowerCase();
+  const candidates = htmlCandidates.map((candidate) => ({
+    ...candidate,
+    composition: defineComposition(candidate.source, { file: candidate.path }),
+  }));
+  const selected = candidates.find(({ composition }) => composition.id.toLowerCase() === requested)
+    ?? candidates.find(({ path }) => basenameWithoutExtension(path).toLowerCase() === requested)
+    ?? (candidates.length === 1 ? candidates[0] : undefined);
+  if (!selected) throw new Error(`Hosted composition was not found: ${request.compositionKey}`);
+  const readJson = (path?: string): unknown => {
+    if (!path) return undefined;
+    const bytes = decoded.get(path);
+    if (!bytes) throw new Error(`Hosted composition dependency is missing: ${path}`);
+    return JSON.parse(decoder.decode(bytes));
+  };
+  const document = readJson(selected.composition.meta?.document?.file);
+  const timeline = readJson(selected.composition.meta?.timelineFile) as CompositionConfig["timeline"];
+  const configured = defineComposition(selected.source, {
+    file: selected.path,
+    document,
+    timeline,
+    setup: hostedDocumentSetup(),
+  });
+  const fpsNumerator = request.settings.fps?.numerator;
+  const fpsDenominator = request.settings.fps?.denominator;
+  const composition = fpsNumerator && fpsDenominator
+    ? { ...configured, fps: fpsNumerator / fpsDenominator }
+    : configured;
+  const renderRegistry: CompositionRegistry = { [request.compositionKey]: composition };
+  let filename: string;
+  let contentType: string;
+  let bytes: Uint8Array;
+  if (request.settings.outputKind === "image") {
+    const canvas = await captureCompositeFrame(composition, request.settings.from, {
+      width: request.settings.width,
+      height: request.settings.height,
+      registry: renderRegistry,
+    });
+    bytes = await canvasPng(canvas);
+    filename = "render.png";
+    contentType = "image/png";
+  } else {
+    const video = await supportedVideoEncoding();
+    bytes = new Uint8Array(await exportVideo(composition, {
+      width: request.settings.width,
+      height: request.settings.height,
+      codec: video.codec,
+      muxerCodec: video.muxerCodec,
+      container: video.container,
+      bitrate: request.settings.bitrate && request.settings.bitrate > 0 ? request.settings.bitrate : 8_000_000,
+      hardwareAcceleration: video.hardwareAcceleration,
+      startFrame: request.settings.from,
+      endFrame: request.settings.to,
+      registry: renderRegistry,
+    }));
+    filename = `render.${video.extension}`;
+    contentType = video.contentType;
+  }
+  if (bytes.byteLength < 256) throw new Error("Hosted render output was unexpectedly small.");
+  artifacts.set(filename, { contentType, bytes });
+  return {
+    version: 1,
+    kind: "hosted-render",
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    durationMs: Math.round(performance.now() - started),
+    browser,
+    result: {
+      filename,
+      contentType,
+      bytes: bytes.byteLength,
+      sha256: await sha256(bytes),
+      width: request.settings.width,
+      height: request.settings.height,
+      durationSeconds: request.settings.outputKind === "video"
+        ? (request.settings.to - request.settings.from) / composition.fps
+        : undefined,
+    },
+    artifactNames: Array.from(artifacts.keys()),
+  };
+}
+
+function basenameWithoutExtension(path: string): string {
+  const name = path.split("/").at(-1) || path;
+  return name.replace(/\.[^.]+$/, "");
+}
+
 async function runSuite() {
   artifacts.clear();
   const startedAt = new Date().toISOString();
   const browser = await browserCapabilities();
   assertHardwareWebGpu(browser);
-  if (!browser.h264Supported) throw new Error("Chrome does not expose H.264 VideoEncoder support.");
+  if (!browser.h264Supported && !browser.av1Supported && !browser.vp9Supported) {
+    throw new Error("Chrome exposes no supported cloud video encoder.");
+  }
   if (!browser.videoDecoder) throw new Error("Chrome does not expose VideoDecoder.");
 
   const results: CapabilityResult[] = [];
@@ -494,12 +803,14 @@ declare global {
   interface Window {
     __runFrameDiffCloudSuite: typeof runSuite;
     __runFrameDiffInference: typeof runInference;
+    __runFrameDiffHostedRender: typeof runHostedRender;
     __readFrameDiffCloudArtifact: (name: string) => { contentType: string; base64: string };
   }
 }
 
 window.__runFrameDiffCloudSuite = runSuite;
 window.__runFrameDiffInference = runInference;
+window.__runFrameDiffHostedRender = runHostedRender;
 window.__readFrameDiffCloudArtifact = (name) => {
   const artifact = artifacts.get(name);
   if (!artifact) throw new Error(`Unknown cloud harness artifact: ${name}`);

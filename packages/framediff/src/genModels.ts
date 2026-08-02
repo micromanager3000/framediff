@@ -576,8 +576,8 @@ const seedAudio10: GenModelDef = {
 
 // ---------------------------------------------------------------------------
 // ElevenLabs Eleven v3 — fal-hosted TTS. The prompt is the spoken text, verbatim;
-// pacing comes from punctuation, not timing directions. No reference inputs — voice
-// consistency across segments comes from sharing the same named preset.
+// pacing comes from punctuation, not timing directions. An audio composition ref can
+// provide the anchor recipe's voice name or id; its bytes are not sent to the provider.
 // ---------------------------------------------------------------------------
 
 const elevenV3: GenModelDef = {
@@ -590,7 +590,7 @@ const elevenV3: GenModelDef = {
   accepts: { video: false, image: false, endImage: false, audio: true },
   maxRefs: { audio: 1 },
   caps: ["most natural prosody", "inline audio tags — [whispers] [excited] [pause]…", "voice anchor via a comp:// audio ref", "mp3 output"],
-  limits: ["fal exposes preset voices only — the audio ref borrows the anchor comp's voice settings, it cannot clone arbitrary audio", "no speed control (v3) — pace with text and tags", "read length follows the text, not a duration field"],
+  limits: ["the audio ref borrows the anchor comp's voice setting; it cannot clone arbitrary audio", "no speed control in FrameDiff's fal v3 adapter — pace with text and tags", "read length follows the text, not a duration field"],
   negativePrompt: false,
   params: [
     // Timeline length bounds the composition; the read itself follows the text, so keep
@@ -640,16 +640,16 @@ const elevenMultilingualV2: GenModelDef = {
   accepts: { video: false, image: false, endImage: false, audio: true },
   maxRefs: { audio: 1 },
   caps: ["even documentary pacing", "voice anchor via a comp:// audio ref", "SSML pauses — <break time=\"0.6s\"/>", "predictable read length", "mp3 output"],
-  limits: ["fal exposes preset voices only — the audio ref borrows the anchor comp's voice settings, it cannot clone arbitrary audio", "less expressive range than Eleven v3 (no audio tags)"],
+  limits: ["the audio ref borrows the anchor comp's voice setting; it cannot clone arbitrary audio", "less expressive range than Eleven v3 (no audio tags)"],
   negativePrompt: false,
   params: [
     { key: "duration", label: "TIMELINE", type: "number", min: 2, max: 30, step: 1, def: 10, canonical: false },
     { key: "voice", label: "VOICE", type: "enum", options: ["Rachel", "Aria", "Sarah", "Charlotte", "Matilda", "Laura", "Jessica", "Brian", "Daniel", "George"], def: "Rachel" },
     { key: "speed", label: "SPEED", type: "number", min: 0.7, max: 1.2, step: 0.05, def: 1 },
   ],
-  dropHint: "no reference inputs — pick a voice preset instead",
-  modeOf() {
-    return "text-to-audio";
+  dropHint: "drop another ElevenLabs comp as the voice anchor, or pick a voice directly",
+  modeOf(r) {
+    return hasKind(r, "audio") ? "anchored-text-to-audio" : "text-to-audio";
   },
   endpointOf() {
     return "fal-ai/elevenlabs/tts/multilingual-v2";
@@ -694,9 +694,11 @@ const elevenDirect: GenModelDef = {
   output: "audio",
   est: false,
   fitted: "api.elevenlabs.io /v1/text-to-speech OpenAPI · ~$0.10/1K chars",
-  accepts: { video: false, image: false, endImage: false, audio: false },
+  accepts: { video: false, image: false, endImage: false, audio: true },
+  maxRefs: { audio: 1 },
   caps: [
     "any voice_id — full library, cloned voices, or Voice Design output",
+    "voice anchor via a comp:// audio ref",
     "best-effort seeded reads for more repeatable takes",
     "inline audio tags — [whispers] [excited] [pause]…",
     "speed control via voice_settings",
@@ -705,7 +707,7 @@ const elevenDirect: GenModelDef = {
   limits: [
     "needs an ELEVENLABS key under SERVICES (fal's key does not work)",
     "`voice` is a voice_id, not a display name — the picker lists the voices on your account",
-    "no comp:// voice anchor — the voice_id IS the anchor, so reuse it across reads",
+    "the audio ref borrows the anchor comp's voice_id; it does not clone the reference performance",
   ],
   negativePrompt: false,
   params: [
@@ -717,9 +719,9 @@ const elevenDirect: GenModelDef = {
     { key: "speed", label: "SPEED", type: "number", min: 0.7, max: 1.2, step: 0.05, def: 1 },
     { key: "seed", label: "SEED", type: "number", min: 0, max: 4294967295, step: 1, def: 0 },
   ],
-  dropHint: "no reference inputs — set `voice` to a voice_id (design one, or pick from your library)",
-  modeOf() {
-    return "text-to-audio";
+  dropHint: "drop a direct ElevenLabs comp as the voice anchor, or set `voice` to a voice_id",
+  modeOf(r) {
+    return hasKind(r, "audio") ? "anchored-text-to-audio" : "text-to-audio";
   },
   endpointOf(r) {
     // The voice_id is a path segment; the bridge validates the whole path.
@@ -741,6 +743,7 @@ const elevenDirect: GenModelDef = {
     };
   },
   refFieldsOf() {
+    // The audio ref supplies a voice_id through the recipe graph, not provider audio bytes.
     return [];
   },
   costUsd(r) {

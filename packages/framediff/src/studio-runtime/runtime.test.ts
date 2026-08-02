@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CompRegistry, StudioComposition } from "../studio/types";
-import { generative } from "../generative";
+import { generative, recipeHashOf } from "../generative";
+import { genModelOf } from "../genModels";
+import { processing } from "../processingComposition";
+import { fingerprintProcessingRecipe, type ProcessingRecipe } from "@framediff/studio-model";
 import {
   compositionAssetIds,
   compositionRenderKeys,
@@ -92,7 +95,7 @@ describe("HtmlStudioRuntime Inspector batches", () => {
           },
         },
       })),
-      submitGeneration: vi.fn(async () => ({
+      submitGeneration: vi.fn(async (_submission: unknown) => ({
         job: { id: "job-1", status: "queued" },
       })),
     };
@@ -107,6 +110,15 @@ describe("HtmlStudioRuntime Inspector batches", () => {
         authoredSrc: "asset://portrait",
       })],
     }));
+    const submission = project.submitGeneration.mock.calls[0][0] as {
+      input: Record<string, unknown>;
+      recipeHash: string;
+      recipe: Record<string, unknown>;
+    };
+    expect(submission.recipeHash).toBe(await recipeHashOf(generated.recipe));
+    expect(submission.input).toEqual(genModelOf(generated.recipe).buildInput(generated.recipe));
+    expect(submission.recipe).not.toHaveProperty("id");
+    expect(submission.recipe).not.toHaveProperty("take");
   });
 
   it("identifies ElevenLabs and blocks direct speech until a voice id is set", async () => {
@@ -144,6 +156,77 @@ describe("HtmlStudioRuntime Inspector batches", () => {
       message: expect.stringContaining("voice_id"),
     });
     expect(project.submitGeneration).not.toHaveBeenCalled();
+  });
+
+  it("inherits a direct ElevenLabs voice id from a pinned audio anchor", async () => {
+    const voiceRef = generative({
+      id: "VoiceRef",
+      output: "audio",
+      model: "elevenlabs-direct",
+      prompt: "The approved narrator reference.",
+      voice: "voice-123",
+      take: 4,
+    });
+    const narration = generative({
+      id: "Narration",
+      output: "audio",
+      model: "elevenlabs-direct",
+      prompt: "[calm] A measured introduction.",
+      refs: [{ kind: "audio", src: "comp://voiceRef" }],
+      speed: 1.1,
+      seed: 7,
+    });
+    const anchorTake = {
+      assetId: "voice-ref-take",
+      contentHash: "sha256:voice-ref",
+      bytes: 100,
+      mime: "audio/mpeg",
+      generator: {
+        gen: "VoiceRef",
+        take: 4,
+        recipeHash: "sha256:anchor-recipe",
+        endpoint: "v1/text-to-speech/voice-123",
+        recipe: {
+          output: "audio" as const,
+          model: "elevenlabs-direct",
+          prompt: "The approved narrator reference.",
+          refs: [],
+          voice: "voice-123",
+        },
+        inputs: [],
+        outputKind: "audio" as const,
+      },
+    };
+    const project = {
+      getAssets: vi.fn(async () => ({ version: 1, assets: {} })),
+      getGenerationJobs: vi.fn(async (gen: string) =>
+        gen === "VoiceRef" ? { jobs: [], takes: [anchorTake] } : { jobs: [], takes: [] }
+      ),
+      getSecrets: vi.fn(async () => ({ providers: { elevenlabs: { set: true } } })),
+      cacheUrl: vi.fn((contentHash: string) => `/cache/${encodeURIComponent(contentHash)}`),
+      submitGeneration: vi.fn(async () => ({ job: { id: "job-anchored", status: "queued" } })),
+    };
+    const runtime = createStudioRuntime({ voiceRef, narration } as CompRegistry, project as never);
+
+    const workspace = await runtime.getGenerativeWorkspace("narration");
+    expect(workspace?.blockedReason).toBeUndefined();
+    await expect(runtime.submitGeneration("narration")).resolves.toMatchObject({ ok: true });
+
+    expect(project.submitGeneration).toHaveBeenCalledWith(expect.objectContaining({
+      provider: "elevenlabs",
+      endpoint: "v1/text-to-speech/voice-123",
+      input: expect.objectContaining({
+        text: "[calm] A measured introduction.",
+        model_id: "eleven_v3",
+        seed: 7,
+        voice_settings: expect.objectContaining({ speed: 1.1 }),
+      }),
+      refs: [expect.objectContaining({
+        kind: "audio",
+        src: "/cache/sha256%3Avoice-ref",
+        authoredSrc: "comp://voiceRef",
+      })],
+    }));
   });
 
   it("uses an injected project adapter without replacing the browser fetch implementation", async () => {
@@ -205,6 +288,56 @@ describe("HtmlStudioRuntime Inspector batches", () => {
     expect(transaction?.files[0].text).toContain("startCameraX: 10");
     expect(transaction?.files[0].text).toContain("startCameraY: 2");
     expect(transaction?.files[0].text).toContain("startCameraZ: 30");
+  });
+});
+
+describe("HtmlStudioRuntime processing lifecycle", () => {
+  it("projects current pinned processing state and fails closed without an executor", async () => {
+    const recipe: ProcessingRecipe = {
+      version: 1,
+      kind: "processing",
+      id: "subject-rvm",
+      inputs: [{ name: "source", contentHash: "sha256:source", mime: "video/mp4" }],
+      parameters: { outputChannels: ["foreground", "matte"] },
+      provenance: { processor: "rvm", model: "rvm", modelRevision: "weights-1", runtime: "worker", runtimeRevision: "1" },
+    };
+    const recipeFingerprint = await fingerprintProcessingRecipe(recipe);
+    const timing = { fps: 24, frameCount: 48 };
+    const processed = processing({
+      id: "Subject",
+      file: "src/Subject.process.ts",
+      dataFile: "src/Subject.process.json",
+      width: 1920,
+      height: 1080,
+      fps: 24,
+      durationInFrames: 48,
+      document: {
+        recipe,
+        recipeFingerprint,
+        pinnedRecipeFingerprint: recipeFingerprint,
+        artifact: {
+          version: 1,
+          kind: "processing-artifact",
+          recipeFingerprint,
+          inputs: recipe.inputs,
+          provenance: recipe.provenance,
+          channels: {
+            foreground: { name: "foreground", contentHash: "sha256:foreground", mime: "video/webm", bytes: 10, dimensions: { width: 1920, height: 1080 }, timing },
+            matte: { name: "matte", contentHash: "sha256:matte", mime: "video/webm", bytes: 5, dimensions: { width: 1920, height: 1080 }, timing },
+          },
+        },
+      },
+    });
+    const runtime = createStudioRuntime({ subject: processed }, { getAssets: vi.fn(async () => ({ version: 1, assets: {} })) } as never);
+
+    await expect(runtime.getProcessingWorkspace("subject")).resolves.toMatchObject({
+      compositionKey: "subject",
+      recipeFingerprint,
+      pinnedRecipeFingerprint: recipeFingerprint,
+      status: "current",
+      artifact: { channels: { foreground: { contentHash: "sha256:foreground" }, matte: { contentHash: "sha256:matte" } } },
+    });
+    await expect(runtime.runProcessing("subject")).resolves.toMatchObject({ ok: false, message: expect.stringContaining("No processing executor") });
   });
 });
 
@@ -1278,6 +1411,47 @@ describe("HtmlStudioRuntime composition creation", () => {
       duration: 5,
       take: 0,
     });
+  });
+
+  it("creates a top-level RVM processing composition from the selected composition fingerprint", async () => {
+    const parentHtml = '<!doctype html><main data-fd-composition data-fd-id="Main" data-fd-width="1920" data-fd-height="1080" data-fd-fps="24" data-fd-duration="240" data-fd-kind="edit" data-fd-source="src/Main.html"></main>';
+    const parent = { ...composition, id: "Main", html: parentHtml, meta: { file: "src/Main.html", sourceFormat: "html" as const } };
+    const sources: Record<string, string> = {
+      "src/Main.html": parentHtml,
+      "src/config.ts": 'import { composition } from "./Main";\nexport const COMPOSITIONS = { main: composition };\n',
+    };
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/__framediff/assets") return new Response("missing", { status: 404 });
+      if (url === "/__framediff/cache") return Response.json({ entries: [] });
+      if (url.startsWith("/__framediff/src?")) {
+        const file = new URL(url, "http://local").searchParams.get("file")!;
+        if (init?.method === "PUT") { sources[file] = String(init.body); return new Response("ok"); }
+        return file in sources ? Response.json({ file, text: sources[file], hash: `hash:${file}` }) : new Response("missing", { status: 404 });
+      }
+      return new Response("not found", { status: 404 });
+    }));
+    const runtime = createStudioRuntime({ main: parent } as CompRegistry);
+
+    const result = await runtime.createComposition({ name: "Background Removal", kind: "processing", durationInFrames: 240 }, "main");
+
+    expect(result).toMatchObject({ ok: true, compositionKey: "background-removal" });
+    expect(result.message).toContain("top level");
+    const document = JSON.parse(sources["src/BackgroundRemoval.process.json"]);
+    expect(document).toMatchObject({
+      artifact: null,
+      recipeFingerprint: expect.stringMatching(/^sha256:/),
+      pinnedRecipeFingerprint: null,
+      recipe: {
+        kind: "processing",
+        parameters: { sourceCompositionKey: "main", outputChannels: ["foreground", "matte"] },
+        provenance: { processor: "rvm", model: "robust-video-matting-mobilenetv3" },
+      },
+    });
+    expect(document.recipe.inputs[0].contentHash).toMatch(/^sha256:/);
+    expect(sources["src/BackgroundRemoval.process.ts"]).toContain('import { processing, type ProcessingCompositionDocument } from "framediff";');
+    expect(sources["src/config.ts"]).toContain('import { backgroundRemovalComp } from "./BackgroundRemoval.process";');
+    expect(sources["src/Main.html"]).toBe(parentHtml);
   });
 
   it("keeps a new composition top-level when no parent is selected", async () => {

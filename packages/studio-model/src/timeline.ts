@@ -69,6 +69,22 @@ export function buildTimelineLanes(
   ];
 }
 
+/** Why a placement on an audio lane will render silent, or null when it will be heard.
+ *  Scoped to audio lanes on purpose: a muted video clip is usually deliberate (the edit takes
+ *  its sound from elsewhere), but an audio source exists only to be heard, so silencing one is
+ *  worth surfacing. Silence has no picture to give it away — the badge is the only tell. */
+export function timelineItemSilence(
+  item: TimelineItemSnapshot,
+  laneKind: TimelineLaneSnapshot["kind"],
+): "muted" | "zero volume" | null {
+  if (laneKind !== "audio") return null;
+  const content = item.content;
+  if (content.type !== "audio" && content.type !== "nested") return null;
+  if (content.muted === true) return "muted";
+  if (content.volume === 0) return "zero volume";
+  return null;
+}
+
 export interface FrontTrimResult {
   from: number;
   durationInFrames: number;

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from "svelte";
-  import { packTimelineVisualRows, timelineItemLabel, type TimelineItemSnapshot, type TimelineLaneSnapshot } from "@framediff/studio-model";
+  import { packTimelineVisualRows, timelineItemLabel, timelineItemSilence, type TimelineItemSnapshot, type TimelineLaneSnapshot } from "@framediff/studio-model";
   import type { TimelineViewModel } from "../viewmodels/Timeline.ViewModel";
   import { studioSound } from "../design/sound";
 
@@ -627,6 +627,7 @@
               {@const shownDur = drag?.itemId === item.id ? drag.duration : Number.isFinite(item.durationInFrames) ? item.durationInFrames : Math.max(1, duration - item.from)}
               {@const sourceLimit = $store.sourceLimits[item.id]}
               {@const visualRow = Math.max(0, visualRows.findIndex((row) => row.some((candidate) => candidate.id === item.id)))}
+              {@const silence = timelineItemSilence(item, lane.kind)}
               <button
                 class="clip clip-{lane.kind}"
                 data-item-id={item.id}
@@ -643,7 +644,7 @@
                   onselect();
                 }}
                 ondblclick={() => viewModel.enter(item.id)}
-                title={`${timelineItemLabel(item)} · ${drag?.itemId === item.id ? drag.from : item.from}f · ${lane.authority} layer ${lane.layer ?? 0}${item.production?.availability ? ` · ${item.production.availability}${item.production.rendition ? ` ${item.production.rendition}` : ""}` : ""}${item.production?.pinnedTake != null ? ` · take ${item.production.pinnedTake}` : ""}${item.production?.artifactStatus ? ` · bake ${item.production.artifactStatus}` : ""}${item.production?.effects ? " · effects" : ""} · double-click to open`}
+                title={`${timelineItemLabel(item)} · ${drag?.itemId === item.id ? drag.from : item.from}f · ${lane.authority} layer ${lane.layer ?? 0}${item.production?.availability ? ` · ${item.production.availability}${item.production.rendition ? ` ${item.production.rendition}` : ""}` : ""}${item.production?.pinnedTake != null ? ` · take ${item.production.pinnedTake}` : ""}${item.production?.artifactStatus ? ` · bake ${item.production.artifactStatus}` : ""}${item.production?.effects ? " · effects" : ""}${silence ? ` · silent (${silence})` : ""} · double-click to open`}
               >
                 {#if item.editable?.from && item.editable?.duration}
                   <i class="trim-handle left" role="presentation" title="Trim in point — preserves the surviving source frame" onpointerdown={(event) => beginDrag(event, item, "trim-left", lane)}></i>
@@ -655,6 +656,7 @@
                 {#if item.production?.artifactStatus}{@const label = `Bake ${item.production.artifactStatus}`}<b class="production-badge artifact {item.production.artifactStatus}" role="img" aria-label={label} title={label}>{item.production.artifactStatus === "current" ? "✓" : item.production.artifactStatus === "stale" ? "~" : item.production.artifactStatus === "remote" ? "⇣" : "○"}</b>{/if}
                 {#if item.production?.nestedCompositionKey}<b class="production-badge nested" role="img" aria-label="Nested composition" title={`Nested composition · ${item.production.nestedCompositionKey}`}>↳</b>{/if}
                 {#if item.production?.effects}<b class="production-badge effects" role="img" aria-label="Effects applied" title="Effects applied">fx</b>{/if}
+                {#if silence}<b class="production-badge silent" role="img" aria-label={`Renders silent — ${silence}`} title={`Renders silent — ${silence}`}>{silence === "muted" ? "M" : "0"}</b>{/if}
                 {#if sourceLimit !== undefined && shownDur > sourceLimit}
                   <i
                     class="clip-overrun"

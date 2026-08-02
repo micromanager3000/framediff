@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { latestFailedGenJob, type GenJob } from "./devfs";
+import { genJobs, latestFailedGenJob, type GenJob } from "./devfs";
 
 const job = (id: string, status: GenJob["status"]): GenJob => ({
   id,
@@ -17,5 +17,11 @@ describe("latestFailedGenJob", () => {
 
   it("returns the failure when the newest attempt itself failed", () => {
     expect(latestFailedGenJob([job("1", "done"), job("2", "failed")])?.id).toBe("2");
+  });
+});
+
+describe("genJobs", () => {
+  it("surfaces polling failures so the manager can preserve and retry its workspace", async () => {
+    await expect(genJobs("shot", async () => new Response("upstream unavailable", { status: 503 }))).rejects.toThrow("503");
   });
 });

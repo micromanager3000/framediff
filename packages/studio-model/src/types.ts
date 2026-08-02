@@ -1,8 +1,9 @@
 import type { CanonicalTweenKind, NormalizedTweenOperation, ParamBinding } from "./animation";
 import type { VisualAdaptation, VisualGeometryClassification } from "./generativeGeometry";
 import type { CubicMotionSegment, GestureSample } from "./motionPath";
+import type { ProcessingRecipe, ProcessingWorkspacePort } from "./processing";
 
-export type CompositionKind = "edit" | "custom" | "3d" | "generate" | "audio" | "doc" | "plan" | "scene" | "board" | "moodboard" | "script" | "storyboard" | "locations" | "cast";
+export type CompositionKind = "edit" | "custom" | "3d" | "generate" | "processing" | "audio" | "doc" | "plan" | "scene" | "board" | "moodboard" | "script" | "storyboard" | "locations" | "cast";
 export type CompositionOutputKind = "video" | "image" | "audio";
 export type CompositionTimelineMode = "auto" | "always" | "hidden";
 export type CompositionTransportMode = "auto" | "always" | "hidden";
@@ -297,7 +298,8 @@ export interface AgentCheckDiagnostic {
     | "read-only-animation"
     | "unsafe-unroll"
     | "stale-artifact"
-    | "source-conflict";
+    | "source-conflict"
+    | "silent-audio";
   severity: "info" | "warning" | "error";
   message: string;
   compositionKey?: string;
@@ -665,14 +667,18 @@ export interface AssetDescriptor {
 }
 
 export interface RenderProgressSnapshot {
-  phase: "prepare" | "audio" | "render" | "finalize";
+  phase: "queued" | "starting" | "prepare" | "audio" | "render" | "rendering" | "uploading" | "finalize";
   completed: number;
   total: number;
+  jobId?: string;
+  message?: string;
 }
 
 export interface RenderResult {
   bytes: number;
   filename: string;
+  artifact?: import("./renderContracts").RenderArtifactMetadata;
+  provenance?: import("./renderContracts").RenderProvenance;
 }
 
 export interface CacheEntryDescriptor {
@@ -701,6 +707,8 @@ export interface NewCompositionRequest {
   durationInFrames: number;
   /** Required by the runtime when kind is generate. It becomes the composition's locked contract. */
   outputKind?: CompositionOutputKind;
+  /** Optional for processing. When omitted, the runtime derives a pinned RVM recipe from the selected composition. */
+  processingRecipe?: ProcessingRecipe;
 }
 
 export interface ProjectOperationResult {
@@ -785,8 +793,6 @@ export interface GenerativeTakeSnapshot {
 export interface GenerativeJobSnapshot {
   id: string;
   providerJobId?: string;
-  /** Pin the completed take only if the composition still has no pinned take. */
-  autoPinIfEmpty?: boolean;
   status: "queued" | "running" | "done" | "failed";
   error?: string;
   take?: number;
@@ -895,7 +901,7 @@ export interface ProjectWorkspacePort {
   clearProvider(provider: string): Promise<ProjectOperationResult>;
 }
 
-export type StudioRuntimePort = CompositionRuntimePort & ProjectWorkspacePort;
+export type StudioRuntimePort = CompositionRuntimePort & ProjectWorkspacePort & ProcessingWorkspacePort;
 
 export interface AnimationClock {
   now(): number;

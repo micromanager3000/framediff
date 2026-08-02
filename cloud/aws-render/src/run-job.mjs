@@ -5,6 +5,7 @@ import process from "node:process";
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { chromium } from "playwright";
 import { validateJobSpec } from "./job-spec.mjs";
+import { viteExecutablePath } from "./runtime-paths.mjs";
 
 const workspace = process.env.FD_WORKSPACE || resolve(import.meta.dirname, "../../..");
 const bucket = process.env.FD_ARTIFACT_BUCKET || "";
@@ -139,14 +140,17 @@ async function evaluateWorkload(page, spec, inputDataUrl) {
     await page.waitForLoadState("networkidle");
     await page.waitForFunction(() =>
       typeof window.__runFrameDiffCloudSuite === "function"
-      && typeof window.__runFrameDiffInference === "function");
+      && typeof window.__runFrameDiffInference === "function"
+      && typeof window.__runFrameDiffHostedRender === "function");
     await page.waitForTimeout(1_500);
     try {
       return await page.evaluate(
-        ({ kind, input }) => kind === "capability-suite"
+        ({ kind, input, renderRequest }) => kind === "capability-suite"
           ? window.__runFrameDiffCloudSuite()
-          : window.__runFrameDiffInference(kind, input),
-        { kind: spec.kind, input: inputDataUrl },
+          : kind === "hosted-render"
+            ? window.__runFrameDiffHostedRender(renderRequest)
+            : window.__runFrameDiffInference(kind, input),
+        { kind: spec.kind, input: inputDataUrl, renderRequest: spec.renderRequest },
       );
     } catch (error) {
       lastError = error;
@@ -177,7 +181,7 @@ async function runCloudWorkload(spec, prefix) {
   const port = Number(process.env.FD_HARNESS_PORT || 4179);
   const url = `http://127.0.0.1:${port}`;
   const vite = spawn("node", [
-    resolve(workspace, "node_modules/vite/bin/vite.js"),
+    viteExecutablePath(),
     "--config", resolve(workspace, "cloud/aws-render/harness/vite.config.ts"),
     "--host", "127.0.0.1",
     "--port", String(port),
@@ -197,7 +201,10 @@ async function runCloudWorkload(spec, prefix) {
     const browserErrors = [];
     page.on("pageerror", (error) => browserErrors.push(`pageerror: ${error.message}`));
     page.on("console", (message) => {
-      if (message.type() === "error" && !message.text().startsWith("Failed to load resource:")) {
+      const text = message.text();
+      const knownOrtPlacementWarning = text.includes("[W:onnxruntime")
+        && text.includes("VerifyEachNodeIsAssignedToAnEp");
+      if (message.type() === "error" && !text.startsWith("Failed to load resource:") && !knownOrtPlacementWarning) {
         browserErrors.push(`console: ${message.text()}`);
       }
     });

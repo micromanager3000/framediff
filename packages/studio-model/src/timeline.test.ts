@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { artifactStatusFromInputs, buildTimelineLanes, frontTrimPlacement, packTimelineVisualRows } from "./timeline";
+import { artifactStatusFromInputs, buildTimelineLanes, frontTrimPlacement, packTimelineVisualRows, timelineItemSilence } from "./timeline";
 import type { TimelineItemSnapshot } from "./types";
 
 const item = (id: string, from: number, layer?: number): TimelineItemSnapshot => ({
@@ -63,6 +63,22 @@ describe("persistent editorial lanes", () => {
       { id: "a:0", kind: "audio", items: ["dialogue"] },
     ]);
     expect(audio.content).toEqual({ type: "nested", compId: "DialogueAudio", trimStart: 0 });
+  });
+
+  it("reports why an audio placement will render silent, and stays quiet about picture", () => {
+    const nested = (id: string, extra: Record<string, unknown>): TimelineItemSnapshot => ({
+      ...item(id, 0, 0),
+      content: { type: "nested" as const, compId: "VoiceOver", trimStart: 0, ...extra },
+    });
+
+    expect(timelineItemSilence(nested("vo-muted", { muted: true }), "audio")).toBe("muted");
+    expect(timelineItemSilence(nested("vo-zero", { volume: 0 }), "audio")).toBe("zero volume");
+    expect(timelineItemSilence(nested("vo-live", { muted: false, volume: 1 }), "audio")).toBeNull();
+    expect(timelineItemSilence(nested("vo-default", {}), "audio")).toBeNull();
+
+    // A muted video clip is ordinary editorial intent — the edit takes its sound from elsewhere.
+    expect(timelineItemSilence(nested("shot", { muted: true }), "video")).toBeNull();
+    expect(timelineItemSilence(nested("grade", { muted: true }), "grade")).toBeNull();
   });
 
   it("front-trims in source seconds with playback rate", () => {
