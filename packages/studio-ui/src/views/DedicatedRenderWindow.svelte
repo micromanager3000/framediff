@@ -1,16 +1,18 @@
 <script lang="ts">
   import type { RenderViewModel } from "../viewmodels/Render.ViewModel";
+  import { renderWindowPresentation } from "../renderWindowPresentation";
   import RenderControl from "./RenderControl.svelte";
 
   export let viewModel: RenderViewModel;
   export let compositionName: string;
   const store = viewModel.store;
+  $: presentation = renderWindowPresentation($store.progress?.phase);
 </script>
 
 <svelte:head><title>FrameDiff — {$store.status === "done" ? "Render complete" : "Rendering"}</title></svelte:head>
 
 <main class="dedicated-render-window">
-  <header><span class="mark"></span><strong>FRAMEDIFF</strong><small>DEDICATED RENDERER</small></header>
+  <header><span class="mark"></span><strong>FRAMEDIFF</strong><small>{presentation.label}</small></header>
   <section>
     <div>
       <span>{$store.status === "done" ? "COMPLETE" : $store.status === "error" ? "FAILED" : "RENDERING"}</span>
@@ -21,7 +23,7 @@
         {:else if $store.status === "error"}
           {$store.error ?? "The render failed."}
         {:else}
-          Keep this window open. It stays separate so Chrome can keep frame capture active in the background.
+          {presentation.runningMessage}
         {/if}
       </p>
     </div>
