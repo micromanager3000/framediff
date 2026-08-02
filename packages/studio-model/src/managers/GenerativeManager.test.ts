@@ -24,7 +24,7 @@ describe("GenerativeManager", () => {
     manager.destroy();
   });
 
-  it("keeps draft mutations available while a generation job is active", async () => {
+  it("keeps an explicitly opened draft editable while a generation job is active", async () => {
     const composition = { key: "generate" } as CompositionDescriptor;
     const state = new ObservableValue({ currentKey: composition.key, compositions: [composition] } as StudioSessionState);
     const session = { state } as StudioSession;
@@ -36,9 +36,25 @@ describe("GenerativeManager", () => {
         jobs: [{ id: "job-1", status: "running" }],
       } as GenerativeWorkspaceSnapshot,
     }));
+    expect(manager.openDraft()).toBe(true);
 
     expect(await manager.update({ prompt: "A different prompt" })).toBe(true);
     expect(updateGenerativeRecipe).toHaveBeenCalledOnce();
+  });
+
+  it("refuses source recipe edits until a draft is explicitly opened", async () => {
+    const composition = { key: "generate" } as CompositionDescriptor;
+    const state = new ObservableValue({ currentKey: composition.key, compositions: [composition] } as StudioSessionState);
+    const updateGenerativeRecipe = vi.fn(async () => ({ ok: true, message: "Updated" }));
+    const manager = new GenerativeManager({ state } as StudioSession, {
+      updateGenerativeRecipe,
+    } as unknown as ProjectWorkspacePort);
+
+    expect(await manager.update({ model: "another-model" })).toBe(false);
+    expect(updateGenerativeRecipe).not.toHaveBeenCalled();
+    expect(manager.state.get().error).toBe("Choose Add Take before editing the generation recipe.");
+    expect(manager.openDraft()).toBe(true);
+    expect(manager.state.get().error).toBeNull();
   });
 
   it("marks the take as submitting before the provider returns a job", async () => {
@@ -55,6 +71,7 @@ describe("GenerativeManager", () => {
     } as unknown as ProjectWorkspacePort);
     manager.state.update((current) => ({
       ...current,
+      draftOpen: true,
       workspace: { jobs: [], takes: [] } as unknown as GenerativeWorkspaceSnapshot,
     }));
 
@@ -63,6 +80,54 @@ describe("GenerativeManager", () => {
     finishSubmit({ ok: true, message: "Submitted" });
     expect(await pending).toBe(true);
     expect(manager.state.get().submitting).toBe(false);
+    expect(manager.state.get().draftOpen).toBe(false);
+  });
+
+  it("derives the initial draft only for a composition with no attempt history", async () => {
+    const empty = { jobs: [], takes: [] } as unknown as GenerativeWorkspaceSnapshot;
+    const historical = { jobs: [{ id: "job-1", status: "running" }], takes: [] } as unknown as GenerativeWorkspaceSnapshot;
+    const firstComposition = { key: "first" } as CompositionDescriptor;
+    const secondComposition = { key: "second" } as CompositionDescriptor;
+    const state = new ObservableValue({ currentKey: "first", compositions: [firstComposition, secondComposition] } as StudioSessionState);
+    const session = { state } as StudioSession;
+    const manager = new GenerativeManager(session, {
+      getGenerativeWorkspace: vi.fn(async (key: string) => key === "first" ? empty : historical),
+    } as unknown as ProjectWorkspacePort);
+
+    manager.start();
+    await vi.waitFor(() => expect(manager.state.get()).toMatchObject({ workspace: empty, draftOpen: true }));
+    state.update((current) => ({ ...current, currentKey: "second" }));
+    await vi.waitFor(() => expect(manager.state.get()).toMatchObject({ workspace: historical, draftOpen: false }));
+    manager.destroy();
+  });
+
+  it("restores the draft when submission creates no attempt", async () => {
+    const composition = { key: "generate" } as CompositionDescriptor;
+    const workspace = { jobs: [], takes: [] } as unknown as GenerativeWorkspaceSnapshot;
+    const state = new ObservableValue({ currentKey: composition.key, compositions: [composition] } as StudioSessionState);
+    const manager = new GenerativeManager({ state } as StudioSession, {
+      submitGeneration: vi.fn(async () => ({ ok: false, message: "Fix the recipe first." })),
+      getGenerativeWorkspace: vi.fn(async () => workspace),
+    } as unknown as ProjectWorkspacePort);
+    manager.state.update((current) => ({ ...current, workspace, draftOpen: true }));
+
+    expect(await manager.generate()).toBe(false);
+    expect(manager.state.get()).toMatchObject({ draftOpen: true, error: "Fix the recipe first." });
+  });
+
+  it("keeps the draft consumed when a failed attempt was persisted", async () => {
+    const composition = { key: "generate" } as CompositionDescriptor;
+    const before = { jobs: [], takes: [] } as unknown as GenerativeWorkspaceSnapshot;
+    const after = { jobs: [{ id: "failed-job", status: "failed", take: 1 }], takes: [] } as unknown as GenerativeWorkspaceSnapshot;
+    const state = new ObservableValue({ currentKey: composition.key, compositions: [composition] } as StudioSessionState);
+    const manager = new GenerativeManager({ state } as StudioSession, {
+      submitGeneration: vi.fn(async () => ({ ok: false, message: "Provider rejected the request." })),
+      getGenerativeWorkspace: vi.fn(async () => after),
+    } as unknown as ProjectWorkspacePort);
+    manager.state.update((current) => ({ ...current, workspace: before, draftOpen: true }));
+
+    expect(await manager.generate()).toBe(false);
+    expect(manager.state.get()).toMatchObject({ draftOpen: false, workspace: after, error: "Provider rejected the request." });
   });
 
   it("replaces the submission notice once the job is visible", async () => {
@@ -102,6 +167,7 @@ describe("GenerativeManager", () => {
     } as unknown as ProjectWorkspacePort);
     manager.state.update((current) => ({
       ...current,
+      draftOpen: true,
       workspace: { jobs: [], takes: [] } as unknown as GenerativeWorkspaceSnapshot,
     }));
 
@@ -187,8 +253,10 @@ describe("GenerativeManager", () => {
       submitGeneration: vi.fn(async () => { throw new Error("provider unavailable"); }),
     } as unknown as ProjectWorkspacePort);
 
+    expect(manager.openDraft()).toBe(true);
     expect(await manager.update({ prompt: "retry me" })).toBe(false);
     expect(manager.state.get()).toMatchObject({ busy: false, submitting: false, error: "bridge unavailable" });
+    manager.state.update((current) => ({ ...current, draftOpen: true }));
     expect(await manager.generate()).toBe(false);
     expect(manager.state.get()).toMatchObject({ busy: false, submitting: false, error: "provider unavailable" });
   });
@@ -247,6 +315,7 @@ describe("GenerativeManager", () => {
 
     manager.start();
     await vi.waitFor(() => expect(getGenerativeWorkspace).toHaveBeenCalledOnce());
+    expect(manager.openDraft()).toBe(true);
     const firstUpdate = manager.update({ prompt: "old composition" });
     expect(manager.state.get().busy).toBe(true);
 
@@ -256,6 +325,7 @@ describe("GenerativeManager", () => {
 
     expect(await firstUpdate).toBe(false);
     expect(manager.state.get()).toMatchObject({ busy: false, submitting: false, error: null });
+    expect(manager.openDraft()).toBe(true);
     expect(await manager.update({ prompt: "new composition" })).toBe(true);
     expect(updateGenerativeRecipe).toHaveBeenNthCalledWith(2, second.key, { prompt: "new composition" });
     manager.destroy();

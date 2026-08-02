@@ -4,6 +4,8 @@ import type { StudioSession } from "../StudioSession";
 
 export interface GenerativeManagerState {
   workspace: GenerativeWorkspaceSnapshot | null;
+  /** An editable recipe becomes a draft only through an explicit user action. */
+  draftOpen: boolean;
   loading: boolean;
   busy: boolean;
   submitting: boolean;
@@ -15,6 +17,7 @@ export class GenerativeManager {
   private static readonly NOTICE_KEY = "framediff:gen-notice";
   public readonly state = new ObservableValue<GenerativeManagerState>({
     workspace: null,
+    draftOpen: false,
     loading: false,
     busy: false,
     submitting: false,
@@ -27,6 +30,7 @@ export class GenerativeManager {
   private lastCompositions: StudioSessionState["compositions"] | null = null;
   private generation = 0;
   private operationGeneration = 0;
+  private readonly draftOpenByComposition = new Map<string, boolean>();
 
   public constructor(private readonly session: StudioSession, private readonly workspacePort: ProjectWorkspacePort) {}
 
@@ -61,6 +65,7 @@ export class GenerativeManager {
         this.state.update((current) => ({
           ...current,
           workspace: null,
+          draftOpen: false,
           error: null,
           message: null,
           loading: false,
@@ -89,9 +94,14 @@ export class GenerativeManager {
     try {
       const workspace = await this.workspacePort.getGenerativeWorkspace(key);
       if (generation !== this.generation || key !== this.session.state.get().currentKey) return;
+      const draftOpen = workspace
+        ? this.draftOpenByComposition.get(key) ?? (!(workspace.jobs?.length ?? 0) && !(workspace.takes?.length ?? 0))
+        : false;
+      if (workspace) this.draftOpenByComposition.set(key, draftOpen);
       this.state.update((state) => ({
         ...state,
         workspace,
+        draftOpen,
         loading: false,
         error: null,
         message: state.message?.startsWith("Submitted generation") && workspace?.jobs.length
@@ -112,20 +122,53 @@ export class GenerativeManager {
 
   public update(patch: Record<string, unknown>): Promise<boolean> {
     const compositionKey = this.session.state.get().currentKey;
+    if (!this.state.get().draftOpen) {
+      this.state.update((state) => ({
+        ...state,
+        error: "Choose Add Take before editing the generation recipe.",
+        message: null,
+      }));
+      return Promise.resolve(false);
+    }
     return this.runDraftOperation(() => this.workspacePort.updateGenerativeRecipe(compositionKey, patch), compositionKey);
+  }
+  public openDraft(): boolean {
+    if (this.draftLocked()) {
+      void this.refuseDraftOperation();
+      return false;
+    }
+    this.setDraftOpen(this.session.state.get().currentKey, true);
+    this.state.update((state) => ({ ...state, error: null }));
+    return true;
   }
   public async generate(): Promise<boolean> {
     if (this.draftLocked()) return this.refuseDraftOperation();
+    if (!this.state.get().draftOpen) {
+      this.state.update((state) => ({
+        ...state,
+        error: "Choose Add Take before starting another generation.",
+        message: null,
+      }));
+      return false;
+    }
     const compositionKey = this.session.state.get().currentKey;
     const operationGeneration = this.operationGeneration;
+    const previousAttempts = this.attemptKeys(this.state.get().workspace);
+    this.setDraftOpen(compositionKey, false);
     this.state.update((state) => ({ ...state, submitting: true }));
     try {
-      return await this.run(
+      const submitted = await this.run(
         () => this.workspacePort.submitGeneration(compositionKey),
         true,
         compositionKey,
         operationGeneration,
       );
+      const attemptCreated = [...this.attemptKeys(this.state.get().workspace)]
+        .some((key) => !previousAttempts.has(key));
+      if (!submitted && !attemptCreated && this.isCurrentOperation(compositionKey, operationGeneration)) {
+        this.setDraftOpen(compositionKey, true);
+      }
+      return submitted;
     } finally {
       if (this.isCurrentOperation(compositionKey, operationGeneration)) {
         this.state.update((state) => ({ ...state, submitting: false }));
@@ -136,13 +179,17 @@ export class GenerativeManager {
     const compositionKey = this.session.state.get().currentKey;
     return this.run(() => this.workspacePort.pinGenerationTake(compositionKey, take), false, compositionKey);
   }
-  public startFrom(take: number): Promise<boolean> {
+  public async startFrom(take: number): Promise<boolean> {
     const compositionKey = this.session.state.get().currentKey;
-    return this.runDraftOperation(() => this.workspacePort.startGenerationFromTake(compositionKey, take), compositionKey);
+    const started = await this.runDraftOperation(() => this.workspacePort.startGenerationFromTake(compositionKey, take), compositionKey);
+    if (started && compositionKey === this.session.state.get().currentKey) this.setDraftOpen(compositionKey, true);
+    return started;
   }
-  public startFromJob(jobId: string): Promise<boolean> {
+  public async startFromJob(jobId: string): Promise<boolean> {
     const compositionKey = this.session.state.get().currentKey;
-    return this.runDraftOperation(() => this.workspacePort.startGenerationFromJob(compositionKey, jobId), compositionKey);
+    const started = await this.runDraftOperation(() => this.workspacePort.startGenerationFromJob(compositionKey, jobId), compositionKey);
+    if (started && compositionKey === this.session.state.get().currentKey) this.setDraftOpen(compositionKey, true);
+    return started;
   }
   public configure(provider: string, key: string): Promise<boolean> { return this.run(() => this.workspacePort.configureProvider(provider, key)); }
 
@@ -153,6 +200,20 @@ export class GenerativeManager {
   }
 
   private draftLocked(): boolean { return this.state.get().submitting || this.state.get().busy; }
+
+  private setDraftOpen(compositionKey: string, draftOpen: boolean): void {
+    this.draftOpenByComposition.set(compositionKey, draftOpen);
+    if (compositionKey === this.session.state.get().currentKey) {
+      this.state.update((state) => ({ ...state, draftOpen }));
+    }
+  }
+
+  private attemptKeys(workspace: GenerativeWorkspaceSnapshot | null): Set<string> {
+    return new Set([
+      ...(workspace?.jobs?.map((job) => `job:${job.id}`) ?? []),
+      ...(workspace?.takes?.map((take) => `take:${take.take}`) ?? []),
+    ]);
+  }
 
   private refuseDraftOperation(): Promise<boolean> {
     this.state.update((state) => ({

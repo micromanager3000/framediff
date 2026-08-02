@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { readFile, writeFile } from "node:fs/promises";
 import { openComposition } from "./helpers";
 
-test("a draft take is an obvious, repeatable path back to editing", async ({ page }) => {
+test("a draft take appears only after Add Take", async ({ page }) => {
   await openComposition(page, "harborShot", "http://127.0.0.1:4175/");
   await expect(page).toHaveTitle("FrameDiff — Previz to Generation");
   await expect(page.locator(".top-status")).toHaveText("ready");
@@ -11,6 +11,8 @@ test("a draft take is an obvious, repeatable path back to editing", async ({ pag
   await expect(page.getByRole("button", { name: "↳ Draft from latest", exact: true })).toHaveCount(0);
   await expect(page.getByText("HISTORICAL TAKE 5", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Preview take 5", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: /Edit the draft for take/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Back to current draft", exact: true })).toHaveCount(0);
   await expect(page.locator(".gen-take.selected.pinned")).toContainText("In use");
   await expect(page.getByRole("slider", { name: "Synchronized comparison frame", exact: true })).toBeVisible();
   await expect(page.getByLabel("Generated take 5", { exact: true })).toBeVisible();
@@ -24,7 +26,7 @@ test("a draft take is an obvious, repeatable path back to editing", async ({ pag
     (video: HTMLVideoElement) => Math.round(video.currentTime * 10) / 10,
   )).toBe(3);
 
-  await page.getByRole("button", { name: "Back to current draft", exact: true }).click();
+  await page.getByRole("button", { name: "Add Take", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Generation model", exact: true })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Reference type", exact: true })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Reference source", exact: true })).toBeVisible();
@@ -48,14 +50,16 @@ test("a draft take is an obvious, repeatable path back to editing", async ({ pag
   await expect(prompt).toBeFocused();
 });
 
-test("an active attempt leaves the draft editable for a second submission", async ({ page }) => {
+test("an active attempt creates no successor draft until Add Take", async ({ page }) => {
   const activeJobs: { id: string; status: "queued"; take: number }[] = [];
+  let editedPrompt: string | undefined;
   await page.route("**/__framediff/secrets", async (route) => {
     if (route.request().method() !== "GET") return route.continue();
     await route.fulfill({ json: { providers: { fal: { set: true } } } });
   });
   await page.route("**/__framediff/edit", async (route) => {
     if (route.request().method() !== "POST") return route.continue();
+    editedPrompt = "A revised active-attempt draft.";
     await route.fulfill({ json: { ok: true, receipt: { id: "e2e-edit", label: "Edit draft", before: [], after: [] } } });
   });
   await page.route("**/__framediff/gen/submit", async (route) => {
@@ -67,43 +71,57 @@ test("an active attempt leaves the draft editable for a second submission", asyn
   await page.route("**/__framediff/gen/jobs*", async (route) => {
     if (!route.request().url().includes("gen=lighthouseKeeper")) return route.continue();
     const response = await route.fetch();
-    const body = await response.json() as { jobs: unknown[]; takes: unknown[] };
-    await route.fulfill({ json: { ...body, jobs: [...body.jobs, ...activeJobs] } });
+    const body = await response.json() as { jobs: unknown[]; takes: unknown[]; prompt?: string };
+    await route.fulfill({ json: { ...body, prompt: editedPrompt ?? body.prompt, jobs: [...body.jobs, ...activeJobs] } });
   });
 
   // Use an asset-backed recipe so this scenario isolates submission state. Harbor Shot's
   // comp-backed video reference intentionally invokes the real browser encoder before submit.
   await openComposition(page, "lighthouse-keeper", "http://127.0.0.1:4175/");
+  await expect(page.getByRole("button", { name: /Edit the draft for take/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "Add Take", exact: true }).click();
   const draft = page.getByRole("button", { name: "Edit the draft for take 2", exact: true });
   await draft.click();
   const prompt = page.getByRole("textbox", { name: "PROMPT", exact: true });
   await prompt.fill("A revised active-attempt draft.");
-  await prompt.blur();
   await expect(prompt).toBeEditable();
 
   const generate = page.getByRole("button", { name: /Generate ·/ });
-  await generate.click();
+  await generate.focus();
+  await expect(generate).toBeFocused();
+  await generate.press("Enter");
   await expect(page.locator(".gen-take.generating")).toHaveCount(1);
-  await expect(draft).toBeVisible();
-  await expect(prompt).toBeEditable();
+  await expect(draft).toHaveCount(0);
+  await expect(prompt).toHaveCount(0);
+  await expect(page.getByTestId("submitted-take-summary")).toBeVisible();
+  await expect(page.getByTestId("submitted-take-preview")).toBeVisible();
+  await expect(page.locator(".gen-take.generating.selected")).toContainText("take 2 · generating");
 
+  await page.getByRole("button", { name: "Add Take", exact: true }).click();
+  const nextDraft = page.getByRole("button", { name: "Edit the draft for take 3", exact: true });
+  await expect(nextDraft).toHaveClass(/selected/);
+  await expect(prompt).toBeEditable();
+  await expect(generate).toBeEnabled();
   await generate.click();
+  await expect(nextDraft).toHaveCount(0);
+  await expect.poll(() => activeJobs.length).toBe(2);
   await expect(page.locator(".gen-take.generating")).toHaveCount(2);
   expect(activeJobs.map((job) => job.id)).toEqual(["e2e-attempt-1", "e2e-attempt-2"]);
   await expect(page.locator(".gen-take.generating").nth(0)).toContainText("take 2 · generating");
   await expect(page.locator(".gen-take.generating").nth(1)).toContainText("take 3 · generating");
-  await expect(page.locator(".gen-take.draft.selected")).toContainText("draft");
-  await expect(page.getByTestId("draft-preview-slate")).toBeVisible();
+  await expect(page.locator(".gen-take.draft")).toHaveCount(0);
+  await expect(page.locator(".gen-take.generating.selected")).toContainText("take 3 · generating");
+  await expect(page.getByTestId("submitted-take-preview")).toBeVisible();
 });
 
 test("failed attempts stay in take-number order with generated takes", async ({ page }) => {
   await openComposition(page, "lighthouse-dialogue", "http://127.0.0.1:4175/");
 
   const takes = page.locator(".gen-output .gen-take");
-  await expect(takes).toHaveCount(3);
-  await expect(takes.nth(0)).toContainText("take 3 · draft");
-  await expect(takes.nth(1).getByRole("button", { name: "Preview take 2", exact: true })).toBeVisible();
-  await expect(takes.nth(2)).toContainText("take 1 · failed");
+  await expect(takes).toHaveCount(2);
+  await expect(takes.nth(0).getByRole("button", { name: "Preview take 2", exact: true })).toBeVisible();
+  await expect(takes.nth(1)).toContainText("take 1 · failed");
+  await expect(page.locator(".gen-take.draft")).toHaveCount(0);
 });
 
 test("generative rows advertise their output kind and input comps link to their source", async ({ page }) => {
@@ -117,7 +135,7 @@ test("generative rows advertise their output kind and input comps link to their 
 
   // A comp-backed input reference is a link into its source composition; the geometry
   // line stays behind as the input-handling toggle.
-  await page.getByRole("button", { name: "Back to current draft", exact: true }).click();
+  await page.getByRole("button", { name: "Add Take", exact: true }).click();
   await expect(page.getByRole("button", { name: "Adjust how HarborPreviz is adapted for the model", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Open composition HarborPreviz", exact: true }).click();
   await expect(page.locator('.composition-row[data-composition-key="harbor-previz"]').first()).toHaveClass(/active/);
