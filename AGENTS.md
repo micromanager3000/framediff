@@ -32,6 +32,8 @@
 
 ## Implementation quality
 
+- Reusable package CSS must scope structural and generic selectors beneath an explicit package root, and must not own host-document layout or scrolling through `:root`, `html`, `body`, or host mount-node rules.
+
 - Treat every browser/runtime/project adapter call as a failure boundary. User-facing
   async operations must catch rejected promises, restore `loading` / `busy` /
   `editing` flags, and expose an actionable error instead of leaving controls inert.
