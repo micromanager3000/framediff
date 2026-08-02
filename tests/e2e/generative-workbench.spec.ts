@@ -11,6 +11,7 @@ test("a draft take is an obvious, repeatable path back to editing", async ({ pag
   await expect(page.getByRole("button", { name: "↳ Draft from latest", exact: true })).toHaveCount(0);
   await expect(page.getByText("HISTORICAL TAKE 5", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Preview take 5", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".gen-take.selected.pinned")).toContainText("In use");
   await expect(page.getByRole("slider", { name: "Synchronized comparison frame", exact: true })).toBeVisible();
   await expect(page.getByLabel("Generated take 5", { exact: true })).toBeVisible();
   await expect(
@@ -39,9 +40,60 @@ test("a draft take is an obvious, repeatable path back to editing", async ({ pag
   const prompt = page.getByRole("textbox", { name: "PROMPT", exact: true });
   await expect(prompt).toBeEditable();
   await expect(prompt).toBeFocused();
+  await expect(draft).toHaveClass(/selected/);
+  await expect(page.getByTestId("draft-preview-slate")).toBeVisible();
+  await expect(page.locator(".gen-preview img, .gen-preview video, .gen-preview audio")).toHaveCount(0);
 
   await draft.click();
   await expect(prompt).toBeFocused();
+});
+
+test("an active attempt leaves the draft editable for a second submission", async ({ page }) => {
+  const activeJobs: { id: string; status: "queued"; take: number }[] = [];
+  await page.route("**/__framediff/secrets", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    await route.fulfill({ json: { providers: { fal: { set: true } } } });
+  });
+  await page.route("**/__framediff/edit", async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    await route.fulfill({ json: { ok: true, receipt: { id: "e2e-edit", label: "Edit draft", before: [], after: [] } } });
+  });
+  await page.route("**/__framediff/gen/submit", async (route) => {
+    const take = 2 + activeJobs.length;
+    const job = { id: `e2e-attempt-${activeJobs.length + 1}`, status: "queued" as const, take };
+    activeJobs.push(job);
+    await route.fulfill({ json: { job } });
+  });
+  await page.route("**/__framediff/gen/jobs*", async (route) => {
+    if (!route.request().url().includes("gen=lighthouseKeeper")) return route.continue();
+    const response = await route.fetch();
+    const body = await response.json() as { jobs: unknown[]; takes: unknown[] };
+    await route.fulfill({ json: { ...body, jobs: [...body.jobs, ...activeJobs] } });
+  });
+
+  // Use an asset-backed recipe so this scenario isolates submission state. Harbor Shot's
+  // comp-backed video reference intentionally invokes the real browser encoder before submit.
+  await openComposition(page, "lighthouse-keeper", "http://127.0.0.1:4175/");
+  const draft = page.getByRole("button", { name: "Edit the draft for take 2", exact: true });
+  await draft.click();
+  const prompt = page.getByRole("textbox", { name: "PROMPT", exact: true });
+  await prompt.fill("A revised active-attempt draft.");
+  await prompt.blur();
+  await expect(prompt).toBeEditable();
+
+  const generate = page.getByRole("button", { name: /Generate ·/ });
+  await generate.click();
+  await expect(page.locator(".gen-take.generating")).toHaveCount(1);
+  await expect(draft).toBeVisible();
+  await expect(prompt).toBeEditable();
+
+  await generate.click();
+  await expect(page.locator(".gen-take.generating")).toHaveCount(2);
+  expect(activeJobs.map((job) => job.id)).toEqual(["e2e-attempt-1", "e2e-attempt-2"]);
+  await expect(page.locator(".gen-take.generating").nth(0)).toContainText("take 2 · generating");
+  await expect(page.locator(".gen-take.generating").nth(1)).toContainText("take 3 · generating");
+  await expect(page.locator(".gen-take.draft.selected")).toContainText("draft");
+  await expect(page.getByTestId("draft-preview-slate")).toBeVisible();
 });
 
 test("failed attempts stay in take-number order with generated takes", async ({ page }) => {

@@ -24,11 +24,11 @@ describe("GenerativeManager", () => {
     manager.destroy();
   });
 
-  it("refuses draft mutations while a generation job is active", async () => {
+  it("keeps draft mutations available while a generation job is active", async () => {
     const composition = { key: "generate" } as CompositionDescriptor;
     const state = new ObservableValue({ currentKey: composition.key, compositions: [composition] } as StudioSessionState);
     const session = { state } as StudioSession;
-    const updateGenerativeRecipe = vi.fn();
+    const updateGenerativeRecipe = vi.fn(async () => ({ ok: true, message: "Updated" }));
     const manager = new GenerativeManager(session, { updateGenerativeRecipe } as unknown as ProjectWorkspacePort);
     manager.state.update((current) => ({
       ...current,
@@ -37,9 +37,8 @@ describe("GenerativeManager", () => {
       } as GenerativeWorkspaceSnapshot,
     }));
 
-    expect(await manager.update({ prompt: "A different prompt" })).toBe(false);
-    expect(updateGenerativeRecipe).not.toHaveBeenCalled();
-    expect(manager.state.get().error).toBe("This recipe is locked until the generating take finishes.");
+    expect(await manager.update({ prompt: "A different prompt" })).toBe(true);
+    expect(updateGenerativeRecipe).toHaveBeenCalledOnce();
   });
 
   it("marks the take as submitting before the provider returns a job", async () => {
@@ -113,20 +112,17 @@ describe("GenerativeManager", () => {
     expect(manager.state.get().error).toBe("Provider rejected the request.");
   });
 
-  it("pins a completed generated take by default when the composition is still unpinned", async () => {
+  it("does not change delivery pin as a polling side effect", async () => {
     const composition = { key: "generate" } as CompositionDescriptor;
     const state = new ObservableValue({ currentKey: composition.key, compositions: [composition] } as StudioSessionState);
     const session = { state } as StudioSession;
     const unpinned = {
       recipeId: "generated",
       pinnedTake: 0,
-      jobs: [{ id: "job-1", status: "done", take: 1, autoPinIfEmpty: true }],
+      jobs: [{ id: "job-1", status: "done", take: 1 }],
       takes: [{ take: 1 }],
     } as unknown as GenerativeWorkspaceSnapshot;
-    const pinned = { ...unpinned, pinnedTake: 1 };
-    const getGenerativeWorkspace = vi.fn()
-      .mockResolvedValueOnce(unpinned)
-      .mockResolvedValue(pinned);
+    const getGenerativeWorkspace = vi.fn().mockResolvedValue(unpinned);
     const pinGenerationTake = vi.fn(async () => ({ ok: true, message: "Pinned take 1." }));
     const manager = new GenerativeManager(session, {
       getGenerativeWorkspace,
@@ -135,10 +131,8 @@ describe("GenerativeManager", () => {
 
     await manager.refresh();
 
-    expect(pinGenerationTake).toHaveBeenCalledOnce();
-    expect(pinGenerationTake).toHaveBeenCalledWith("generate", 1);
-    expect(manager.state.get().workspace?.pinnedTake).toBe(1);
-    expect(manager.state.get().message).toBe("Pinned take 1 by default.");
+    expect(pinGenerationTake).not.toHaveBeenCalled();
+    expect(manager.state.get().workspace?.pinnedTake).toBe(0);
   });
 
   it("does not replace an existing pin when a generated take completes", async () => {
@@ -148,7 +142,7 @@ describe("GenerativeManager", () => {
     const workspace = {
       recipeId: "generated",
       pinnedTake: 1,
-      jobs: [{ id: "job-2", status: "done", take: 2, autoPinIfEmpty: true }],
+      jobs: [{ id: "job-2", status: "done", take: 2 }],
       takes: [{ take: 1 }, { take: 2 }],
     } as unknown as GenerativeWorkspaceSnapshot;
     const pinGenerationTake = vi.fn();
@@ -182,5 +176,88 @@ describe("GenerativeManager", () => {
     await manager.refresh();
 
     expect(pinGenerationTake).not.toHaveBeenCalled();
+  });
+
+  it("cleans up busy and submitting after rejected adapter operations", async () => {
+    const composition = { key: "generate" } as CompositionDescriptor;
+    const state = new ObservableValue({ currentKey: composition.key, compositions: [composition] } as StudioSessionState);
+    const session = { state } as StudioSession;
+    const manager = new GenerativeManager(session, {
+      updateGenerativeRecipe: vi.fn(async () => { throw new Error("bridge unavailable"); }),
+      submitGeneration: vi.fn(async () => { throw new Error("provider unavailable"); }),
+    } as unknown as ProjectWorkspacePort);
+
+    expect(await manager.update({ prompt: "retry me" })).toBe(false);
+    expect(manager.state.get()).toMatchObject({ busy: false, submitting: false, error: "bridge unavailable" });
+    expect(await manager.generate()).toBe(false);
+    expect(manager.state.get()).toMatchObject({ busy: false, submitting: false, error: "provider unavailable" });
+  });
+
+  it("preserves the active workspace when a poll rejects", async () => {
+    const composition = { key: "generate" } as CompositionDescriptor;
+    const state = new ObservableValue({ currentKey: composition.key, compositions: [composition] } as StudioSessionState);
+    const session = { state } as StudioSession;
+    const workspace = { status: "running", jobs: [{ id: "job-1", status: "running" }] } as unknown as GenerativeWorkspaceSnapshot;
+    const getGenerativeWorkspace = vi.fn()
+      .mockResolvedValueOnce(workspace)
+      .mockRejectedValueOnce(new Error("temporary poll failure"));
+    const manager = new GenerativeManager(session, { getGenerativeWorkspace } as unknown as ProjectWorkspacePort);
+
+    await manager.refresh();
+    await manager.refresh();
+
+    expect(manager.state.get().workspace).toBe(workspace);
+    expect(manager.state.get().error).toBe("temporary poll failure");
+  });
+
+  it("ignores an out-of-order response after composition navigation", async () => {
+    const first = { key: "first" } as CompositionDescriptor;
+    const second = { key: "second" } as CompositionDescriptor;
+    const state = new ObservableValue({ currentKey: first.key, compositions: [first, second] } as StudioSessionState);
+    const session = { state } as StudioSession;
+    let resolveFirst!: (workspace: GenerativeWorkspaceSnapshot) => void;
+    const getGenerativeWorkspace = vi.fn((key: string) => key === "first"
+      ? new Promise<GenerativeWorkspaceSnapshot>((resolve) => { resolveFirst = resolve; })
+      : Promise.resolve({ compositionKey: "second" } as GenerativeWorkspaceSnapshot));
+    const manager = new GenerativeManager(session, { getGenerativeWorkspace } as unknown as ProjectWorkspacePort);
+
+    manager.start();
+    state.update((current) => ({ ...current, currentKey: second.key }));
+    resolveFirst({ compositionKey: "first" } as GenerativeWorkspaceSnapshot);
+
+    await vi.waitFor(() => expect(manager.state.get().workspace?.compositionKey).toBe("second"));
+    expect(manager.state.get().workspace?.compositionKey).not.toBe("first");
+    manager.destroy();
+  });
+
+  it("ignores a delayed mutation rejection after composition navigation and clears transient guards", async () => {
+    const first = { key: "first" } as CompositionDescriptor;
+    const second = { key: "second" } as CompositionDescriptor;
+    const state = new ObservableValue({ currentKey: first.key, compositions: [first, second] } as StudioSessionState);
+    const session = { state } as StudioSession;
+    let rejectFirst!: (error: Error) => void;
+    const updateGenerativeRecipe = vi.fn((key: string) => key === first.key
+      ? new Promise<{ ok: boolean; message: string }>((_resolve, reject) => { rejectFirst = reject; })
+      : Promise.resolve({ ok: true, message: "Updated second" }));
+    const getGenerativeWorkspace = vi.fn(async () => null);
+    const manager = new GenerativeManager(session, {
+      getGenerativeWorkspace,
+      updateGenerativeRecipe,
+    } as unknown as ProjectWorkspacePort);
+
+    manager.start();
+    await vi.waitFor(() => expect(getGenerativeWorkspace).toHaveBeenCalledOnce());
+    const firstUpdate = manager.update({ prompt: "old composition" });
+    expect(manager.state.get().busy).toBe(true);
+
+    state.update((current) => ({ ...current, currentKey: second.key }));
+    expect(manager.state.get()).toMatchObject({ busy: false, submitting: false, workspace: null });
+    rejectFirst(new Error("old bridge failure"));
+
+    expect(await firstUpdate).toBe(false);
+    expect(manager.state.get()).toMatchObject({ busy: false, submitting: false, error: null });
+    expect(await manager.update({ prompt: "new composition" })).toBe(true);
+    expect(updateGenerativeRecipe).toHaveBeenNthCalledWith(2, second.key, { prompt: "new composition" });
+    manager.destroy();
   });
 });

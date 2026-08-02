@@ -26,8 +26,7 @@ export class GenerativeManager {
   private lastKey = "";
   private lastCompositions: StudioSessionState["compositions"] | null = null;
   private generation = 0;
-  private readonly autoPinning = new Set<string>();
-  private readonly autoPinned = new Set<string>();
+  private operationGeneration = 0;
 
   public constructor(private readonly session: StudioSession, private readonly workspacePort: ProjectWorkspacePort) {}
 
@@ -51,8 +50,24 @@ export class GenerativeManager {
     this.unsubscribe = this.session.state.subscribe((state) => {
       const registryChanged = state.compositions !== this.lastCompositions;
       if (state.currentKey === this.lastKey && !registryChanged) return;
+      const compositionChanged = state.currentKey !== this.lastKey;
       this.lastKey = state.currentKey;
       this.lastCompositions = state.compositions;
+      if (compositionChanged) {
+        // Never leave the previous composition's recipe/takes interactive while the
+        // replacement workspace is loading.
+        this.generation++;
+        this.operationGeneration++;
+        this.state.update((current) => ({
+          ...current,
+          workspace: null,
+          error: null,
+          message: null,
+          loading: false,
+          busy: false,
+          submitting: false,
+        }));
+      }
       void this.refresh();
     });
     this.timer = setInterval(() => {
@@ -73,7 +88,7 @@ export class GenerativeManager {
     this.state.update((state) => ({ ...state, loading: true }));
     try {
       const workspace = await this.workspacePort.getGenerativeWorkspace(key);
-      if (generation !== this.generation) return;
+      if (generation !== this.generation || key !== this.session.state.get().currentKey) return;
       this.state.update((state) => ({
         ...state,
         workspace,
@@ -83,104 +98,82 @@ export class GenerativeManager {
           ? null
           : state.message,
       }));
-      await this.autoPinCompletedTake(key, workspace);
     } catch (error) {
-      if (generation !== this.generation) return;
-      this.state.update((state) => ({ ...state, workspace: null, loading: false, error: error instanceof Error ? error.message : String(error) }));
+      if (generation !== this.generation || key !== this.session.state.get().currentKey) return;
+      // Keep the last matching workspace visible. Polling must be able to retry after a
+      // transient bridge/provider failure instead of clearing the only active history.
+      this.state.update((state) => ({
+        ...state,
+        loading: false,
+        error: error instanceof Error ? error.message : String(error),
+      }));
     }
   }
 
   public update(patch: Record<string, unknown>): Promise<boolean> {
-    return this.runDraftOperation(() => this.workspacePort.updateGenerativeRecipe(this.session.state.get().currentKey, patch));
+    const compositionKey = this.session.state.get().currentKey;
+    return this.runDraftOperation(() => this.workspacePort.updateGenerativeRecipe(compositionKey, patch), compositionKey);
   }
   public async generate(): Promise<boolean> {
     if (this.draftLocked()) return this.refuseDraftOperation();
+    const compositionKey = this.session.state.get().currentKey;
+    const operationGeneration = this.operationGeneration;
     this.state.update((state) => ({ ...state, submitting: true }));
     try {
       return await this.run(
-        () => this.workspacePort.submitGeneration(this.session.state.get().currentKey),
+        () => this.workspacePort.submitGeneration(compositionKey),
         true,
+        compositionKey,
+        operationGeneration,
       );
     } finally {
-      this.state.update((state) => ({ ...state, submitting: false }));
+      if (this.isCurrentOperation(compositionKey, operationGeneration)) {
+        this.state.update((state) => ({ ...state, submitting: false }));
+      }
     }
   }
-  public pin(take: number): Promise<boolean> { return this.run(() => this.workspacePort.pinGenerationTake(this.session.state.get().currentKey, take)); }
-  public startFrom(take: number): Promise<boolean> { return this.runDraftOperation(() => this.workspacePort.startGenerationFromTake(this.session.state.get().currentKey, take)); }
-  public startFromJob(jobId: string): Promise<boolean> { return this.runDraftOperation(() => this.workspacePort.startGenerationFromJob(this.session.state.get().currentKey, jobId)); }
+  public pin(take: number): Promise<boolean> {
+    const compositionKey = this.session.state.get().currentKey;
+    return this.run(() => this.workspacePort.pinGenerationTake(compositionKey, take), false, compositionKey);
+  }
+  public startFrom(take: number): Promise<boolean> {
+    const compositionKey = this.session.state.get().currentKey;
+    return this.runDraftOperation(() => this.workspacePort.startGenerationFromTake(compositionKey, take), compositionKey);
+  }
+  public startFromJob(jobId: string): Promise<boolean> {
+    const compositionKey = this.session.state.get().currentKey;
+    return this.runDraftOperation(() => this.workspacePort.startGenerationFromJob(compositionKey, jobId), compositionKey);
+  }
   public configure(provider: string, key: string): Promise<boolean> { return this.run(() => this.workspacePort.configureProvider(provider, key)); }
 
-  private runDraftOperation(operation: () => Promise<{ ok: boolean; message: string }>): Promise<boolean> {
-    if (!this.draftLocked()) return this.run(operation);
+  private runDraftOperation(operation: () => Promise<{ ok: boolean; message: string }>, compositionKey: string): Promise<boolean> {
+    const operationGeneration = this.operationGeneration;
+    if (!this.draftLocked()) return this.run(operation, false, compositionKey, operationGeneration);
     return this.refuseDraftOperation();
   }
 
-  private draftLocked(): boolean {
-    const state = this.state.get();
-    return state.submitting
-      || !!state.workspace?.jobs.some((job) => job.status === "queued" || job.status === "running");
-  }
+  private draftLocked(): boolean { return this.state.get().submitting || this.state.get().busy; }
 
   private refuseDraftOperation(): Promise<boolean> {
     this.state.update((state) => ({
       ...state,
-      error: "This recipe is locked until the generating take finishes.",
+      error: "Another recipe operation is still in progress.",
       message: null,
     }));
     return Promise.resolve(false);
   }
 
-  private async autoPinCompletedTake(
-    compositionKey: string,
-    workspace: GenerativeWorkspaceSnapshot | null,
-  ): Promise<void> {
-    if (!workspace || workspace.pinnedTake !== 0) return;
-    const completed = [...workspace.jobs].reverse().find((job) =>
-      job.autoPinIfEmpty &&
-      job.status === "done" &&
-      job.take != null &&
-      workspace.takes.some((take) => take.take === job.take),
-    );
-    if (!completed?.take) return;
-    const operationKey = `${workspace.recipeId}:${completed.id}`;
-    if (this.autoPinning.has(operationKey) || this.autoPinned.has(operationKey)) return;
-
-    this.autoPinning.add(operationKey);
-    this.state.update((state) => ({ ...state, busy: true, error: null }));
-    try {
-      const result = await this.workspacePort.pinGenerationTake(compositionKey, completed.take);
-      if (result.ok) {
-        this.autoPinned.add(operationKey);
-        this.state.update((state) => ({
-          ...state,
-          busy: false,
-          error: null,
-          message: `Pinned take ${completed.take} by default.`,
-        }));
-        await this.refresh();
-      } else {
-        this.state.update((state) => ({ ...state, busy: false, message: null, error: result.message }));
-      }
-    } catch (error) {
-      this.state.update((state) => ({
-        ...state,
-        busy: false,
-        message: null,
-        error: error instanceof Error ? error.message : String(error),
-      }));
-    } finally {
-      this.autoPinning.delete(operationKey);
-    }
-  }
-
   private async run(
     operation: () => Promise<{ ok: boolean; message: string }>,
     refreshOnFailure = false,
+    compositionKey = this.session.state.get().currentKey,
+    operationGeneration = this.operationGeneration,
   ): Promise<boolean> {
     if (this.state.get().busy) return false;
     this.state.update((state) => ({ ...state, busy: true, error: null, message: null }));
     try {
       const result = await operation();
+      if (!this.isCurrentOperation(compositionKey, operationGeneration)) return result.ok;
       if (result.ok) {
         try {
           sessionStorage.setItem(GenerativeManager.NOTICE_KEY, JSON.stringify({ message: result.message, at: Date.now() }));
@@ -191,15 +184,22 @@ export class GenerativeManager {
       this.state.update((state) => ({ ...state, busy: false, error: result.ok ? null : result.message, message: result.ok ? result.message : null }));
       if (result.ok || refreshOnFailure) {
         await this.refresh();
+        if (!this.isCurrentOperation(compositionKey, operationGeneration)) return result.ok;
         if (!result.ok) {
           this.state.update((state) => ({ ...state, error: result.message, message: null }));
         }
       }
       return result.ok;
     } catch (error) {
+      if (!this.isCurrentOperation(compositionKey, operationGeneration)) return false;
       // a throw must never strand busy=true — that silently deadens every button
       this.state.update((state) => ({ ...state, busy: false, message: null, error: error instanceof Error ? error.message : String(error) }));
       return false;
     }
+  }
+
+  private isCurrentOperation(compositionKey: string, operationGeneration: number): boolean {
+    return operationGeneration === this.operationGeneration
+      && compositionKey === this.session.state.get().currentKey;
   }
 }

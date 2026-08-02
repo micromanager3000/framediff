@@ -4,6 +4,7 @@ import {
   failedTakeViews,
   generatingTakeViews,
   historicalTakeViews,
+  normalizePreviewSelection,
   nextGenerationTake,
   readableGenerationError,
   referenceKindForMime,
@@ -24,7 +25,7 @@ describe("referenceKindForMime", () => {
 });
 
 describe("generatingTakeViews", () => {
-  it("turns queued and running jobs into numbered in-flight takes", () => {
+  it("keeps server numbering authoritative for in-flight attempts", () => {
     expect(generatingTakeViews({
       ...workspace,
       takes: [{ take: 2 }],
@@ -34,7 +35,7 @@ describe("generatingTakeViews", () => {
         { id: "old-job", status: "done", take: 1 },
       ],
     } as GenerativeWorkspaceSnapshot)).toEqual([
-      { id: "queued-job", take: 8, status: "queued" },
+      { id: "queued-job", take: undefined, status: "queued" },
       { id: "running-job", take: 7, status: "running" },
     ]);
   });
@@ -46,12 +47,12 @@ describe("generatingTakeViews", () => {
     } as GenerativeWorkspaceSnapshot)).toEqual([]);
   });
 
-  it("shows an optimistic generating take while the submit request is still opening", () => {
+  it("shows an unnumbered placeholder while the submit request is still opening", () => {
     expect(generatingTakeViews({
       ...workspace,
       takes: [{ take: 4 }],
     } as GenerativeWorkspaceSnapshot, true)).toEqual([
-      { id: "submitting", take: 5, status: "queued" },
+      { id: "submitting", status: "queued" },
     ]);
   });
 });
@@ -127,6 +128,13 @@ describe("historicalTakeViews", () => {
       { kind: "generated", take: 2, generatedTake },
       { kind: "failed", take: 1, failedTake },
     ]);
+  });
+});
+
+describe("normalizePreviewSelection", () => {
+  it("falls back to the draft when a selected take is no longer available", () => {
+    expect(normalizePreviewSelection({ kind: "take", take: 8 }, { ...workspace, takes: [] } as GenerativeWorkspaceSnapshot)).toEqual({ kind: "draft" });
+    expect(normalizePreviewSelection({ kind: "draft" }, { ...workspace, takes: [] } as GenerativeWorkspaceSnapshot)).toEqual({ kind: "draft" });
   });
 });
 
