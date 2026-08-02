@@ -46,6 +46,11 @@ export class RenderManager {
     return this.session.state.get().currentKey || null;
   }
 
+  /** Local browser capture needs a visible window; remote jobs remain in the Studio tab. */
+  public get requiresDedicatedWindow(): boolean {
+    return this.workspace.renderExecutionMode !== "remote";
+  }
+
   public async renderCurrent(executor?: RenderExecutor): Promise<boolean> {
     const key = this.session.state.get().currentKey;
     return key ? this.renderMany([key], executor) : false;

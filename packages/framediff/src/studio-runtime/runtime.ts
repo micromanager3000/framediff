@@ -1093,6 +1093,7 @@ function adaptedVisualComposition(options: {
 const seenGenTakes = new Set<string>();
 
 export class HtmlStudioRuntime implements CompositionRuntimePort {
+  public renderExecutionMode: "local" | "remote" = "local";
   private registry: CompRegistry;
   private listeners = new Set<(compositions: CompositionDescriptor[]) => void>();
   private previews = new Set<PreviewRecord>();

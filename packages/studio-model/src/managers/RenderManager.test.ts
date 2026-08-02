@@ -68,6 +68,14 @@ describe("RenderManager", () => {
     expect(manager.state.get()).toMatchObject({ status: "done", filename: "local.mp4" });
   });
 
+  it("only requires a dedicated browser window for local rendering", () => {
+    expect(new RenderManager(session(), workspace).requiresDedicatedWindow).toBe(true);
+    expect(new RenderManager(session(), {
+      ...workspace,
+      renderExecutionMode: "remote",
+    } as unknown as ProjectWorkspacePort).requiresDedicatedWindow).toBe(false);
+  });
+
   it("cancels a remote job by its progress identity and ignores the stale completion", async () => {
     const manager = new RenderManager(session(), workspace);
     let resolve: ((result: { filename: string; bytes: number }) => void) | undefined;

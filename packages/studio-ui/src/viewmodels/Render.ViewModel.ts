@@ -65,6 +65,9 @@ export class RenderViewModel {
 
   private renderKeys(compositionKeys: string[]): Promise<boolean> {
     if (!compositionKeys.length || this.manager.state.get().status === "rendering") return Promise.resolve(false);
+    if (!this.manager.requiresDedicatedWindow) {
+      return this.manager.renderMany(compositionKeys);
+    }
     // The render-window document owns the actual export. Keeping DOM/WebGPU capture in a
     // selected, visible document avoids Chrome background-tab throttling and freezing.
     if (typeof window === "undefined" || renderWindowRequest(window.name)) {

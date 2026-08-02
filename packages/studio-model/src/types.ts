@@ -864,6 +864,8 @@ export interface ProjectWorkspacePort {
   uploadAsset(file: File): Promise<string | null>;
   getGitStatus(): Promise<string[] | null>;
   commit(message: string): Promise<string | null>;
+  /** Remote renderers run independently and do not need the browser capture window. */
+  renderExecutionMode?: "local" | "remote";
   renderComposition(
     compositionKey: string,
     onProgress: (progress: RenderProgressSnapshot) => void,
