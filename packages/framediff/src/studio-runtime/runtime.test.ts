@@ -229,6 +229,33 @@ describe("HtmlStudioRuntime Inspector batches", () => {
     }));
   });
 
+  it("blocks an unsupported ElevenLabs Direct speed before provider submission", async () => {
+    const generated = generative({
+      id: "Narration",
+      output: "audio",
+      model: "elevenlabs-direct",
+      prompt: "A quiet introduction.",
+      voice: "voice-123",
+      speed: 1.5,
+    });
+    const project = {
+      getAssets: vi.fn(async () => ({ version: 1, assets: {} })),
+      getGenerationJobs: vi.fn(async () => ({ jobs: [], takes: [] })),
+      getSecrets: vi.fn(async () => ({ providers: { elevenlabs: { set: true } } })),
+      submitGeneration: vi.fn(),
+    };
+    const runtime = createStudioRuntime({ generated } as CompRegistry, project as never);
+
+    await expect(runtime.getGenerativeWorkspace("generated")).resolves.toMatchObject({
+      blockedReason: "SPEED for Eleven v3 · direct must be between 0.7 and 1.2; received 1.5.",
+    });
+    await expect(runtime.submitGeneration("generated")).resolves.toMatchObject({
+      ok: false,
+      message: "SPEED for Eleven v3 · direct must be between 0.7 and 1.2; received 1.5.",
+    });
+    expect(project.submitGeneration).not.toHaveBeenCalled();
+  });
+
   it("uses an injected project adapter without replacing the browser fetch implementation", async () => {
     const request = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -892,6 +919,28 @@ describe("HtmlStudioRuntime generative recipe documents", () => {
       ok: false,
       message: expect.stringContaining("produces image"),
     });
+  });
+
+  it("rejects an out-of-range model parameter before writing the recipe", async () => {
+    const data = { provider: "elevenlabs" as const, output: "audio" as const, model: "elevenlabs-direct", prompt: "Original", voice: "voice-123", speed: 1, refs: [], take: 0 };
+    const generated = generative({ id: "Generated", file: "src/Generated.gen.ts", dataFile: "src/Generated.gen.json", ...data });
+    const edit = vi.fn();
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/__framediff/assets") return new Response("missing", { status: 404 });
+      if (url.startsWith("/__framediff/src?")) {
+        return Response.json({ file: "src/Generated.gen.json", text: JSON.stringify(data), hash: "gen-data:1" });
+      }
+      if (url === "/__framediff/edit" && init?.method === "POST") edit();
+      return new Response("not found", { status: 404 });
+    }));
+    const runtime = createStudioRuntime({ generated } as CompRegistry);
+
+    await expect(runtime.updateGenerativeRecipe("generated", { speed: 1.5 })).resolves.toMatchObject({
+      ok: false,
+      message: "SPEED for Eleven v3 · direct must be between 0.7 and 1.2; received 1.5.",
+    });
+    expect(edit).not.toHaveBeenCalled();
   });
 
   it("reports only same-type models and classifies composition input geometry", async () => {

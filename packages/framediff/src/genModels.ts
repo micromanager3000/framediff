@@ -701,7 +701,7 @@ const elevenDirect: GenModelDef = {
     "voice anchor via a comp:// audio ref",
     "best-effort seeded reads for more repeatable takes",
     "inline audio tags — [whispers] [excited] [pause]…",
-    "speed control via voice_settings",
+    "speed control via voice_settings (0.7–1.2)",
     "mp3 output",
   ],
   limits: [
@@ -850,6 +850,30 @@ export function genModelOf(recipe: Pick<GenRecipe, "model" | "output">): GenMode
 export function genParamValue(recipe: GenRecipe, p: GenParamDef): GenParamValue {
   const v = (recipe as unknown as Record<string, GenParamValue | undefined>)[p.key];
   return v ?? p.def;
+}
+
+/** Validate authored model parameters before they are persisted or sent to a provider.
+ *  HTML min/max attributes are only hints: number inputs can still emit an invalid typed
+ *  value, and recipes can be edited directly on disk. The model definition is the single
+ *  source of truth at both boundaries. */
+export function genNumericParamValidationError(recipe: GenRecipe, def = genModelOf(recipe)): string | undefined {
+  for (const param of def.params) {
+    if (param.type !== "number" || param.enabledIf && !param.enabledIf(recipe)) continue;
+    const authored = (recipe as unknown as Record<string, unknown>)[param.key];
+    if (authored == null) continue;
+    if (typeof authored !== "number" || !Number.isFinite(authored)) {
+      return `${param.label} for ${def.name} must be a finite number.`;
+    }
+    if ((param.min != null && authored < param.min) || (param.max != null && authored > param.max)) {
+      const range = param.min != null && param.max != null
+        ? `between ${param.min} and ${param.max}`
+        : param.min != null
+          ? `at least ${param.min}`
+          : `at most ${param.max}`;
+      return `${param.label} for ${def.name} must be ${range}; received ${authored}.`;
+    }
+  }
+  return undefined;
 }
 
 /** Ref kinds a model will take right now — used by drop targets and pickers to refuse

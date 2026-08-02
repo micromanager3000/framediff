@@ -91,6 +91,7 @@ import {
   genModelOf,
   genModelsForOutput,
   genParamValue,
+  genNumericParamValidationError,
   genRefAccept,
 } from "../genModels";
 import {
@@ -3813,10 +3814,13 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       if (!pinned) blockedInputs.push(input.id);
     }
     const missingRefs = (definition.requiredRefs ?? []).filter((kind) => !(recipe.refs ?? []).some((ref) => ref.kind === kind));
+    const paramError = genNumericParamValidationError(effectiveRecipe, definition);
     const blockedReason = blockedInputs.length
       ? `Pin an approved take in ${[...new Set(blockedInputs)].join(", ")} before generating this composition.`
       : definition.id === "elevenlabs-direct" && !effectiveRecipe.voice?.trim()
         ? "Set an ElevenLabs voice_id in the recipe before generating this composition."
+      : paramError
+        ? paramError
       : missingRefs.length
         ? `Add a required ${missingRefs.map((kind) => kind === "endImage" ? "end-frame" : kind).join(" and ")} reference before generating with ${definition.name}.`
         : undefined;
@@ -3993,6 +3997,8 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       : { next: recipe, droppedRefs: [] };
     const base = { ...remapped.next, output: lockedOutput };
     let next = withRecipe(base, remainingPatch as Partial<GenRecipe>);
+    const paramError = genNumericParamValidationError(next);
+    if (paramError) return { ok: false, message: paramError };
     const previousNative = genNativeDims(recipe);
     const nextNative = genNativeDims(next);
     const nativeShapeChanged =
@@ -4211,6 +4217,8 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     if (definition.id === "elevenlabs-direct" && !effectiveRecipe.voice?.trim()) {
       return { ok: false, message: "Set an ElevenLabs voice_id in the recipe before generating." };
     }
+    const paramError = genNumericParamValidationError(effectiveRecipe, definition);
+    if (paramError) return { ok: false, message: paramError };
     const missingRefs = (definition.requiredRefs ?? []).filter((kind) => !(recipe.refs ?? []).some((ref) => ref.kind === kind));
     if (missingRefs.length) {
       return {
