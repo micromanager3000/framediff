@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { genModelOf, genModelsForOutput, genRefAccept } from "./genModels";
-import { recipeCanonical, type GenRecipe } from "./generative";
+import { genModelOf, genModelsForOutput, genNumericParamValidationError, genRefAccept } from "./genModels";
+import { recipeCanonical, recipeHashOf, type GenRecipe } from "./generative";
 
 const recipe = (patch: Partial<GenRecipe>): GenRecipe => ({
   id: "test",
@@ -60,6 +60,27 @@ describe("multi-media generative models", () => {
       min: 0,
       max: 2147483647,
     });
+  });
+
+  it("sends and hashes supported ElevenLabs Direct speed while rejecting unsupported values", async () => {
+    const normal = recipe({
+      output: "audio",
+      model: "elevenlabs-direct",
+      voice: "voice-123",
+      speed: 1,
+    });
+    const faster = { ...normal, speed: 1.2 };
+    const unsupported = { ...normal, speed: 1.5 };
+    const model = genModelOf(normal);
+
+    expect(model.buildInput(normal)).toMatchObject({ voice_settings: { speed: 1 } });
+    expect(model.buildInput(faster)).toMatchObject({ voice_settings: { speed: 1.2 } });
+    await expect(recipeHashOf(faster)).resolves.not.toBe(await recipeHashOf(normal));
+    expect(genNumericParamValidationError(normal, model)).toBeUndefined();
+    expect(genNumericParamValidationError(faster, model)).toBeUndefined();
+    expect(genNumericParamValidationError(unsupported, model)).toBe(
+      "SPEED for Eleven v3 · direct must be between 0.7 and 1.2; received 1.5.",
+    );
   });
 
   it("accepts one audio composition as a direct ElevenLabs voice anchor", () => {

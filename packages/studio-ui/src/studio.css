@@ -956,6 +956,7 @@
 :where(.framediff-studio) .gen-params { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
 :where(.framediff-studio) .gen-params label { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 6px; color: var(--muted); font-size: 9px; }
 :where(.framediff-studio) .gen-params input, :where(.framediff-studio) .gen-params select, :where(.framediff-studio) .add-ref select { min-width: 0; width: 100%; padding: 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel-raised); color: var(--text); }
+:where(.framediff-studio) .gen-param-range { grid-column: 2; margin-top: -4px; color: var(--muted); font: 8px/1.2 var(--mono); }
 :where(.framediff-studio) .output-shape { margin-top: 14px; padding: 10px; border: 1px solid color-mix(in srgb, var(--pink) 24%, var(--line)); border-radius: 8px; background: color-mix(in srgb, var(--pink) 3%, var(--panel)); }
 :where(.framediff-studio) .shape-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 :where(.framediff-studio) .shape-heading h3 { margin: 0 0 3px; color: var(--faint); font-size: 9px; letter-spacing: .12em; }

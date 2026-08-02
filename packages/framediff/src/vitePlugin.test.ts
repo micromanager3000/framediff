@@ -348,8 +348,13 @@ describe("framediffDev local cache folder", () => {
         gen: "voiceJimmy",
         endpoint: "v1/text-to-speech/vox-jimmy-01",
         recipeHash: "sha256:recipe",
-        input: { text: "Red Hook, Brooklyn. Nineteen thirty-two.", model_id: "eleven_v3", seed: 0 },
-        recipe: { id: "voiceJimmy", provider: "elevenlabs", model: "elevenlabs-direct", prompt: "Red Hook, Brooklyn. Nineteen thirty-two.", seed: 0 },
+        input: {
+          text: "Red Hook, Brooklyn. Nineteen thirty-two.",
+          model_id: "eleven_v3",
+          voice_settings: { stability: 0.45, similarity_boost: 0.8, style: 0, use_speaker_boost: true, speed: 1.2 },
+          seed: 0,
+        },
+        recipe: { id: "voiceJimmy", provider: "elevenlabs", model: "elevenlabs-direct", prompt: "Red Hook, Brooklyn. Nineteen thirty-two.", speed: 1.2, seed: 0 },
       })),
       { "content-type": "application/json" },
     );
@@ -367,6 +372,17 @@ describe("framediffDev local cache folder", () => {
 
     const post = calls.find((call) => call.init?.method === "POST");
     expect(post?.init?.headers).toMatchObject({ "xi-api-key": "xi-test-key-1234" });
+    expect(JSON.parse(String(post?.init?.body))).toMatchObject({
+      model_id: "eleven_v3",
+      voice_settings: {
+        stability: 0.45,
+        similarity_boost: 0.8,
+        style: 0,
+        use_speaker_boost: true,
+        speed: 1.2,
+      },
+      seed: 0,
+    });
 
     const jobs = JSON.parse((await request("/__framediff/gen/jobs?gen=voiceJimmy")).body);
     expect(jobs.takes[0]).toMatchObject({

@@ -395,6 +395,9 @@
                   </select>
                 {:else}
                   <input type="number" value={Number(param.value)} min={param.min} max={param.max} step={param.step} disabled={!param.enabled || $store.busy} onchange={(event) => void viewModel.update({ [param.key]: Number(event.currentTarget.value) })} />
+                  {#if param.min != null || param.max != null}
+                    <small class="gen-param-range">{param.min ?? "−∞"}–{param.max ?? "∞"}</small>
+                  {/if}
                 {/if}
               </label>
             {/each}
