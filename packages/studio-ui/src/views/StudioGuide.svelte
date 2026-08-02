@@ -1,13 +1,16 @@
 <script lang="ts">
-  import { guidePhases, type StudioGuideDescriptor, type StudioGuideStep } from "@framediff/studio-model";
+  import type { StudioGuideDescriptor, StudioGuideStep } from "@framediff/studio-model";
 
   /**
    * The project's walkthrough, at the top of the Studio rather than beside it.
    *
    * A side panel made the guide compete with the Inspector for the same 320px, which meant
    * following a tour cost you the panel you were being told to look at. Across the top it can be
-   * two things at once: a strip that always says what you are doing now, and a sheet that opens
-   * over the workspace when you want the whole map.
+   * two things at once: a strip that always says what you are doing now, and — when asked — one
+   * step, opened to its full detail, with a rail that says where that step sits in the whole.
+   *
+   * Showing all ten at once was the obvious first move and the wrong one: a walkthrough is read
+   * one step at a time, and the other nine were paying for themselves in workspace.
    */
   export let guide: StudioGuideDescriptor;
   export let currentKey: string;
@@ -21,29 +24,38 @@
   export let onadvance: () => void;
   export let ondismissactive: () => void;
 
-  let openStepId = "";
+  let focusedId = "";
 
-  function toggleComplete(id: string): void {
-    oncomplete(id, !completed.has(id));
+  function focusBy(delta: number): void {
+    const next = guide.steps[focusIndex + delta];
+    if (next) focusedId = next.id;
   }
 
   function reset(): void {
     onreset();
-    openStepId = "";
+    focusedId = guide.steps[0]?.id ?? "";
   }
 
   function startNext(): void {
     if (!nextStep) return;
-    openStepId = nextStep.id;
+    focusedId = nextStep.id;
     onopen(nextStep);
   }
 
   $: completed = new Set(completedIds);
-  $: phases = guidePhases(guide);
   $: completedCount = guide.steps.filter((step) => completed.has(step.id)).length;
   $: progress = guide.steps.length ? completedCount / guide.steps.length : 0;
   $: nextStep = guide.steps.find((step) => !completed.has(step.id)) ?? guide.steps[0];
   $: startLabel = completedCount === guide.steps.length ? "REPLAY TOUR" : completedCount ? "CONTINUE TOUR" : "START TOUR";
+  // Reading follows the tour when there is one, and otherwise starts wherever you left off.
+  $: if (activeStep && activeStep.id !== focusedId) focusedId = activeStep.id;
+  $: if (!focusedId && nextStep) focusedId = nextStep.id;
+  $: focusIndex = Math.max(0, guide.steps.findIndex((step) => step.id === focusedId));
+  $: focused = guide.steps[focusIndex];
+  $: focusedHere = !!focused && currentKey === focused.target.compositionKey;
+  $: focusedDone = !!focused && completed.has(focused.id);
+  // A wider gap where the phase changes, so the rail reads as an arc and not ten identical ticks.
+  $: phaseStarts = new Set(guide.steps.filter((step, index) => step.phase !== guide.steps[index - 1]?.phase).map((step) => step.id));
 </script>
 
 <section class="studio-guide" class:expanded aria-label={guide.title}>
@@ -83,46 +95,41 @@
     {/if}
   </div>
 
-  {#if expanded}
+  {#if expanded && focused}
     <div class="guide-sheet">
-      <header class="guide-hero">
-        <h2>{guide.title}</h2>
-        <p>{guide.summary}</p>
-        <div class="guide-meta">
-          <span>{guide.steps.length} real workflows</span>
-          {#if guide.estimatedMinutes}<span>≈ {guide.estimatedMinutes} min</span>{/if}
-          <button onclick={reset} disabled={!completedCount}>Reset</button>
-        </div>
-      </header>
+      <nav class="guide-rail" aria-label="Walkthrough steps">
+        <button class="guide-nav" onclick={() => focusBy(-1)} disabled={focusIndex === 0} aria-label="Previous step">‹</button>
+        <ol class="guide-pips">
+          {#each guide.steps as step, index (step.id)}
+            <li class:phase-start={phaseStarts.has(step.id) && index > 0}>
+              <button
+                class:done={completed.has(step.id)}
+                class:current={step.id === focused.id}
+                aria-current={step.id === focused.id ? "step" : undefined}
+                title={`${step.phase} · ${step.title}`}
+                aria-label={`Step ${index + 1} of ${guide.steps.length}: ${step.title}`}
+                onclick={() => focusedId = step.id}
+              ></button>
+            </li>
+          {/each}
+        </ol>
+        <button class="guide-nav" onclick={() => focusBy(1)} disabled={focusIndex === guide.steps.length - 1} aria-label="Next step">›</button>
+        <span class="guide-place">{focused.phase} · STEP {focusIndex + 1} OF {guide.steps.length}</span>
+        <button class="guide-sheet-reset" onclick={reset} disabled={!completedCount}>Reset</button>
+      </nav>
 
-      <div class="guide-phases">
-        {#each phases as phase (phase)}
-          <section class="guide-phase">
-            <h3>{phase}</h3>
-            {#each guide.steps.filter((step) => step.phase === phase) as step (step.id)}
-              <article class="guide-step" class:complete={completed.has(step.id)} class:expanded={openStepId === step.id} class:here={currentKey === step.target.compositionKey}>
-                <div class="guide-step-row">
-                  <button class="guide-check" class:checked={completed.has(step.id)} onclick={() => toggleComplete(step.id)} aria-label={`${completed.has(step.id) ? "Mark incomplete" : "Mark complete"}: ${step.title}`}>{completed.has(step.id) ? "✓" : ""}</button>
-                  <button class="guide-step-summary" onclick={() => openStepId = openStepId === step.id ? "" : step.id} aria-expanded={openStepId === step.id}>
-                    <span>{String(guide.steps.indexOf(step) + 1).padStart(2, "0")}</span>
-                    <strong>{step.title}</strong>
-                    {#if currentKey === step.target.compositionKey}<em>HERE</em>{/if}
-                    <b>{openStepId === step.id ? "−" : "+"}</b>
-                  </button>
-                </div>
-                {#if openStepId === step.id}
-                  <div class="guide-step-detail">
-                    <p>{step.description}</p>
-                    <div><span>TRY</span><p>{step.try}</p></div>
-                    <div class="success"><span>SUCCESS</span><p>{step.success}</p></div>
-                    <button class="guide-open" onclick={() => onopen(step)}>{currentKey === step.target.compositionKey ? "RESET TARGET" : "OPEN IN STUDIO"}<span>→</span></button>
-                  </div>
-                {/if}
-              </article>
-            {/each}
-          </section>
-        {/each}
-      </div>
+      <article class="guide-card">
+        <div class="guide-card-what">
+          <h3>{focused.title}</h3>
+          <p>{focused.description}</p>
+        </div>
+        <div class="guide-card-note"><span>TRY</span><p>{focused.try}</p></div>
+        <div class="guide-card-note success"><span>SUCCESS</span><p>{focused.success}</p></div>
+        <div class="guide-card-actions">
+          <button class="guide-open" onclick={() => onopen(focused)}>{focusedHere ? "RESET TARGET" : "OPEN IN STUDIO"}<span>→</span></button>
+          <button class="guide-mark" class:checked={focusedDone} onclick={() => oncomplete(focused.id, !focusedDone)}>{focusedDone ? "✓ DONE" : "MARK DONE"}</button>
+        </div>
+      </article>
     </div>
   {/if}
 </section>

@@ -185,9 +185,11 @@ test("the new-composition dialog is keyboard-dismissable and restores focus", as
 test("the agent check reports warning state clearly and can capture the exact frame", async ({ page }) => {
   await openComposition(page, "studio-playground");
   await expect(page.locator(".topbar").getByRole("button", { name: /Agent API/i })).toHaveCount(0);
-  // The walkthrough sits folded in the top strip until someone asks for the steps.
+  // The walkthrough sits folded in the top strip until someone asks for the steps, and then shows
+  // one at a time — the rail is how you get to a specific one.
   await page.getByRole("button", { name: "Show the walkthrough steps" }).click();
-  await page.locator(".guide-step-summary").filter({ hasText: "Check and capture through the Agent API" }).click();
+  await page.getByRole("button", { name: /Check and capture through the Agent API/ }).click();
+  await expect(page.locator(".guide-card-what h3")).toHaveText("Check and capture through the Agent API");
   await page.getByRole("button", { name: "RESET TARGET" }).click();
   await expect(page.locator(".agent-check-summary strong")).toHaveText("READY WITH WARNINGS");
   await expect(page.locator(".agent-check-summary span")).toContainText("warning");
