@@ -144,6 +144,7 @@ export class GenerativeViewModel {
     });
   }
   public update(patch: Record<string, unknown>) { return this.manager.update(patch); }
+  public openDraft() { return this.manager.openDraft(); }
   public generate() { return this.manager.generate(); }
   public pin(take: number) { return this.manager.pin(take); }
   public startFrom(take: number) { return this.manager.startFrom(take); }
