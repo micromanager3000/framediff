@@ -28,6 +28,7 @@ function initialState(runtime: CompositionRuntimePort, requestedKey?: string): S
   const initial = compositions.find((entry) => entry.key === initialKey);
   return {
     compositions,
+    guide: runtime.getProjectGuide?.(),
     currentKey: initialKey,
     path: [initialKey].filter(Boolean),
     // the playhead rests at the render window's start — the output's t0 (may be negative)
@@ -762,6 +763,8 @@ export class StudioSession {
     this.state.set({
       ...current,
       compositions,
+      // A registry swap is an HMR edit, and the project's guide is source like anything else.
+      guide: this.runtime.getProjectGuide?.(),
       currentKey,
       frame: comp ? Math.max(Math.min(0, comp.render?.from ?? 0), Math.min(current.frame, Math.max(comp.durationInFrames, comp.render?.to ?? 0) - 1)) : 0,
       selectedItemId: stillExists ? current.selectedItemId : null,

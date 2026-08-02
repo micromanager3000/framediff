@@ -28,7 +28,6 @@ import endCardDocument from "./EndCard.comp.json";
 import heroScriptDocument from "./HeroScript.comp.json";
 import heroRebuiltDocument from "./HeroRebuilt.comp.json";
 import { gsapMotionLabComp } from "./labs/GsapMotionLab";
-import { productionLabGuide } from "./labs/ProductionLabGuide";
 import { heroGradeVideoSetup } from "../effects/heroLooks";
 import { FPS } from "../data/constants";
 
@@ -203,7 +202,6 @@ export const productionLabComp = defineComposition(productionLabSource, {
   setup: productionDocumentSetup,
   meta: {
     timelineFile: "src/compositions/labs/ProductionLab.timeline.json",
-    deps: ["src/compositions/labs/ProductionLabGuide.ts"],
     document: {
       file: "src/compositions/labs/ProductionLab.comp.json",
       schema: "src/compositions/labs/ProductionLab.schema.json",
@@ -235,7 +233,6 @@ export const productionLabComp = defineComposition(productionLabSource, {
     },
   },
 }) as StudioComposition;
-productionLabComp.meta = { ...productionLabComp.meta, guide: productionLabGuide };
 
 const rebuiltClips = ["clip2", "clip3", "clip5", "clip4", "clip6"]
   .map((clip) => `<section data-fd-clip data-fd-id="${clip}"><canvas data-fd-grade-video></canvas></section>`)

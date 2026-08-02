@@ -15,7 +15,6 @@ import coverageDocument from "./CoverageMap.comp.json";
 import { audioLabComp } from "./AudioLab";
 import { clothLabComp } from "./ClothLab";
 import { packageEffectsLabComp } from "./PackageEffectsLab";
-import { studioPlaygroundGuide } from "./StudioPlaygroundGuide";
 import { worldLabComp } from "./WorldLab";
 
 export const coverageMapComp = defineComposition(coverageSource, {
@@ -48,10 +47,7 @@ export const studioPlaygroundComp = defineComposition(playgroundSource, {
   setup: createAudioFadeOutSetup({ selector: "[data-fd-id=playground-audio]", from: 1980, to: 2069, volume: 0.035 }),
   meta: {
     timelineFile: "src/compositions/playground/StudioPlayground.timeline.json",
-    deps: ["src/compositions/playground/StudioPlaygroundGuide.ts"],
   },
 }) as StudioComposition;
-
-studioPlaygroundComp.meta = { ...studioPlaygroundComp.meta, guide: studioPlaygroundGuide };
 
 export { audioLabComp, clothLabComp, packageEffectsLabComp, worldLabComp };

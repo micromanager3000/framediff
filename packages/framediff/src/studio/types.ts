@@ -2,7 +2,6 @@
 // declared comp metadata, and the dev-bridge (vite plugin) endpoints.
 
 import type { CompositionConfig, CompositionMetadata } from "../composition";
-import type { StudioGuideDescriptor } from "@framediff/studio-model";
 
 /** What a comp declares about itself beyond what introspection can see. */
 export interface CompMeta extends CompositionMetadata {
@@ -27,8 +26,6 @@ export interface CompMeta extends CompositionMetadata {
   outputFrame?: number;
   /** Declared lanes that introspection can't see (text/curve/markers). */
   lanes?: DeclaredLane[];
-  /** Optional first-party project walkthrough surfaced by Studio's Guide panel. */
-  guide?: StudioGuideDescriptor;
   /** Optional numeric data sources that back generated timeline clips. */
   editableData?: EditableDataSource[];
 }

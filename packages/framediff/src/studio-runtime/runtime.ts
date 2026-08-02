@@ -32,6 +32,7 @@ import type {
   RenderProgressSnapshot,
   RenderResult,
   ScriptSheetSnapshot,
+  StudioGuideDescriptor,
   TimelineDeleteRequest,
   TimelineItemSnapshot,
   TimelineLaneSnapshot,
@@ -71,6 +72,7 @@ import {
   type StudioProjectAdapter,
 } from "../studio/projectAdapter";
 import type { CacheEntry, CompRegistry, StudioComposition } from "../studio/types";
+import { toStudioProject, type StudioProject } from "../studio/project";
 import { CAMERA3D_FIELD_KEYS } from "../studio/editableData";
 import { inspectorFieldsFromJsonDocument, jsonPointerValue, setJsonPointerValue } from "../studio/jsonDocument";
 import { downloadBuffer } from "../save";
@@ -999,7 +1001,6 @@ function describeRegistry(registry: CompRegistry): CompositionDescriptor[] {
     sources: compositionSourcePaths(registry, key),
     library: composition.meta?.library,
     render: composition.meta?.render,
-    guide: composition.meta?.guide,
     authoring: composition.meta?.authoring,
   }));
 }
@@ -1054,6 +1055,7 @@ const seenGenTakes = new Set<string>();
 
 export class HtmlStudioRuntime implements CompositionRuntimePort {
   private registry: CompRegistry;
+  private guide: StudioGuideDescriptor | undefined;
   private listeners = new Set<(compositions: CompositionDescriptor[]) => void>();
   private previews = new Set<PreviewRecord>();
   private probed = new Map<string, TimelineItemSnapshot[]>();
@@ -1068,10 +1070,12 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   private outputResolutions = new Map<string, Promise<string>>();
 
   public constructor(
-    registry: CompRegistry,
+    source: CompRegistry | StudioProject,
     private readonly project: StudioProjectAdapter = createHttpStudioProjectAdapter(),
   ) {
-    this.registry = registry;
+    const definition = toStudioProject(source);
+    this.registry = definition.compositions;
+    this.guide = definition.guide;
     this.assetsReady = this.loadAssets()
       .catch((error) => console.error("FrameDiff could not load the asset manifest.", error))
       .finally(() => {
@@ -1082,6 +1086,10 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
 
   public getCompositions(): CompositionDescriptor[] {
     return describeRegistry(this.registry);
+  }
+
+  public getProjectGuide(): StudioGuideDescriptor | undefined {
+    return this.guide;
   }
 
   public subscribeCompositions(listener: (compositions: CompositionDescriptor[]) => void): () => void {
@@ -1144,6 +1152,13 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     }
     for (const listener of this.editListeners) listener(result.receipt);
     return { ok: true, receipt: result.receipt };
+  }
+
+  /** HMR entry point for a whole project: the guide is source, so it reloads with everything else. */
+  public replaceProject(source: CompRegistry | StudioProject): void {
+    const definition = toStudioProject(source);
+    this.guide = definition.guide;
+    this.replaceRegistry(definition.compositions);
   }
 
   public replaceRegistry(registry: CompRegistry): void {
@@ -4472,10 +4487,10 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
 }
 
 export function createStudioRuntime(
-  registry: CompRegistry,
+  source: CompRegistry | StudioProject,
   project: StudioProjectAdapter = createHttpStudioProjectAdapter(),
 ): HtmlStudioRuntime {
-  return new HtmlStudioRuntime(registry, project);
+  return new HtmlStudioRuntime(source, project);
 }
 
 export {

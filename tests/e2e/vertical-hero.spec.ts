@@ -64,7 +64,7 @@ test("the first recorded gesture bootstraps motion source and commits without an
     const scrubber = page.getByRole("slider", { name: "Preview frame" });
     await expect(scrubber).toBeVisible();
     await scrubber.fill("90");
-    await expect(page.locator(".timecode")).toHaveText("0090f");
+    await expect(page.locator(".tc-frames")).toHaveText("0090f");
     await expect(page.getByRole("heading", { name: "COMPOSITION PROPERTIES" })).toBeVisible();
     await expect(page.getByText("Drift", { exact: true })).toBeVisible();
     await expect(page.getByText("Select a clip for timing, trim, layers, grade and production state.", { exact: true })).toHaveCount(0);

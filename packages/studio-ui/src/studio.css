@@ -66,7 +66,8 @@ html, body, #svelte { width: 100%; height: 100%; margin: 0; overflow: hidden; }
   inset: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: 48px 1fr;
+  /* top bar · the project guide, when there is one · the workspace */
+  grid-template-rows: 48px auto minmax(0, 1fr);
   overflow: hidden;
   color: var(--text);
   background: var(--bg);
@@ -186,7 +187,7 @@ html, body, #svelte { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .agent-frame-result figcaption strong { color: var(--text); font: 800 9px/1 var(--mono); }
 .agent-frame-result figcaption span { overflow: hidden; color: var(--faint); font: 8px/1.4 var(--mono); text-overflow: ellipsis; white-space: nowrap; }
 
-.framediff-studio > main { min-width: 0; min-height: 0; display: grid; grid-template-columns: 230px minmax(0, 1fr) 320px; overflow: hidden; }
+.framediff-studio > main { grid-row: 3; min-width: 0; min-height: 0; display: grid; grid-template-columns: 230px minmax(0, 1fr) 320px; overflow: hidden; }
 .left-panel, .right-panel { min-height: 0; display: grid; grid-template-rows: 34px 1fr; background: var(--panel); overflow: hidden; }
 .left-panel { border-right: 1px solid var(--line); }
 .right-panel { border-left: 1px solid var(--line); }
@@ -265,22 +266,22 @@ html, body, #svelte { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .panel-empty { padding: 34px 18px; color: var(--faint); font-family: var(--mono); font-size: 9px; line-height: 1.6; text-align: center; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-.studio-guide { min-height: 0; height: 100%; overflow-y: auto; background: var(--panel); }
-.guide-hero { padding: 18px 16px 15px; border-bottom: 1px solid var(--line); background: radial-gradient(circle at 92% 0,rgb(240 180 95 / 14%),transparent 42%),linear-gradient(160deg,#1a1713,#12100f 72%); }
-.guide-kicker { margin-bottom: 9px; color: var(--accent); font: 800 8px/1 var(--mono); letter-spacing: .14em; }
-.guide-hero h2 { margin: 0; color: var(--text); font-size: 21px; line-height: 1.05; letter-spacing: -.035em; }
-.guide-hero > p { margin: 10px 0 12px; color: var(--muted); font-size: 10px; line-height: 1.55; }
-.guide-meta { display: flex; gap: 9px; color: var(--faint); font: 8px/1 var(--mono); }
-.guide-meta span + span { padding-left: 9px; border-left: 1px solid var(--line-strong); }
-.guide-progress { height: 4px; margin-top: 14px; overflow: hidden; border-radius: 999px; background: rgb(232 235 242 / 8%); }
-.guide-progress i { display: block; width: 100%; height: 100%; transform-origin: left; transition: transform 180ms ease; background: linear-gradient(90deg,var(--accent),var(--green)); }
-.guide-progress-copy { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; color: var(--faint); font: 8px/1 var(--mono); }
-.guide-progress-copy button { padding: 0; border: 0; background: transparent; color: var(--faint); cursor: pointer; font-size: 8px; }
-.guide-progress-copy button:hover { color: var(--text); }.guide-progress-copy button:disabled { opacity: .35; cursor: default; }
-.guide-start { width: 100%; margin-top: 13px; padding: 9px; border: 1px solid rgb(240 180 95 / 42%); border-radius: 7px; background: rgb(240 180 95 / 12%); color: var(--accent); cursor: pointer; font: 800 8px/1 var(--mono); letter-spacing: .1em; }
-.guide-start:hover { border-color: var(--accent); background: rgb(240 180 95 / 18%); color: var(--text); }
-.guide-phases { padding: 9px 9px 18px; }
-.guide-phase h3 { margin: 13px 7px 6px; color: var(--faint); font: 800 7px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+/* The project walkthrough spans the app under the top bar: a strip that is always there, and a
+   sheet that unfolds over the workspace when someone wants the whole map. */
+.studio-guide { grid-row: 2; min-width: 0; display: flex; flex-direction: column; border-bottom: 1px solid rgb(240 180 95 / 26%); background: linear-gradient(90deg,rgb(240 180 95 / 10%),rgb(19 17 16 / 98%) 42%); }
+/* The sheet is a visitor over the workspace, never its landlord — it caps out well short of it. */
+.guide-sheet { min-height: 0; max-height: 44vh; overflow-y: auto; border-top: 1px solid var(--line); background: radial-gradient(circle at 88% 0,rgb(240 180 95 / 10%),transparent 46%),linear-gradient(180deg,#17141199,#12100f 72%); }
+.guide-hero { display: grid; grid-template-columns: minmax(0,auto) minmax(0,1.6fr) auto; align-items: baseline; gap: 8px 18px; padding: 14px 16px 10px; }
+.guide-hero h2 { margin: 0; color: var(--text); font-size: 17px; line-height: 1.05; letter-spacing: -.035em; }
+.guide-hero > p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.guide-meta { display: flex; align-items: baseline; gap: 9px; color: var(--faint); font: 8px/1 var(--mono); white-space: nowrap; }
+.guide-meta span + span, .guide-meta button { padding-left: 9px; border-left: 1px solid var(--line-strong); }
+.guide-meta button { border-width: 0 0 0 1px; border-style: solid; background: transparent; color: var(--faint); cursor: pointer; font: 8px/1 var(--mono); }
+.guide-meta button:hover { color: var(--text); }.guide-meta button:disabled { opacity: .35; cursor: default; }
+/* A grid rather than column flow: opening a step must grow its own phase, not reshuffle every
+   other phase into a different column while somebody is reading it. */
+.guide-phases { display: grid; grid-template-columns: repeat(auto-fit, minmax(212px, 1fr)); align-items: start; gap: 2px 12px; padding: 4px 12px 14px; }
+.guide-phase h3 { margin: 8px 7px 6px; color: var(--faint); font: 800 7px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; }
 .guide-step { margin-bottom: 5px; overflow: hidden; border: 1px solid var(--line); border-radius: 7px; background: #0f1216; }
 .guide-step.here { border-color: rgb(143 201 236 / 30%); }.guide-step.complete { opacity: .72; }.guide-step.expanded { opacity: 1; border-color: var(--line-strong); background: var(--panel-raised); }
 .guide-step-row { display: grid; grid-template-columns: 27px 1fr; align-items: stretch; }
@@ -296,15 +297,10 @@ html, body, #svelte { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .guide-open { width: 100%; display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding: 7px 8px; border: 1px solid var(--line-strong); border-radius: 5px; background: #0d0c0a; color: var(--text); cursor: pointer; font: 800 7px/1 var(--mono); letter-spacing: .08em; }.guide-open span { color: var(--accent); font-size: 12px; }.guide-open:hover { border-color: var(--accent); }
 
 .workspace { min-width: 0; min-height: 0; display: grid; grid-template-rows: 34px minmax(210px, 1fr) 42px minmax(190px, 37%); background: var(--bg); }
-.workspace.guided { grid-template-rows: 54px 34px minmax(210px, 1fr) 42px minmax(190px, 37%); }
 .workspace.timeline-hidden { grid-template-rows: 34px minmax(210px, 1fr) 42px; }
-.workspace.timeline-hidden.guided { grid-template-rows: 54px 34px minmax(210px, 1fr) 42px; }
 .workspace.transport-hidden { grid-template-rows: 34px minmax(0, 1fr); }
-.workspace.transport-hidden.guided { grid-template-rows: 54px 34px minmax(0, 1fr); }
 .workspace.generate-workspace { grid-template-rows: 34px minmax(0, 1fr); }
-.workspace.generate-workspace.guided { grid-template-rows: 54px 34px minmax(0, 1fr); }
 .workspace.script-workspace { grid-template-rows: 34px minmax(0, 1fr); }
-.workspace.script-workspace.guided { grid-template-rows: 54px 34px minmax(0, 1fr); }
 .composition-frame-bar { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 10px 0 13px; border-bottom: 1px solid var(--line); background: linear-gradient(90deg, rgb(143 201 236 / 6%), var(--panel) 38%); }
 .composition-frame-identity { min-width: 0; display: flex; align-items: center; gap: 8px; overflow: hidden; }
 .composition-frame-identity > span { flex: none; color: var(--blue); font: 800 6px/1 var(--mono); letter-spacing: .13em; }
@@ -316,10 +312,23 @@ html, body, #svelte { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .composition-bake-button { min-width: 70px; padding: 5px 8px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--panel-raised); color: var(--muted); cursor: pointer; font: 800 7px/1 var(--mono); white-space: nowrap; }
 .composition-bake-button:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }.composition-bake-button:disabled { cursor: default; opacity: .52; }
 .composition-bake-button.current { border-color: rgb(114 211 156 / 42%); color: var(--green); }.composition-bake-button.stale { border-color: rgb(240 200 116 / 58%); background: rgb(240 200 116 / 10%); color: var(--yellow); }.composition-bake-button.missing, .composition-bake-button.untracked { border-color: rgb(143 201 236 / 42%); color: var(--blue); }
-.guide-task-bar { min-width: 0; display: grid; grid-template-columns: minmax(150px,.65fr) minmax(220px,1.35fr) auto auto 22px; align-items: center; gap: 10px; padding: 7px 10px 7px 14px; border-bottom: 1px solid rgb(240 180 95 / 26%); background: linear-gradient(90deg,rgb(240 180 95 / 10%),rgb(19 17 16 / 98%) 42%); }
-.guide-task-bar > div { min-width: 0; display: flex; flex-direction: column; gap: 4px; }.guide-task-bar > div span { color: var(--accent); font: 800 6px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; }.guide-task-bar > div strong { overflow: hidden; color: var(--text); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
-.guide-task-bar > p { min-width: 0; margin: 0; overflow: hidden; color: var(--muted); font-size: 8px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
-.guide-task-bar > button { padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--panel-raised); color: var(--muted); cursor: pointer; font: 800 7px/1 var(--mono); white-space: nowrap; }.guide-task-bar > button:hover { border-color: var(--accent); color: var(--text); }.guide-task-bar > button.task-done { border-color: rgb(114 211 156 / 38%); background: rgb(114 211 156 / 9%); color: var(--green); }.guide-task-bar > button.task-close { width: 22px; height: 22px; padding: 0; border: 0; background: transparent; color: var(--faint); font-size: 13px; }
+.guide-task-bar { min-width: 0; display: flex; align-items: center; gap: 12px; padding: 7px 12px 7px 14px; }
+.guide-task-what { min-width: 0; flex: 0 1 auto; display: flex; flex-direction: column; gap: 4px; }
+.guide-task-what span { color: var(--accent); font: 800 6px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+.guide-task-what strong { overflow: hidden; color: var(--text); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.guide-task-bar > p { min-width: 0; flex: 1 1 auto; margin: 0; overflow: hidden; color: var(--muted); font-size: 8px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.guide-progress { flex: none; width: 76px; height: 4px; overflow: hidden; border-radius: 999px; background: rgb(232 235 242 / 8%); }
+.guide-progress i { display: block; width: 100%; height: 100%; transform-origin: left; transition: transform 180ms ease; background: linear-gradient(90deg,var(--accent),var(--green)); }
+.guide-count { flex: none; color: var(--faint); font: 8px/1 var(--mono); }
+.guide-task-bar > button { flex: none; padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--panel-raised); color: var(--muted); cursor: pointer; font: 800 7px/1 var(--mono); letter-spacing: .06em; white-space: nowrap; }
+.guide-task-bar > button:hover { border-color: var(--accent); color: var(--text); }
+.guide-task-bar > button:disabled { opacity: .4; cursor: default; }
+.guide-task-bar > button.guide-start { border-color: rgb(240 180 95 / 42%); background: rgb(240 180 95 / 12%); color: var(--accent); }
+.guide-task-bar > button.guide-start:hover:not(:disabled) { background: rgb(240 180 95 / 18%); color: var(--text); }
+.guide-task-bar > button.task-done { border-color: rgb(114 211 156 / 38%); background: rgb(114 211 156 / 9%); color: var(--green); }
+.guide-expand { display: inline-flex; align-items: center; gap: 5px; }
+.guide-expand b { color: var(--accent); font: 400 9px/1 var(--mono); }
+.guide-task-bar > button.task-close { width: 22px; height: 22px; padding: 0; border: 0; background: transparent; color: var(--faint); font-size: 13px; }
 .preview-panel { position: relative; min-width: 0; min-height: 0; overflow: hidden; padding: 18px 24px 12px; background: radial-gradient(circle at 50% 38%, #191d24, var(--bg) 64%); }
 
 /* Script sheet */
@@ -1230,15 +1239,10 @@ dd { margin: 0; overflow: hidden; color: var(--muted); font-family: var(--mono);
   .panel-tabs button { min-height: 34px; }
 
   .workspace { grid-template-rows: 40px minmax(180px, 1fr) 48px minmax(170px, 38%); }
-  .workspace.guided { grid-template-rows: auto 40px minmax(180px, 1fr) 48px minmax(170px, 38%); }
   .workspace.timeline-hidden { grid-template-rows: 40px minmax(180px, 1fr) 48px; }
-  .workspace.timeline-hidden.guided { grid-template-rows: auto 40px minmax(180px, 1fr) 48px; }
   .workspace.transport-hidden { grid-template-rows: 40px minmax(0, 1fr); }
-  .workspace.transport-hidden.guided { grid-template-rows: auto 40px minmax(0, 1fr); }
   .workspace.generate-workspace { grid-template-rows: 40px minmax(0, 1fr); }
-  .workspace.generate-workspace.guided { grid-template-rows: auto 40px minmax(0, 1fr); }
   .workspace.script-workspace { grid-template-rows: 40px minmax(0, 1fr); }
-  .workspace.script-workspace.guided { grid-template-rows: auto 40px minmax(0, 1fr); }
   .composition-frame-bar { padding-inline: 9px; }
   .composition-frame-identity > small { display: none; }
   .composition-bake-state { display: none; }
@@ -1254,11 +1258,14 @@ dd { margin: 0; overflow: hidden; color: var(--muted); font-family: var(--mono);
   .tl-shapes button { min-width: 30px; height: 26px; padding-inline: 4px; }
   .tl-zoom button { min-width: 30px; height: 26px; }
 
-  .guide-task-bar { grid-template-columns: minmax(0, 1fr) auto 28px; grid-template-rows: auto auto; gap: 6px 8px; padding: 8px; }
-  .guide-task-bar > p { grid-column: 1 / -1; grid-row: 2; }
-  .guide-task-bar > button.task-guide { display: none; }
-  .guide-task-bar > button.task-done { grid-column: 2; grid-row: 1; }
-  .guide-task-bar > button.task-close { grid-column: 3; grid-row: 1; width: 28px; height: 28px; }
+  /* Narrow enough that the "next up" line and the progress rail are the first things to go. */
+  .guide-task-bar { flex-wrap: wrap; gap: 6px 8px; padding: 8px; }
+  .guide-task-bar > p, .guide-progress, .guide-count { display: none; }
+  .guide-task-what { flex: 1 1 100%; }
+  .guide-task-bar > button { min-height: 30px; }
+  .guide-task-bar > button.task-close { width: 28px; height: 28px; }
+  .guide-hero { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .guide-sheet { max-height: 52vh; }
 
   .composition-row { min-height: 44px; padding-block: 10px; }
   .row-actions { right: 7px; gap: 5px; opacity: 1; }
@@ -1315,15 +1322,12 @@ dd { margin: 0; overflow: hidden; color: var(--muted); font-family: var(--mono);
 
 @media (max-height: 620px) {
   .workspace { grid-template-rows: 34px minmax(140px, 1fr) 42px minmax(100px, 35%); }
-  .workspace.guided { grid-template-rows: auto 34px minmax(140px, 1fr) 42px minmax(100px, 35%); }
   .workspace.timeline-hidden { grid-template-rows: 34px minmax(140px, 1fr) 42px; }
-  .workspace.timeline-hidden.guided { grid-template-rows: auto 34px minmax(140px, 1fr) 42px; }
   .workspace.transport-hidden { grid-template-rows: 34px minmax(0, 1fr); }
-  .workspace.transport-hidden.guided { grid-template-rows: auto 34px minmax(0, 1fr); }
   .workspace.generate-workspace { grid-template-rows: 34px minmax(0, 1fr); }
-  .workspace.generate-workspace.guided { grid-template-rows: auto 34px minmax(0, 1fr); }
   .workspace.script-workspace { grid-template-rows: 34px minmax(0, 1fr); }
-  .workspace.script-workspace.guided { grid-template-rows: auto 34px minmax(0, 1fr); }
+  /* A short viewport cannot spare 44vh for a sheet on top of a timeline. */
+  .guide-sheet { max-height: 34vh; }
   .preview-panel { padding-block: 8px 6px; }
   .rail-footer { display: none; }
   .dedicated-render-window { gap: 10px; padding: 12px; }

@@ -129,7 +129,20 @@ export type {
   CacheEntry,
   ArtifactMeta,
 } from "./studio/types";
-export type { StudioGuideDescriptor, StudioGuideStep, StudioGuideTarget } from "@framediff/studio-model";
+export { defineStudioProject, type StudioProject } from "./studio/project";
+export {
+  COMMON_GUIDE_STEPS,
+  STUDIO_GUIDE_PHASES,
+  defineProjectGuide,
+  type CommonGuideStepId,
+  type ProjectGuideDefinition,
+  type StudioGuideDescriptor,
+  type StudioGuidePhase,
+  type StudioGuideStep,
+  type StudioGuideStepBlueprint,
+  type StudioGuideStepInput,
+  type StudioGuideTarget,
+} from "@framediff/studio-model";
 
 // Effect tier: pure renderers attach to ordinary authored canvases through registerCanvasCapture.
 export { gradeLayerFilter, gradeLayerVignette } from "./effects/gradeLayerCss";

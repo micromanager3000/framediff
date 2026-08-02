@@ -148,7 +148,7 @@
         >
           <span class="glyph">{glyph[composition.kind]}</span>
           <span class="name"><span class="name-stem">{name.stem}</span>{#if name.suffix}<span class="name-suffix">{name.suffix}</span>{/if}</span>
-          {#if composition.guide}<span class="tour-badge">START</span>{/if}
+          {#if composition.key === $store.guideEntryKey}<span class="tour-badge">START</span>{/if}
           <span class="kind">{composition.kind}</span>
           {#if composition.kind === "generate"}<span class="out-badge out-{composition.outputKind}">{composition.outputKind}</span>{/if}
         </button>

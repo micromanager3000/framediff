@@ -70,9 +70,11 @@ test("compact desktop windows keep every major panel reachable without horizonta
   await expect(page.locator(".right-panel")).toBeVisible();
   await expect(page.getByRole("button", { name: "INSPECT", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "CODE", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "GUIDE", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Close side panel" }).click();
   await expect(page.locator(".right-panel")).toBeHidden();
+  // The walkthrough is a top-level surface, so a compact window reaches it with both panels shut.
+  await expect(page.locator(".studio-guide")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show the walkthrough steps" })).toBeVisible();
   await expect(page.locator(".topbar .render-primary")).toBeInViewport();
 });
 
@@ -183,6 +185,8 @@ test("the new-composition dialog is keyboard-dismissable and restores focus", as
 test("the agent check reports warning state clearly and can capture the exact frame", async ({ page }) => {
   await openComposition(page, "studio-playground");
   await expect(page.locator(".topbar").getByRole("button", { name: /Agent API/i })).toHaveCount(0);
+  // The walkthrough sits folded in the top strip until someone asks for the steps.
+  await page.getByRole("button", { name: "Show the walkthrough steps" }).click();
   await page.locator(".guide-step-summary").filter({ hasText: "Check and capture through the Agent API" }).click();
   await page.getByRole("button", { name: "RESET TARGET" }).click();
   await expect(page.locator(".agent-check-summary strong")).toHaveText("READY WITH WARNINGS");

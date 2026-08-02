@@ -27,7 +27,7 @@ export class StudioShellViewModel {
       editing: state.editing,
       error: state.error,
       notice: state.notice,
-      guide: state.compositions.find((entry) => entry.guide)?.guide,
+      guide: state.guide,
     }));
   }
 

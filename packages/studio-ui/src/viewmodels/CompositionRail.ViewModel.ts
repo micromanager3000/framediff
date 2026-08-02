@@ -6,6 +6,8 @@ export interface CompositionRailSnapshot {
   currentKey: string;
   primary: { composition: CompositionDescriptor; depth: number }[];
   library: CompositionDescriptor[];
+  /** Composition the project's walkthrough opens on, badged as the way in. */
+  guideEntryKey: string;
 }
 
 export function compositionMatchesSearch(composition: CompositionDescriptor, query: string): boolean {
@@ -44,6 +46,7 @@ export class CompositionRailViewModel {
         currentKey: state.currentKey,
         primary: rows,
         library: state.compositions.filter((entry) => entry.library),
+        guideEntryKey: state.guide?.entryCompositionKey ?? "",
       };
     });
   }

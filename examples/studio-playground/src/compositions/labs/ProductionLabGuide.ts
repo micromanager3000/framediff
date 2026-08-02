@@ -1,6 +1,6 @@
-import type { StudioGuideDescriptor } from "framediff";
+import { defineProjectGuide } from "framediff";
 
-export const productionLabGuide: StudioGuideDescriptor = {
+export const productionLabGuide = defineProjectGuide({
   id: "production-lab-tour-v1",
   title: "FrameDiff Production Lab",
   summary: "A source-backed walkthrough from direct manipulation to editorial, motion, finishing, generation, artifacts, exact frames and local delivery.",
@@ -160,4 +160,4 @@ export const productionLabGuide: StudioGuideDescriptor = {
       target: { compositionKey: "production-lab", frame: 90, panel: "agent" },
     },
   ],
-};
+});

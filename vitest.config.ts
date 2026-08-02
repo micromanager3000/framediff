@@ -6,6 +6,7 @@ export default defineConfig({
   test: {
     include: [
       "packages/*/src/**/*.test.ts",
+      "examples/first-light/src/**/*.test.ts",
       "examples/hero-lower-third/src/**/*.test.ts",
       "examples/studio-playground/src/**/*.test.ts",
       "examples/cloth-showcase/src/**/*.test.ts",

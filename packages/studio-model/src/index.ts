@@ -18,6 +18,18 @@ export { ProjectOperationsManager, type ProjectOperationsState } from "./manager
 export { HistoryManager, mergeGroupedReceipts, type HistoryState } from "./managers/HistoryManager";
 export { artifactStatusFromInputs, buildTimelineLanes, frontTrimPlacement, packTimelineVisualRows, timelineItemLabel, type FrontTrimResult } from "./timeline";
 export { canNestComposition, type NestVerdict } from "./nesting";
+export {
+  COMMON_GUIDE_STEPS,
+  STUDIO_GUIDE_PHASES,
+  defineProjectGuide,
+  guidePhases,
+  type CommonGuideStepId,
+  type CommonStudioGuideStepInput,
+  type ProjectGuideDefinition,
+  type StudioGuidePhase,
+  type StudioGuideStepBlueprint,
+  type StudioGuideStepInput,
+} from "./projectGuide";
 export { compositionByReference } from "./compositionRef";
 export { renderTargetCompositions, selectedRenderTarget } from "./renderTargets";
 export {

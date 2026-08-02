@@ -37,12 +37,19 @@ export interface StudioGuideStep {
   target: StudioGuideTarget;
 }
 
-/** Optional source metadata that turns a project into an in-product, persistent walkthrough. */
+/**
+ * A project's walkthrough, as the Studio renders it. Projects do not write this shape by hand —
+ * `defineProjectGuide` resolves their declaration into it, filling the derived fields below.
+ */
 export interface StudioGuideDescriptor {
   id: string;
   title: string;
   summary: string;
   estimatedMinutes?: number;
+  /** Label above the title on the guide surface. */
+  kicker?: string;
+  /** The composition the walkthrough opens on; the rail badges it as the way in. */
+  entryCompositionKey?: string;
   steps: StudioGuideStep[];
 }
 
@@ -114,8 +121,6 @@ export interface CompositionDescriptor {
   library?: boolean;
   /** Render window: only [from, to) ships; absent = the whole comp. */
   render?: { from: number; to: number };
-  /** Optional project walkthrough. The first declared guide is available from every composition. */
-  guide?: StudioGuideDescriptor;
   /** Composition-owned authoring capabilities; the Svelte app remains the owner of global chrome. */
   authoring?: CompositionAuthoringDescriptor;
 }
@@ -609,6 +614,8 @@ export interface InspectorFieldsEditRequest {
 export interface CompositionRuntimePort {
   getCompositions(): CompositionDescriptor[];
   subscribeCompositions(listener: (compositions: CompositionDescriptor[]) => void): () => void;
+  /** The project's walkthrough, if it ships one. Optional for runtimes without a project (embeds). */
+  getProjectGuide?(): StudioGuideDescriptor | undefined;
   probe(compositionKey: string): Promise<TimelineItemSnapshot[]>;
   /** Optional registered-animation projection. Arbitrary runtime animation remains valid but opaque. */
   probeAnimations?(compositionKey: string): Promise<AnimationProbeSnapshot>;
@@ -898,6 +905,8 @@ export interface AnimationClock {
 
 export interface StudioSessionState {
   compositions: CompositionDescriptor[];
+  /** Project-level walkthrough, available from every composition. */
+  guide?: StudioGuideDescriptor;
   currentKey: string;
   path: string[];
   frame: number;

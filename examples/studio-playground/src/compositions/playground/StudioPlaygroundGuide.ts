@@ -1,6 +1,6 @@
-import type { StudioGuideDescriptor } from "framediff";
+import { defineProjectGuide } from "framediff";
 
-export const studioPlaygroundGuide: StudioGuideDescriptor = {
+export const studioPlaygroundGuide = defineProjectGuide({
   id: "studio-playground-tour-v1",
   title: "Studio Playground",
   summary: "A guided acceptance project through a three-level composition graph: authoring, editing, motion, finishing, simulation, generation, audio and delivery.",
@@ -160,4 +160,4 @@ export const studioPlaygroundGuide: StudioGuideDescriptor = {
       target: { compositionKey: "studio-playground", frame: 90, panel: "agent" },
     },
   ],
-};
+});

@@ -154,7 +154,13 @@
         : "READY";
 
   const guideStorageKey = (id: string) => `framediff:guide:${id}:completed`;
+  const guideExpandedStorageKey = (id: string) => `framediff:guide:${id}:expanded`;
 
+  /**
+   * The strip is always there, and that is the whole point of moving the guide up here: the
+   * walkthrough is present without costing the workspace anything. The sheet stays folded until
+   * someone asks for it — from the overture, the top bar, or STEPS — and then it is remembered.
+   */
   function loadGuideProgress(): void {
     const guide = $store.guide;
     if (!guide || guideLoadedId === guide.id || typeof window === "undefined") return;
@@ -164,6 +170,21 @@
       guideCompletedIds = Array.isArray(stored) ? stored.filter((id): id is string => typeof id === "string") : [];
     } catch {
       guideCompletedIds = [];
+    }
+    try {
+      chrome.setGuideExpanded(window.localStorage.getItem(guideExpandedStorageKey(guide.id)) === "1");
+    } catch {
+      chrome.setGuideExpanded(false);
+    }
+  }
+
+  function setGuideExpanded(expanded: boolean): void {
+    chrome.setGuideExpanded(expanded);
+    if (!$store.guide || typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(guideExpandedStorageKey($store.guide.id), expanded ? "1" : "0");
+    } catch {
+      // A remembered fold is a nicety; losing it must never break the guide.
     }
   }
 
@@ -210,6 +231,8 @@
 
   function openGuideStep(step: StudioGuideStep): void {
     activeGuideStep = step;
+    // Doing the task needs the workspace, so the sheet folds back to the strip that names it.
+    setGuideExpanded(false);
     const target = step.target;
     shell.open(target.compositionKey);
     if (target.frame != null) shell.setFrame(target.frame);
@@ -231,8 +254,9 @@
     const next = $store.guide.steps[index + 1];
     if (next) openGuideStep(next);
     else {
+      // The last DONE is the payoff — open the whole map back up so the finish is visible.
       activeGuideStep = null;
-      chrome.showRight("guide");
+      setGuideExpanded(true);
     }
   }
 
@@ -430,7 +454,6 @@
       const rememberedSelection = selectionStorageKey ? window.sessionStorage.getItem(selectionStorageKey) : null;
       restoreStudioSelection(session, rememberedSelection);
       rememberComposition = true;
-      if (session.currentComposition?.guide) chrome.selectRight("guide");
       unsubscribeSelection = session.state.subscribe((state) => {
         if (!rememberComposition || !selectionStorageKey) return;
         if (state.selection) media.clearSelection();
@@ -469,7 +492,7 @@
       projectName={$store.path[0]?.id ?? $store.current?.id ?? ""}
       compositionCount={$sessionState.compositions.length}
       hasGuide={!!$store.guide}
-      onopenguide={() => chrome.showRight("guide")}
+      onopenguide={() => setGuideExpanded(true)}
       ondismiss={dismissOverture}
     />
   {/if}
@@ -506,11 +529,11 @@
     </div>
     <GitStatus viewModel={git} statusLabel={gitStatusLabel} />
     {#if $store.guide}
-      <button class="studio-guide-button" class:active={$chromeStore.right === "guide"} onclick={() => chrome.showRight("guide")} title="Open the project walkthrough">
+      <button class="studio-guide-button" class:active={$chromeStore.guideExpanded} onclick={() => setGuideExpanded(!$chromeStore.guideExpanded)} title="Show the project walkthrough" aria-expanded={$chromeStore.guideExpanded}>
         <span>GUIDE</span><small>{guideCompletedIds.length}/{$store.guide.steps.length}</small>
       </button>
     {/if}
-    <button class="compact-panel-button" onclick={() => chrome.openRight()} aria-label="Open side panel" title="Open Inspector, Code or Guide" aria-expanded={$chromeStore.rightOpen}>
+    <button class="compact-panel-button" onclick={() => chrome.openRight()} aria-label="Open side panel" title="Open Inspector or Code" aria-expanded={$chromeStore.rightOpen}>
       PANEL
     </button>
     <button class="mobile-actions-button" class:active={mobileActionsOpen} onclick={() => mobileActionsOpen = !mobileActionsOpen} aria-label="Open project actions" aria-expanded={mobileActionsOpen}>
@@ -532,11 +555,27 @@
     </div>
   </header>
 
+  {#if $store.guide}
+    <StudioGuide
+      guide={$store.guide}
+      currentKey={$store.current?.key ?? ""}
+      completedIds={guideCompletedIds}
+      expanded={$chromeStore.guideExpanded}
+      activeStep={activeGuideStep}
+      onopen={openGuideStep}
+      oncomplete={setGuideStepComplete}
+      onreset={resetGuideProgress}
+      onexpand={(expanded) => { sound.play(expanded ? "open" : "close"); setGuideExpanded(expanded); }}
+      onadvance={completeGuideStepAndContinue}
+      ondismissactive={() => activeGuideStep = null}
+    />
+  {/if}
+
   {#if mobileActionsOpen}
     <aside class="mobile-actions-menu" aria-label="Project actions menu">
       <div class="mobile-actions-heading"><strong>PROJECT ACTIONS</strong><button onclick={() => mobileActionsOpen = false} aria-label="Close project actions">×</button></div>
       <div class="mobile-actions-grid">
-        {#if $store.guide}<button class="mobile-menu-action" onclick={() => { mobileActionsOpen = false; chrome.showRight("guide"); }}>Guide <small>{guideCompletedIds.length}/{$store.guide.steps.length}</small></button>{/if}
+        {#if $store.guide}<button class="mobile-menu-action" onclick={() => { mobileActionsOpen = false; setGuideExpanded(true); }}>Guide <small>{guideCompletedIds.length}/{$store.guide.steps.length}</small></button>{/if}
         <button class="mobile-menu-action" onclick={() => void application.history.undo()} disabled={!$historyStore.undo.length || $historyStore.applying}>Undo</button>
         <button class="mobile-menu-action" onclick={() => void application.history.redo()} disabled={!$historyStore.redo.length || $historyStore.applying}>Redo</button>
         <button class="mobile-menu-action" onclick={() => { mobileActionsOpen = false; chrome.setServicesOpen(true); }}>Services</button>
@@ -624,16 +663,7 @@
       {/if}
     </section>
 
-    <section class="workspace" class:guided={!!activeGuideStep} class:generate-workspace={$store.current?.kind === "generate"} class:script-workspace={$store.current?.kind === "script"} class:timeline-hidden={!showTimeline} class:transport-hidden={!authoring.transport}>
-      {#if activeGuideStep}
-        <aside class="guide-task-bar" aria-label={`Guided task: ${activeGuideStep.title}`}>
-          <div><span>{activeGuideStep.phase} · GUIDED TASK</span><strong>{activeGuideStep.title}</strong></div>
-          <p>{activeGuideStep.try}</p>
-          <button class="task-guide" onclick={() => chrome.showRight("guide")}>DETAILS</button>
-          <button class="task-done" onclick={completeGuideStepAndContinue}>DONE · NEXT</button>
-          <button class="task-close" onclick={() => activeGuideStep = null} aria-label="Dismiss guided task">×</button>
-        </aside>
-      {/if}
+    <section class="workspace" class:generate-workspace={$store.current?.kind === "generate"} class:script-workspace={$store.current?.kind === "script"} class:timeline-hidden={!showTimeline} class:transport-hidden={!authoring.transport}>
       <CompositionFrameBar composition={$store.current} operations={$operationsStore} onbake={() => void operations.bakeCurrent()} />
       {#if $store.current?.kind === "generate"}
         <GenerativeWorkbench viewModel={generative} {runtime} {session} onservices={() => chrome.setServicesOpen(true)} />
@@ -712,22 +742,12 @@
       <nav class="panel-tabs" aria-label="Right panel">
         <button class:active={$chromeStore.right === "inspector"} onclick={() => { sound.play("open"); chrome.showRight("inspector"); }}>INSPECT</button>
         <button class:active={$chromeStore.right === "code"} onclick={() => { sound.play("open"); chrome.showRight("code"); }}>CODE</button>
-        {#if $store.guide}<button class:active={$chromeStore.right === "guide"} onclick={() => { sound.play("open"); chrome.showRight("guide"); }}>GUIDE</button>{/if}
         <button class="panel-close" onclick={() => { sound.play("close"); chrome.closeRight(); }} aria-label="Close side panel">×</button>
       </nav>
       {#if $chromeStore.right === "inspector"}
         <Inspector viewModel={inspector} mediaViewModel={media} />
-      {:else if $chromeStore.right === "code"}
+      {:else}
         <CodeView viewModel={code} />
-      {:else if $store.guide}
-        <StudioGuide
-          guide={$store.guide}
-          currentKey={$store.current?.key ?? ""}
-          completedIds={guideCompletedIds}
-          onopen={openGuideStep}
-          oncomplete={setGuideStepComplete}
-          onreset={resetGuideProgress}
-        />
       {/if}
     </section>
   </main>
