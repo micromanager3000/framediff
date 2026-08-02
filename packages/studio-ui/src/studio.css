@@ -944,8 +944,6 @@
 :where(.framediff-studio) .gen-grid { min-height: 0; display: grid; grid-template-columns: minmax(320px, .9fr) minmax(340px, 1.1fr); }
 :where(.framediff-studio) .gen-form, :where(.framediff-studio) .gen-output { min-height: 0; overflow-y: auto; padding: 14px; }
 :where(.framediff-studio) .gen-form { border-right: 1px solid var(--line); transition: opacity .18s ease, filter .18s ease; }
-:where(.framediff-studio) .gen-form.generation-active { opacity: .38; filter: grayscale(.5) saturate(.45); cursor: progress; user-select: none; }
-:where(.framediff-studio) .gen-form.failed-history { opacity: .58; filter: grayscale(.3) saturate(.7); user-select: none; }
 :where(.framediff-studio) .gen-prompt { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; color: var(--faint); font-size: 9px; letter-spacing: .1em; }
 :where(.framediff-studio) .gen-prompt textarea { min-height: 76px; padding: 8px; border: 1px solid var(--line-strong); border-radius: 7px; outline: none; resize: vertical; background: var(--panel-raised); color: var(--text); line-height: 1.5; }
 :where(.framediff-studio) .gen-prompt textarea:focus { border-color: var(--pink); }
@@ -1062,6 +1060,10 @@
 :where(.framediff-studio) .take-unavailable strong { color: var(--muted); }
 :where(.framediff-studio) .gen-preview { position: relative; min-height: 220px; margin-bottom: 12px; overflow: hidden; border-radius: 8px; background: #080706; }
 :where(.framediff-studio) .gen-preview video, :where(.framediff-studio) .gen-preview img { width: 100%; height: 100%; display: block; object-fit: contain; }
+:where(.framediff-studio) .draft-preview-slate { position: absolute; inset: 0; display: grid; place-content: center; gap: 8px; padding: 24px; text-align: center; background: radial-gradient(circle at 50% 35%, rgb(240 180 95 / 10%), transparent 58%), var(--panel-raised); color: var(--muted); }
+:where(.framediff-studio) .draft-preview-slate strong { color: var(--accent); font: 800 11px var(--mono); letter-spacing: .14em; }
+:where(.framediff-studio) .draft-preview-slate span { color: var(--text); font-size: 15px; }
+:where(.framediff-studio) .draft-preview-slate small { max-width: 34em; color: var(--faint); font: 9px/1.5 var(--mono); }
 :where(.framediff-studio) .gen-compare { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; padding: 9px; background: radial-gradient(circle at 50% -20%, rgb(107 176 191 / 13%), transparent 55%), #080a0c; }
 :where(.framediff-studio) .gen-compare > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 :where(.framediff-studio) .gen-compare > header > span { color: var(--text); font: 800 8px/1 var(--mono); letter-spacing: .14em; }
@@ -1091,7 +1093,7 @@
 :where(.framediff-studio) .takes-heading button:hover:not(:disabled), :where(.framediff-studio) .takes-heading button:focus-visible { border-color: var(--accent); color: var(--text); outline: none; }
 :where(.framediff-studio) .takes-heading button:disabled { opacity: .45; cursor: default; }
 :where(.framediff-studio) .gen-take { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: stretch; gap: 5px; margin-bottom: 6px; padding: 4px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel-raised); }
-:where(.framediff-studio) .gen-take.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--panel-raised)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent); }
+:where(.framediff-studio) .gen-take.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--panel-raised)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 58%, transparent); }
 :where(.framediff-studio) .gen-take.draft { border-style: dashed; border-color: rgb(240 180 95 / 40%); background: rgb(240 180 95 / 6%); }
 :where(.framediff-studio) .gen-take.draft b { color: var(--accent); }
 :where(.framediff-studio) .gen-take.draft.selected { border-color: var(--accent); }
@@ -1116,7 +1118,7 @@
 :where(.framediff-studio) .draft-take .take-preview { width: 100%; }
 :where(.framediff-studio) .draft-take:hover .take-preview, :where(.framediff-studio) .draft-take:focus-visible .take-preview { color: var(--text); }
 :where(.framediff-studio) .draft-take:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
-:where(.framediff-studio) .gen-take.pinned { border-color: var(--green); }
+:where(.framediff-studio) .gen-take.pinned:not(.selected) { border-color: var(--green); background: color-mix(in srgb, var(--green) 7%, var(--panel-raised)); }
 :where(.framediff-studio) .take-preview, :where(.framediff-studio) .take-use { border: 0; background: transparent; color: var(--muted); cursor: pointer; }
 :where(.framediff-studio) .take-preview { min-width: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 5px 6px; text-align: left; }
 :where(.framediff-studio) .take-preview b { white-space: nowrap; }

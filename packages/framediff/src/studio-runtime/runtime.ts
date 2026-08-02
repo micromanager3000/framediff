@@ -3941,7 +3941,6 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       jobs: data.jobs.map((job) => ({
         id: job.id,
         providerJobId: job.providerJobId,
-        autoPinIfEmpty: job.autoPinIfEmpty,
         status: job.status,
         error: job.error,
         take: job.take,
@@ -4313,12 +4312,26 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       }
     }
     const fields = definition.refFieldsOf(recipe);
+    // Hash, snapshot, and build provider input from the same effective recipe. This keeps
+    // inherited voice-anchor provenance replayable without expanding provider behavior.
+    const endpoint = definition.endpointOf(effectiveRecipe);
+    const input = definition.buildInput(effectiveRecipe);
+    const recipeSnapshot = genRecipeSnapshotOf(effectiveRecipe);
+    const snapshotRecipe = { ...recipeSnapshot, id: recipe.id } as GenRecipe;
+    const snapshotHash = await recipeHashOf(snapshotRecipe);
+    if (
+      snapshotHash !== liveHash
+      || endpoint !== definition.endpointOf(snapshotRecipe)
+      || JSON.stringify(input) !== JSON.stringify(definition.buildInput(snapshotRecipe))
+    ) {
+      return { ok: false, message: "The submitted generation recipe could not be verified as immutable." };
+    }
     const result = await this.project.submitGeneration({
       provider: definition.provider ?? recipe.provider ?? "fal",
       gen: recipe.id,
-      endpoint: definition.endpointOf(effectiveRecipe),
+      endpoint,
       recipeHash: liveHash,
-      input: definition.buildInput(effectiveRecipe),
+      input,
       refs: resolved.map((ref, index) => ({
         kind: ref.kind,
         src: ref.src,
@@ -4328,7 +4341,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         adapt: recipe.refs?.[index]?.adapt,
         ...fields.find((field) => field.kind === ref.kind),
       })),
-      recipe: genRecipeSnapshotOf(recipe),
+      recipe: recipeSnapshot,
     });
     return result.job && !result.error
       ? { ok: true, message: `Submitted generation ${result.job.id.slice(0, 8)}…` }

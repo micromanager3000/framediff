@@ -444,8 +444,6 @@ interface GenJobRecord {
   /** Missing on legacy records, which were all submitted through fal. */
   provider?: GenProvider;
   providerJobId?: string;
-  /** New takes should become the default output only while the composition is still unpinned. */
-  autoPinIfEmpty?: boolean;
   gen: string;
   endpoint: string;
   recipeHash: string;
@@ -457,6 +455,8 @@ interface GenJobRecord {
   assetId?: string;
   seed?: number;
   outputKind?: "video" | "image" | "audio";
+  /** Provider-specific immutable take provenance (for example Voice Design candidate ids). */
+  takeMetadata?: Record<string, unknown>;
   at: string;
   doneAt?: string;
   recipe: GenRecipeSnapshot;
@@ -499,8 +499,17 @@ function normalizeJobTakes(jobs: GenJobRecord[]): boolean {
   }
   return changed;
 }
-function nextJobTake(jobs: readonly GenJobRecord[], gen: string): number {
-  return Math.max(0, ...jobs.filter((job) => job.gen === gen).map((job) => job.take ?? 0)) + 1;
+function nextJobTake(
+  jobs: readonly GenJobRecord[],
+  gen: string,
+  manifest?: { assets: Record<string, unknown> },
+): number {
+  const ledgerTakes = jobs.filter((job) => job.gen === gen).map((job) => job.take ?? 0);
+  const manifestTakes = Object.values(manifest?.assets ?? {}).map((entry) => {
+    const generator = (entry as { generator?: { gen?: string; take?: number } }).generator;
+    return generator?.gen === gen ? generator.take ?? 0 : 0;
+  });
+  return Math.max(0, ...ledgerTakes, ...manifestTakes) + 1;
 }
 function writeJobs(root: string, jobs: GenJobRecord[]) {
   fs.writeFileSync(jobsFile(root), JSON.stringify({ version: 1, jobs }, null, 2) + "\n");
@@ -1116,12 +1125,13 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
             attempt = {
               id: crypto.randomUUID(),
               provider,
-              autoPinIfEmpty: true,
               gen,
               endpoint,
               recipeHash,
               status: "queued",
-              take: nextJobTake(jobs, gen),
+              // This is the authoritative acceptance point. Include older manifest-only
+              // provenance because CAS assets can outlive or predate the attempt ledger.
+              take: nextJobTake(jobs, gen, manifest),
               ...(typeof input.seed === "number" ? { seed: input.seed } : {}),
               at: new Date().toISOString(),
               recipe: body.recipe,
@@ -1228,6 +1238,7 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
                 job.status = "done";
                 job.assetId = id;
                 job.outputKind = "audio";
+                if (extra) job.takeMetadata = { ...extra };
                 job.doneAt = new Date().toISOString();
               };
 
@@ -1253,10 +1264,14 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
               const previews = (out.previews ?? []).filter((p) => p.audio_base_64);
               if (!previews.length) throw new Error("Voice Design returned no previews");
               const siblings: GenJobRecord[] = [];
+              // The provider response is asynchronous: another submission may have
+              // claimed numbers while this design request was pending. Reserve all
+              // sibling numbers from the latest ledger/manifest in one synchronous pass.
+              let nextSiblingTake = nextJobTake(readJobs(root), attempt!.gen, readManifest());
               previews.forEach((preview, index) => {
                 const job = index === 0
                   ? attempt!
-                  : { ...attempt!, id: crypto.randomUUID(), take: (attempt!.take ?? 1) + index };
+                  : { ...attempt!, id: crypto.randomUUID(), take: nextSiblingTake++ };
                 const ext = preview.media_type?.includes("wav") ? "wav" : "mp3";
                 landTake(job, Buffer.from(preview.audio_base_64!, "base64"), ext, {
                   generatedVoiceId: preview.generated_voice_id,
@@ -1397,6 +1412,7 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
           const hasLedger = fs.existsSync(jobsFile(root));
           const hasLegacyLedger = fs.existsSync(legacyJobsFile(root));
           const jobs = readJobs(root);
+          const initialJobStates = new Map(jobs.map((job) => [job.id, JSON.stringify(job)]));
           let changed = normalizeJobTakes(jobs) || (!hasLedger && hasLegacyLedger);
           const finalizeTake = async (
             job: GenJobRecord,
@@ -1414,7 +1430,7 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
             const extension = /^[a-z0-9]{2,5}$/.test(namedExt)
               ? namedExt
               : mimeExt || (outputKind === "video" ? "mp4" : outputKind === "audio" ? "mp3" : "jpg");
-            const takeNo = job.take ?? nextJobTake(jobs, job.gen);
+            const takeNo = job.take ?? nextJobTake(jobs, job.gen, readManifest());
             const { id, entry } = ingestBytes(buf, `${job.gen}.take${takeNo}.${extension}`);
             const withGen = readManifest();
             const target = withGen.assets[id] as { generator?: unknown };
@@ -1526,15 +1542,61 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
               finalizing.delete(job.id);
             }
           }
-          if (changed) writeJobs(root, jobs);
-          const m = readManifest();
-          const takes: unknown[] = [];
-          for (const [assetId, e] of Object.entries(m.assets) as [string, { contentHash?: string; bytes?: number; mime?: string; generator?: { gen?: string; take?: number } }][]) {
-            if (gen && e.generator?.gen === gen) takes.push({ assetId, contentHash: e.contentHash, bytes: e.bytes, mime: e.mime, generator: e.generator });
+          // Provider polling awaits remote I/O. A submission can be accepted while those
+          // awaits are in flight, so `jobs` is only a polling snapshot by this point. Merge
+          // the updated records into the latest ledger instead of writing the snapshot and
+          // accidentally deleting attempts accepted during the poll.
+          const latestJobs = readJobs(root);
+          const polledById = new Map(jobs.map((job) => [job.id, job]));
+          const changedJobIds = new Set(jobs
+            .filter((job) => initialJobStates.get(job.id) !== JSON.stringify(job))
+            .map((job) => job.id));
+          const latestIds = new Set(latestJobs.map((job) => job.id));
+          const mergedJobs = latestJobs.map((job) => changedJobIds.has(job.id) ? polledById.get(job.id) ?? job : job);
+          for (const job of jobs) {
+            if (!latestIds.has(job.id)) mergedJobs.push(job);
           }
-          (takes as { generator: { take: number } }[]).sort((a, b) => a.generator.take - b.generator.take);
+          const normalizedMergedJobs = normalizeJobTakes(mergedJobs);
+          if (changed || normalizedMergedJobs || (!hasLedger && hasLegacyLedger)) writeJobs(root, mergedJobs);
+          const m = readManifest();
+          // The ledger is authoritative for attempt identity. Do not project completed
+          // takes solely from manifest entries: CAS deduplication can make two attempts
+          // share one asset while both numbered attempts must remain visible/pinnable.
+          const takesByTake = new Map<number, unknown>();
+          for (const job of mergedJobs) {
+            if (job.gen !== gen || job.status !== "done" || job.take == null || !job.assetId) continue;
+            const entry = m.assets[job.assetId] as { contentHash?: string; bytes?: number; mime?: string; generator?: Record<string, unknown> } | undefined;
+            if (!entry?.contentHash) continue;
+            takesByTake.set(job.take, {
+              assetId: job.assetId,
+              contentHash: entry.contentHash,
+              bytes: entry.bytes,
+              mime: entry.mime,
+              generator: {
+                ...(entry.generator ?? {}),
+                gen: job.gen,
+                take: job.take,
+                recipeHash: job.recipeHash,
+                endpoint: job.endpoint,
+                recipe: job.recipe,
+                inputs: job.inputs,
+                requestId: job.id,
+                seed: job.seed,
+                outputKind: job.outputKind,
+                at: job.at,
+                ...(job.takeMetadata ?? {}),
+              },
+            });
+          }
+          // Preserve manifest-only legacy takes until their ledger records are migrated.
+          for (const [assetId, e] of Object.entries(m.assets) as [string, { contentHash?: string; bytes?: number; mime?: string; generator?: { gen?: string; take?: number } }][]) {
+            if (gen && e.generator?.gen === gen && e.generator.take != null && !takesByTake.has(e.generator.take)) {
+              takesByTake.set(e.generator.take, { assetId, contentHash: e.contentHash, bytes: e.bytes, mime: e.mime, generator: e.generator });
+            }
+          }
+          const takes = [...takesByTake.entries()].sort(([left], [right]) => left - right).map(([, take]) => take);
           return json(res, 200, {
-            jobs: gen ? jobs.filter((j) => j.gen === gen) : jobs,
+            jobs: gen ? mergedJobs.filter((j) => j.gen === gen) : mergedJobs,
             takes,
           });
         }

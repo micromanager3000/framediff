@@ -146,11 +146,11 @@ describe("framediffDev local cache folder", () => {
     const jobs = JSON.parse((await request("/__framediff/gen/jobs?gen=dialogue")).body);
     expect(jobs.jobs[0]).toMatchObject({
       provider: "byteplus",
-      autoPinIfEmpty: true,
       status: "done",
       take: 1,
       seed: 12,
     });
+    expect(jobs.jobs[0]).not.toHaveProperty("autoPinIfEmpty");
     expect(jobs.takes[0]).toMatchObject({ mime: "video/mp4", generator: { endpoint: "dreamina-seedance-2-0-fast-260128" } });
   });
 
@@ -198,6 +198,94 @@ describe("framediffDev local cache folder", () => {
 
     expect(response).toMatchObject({ jobs: [], takes: [] });
     expect(fs.existsSync(path.join(root, "framediff.generations.json"))).toBe(false);
+  });
+
+  it("allocates after manifest-only provenance and keeps duplicate bytes as separate takes", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "framediff-vite-generations-manifest-"));
+    const oldHash = "sha256:old";
+    fs.writeFileSync(path.join(root, "framediff.assets.json"), JSON.stringify({
+      version: 1,
+      assets: Object.fromEntries([1, 2, 3, 4, 5].map((take) => [
+        `asset-${take}`,
+        {
+          name: `shot.take${take}.mp3`, contentHash: `${oldHash}-${take}`, bytes: 3, mime: "audio/mpeg",
+          generator: { gen: "shot", take, recipeHash: `sha256:${take}`, endpoint: "v1/text-to-speech/voice", recipe: { model: "elevenlabs-direct", prompt: `take ${take}` }, inputs: [], outputKind: "audio" },
+        },
+      ])),
+    }, null, 2));
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL) => {
+      if (String(input) === "https://api.elevenlabs.io/v1/text-to-speech/voice") {
+        return new globalThis.Response(new TextEncoder().encode("same bytes"), { status: 200, headers: { "content-type": "audio/mpeg" } });
+      }
+      throw new Error(`unexpected fetch ${String(input)}`);
+    }));
+    const request = devBridge(root);
+    await request("/__framediff/secrets", "PUT", new TextEncoder().encode(JSON.stringify({ provider: "elevenlabs", key: "xi-test-key-1234" })), { "content-type": "application/json" });
+    const payload = JSON.stringify({ provider: "elevenlabs", gen: "shot", endpoint: "v1/text-to-speech/voice", recipeHash: "sha256:next", input: { text: "same" }, recipe: { model: "elevenlabs-direct", prompt: "same" } });
+    const [first, second] = await Promise.all([
+      request("/__framediff/gen/submit", "POST", new TextEncoder().encode(payload), { "content-type": "application/json" }),
+      request("/__framediff/gen/submit", "POST", new TextEncoder().encode(payload), { "content-type": "application/json" }),
+    ]);
+    expect(JSON.parse(first.body).job.take).toBe(6);
+    expect(JSON.parse(second.body).job.take).toBe(7);
+    const jobs = JSON.parse((await request("/__framediff/gen/jobs?gen=shot")).body);
+    expect(jobs.jobs.map((job: { take: number }) => job.take)).toEqual([6, 7]);
+    expect(jobs.takes.map((take: { generator: { take: number } }) => take.generator.take)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(jobs.takes.filter((take: { generator: { take: number } }) => take.generator.take >= 6)).toHaveLength(2);
+  });
+
+  it("preserves a submission accepted while provider polling is in flight", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "framediff-vite-generations-poll-overlap-"));
+    let releaseStatus!: (response: globalThis.Response) => void;
+    let statusStarted!: () => void;
+    const statusStartedPromise = new Promise<void>((resolve) => { statusStarted = resolve; });
+    let submitted = 0;
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/contents/generations/tasks") && init?.method === "POST") {
+        submitted++;
+        return new globalThis.Response(JSON.stringify({ id: `task-${submitted}` }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      if (url.endsWith("/contents/generations/tasks/task-1")) {
+        statusStarted();
+        return new Promise<globalThis.Response>((resolve) => { releaseStatus = resolve; });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    }));
+    const request = devBridge(root);
+    await request(
+      "/__framediff/secrets",
+      "PUT",
+      new TextEncoder().encode(JSON.stringify({ provider: "byteplus", key: "ark-test-key-1234" })),
+      { "content-type": "application/json" },
+    );
+    const payload = (prompt: string) => new TextEncoder().encode(JSON.stringify({
+      provider: "byteplus",
+      gen: "overlap",
+      endpoint: "dreamina-seedance-2-0-fast-260128",
+      recipeHash: `sha256:${prompt}`,
+      input: { prompt },
+      recipe: { provider: "byteplus", model: "seedance-2.0-direct", prompt },
+    }));
+
+    const first = await request("/__framediff/gen/submit", "POST", payload("first"), { "content-type": "application/json" });
+    expect(JSON.parse(first.body).job.take).toBe(1);
+    const polling = request("/__framediff/gen/jobs?gen=overlap");
+    await statusStartedPromise;
+    const second = await request("/__framediff/gen/submit", "POST", payload("second"), { "content-type": "application/json" });
+    expect(JSON.parse(second.body).job.take).toBe(2);
+    releaseStatus(new globalThis.Response(JSON.stringify({ status: "processing" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }));
+
+    const response = JSON.parse((await polling).body);
+    expect(response.jobs.map((job: { take: number }) => job.take)).toEqual([1, 2]);
+    const ledger = JSON.parse(fs.readFileSync(path.join(root, "framediff.generations.json"), "utf8"));
+    expect(ledger.jobs.map((job: { take: number }) => job.take)).toEqual([1, 2]);
   });
 
   it("prebundles the module worker dependency before the first bake", () => {
@@ -333,6 +421,72 @@ describe("framediffDev local cache folder", () => {
     // Each take remembers the candidate id needed to promote it to a real voice.
     const generated = jobs.takes.map((t: { generator?: { generatedVoiceId?: string } }) => t.generator?.generatedVoiceId);
     expect(generated).toEqual(expect.arrayContaining(["gen-a", "gen-b", "gen-c"]));
+  });
+
+  it("reserves Voice Design siblings after submissions accepted while the response is pending", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "framediff-vite-vdesign-overlap-"));
+    let releaseDesign!: (response: globalThis.Response) => void;
+    let designStarted!: () => void;
+    const designStartedPromise = new Promise<void>((resolve) => { designStarted = resolve; });
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url === "https://api.elevenlabs.io/v1/text-to-voice/design") {
+        designStarted();
+        return new Promise<globalThis.Response>((resolve) => { releaseDesign = resolve; });
+      }
+      if (url === "https://api.elevenlabs.io/v1/text-to-speech/voice") {
+        return new globalThis.Response(new TextEncoder().encode("direct take"), { status: 200, headers: { "content-type": "audio/mpeg" } });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    }));
+    const request = devBridge(root);
+    await request(
+      "/__framediff/secrets",
+      "PUT",
+      new TextEncoder().encode(JSON.stringify({ provider: "elevenlabs", key: "xi-test-key-1234" })),
+      { "content-type": "application/json" },
+    );
+    const design = request(
+      "/__framediff/gen/submit",
+      "POST",
+      new TextEncoder().encode(JSON.stringify({
+        provider: "elevenlabs",
+        gen: "designOverlap",
+        endpoint: "v1/text-to-voice/design",
+        recipeHash: "sha256:design",
+        input: { voice_description: "A calm documentary narrator with a warm, weathered delivery." },
+        recipe: { provider: "elevenlabs", model: "elevenlabs-voice-design", prompt: "A calm narrator" },
+      })),
+      { "content-type": "application/json" },
+    );
+    await designStartedPromise;
+    const direct = await request(
+      "/__framediff/gen/submit",
+      "POST",
+      new TextEncoder().encode(JSON.stringify({
+        provider: "elevenlabs",
+        gen: "designOverlap",
+        endpoint: "v1/text-to-speech/voice",
+        recipeHash: "sha256:direct",
+        input: { text: "A second accepted submission." },
+        recipe: { provider: "elevenlabs", model: "elevenlabs-direct", prompt: "A second accepted submission." },
+      })),
+      { "content-type": "application/json" },
+    );
+    expect(JSON.parse(direct.body).job.take).toBe(2);
+    releaseDesign(new globalThis.Response(JSON.stringify({
+      text: "A calm narrator",
+      previews: [
+        { audio_base_64: Buffer.from("candidate one").toString("base64"), media_type: "audio/mp3" },
+        { audio_base_64: Buffer.from("candidate two").toString("base64"), media_type: "audio/mp3" },
+        { audio_base_64: Buffer.from("candidate three").toString("base64"), media_type: "audio/mp3" },
+      ],
+    }), { status: 200, headers: { "content-type": "application/json" } }));
+    await design;
+
+    const jobs = JSON.parse((await request("/__framediff/gen/jobs?gen=designOverlap")).body);
+    expect(jobs.jobs.map((job: { take: number }) => job.take).sort((a: number, b: number) => a - b)).toEqual([1, 2, 3, 4]);
+    expect(jobs.takes.map((take: { generator: { take: number } }) => take.generator.take)).toEqual([1, 2, 3, 4]);
   });
 
   it("routes ElevenLabs recipes to the provider's own API instead of rejecting them", async () => {
