@@ -14,11 +14,12 @@
   import {
     historicalTakeViews,
     nextGenerationTake,
+    normalizePreviewSelection,
     referenceKindForMime,
     type GenerativeViewModel,
+    type GenerativePreviewSelection,
   } from "../viewmodels/Generative.ViewModel";
   import { sessionStore } from "../viewmodels/store";
-  import PreviewHost from "./PreviewHost.svelte";
   import SynchronizedCompositionPreview from "./SynchronizedCompositionPreview.svelte";
   import VisualAdaptationEditor from "./VisualAdaptationEditor.svelte";
 
@@ -35,7 +36,7 @@
   let refKind = "image";
   let compDragOver = false;
   let previewCompositionKey = "";
-  let previewTake: number | null = null;
+  let previewSelection: GenerativePreviewSelection = { kind: "draft" };
   let failedDraftStarted = "";
   let selectedRefIndex: number | null = null;
   let outputWidth = 0;
@@ -55,13 +56,22 @@
   }
   $: if ($store.workspace && $store.workspace.compositionKey !== previewCompositionKey) {
     previewCompositionKey = $store.workspace.compositionKey;
-    previewTake = $store.workspace.takes.reduce<number | null>(
-      (latest, take) => latest == null || take.take > latest ? take.take : latest,
-      null,
-    );
+    const latest = $store.workspace.takes.at(-1);
+    previewSelection = latest ? { kind: "take", take: latest.take } : { kind: "draft" };
     failedDraftStarted = "";
   }
-  $: previewedTake = $store.workspace?.takes.find((take) => take.take === previewTake) ?? null;
+  $: effectivePreviewSelection = normalizePreviewSelection(previewSelection, $store.workspace);
+  $: previewedTake = effectivePreviewSelection.kind === "take"
+    ? $store.workspace?.takes.find((take) => take.take === effectivePreviewSelection.take) ?? null
+    : null;
+  $: if (effectivePreviewSelection.kind === "draft" && takeVideo) {
+    // A draft selection owns no media element. Explicitly stop the previous take while
+    // Svelte tears down its branch so a pinned output cannot keep playing invisibly.
+    takeVideo.pause();
+    takeVideo.removeAttribute("src");
+    takeVideo.load();
+    takeVideo = undefined;
+  }
   $: previewRefs = previewedTake?.settings?.refs ?? $store.workspace?.refs ?? [];
   $: previewVideoRef = previewedTake?.outputKind === "video"
     ? previewRefs.find((ref) => ref.kind === "video" && !!$store.workspace && inputCompositionKey($store.workspace, ref.src) != null)
@@ -75,11 +85,6 @@
   $: previewTo = currentComposition?.render?.to ?? currentComposition?.durationInFrames ?? 1;
   $: previewLastFrame = Math.max(previewFrom, previewTo - 1);
   $: nextTake = nextGenerationTake($store.workspace);
-  $: latestJobId = $store.workspace?.jobs.at(-1)?.id ?? "";
-  $: latestFailedTake = $store.failedTakes.find((take) => take.id === latestJobId) ?? null;
-  $: failedAttemptBlocksDraft = !!latestFailedTake
-    && latestFailedTake.matchesCurrentRecipe
-    && failedDraftStarted !== latestFailedTake.id;
   $: selectedRef = selectedRefIndex == null ? undefined : $store.workspace?.refs[selectedRefIndex];
   $: currentOutputKey = JSON.stringify($store.workspace?.desiredOutput ?? null);
   $: if ($store.workspace && currentOutputKey !== outputDraftKey) {
@@ -262,7 +267,7 @@
     if (await viewModel.startFrom(previewedTake.take)) await editDraft();
   }
   async function editDraft(): Promise<void> {
-    previewTake = null;
+    previewSelection = { kind: "draft" };
     await tick();
     promptEditor?.focus();
   }
@@ -295,10 +300,10 @@
           <strong>{previewedTake.settings?.modelName ?? "Saved take"}</strong>
           <small>{previewedTake.settings?.mode ?? previewedTake.endpoint} · read only</small>
         </div>
-        <button class="draft-button" disabled={$store.generationActive} onclick={() => void editDraft()}>Back to current draft</button>
+        <button class="draft-button" disabled={$store.busy} onclick={() => void editDraft()}>Back to current draft</button>
       {:else}
         <div><span>GENERATIVE COMPOSITION · {workspace.outputKind}</span><strong>{workspace.modelName}</strong><small class:failed-status={workspace.status === "failed"}>{workspace.mode} · ${workspace.costUsd.toFixed(2)} · {workspace.status}</small></div>
-        <select disabled={$store.generationActive || failedAttemptBlocksDraft || $store.busy} aria-label="Generation model" value={workspace.model} onchange={(event) => void viewModel.update({ model: event.currentTarget.value })}>
+        <select disabled={$store.busy} aria-label="Generation model" value={workspace.model} onchange={(event) => void viewModel.update({ model: event.currentTarget.value })}>
           {#each workspace.models as model}<option value={model.id}>{model.name} · {model.baseline}</option>{/each}
         </select>
       {/if}
@@ -306,10 +311,7 @@
     <div class="gen-grid">
       <div
         class="gen-form"
-        class:generation-active={$store.generationActive}
-        class:failed-history={failedAttemptBlocksDraft}
-        aria-busy={$store.generationActive}
-        inert={$store.generationActive || failedAttemptBlocksDraft}
+        aria-busy={$store.busy}
       >
         {#if previewedTake}
           <section class="take-inspector">
@@ -357,7 +359,7 @@
                 <span>This take predates recipe snapshots and can only be previewed or used as output.</span>
               </div>
             {/if}
-            <button class="generate-button" disabled={$store.generationActive || $store.busy || !previewedTake.settings} onclick={() => void startFromSelectedTake()}>{$store.busy ? "Working…" : "Add Take from This"}</button>
+            <button class="generate-button" disabled={$store.busy || !previewedTake.settings} onclick={() => void startFromSelectedTake()}>{$store.busy ? "Working…" : "Add Take from This"}</button>
             {#if $store.error}<div class="message error">{$store.error}</div>{/if}
           </section>
         {:else}
@@ -520,7 +522,7 @@
             </div>
           {/if}
           {#if workspace.blockedReason}<div class="message notice">{workspace.blockedReason}</div>{/if}
-          <button class="generate-button" disabled={$store.generationActive || failedAttemptBlocksDraft || $store.busy || !workspace.providerReady || !!workspace.blockedReason} onclick={() => void viewModel.generate()}>{$store.busy ? "Working…" : `Generate · $${workspace.costUsd.toFixed(2)}`}</button>
+          <button class="generate-button" disabled={$store.busy || !workspace.providerReady || !!workspace.blockedReason} onclick={() => void viewModel.generate()}>{$store.busy ? "Working…" : `Generate · $${workspace.costUsd.toFixed(2)}`}</button>
           {#if $store.error}<div class="message error">{$store.error}</div>{/if}
         {/if}
       </div>
@@ -597,13 +599,17 @@
               <span class="preview-label">PREVIEWING TAKE {previewedTake.take}</span>
             {/if}
           {:else}
-            <PreviewHost {runtime} {session} interactive={false} />
+            <div class="draft-preview-slate" data-testid="draft-preview-slate" aria-label="Editable draft preview">
+              <strong>EDITABLE DRAFT</strong>
+              <span>No generated media selected</span>
+              <small>Changes stay in the source recipe until you submit a new take.</small>
+            </div>
           {/if}
         </div>
         <div class="takes-heading">
           <h3>TAKES</h3>
           <button
-            disabled={$store.generationActive || failedAttemptBlocksDraft || $store.busy || (!!workspace.takes.length && !workspace.takes.at(-1)?.settings)}
+            disabled={$store.busy || (!!workspace.takes.length && !workspace.takes.at(-1)?.settings)}
             title="Start the next take with the latest generated take's settings"
             onclick={() => void addTake(workspace)}
           >Add Take</button>
@@ -612,7 +618,7 @@
         {#each $store.generatingTakes as generatingTake (generatingTake.id)}
           <div class="gen-take generating" role="status" aria-live="polite">
             <div class="take-preview">
-              <b>take {generatingTake.take} · generating</b>
+              <b>{generatingTake.take == null ? "pending take" : `take ${generatingTake.take}`} · generating</b>
               <span>{generatingTake.status === "queued" ? "queued with provider" : "generation in progress"} · {generatingTake.id.slice(0, 8)}…</span>
             </div>
             <div class="take-generating-state">
@@ -621,21 +627,19 @@
             </div>
           </div>
         {/each}
-        {#if !$store.generationActive && !failedAttemptBlocksDraft}
-          <button
+        <button
             type="button"
             class="gen-take draft draft-take"
-            class:selected={!previewedTake}
-            aria-pressed={!previewedTake}
+            class:selected={effectivePreviewSelection.kind === "draft"}
+            aria-pressed={effectivePreviewSelection.kind === "draft"}
             aria-label={`Edit the draft for take ${nextTake}`}
             onclick={() => void editDraft()}
           >
             <span class="take-preview">
               <b>take {nextTake} · draft</b>
-              <span>{previewedTake ? "back to the editable draft" : `editing now — Generate runs it · $${workspace.costUsd.toFixed(2)}`}</span>
+              <span>{effectivePreviewSelection.kind === "take" ? "back to the editable draft" : `editing now — Generate runs it · $${workspace.costUsd.toFixed(2)}`}</span>
             </span>
           </button>
-        {/if}
         {#each historicalTakeViews(workspace, $store.failedTakes) as historicalTake (`${historicalTake.kind}:${historicalTake.take}`)}
           {#if historicalTake.kind === "failed"}
             {@const failedTake = historicalTake.failedTake}
@@ -657,12 +661,12 @@
             </div>
           {:else}
             {@const take = historicalTake.generatedTake}
-            <div class:pinned={take.take === workspace.pinnedTake} class:selected={take.take === previewTake} class="gen-take">
+            <div class:pinned={take.take === workspace.pinnedTake} class:selected={effectivePreviewSelection.kind === "take" && take.take === effectivePreviewSelection.take} class="gen-take">
               <button
                 class="take-preview"
-                aria-pressed={take.take === previewTake}
+                aria-pressed={effectivePreviewSelection.kind === "take" && take.take === effectivePreviewSelection.take}
                 aria-label={`Preview take ${take.take}`}
-                onclick={() => previewTake = take.take}
+                onclick={() => previewSelection = { kind: "take", take: take.take }}
               >
                 <b>take {take.take}</b>
                 <span>{(take.bytes / 1_000_000).toFixed(1)} MB · seed {take.seed ?? "—"}</span>
@@ -672,7 +676,7 @@
                 disabled={$store.busy || take.take === workspace.pinnedTake}
                 aria-label={take.take === workspace.pinnedTake ? `Take ${take.take} in use` : `Use take ${take.take}`}
                 title={take.take === workspace.pinnedTake ? "This take is used by the composition" : `Use take ${take.take} in the composition`}
-                onclick={() => { previewTake = take.take; void viewModel.pin(take.take); }}
+                onclick={() => { previewSelection = { kind: "take", take: take.take }; void viewModel.pin(take.take); }}
               >{take.take === workspace.pinnedTake ? "In use" : "Use take"}</button>
               <a
                 class="take-download"

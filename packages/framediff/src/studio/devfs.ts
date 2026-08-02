@@ -369,8 +369,6 @@ export interface GenJob {
   id: string;
   provider?: GenProvider;
   providerJobId?: string;
-  /** Pin the completed take only if the composition still has no pinned take. */
-  autoPinIfEmpty?: boolean;
   gen: string;
   endpoint: string;
   recipeHash: string;
@@ -436,11 +434,8 @@ export async function genSubmit(payload: {
 export async function genJobs(
   gen: string,
   request: StudioProjectRequest = globalThis.fetch.bind(globalThis),
-): Promise<{ jobs: GenJob[]; takes: GenTakeRow[] } | null> {
-  try {
-    const r = await request(`/__framediff/gen/jobs?gen=${encodeURIComponent(gen)}`);
-    return r.ok ? ((await r.json()) as { jobs: GenJob[]; takes: GenTakeRow[] }) : null;
-  } catch {
-    return null;
-  }
+): Promise<{ jobs: GenJob[]; takes: GenTakeRow[] }> {
+  const r = await request(`/__framediff/gen/jobs?gen=${encodeURIComponent(gen)}`);
+  if (!r.ok) throw new Error(`Could not poll generation history (${r.status}).`);
+  return (await r.json()) as { jobs: GenJob[]; takes: GenTakeRow[] };
 }

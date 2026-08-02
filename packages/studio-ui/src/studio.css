@@ -943,8 +943,6 @@ dd { margin: 0; overflow: hidden; color: var(--muted); font-family: var(--mono);
 .gen-grid { min-height: 0; display: grid; grid-template-columns: minmax(320px, .9fr) minmax(340px, 1.1fr); }
 .gen-form, .gen-output { min-height: 0; overflow-y: auto; padding: 14px; }
 .gen-form { border-right: 1px solid var(--line); transition: opacity .18s ease, filter .18s ease; }
-.gen-form.generation-active { opacity: .38; filter: grayscale(.5) saturate(.45); cursor: progress; user-select: none; }
-.gen-form.failed-history { opacity: .58; filter: grayscale(.3) saturate(.7); user-select: none; }
 .gen-prompt { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; color: var(--faint); font-size: 9px; letter-spacing: .1em; }
 .gen-prompt textarea { min-height: 76px; padding: 8px; border: 1px solid var(--line-strong); border-radius: 7px; outline: none; resize: vertical; background: var(--panel-raised); color: var(--text); line-height: 1.5; }
 .gen-prompt textarea:focus { border-color: var(--pink); }
@@ -1061,6 +1059,10 @@ dd { margin: 0; overflow: hidden; color: var(--muted); font-family: var(--mono);
 .take-unavailable strong { color: var(--muted); }
 .gen-preview { position: relative; min-height: 220px; margin-bottom: 12px; overflow: hidden; border-radius: 8px; background: #080706; }
 .gen-preview video, .gen-preview img { width: 100%; height: 100%; display: block; object-fit: contain; }
+.draft-preview-slate { position: absolute; inset: 0; display: grid; place-content: center; gap: 8px; padding: 24px; text-align: center; background: radial-gradient(circle at 50% 35%, rgb(240 180 95 / 10%), transparent 58%), var(--panel-raised); color: var(--muted); }
+.draft-preview-slate strong { color: var(--accent); font: 800 11px var(--mono); letter-spacing: .14em; }
+.draft-preview-slate span { color: var(--text); font-size: 15px; }
+.draft-preview-slate small { max-width: 34em; color: var(--faint); font: 9px/1.5 var(--mono); }
 .gen-compare { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; padding: 9px; background: radial-gradient(circle at 50% -20%, rgb(107 176 191 / 13%), transparent 55%), #080a0c; }
 .gen-compare > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .gen-compare > header > span { color: var(--text); font: 800 8px/1 var(--mono); letter-spacing: .14em; }
@@ -1090,7 +1092,7 @@ dd { margin: 0; overflow: hidden; color: var(--muted); font-family: var(--mono);
 .takes-heading button:hover:not(:disabled), .takes-heading button:focus-visible { border-color: var(--accent); color: var(--text); outline: none; }
 .takes-heading button:disabled { opacity: .45; cursor: default; }
 .gen-take { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: stretch; gap: 5px; margin-bottom: 6px; padding: 4px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel-raised); }
-.gen-take.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--panel-raised)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent); }
+.gen-take.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--panel-raised)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 58%, transparent); }
 .gen-take.draft { border-style: dashed; border-color: rgb(240 180 95 / 40%); background: rgb(240 180 95 / 6%); }
 .gen-take.draft b { color: var(--accent); }
 .gen-take.draft.selected { border-color: var(--accent); }
@@ -1115,7 +1117,7 @@ dd { margin: 0; overflow: hidden; color: var(--muted); font-family: var(--mono);
 .draft-take .take-preview { width: 100%; }
 .draft-take:hover .take-preview, .draft-take:focus-visible .take-preview { color: var(--text); }
 .draft-take:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
-.gen-take.pinned { border-color: var(--green); }
+.gen-take.pinned:not(.selected) { border-color: var(--green); background: color-mix(in srgb, var(--green) 7%, var(--panel-raised)); }
 .take-preview, .take-use { border: 0; background: transparent; color: var(--muted); cursor: pointer; }
 .take-preview { min-width: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 5px 6px; text-align: left; }
 .take-preview b { white-space: nowrap; }
