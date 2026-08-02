@@ -30,9 +30,10 @@ layout, and the example-to-package promotion rule.
 
 ## Active plans
 
-- [script-sheet-plan.html](./script-sheet-plan.html) — the `script` comp as a full-height editable
-  sheet, built on the `GenerativeWorkbench` pane precedent. Prototype: `prototypes/script/`
-  (`script-lab` launch config).
+- [script-sheet-plan.html](./script-sheet-plan.html) — the `script` comp as a
+  full-height editable sheet, built on the `GenerativeWorkbench` pane
+  precedent. The interaction prototype lives in
+  [`framediff-work/prototypes/script`](https://github.com/micromanager3000/framediff-work/tree/main/prototypes/script).
 
 ## Historical evidence and plans
 

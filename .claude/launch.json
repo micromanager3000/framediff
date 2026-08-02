@@ -19,24 +19,6 @@
       "port": 4176
     },
     {
-      "name": "timeline-lab",
-      "runtimeExecutable": "python3",
-      "runtimeArgs": [
-        "prototypes/timeline/server.py",
-        "4179"
-      ],
-      "port": 4179
-    },
-    {
-      "name": "script-lab",
-      "runtimeExecutable": "python3",
-      "runtimeArgs": [
-        "prototypes/script/server.py",
-        "4181"
-      ],
-      "port": 4181
-    },
-    {
       "name": "evolv-studio",
       "runtimeExecutable": "npm",
       "runtimeArgs": [

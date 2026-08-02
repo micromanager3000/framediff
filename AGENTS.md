@@ -2,6 +2,17 @@
 
 ## Git workflow
 
+- Create every commit as `Vikas Reddy <vikas@framediff.com>` for both the author
+  and committer. Before committing, verify `git var GIT_AUTHOR_IDENT` and
+  `git var GIT_COMMITTER_IDENT`; stop and correct the Git configuration if
+  either email differs. From the sibling orchestration checkout, run
+  `node scripts/configure-git-policy.mjs` to install the shared identity and
+  commit-message guard for all three repositories.
+- Keep commit messages about the product change only. Never add a co-author,
+  generated-by, assisted-by, made-by, or similar message or trailer that names
+  the coding assistant or automation used to prepare the commit. Legitimate
+  references to a supported product or development tool remain allowed when
+  they are the actual subject of the change.
 - Work directly on the `main` branch by default.
 - Do not create or switch to another branch or worktree unless the user explicitly asks for one.
 - If the current checkout is not on `main`, return to `main` before making changes unless doing so could overwrite or disrupt existing work; in that case, stop and explain the conflict.
