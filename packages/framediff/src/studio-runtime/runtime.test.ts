@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CompRegistry, StudioComposition } from "../studio/types";
-import { generative } from "../generative";
+import { generative, recipeHashOf } from "../generative";
+import { genModelOf } from "../genModels";
 import { processing } from "../processingComposition";
 import { fingerprintProcessingRecipe, type ProcessingRecipe } from "@framediff/studio-model";
 import {
@@ -94,7 +95,7 @@ describe("HtmlStudioRuntime Inspector batches", () => {
           },
         },
       })),
-      submitGeneration: vi.fn(async () => ({
+      submitGeneration: vi.fn(async (_submission: unknown) => ({
         job: { id: "job-1", status: "queued" },
       })),
     };
@@ -109,6 +110,15 @@ describe("HtmlStudioRuntime Inspector batches", () => {
         authoredSrc: "asset://portrait",
       })],
     }));
+    const submission = project.submitGeneration.mock.calls[0][0] as {
+      input: Record<string, unknown>;
+      recipeHash: string;
+      recipe: Record<string, unknown>;
+    };
+    expect(submission.recipeHash).toBe(await recipeHashOf(generated.recipe));
+    expect(submission.input).toEqual(genModelOf(generated.recipe).buildInput(generated.recipe));
+    expect(submission.recipe).not.toHaveProperty("id");
+    expect(submission.recipe).not.toHaveProperty("take");
   });
 
   it("identifies ElevenLabs and blocks direct speech until a voice id is set", async () => {

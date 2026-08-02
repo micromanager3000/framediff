@@ -13,7 +13,8 @@ import { observableStore } from "./store";
 
 export interface GeneratingTakeView {
   id: string;
-  take: number;
+  /** Server-assigned once accepted; local submit placeholders must not claim a number. */
+  take?: number;
   status: Extract<GenerativeJobSnapshot["status"], "queued" | "running">;
 }
 
@@ -28,6 +29,18 @@ export interface FailedTakeView {
 export type HistoricalTakeView =
   | { kind: "generated"; take: number; generatedTake: GenerativeTakeSnapshot }
   | { kind: "failed"; take: number; failedTake: FailedTakeView };
+
+export type GenerativePreviewSelection = { kind: "draft" } | { kind: "take"; take: number };
+
+/** Keep preview selection explicit: a missing take never falls through to pinned output. */
+export function normalizePreviewSelection(
+  selection: GenerativePreviewSelection,
+  workspace: GenerativeWorkspaceSnapshot | null,
+): GenerativePreviewSelection {
+  return selection.kind === "take" && !workspace?.takes.some((take) => take.take === selection.take)
+    ? { kind: "draft" }
+    : selection;
+}
 
 export function readableGenerationError(error?: string): string {
   if (!error) return "The provider could not complete this generation.";
@@ -89,17 +102,16 @@ export function generatingTakeViews(
   submitting = false,
 ): GeneratingTakeView[] {
   if (!workspace) return [];
-  let nextTake = nextGenerationTake(workspace);
   const active = workspace.jobs
     .filter((job): job is GenerativeJobSnapshot & { status: "queued" | "running" } =>
       job.status === "queued" || job.status === "running")
     .map((job) => ({
       id: job.id,
-      take: job.take ?? nextTake++,
+      take: job.take,
       status: job.status,
     }));
   return submitting && !active.length
-    ? [{ id: "submitting", take: nextTake, status: "queued" }]
+    ? [{ id: "submitting", status: "queued" }]
     : active;
 }
 
