@@ -42,6 +42,21 @@ describe("GenerativeManager", () => {
     expect(updateGenerativeRecipe).toHaveBeenCalledOnce();
   });
 
+  it("refuses source recipe edits until a draft is explicitly opened", async () => {
+    const composition = { key: "generate" } as CompositionDescriptor;
+    const state = new ObservableValue({ currentKey: composition.key, compositions: [composition] } as StudioSessionState);
+    const updateGenerativeRecipe = vi.fn(async () => ({ ok: true, message: "Updated" }));
+    const manager = new GenerativeManager({ state } as StudioSession, {
+      updateGenerativeRecipe,
+    } as unknown as ProjectWorkspacePort);
+
+    expect(await manager.update({ model: "another-model" })).toBe(false);
+    expect(updateGenerativeRecipe).not.toHaveBeenCalled();
+    expect(manager.state.get().error).toBe("Choose Add Take before editing the generation recipe.");
+    expect(manager.openDraft()).toBe(true);
+    expect(manager.state.get().error).toBeNull();
+  });
+
   it("marks the take as submitting before the provider returns a job", async () => {
     const composition = { key: "generate" } as CompositionDescriptor;
     const state = new ObservableValue({ currentKey: composition.key, compositions: [composition] } as StudioSessionState);
@@ -238,6 +253,7 @@ describe("GenerativeManager", () => {
       submitGeneration: vi.fn(async () => { throw new Error("provider unavailable"); }),
     } as unknown as ProjectWorkspacePort);
 
+    expect(manager.openDraft()).toBe(true);
     expect(await manager.update({ prompt: "retry me" })).toBe(false);
     expect(manager.state.get()).toMatchObject({ busy: false, submitting: false, error: "bridge unavailable" });
     manager.state.update((current) => ({ ...current, draftOpen: true }));
@@ -299,6 +315,7 @@ describe("GenerativeManager", () => {
 
     manager.start();
     await vi.waitFor(() => expect(getGenerativeWorkspace).toHaveBeenCalledOnce());
+    expect(manager.openDraft()).toBe(true);
     const firstUpdate = manager.update({ prompt: "old composition" });
     expect(manager.state.get().busy).toBe(true);
 
@@ -308,6 +325,7 @@ describe("GenerativeManager", () => {
 
     expect(await firstUpdate).toBe(false);
     expect(manager.state.get()).toMatchObject({ busy: false, submitting: false, error: null });
+    expect(manager.openDraft()).toBe(true);
     expect(await manager.update({ prompt: "new composition" })).toBe(true);
     expect(updateGenerativeRecipe).toHaveBeenNthCalledWith(2, second.key, { prompt: "new composition" });
     manager.destroy();

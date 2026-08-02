@@ -338,7 +338,7 @@
         {/if}
       {:else}
         <div><span>GENERATIVE COMPOSITION · {workspace.outputKind}</span><strong>{workspace.modelName}</strong><small class:failed-status={workspace.status === "failed"}>{workspace.mode} · ${workspace.costUsd.toFixed(2)} · {workspace.status}</small></div>
-        <select disabled={$store.busy} aria-label="Generation model" value={workspace.model} onchange={(event) => void viewModel.update({ model: event.currentTarget.value })}>
+        <select disabled={$store.busy || !$store.draftOpen} aria-label="Generation model" value={workspace.model} onchange={(event) => void viewModel.update({ model: event.currentTarget.value })}>
           {#each workspace.models as model}<option value={model.id}>{model.name} · {model.baseline}</option>{/each}
         </select>
       {/if}

@@ -122,6 +122,14 @@ export class GenerativeManager {
 
   public update(patch: Record<string, unknown>): Promise<boolean> {
     const compositionKey = this.session.state.get().currentKey;
+    if (!this.state.get().draftOpen) {
+      this.state.update((state) => ({
+        ...state,
+        error: "Choose Add Take before editing the generation recipe.",
+        message: null,
+      }));
+      return Promise.resolve(false);
+    }
     return this.runDraftOperation(() => this.workspacePort.updateGenerativeRecipe(compositionKey, patch), compositionKey);
   }
   public openDraft(): boolean {
@@ -130,6 +138,7 @@ export class GenerativeManager {
       return false;
     }
     this.setDraftOpen(this.session.state.get().currentKey, true);
+    this.state.update((state) => ({ ...state, error: null }));
     return true;
   }
   public async generate(): Promise<boolean> {
