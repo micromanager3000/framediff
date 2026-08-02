@@ -293,7 +293,8 @@ export interface AgentCheckDiagnostic {
     | "read-only-animation"
     | "unsafe-unroll"
     | "stale-artifact"
-    | "source-conflict";
+    | "source-conflict"
+    | "silent-audio";
   severity: "info" | "warning" | "error";
   message: string;
   compositionKey?: string;

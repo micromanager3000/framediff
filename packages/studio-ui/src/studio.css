@@ -487,6 +487,7 @@
 :where(.framediff-studio) .production-badge { position: relative; z-index: 2; float: right; margin-left: 4px; color: var(--faint); font: 700 7px/1 var(--mono); }
 :where(.framediff-studio) .production-badge.local { color: var(--green); }:where(.framediff-studio) .production-badge.remote { color: var(--blue); }:where(.framediff-studio) .production-badge.missing { color: var(--red); }:where(.framediff-studio) .production-badge.effects { color: var(--pink); }
 :where(.framediff-studio) .production-badge.proxy { color: var(--yellow); }:where(.framediff-studio) .production-badge.pinned { color: var(--pink); }:where(.framediff-studio) .production-badge.nested { color: var(--blue); }
+:where(.framediff-studio) .production-badge.silent { color: var(--red); }
 :where(.framediff-studio) .production-badge.artifact.current { color: var(--green); }:where(.framediff-studio) .production-badge.artifact.stale { color: var(--yellow); }:where(.framediff-studio) .production-badge.artifact.missing { color: var(--red); }:where(.framediff-studio) .production-badge.artifact.remote { color: var(--blue); }
 :where(.framediff-studio) .trim-handle { position: absolute; top: 0; bottom: 0; z-index: 2; width: 7px; opacity: 0; background: var(--accent); cursor: ew-resize; }
 :where(.framediff-studio) .trim-handle.left { left: 0; border-radius: 4px 0 0 4px; }

@@ -179,6 +179,43 @@ describe("StudioAgentApi", () => {
     }
   });
 
+  it("warns when a placement whose source is an audio composition is muted", async () => {
+    const voice: CompositionDescriptor = {
+      key: "voColdOpen", id: "voColdOpen", width: 16, height: 16, fps: 30,
+      durationInFrames: 870, kind: "generate", outputKind: "audio", library: true,
+    };
+    const runtime = new AgentRuntime();
+    runtime.getCompositions = () => [comp, voice];
+    // The edit owns the placements; the nested voice comp has none of its own.
+    runtime.probe = async (key?: string) => (key === "main" ? runtime.items : []);
+    runtime.items = [
+      {
+        id: "vo-coldopen", from: 90, durationInFrames: 870, order: 0, layer: 0, origin: "sequence",
+        editable: { from: true, duration: true, layer: true, trimStart: true },
+        content: { type: "nested", compId: "voColdOpen", trimStart: 0, muted: true },
+        production: { nestedCompositionKey: "voColdOpen", pinnedTake: 1, effects: false },
+      },
+      {
+        // Picture muted on purpose — the edit takes its sound from the VO track.
+        id: "sc1-shot", from: 0, durationInFrames: 1050, order: 1, layer: 0, origin: "sequence",
+        editable: { from: true, duration: true, layer: true, trimStart: true },
+        content: { type: "nested", compId: "shotRain", trimStart: 0, muted: true },
+        production: { nestedCompositionKey: "shotRain", effects: false },
+      },
+    ];
+    const application = new StudioApplication(runtime, clock, "main");
+    const agent = new StudioAgentApi(application);
+    try {
+      const check = await agent.check();
+      const silent = check.diagnostics.filter((diagnostic) => diagnostic.code === "silent-audio");
+      expect(silent).toHaveLength(1);
+      expect(silent[0]).toMatchObject({ severity: "warning", compositionKey: "main", objectId: "vo-coldopen" });
+      expect(silent[0].message).toContain("muted");
+    } finally {
+      application.destroy();
+    }
+  });
+
   it("deduplicates identical diagnostics from repeated physical artifact records", async () => {
     const runtime = new AgentRuntime();
     runtime.cache.push({ ...runtime.cache[0] });
