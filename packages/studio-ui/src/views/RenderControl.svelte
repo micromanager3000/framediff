@@ -1,12 +1,13 @@
 <script lang="ts">
   import type { RenderViewModel } from "../viewmodels/Render.ViewModel";
+  import { renderProgressPresentation } from "../renderProgressPresentation";
 
   export let viewModel: RenderViewModel;
   export let showTargets = true;
   const store = viewModel.store;
   let menuOpen = false;
   let control: HTMLDivElement;
-  $: progress = $store.progress ? Math.round(($store.progress.completed / Math.max(1, $store.progress.total)) * 100) : 0;
+  $: progress = renderProgressPresentation($store.progress);
   $: batchPrefix = $store.batch && $store.batch.total > 1
     ? `${$store.batch.current}/${$store.batch.total} · `
     : "";
@@ -38,7 +39,13 @@
 
 <div class="render-control" bind:this={control}>
   {#if $store.status === "rendering"}
-    <span class="render-progress">{batchPrefix}{$store.progress?.phase ?? "prepare"} · {progress}%</span>
+    <span
+      class="render-progress"
+      class:indeterminate={!progress.determinate}
+      title={progress.title ?? ""}
+      role="status"
+      aria-live="polite"
+    >{batchPrefix}{progress.text}</span>
   {:else if $store.status === "done"}
     <span class="render-done">{$store.filename} · {($store.bytes / 1_000_000).toFixed(1)} MB</span>
   {:else if $store.status === "error"}
