@@ -104,6 +104,7 @@ import {
   refreshGenOutputs,
   recipeHashOf,
   forkGenRecipe,
+  type GenPresentationSnapshot,
   type GenRecipe,
   type GenRef,
   type GenerativeComposition,
@@ -1091,6 +1092,7 @@ function adaptedVisualComposition(options: {
 // Takes this session has already announced to mounted GenOutputs — new arrivals beyond
 // this set trigger a refreshGenOutputs() so playing previews pick them up live.
 const seenGenTakes = new Set<string>();
+type VoiceChoiceResult = { choices: GenerativeChoiceSnapshot[]; error?: string };
 
 export class HtmlStudioRuntime implements CompositionRuntimePort {
   private registry: CompRegistry;
@@ -1106,6 +1108,9 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   private bakeInputListeners = new Set<() => void>();
   private cacheProbe: Promise<CacheEntry[]> | null = null;
   private outputResolutions = new Map<string, Promise<string>>();
+  private voiceChoicesCache: { expiresAt: number; result: VoiceChoiceResult } | null = null;
+  private voiceChoicesRequest: Promise<VoiceChoiceResult> | null = null;
+  private voiceChoicesGeneration = 0;
 
   public constructor(
     registry: CompRegistry,
@@ -3671,23 +3676,51 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
 
   /** The account's voices as pickable, auditionable choices. Generated voices sort first:
    *  a project that designed its own cast cares about those, not the stock presets. */
-  private async loadVoiceChoices(): Promise<{ choices: GenerativeChoiceSnapshot[]; error?: string }> {
+  private async loadVoiceChoices(): Promise<VoiceChoiceResult> {
+    const now = Date.now();
+    if (this.voiceChoicesCache && this.voiceChoicesCache.expiresAt > now) {
+      return this.voiceChoicesCache.result;
+    }
+    if (this.voiceChoicesRequest) return this.voiceChoicesRequest;
     // The adapter method is newer than the interface's other members: an older or partial
     // project adapter simply has no voice discovery, which is not an error.
     if (typeof this.project.getProviderVoices !== "function") return { choices: [] };
-    const result = await this.project.getProviderVoices();
-    if ("error" in result) return { choices: [], error: result.error };
-    const rank = (category?: string) => (category === "generated" ? 0 : category === "cloned" ? 1 : 2);
-    const choices = result.voices
-      .map((voice) => ({
-        value: voice.voice_id,
-        label: voice.name ?? voice.voice_id,
-        group: voice.category ?? "voice",
-        description: voice.description,
-        previewUrl: voice.preview_url,
-      }))
-      .sort((a, b) => rank(a.group) - rank(b.group) || a.label.localeCompare(b.label));
-    return { choices };
+    const generation = this.voiceChoicesGeneration;
+    const request = (async (): Promise<VoiceChoiceResult> => {
+      const result = await this.project.getProviderVoices();
+      if ("error" in result) return { choices: [], error: result.error };
+      const rank = (category?: string) => (category === "generated" ? 0 : category === "cloned" ? 1 : 2);
+      return {
+        choices: result.voices
+          .map((voice) => ({
+            value: voice.voice_id,
+            label: voice.name ?? voice.voice_id,
+            group: voice.category ?? "voice",
+            description: voice.description,
+            previewUrl: voice.preview_url,
+          }))
+          .sort((a, b) => rank(a.group) - rank(b.group) || a.label.localeCompare(b.label)),
+      };
+    })();
+    this.voiceChoicesRequest = request;
+    try {
+      const result = await request;
+      if (generation === this.voiceChoicesGeneration) {
+        this.voiceChoicesCache = {
+          expiresAt: Date.now() + (result.error ? 5_000 : 60_000),
+          result,
+        };
+      }
+      return result;
+    } finally {
+      if (this.voiceChoicesRequest === request) this.voiceChoicesRequest = null;
+    }
+  }
+
+  private invalidateVoiceChoices(): void {
+    this.voiceChoicesGeneration++;
+    this.voiceChoicesCache = null;
+    this.voiceChoicesRequest = null;
   }
 
   public async getProcessingWorkspace(compositionKey: string): Promise<ProcessingWorkspaceSnapshot | null> {
@@ -3852,26 +3885,54 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         } : {}),
       };
     };
+    const needsVoiceChoices = definition.params.some((param) => param.dynamicOptions === "voices")
+      || data.takes.some((take) => {
+        if (take.generator.presentation) return false;
+        const historical = take.generator.recipe;
+        if (!historical) return false;
+        return genModelOf(historical).params.some((param) => param.dynamicOptions === "voices");
+      });
+    // Voice discovery is cached and shared across live and historical settings. Legacy takes
+    // can therefore recover a human label; new takes persist the label at submission time.
+    const voiceChoices = needsVoiceChoices
+      ? await this.loadVoiceChoices()
+      : { choices: [] as GenerativeChoiceSnapshot[] };
     const takeSettings = (take: (typeof data.takes)[number]) => {
       const historical = take.generator.recipe;
       if (!historical) return undefined;
       const historicalRecipe: GenRecipe = { id: recipe.id, ...historical };
       const historicalDefinition = genModelOf(historicalRecipe);
+      const presentation = take.generator.presentation;
       return {
         model: historicalRecipe.model ?? historicalDefinition.id,
-        modelName: historicalDefinition.name,
+        modelName: presentation?.modelName ?? historicalDefinition.name,
         outputKind: genOutputKindOf(historicalRecipe),
         prompt: historicalRecipe.prompt,
         negativePrompt: historicalRecipe.negativePrompt ?? "",
-        acceptsNegativePrompt: historicalDefinition.negativePrompt,
-        mode: historicalDefinition.modeOf(historicalRecipe),
-        endpoint: historicalDefinition.endpointOf(historicalRecipe),
-        costUsd: historicalDefinition.costUsd(historicalRecipe),
-        params: historicalDefinition.params.map((param) => ({
-          key: param.key, label: param.label, type: param.type, value: genParamValue(historicalRecipe, param),
-          options: param.gate?.(historicalRecipe) ?? param.options, min: param.min, max: param.max, step: param.step,
-          enabled: param.enabledIf?.(historicalRecipe) ?? true,
-        })),
+        acceptsNegativePrompt: historicalDefinition.negativePrompt || !!historicalRecipe.negativePrompt,
+        mode: presentation?.mode ?? historicalDefinition.modeOf(historicalRecipe),
+        endpoint: take.generator.endpoint,
+        costUsd: presentation?.costUsd ?? historicalDefinition.costUsd(historicalRecipe),
+        params: presentation?.params?.length
+          ? presentation.params.map((param) => ({
+              key: param.key,
+              label: param.label,
+              type: typeof param.value === "number" ? "number" as const : "enum" as const,
+              value: param.value,
+              displayValue: param.displayValue,
+              enabled: param.enabled,
+            }))
+          : historicalDefinition.params.map((param) => {
+              const value = genParamValue(historicalRecipe, param);
+              const displayValue = param.dynamicOptions === "voices"
+                ? voiceChoices.choices.find((choice) => choice.value === String(value))?.label ?? String(value)
+                : String(value);
+              return {
+                key: param.key, label: param.label, type: param.type, value, displayValue,
+                options: param.gate?.(historicalRecipe) ?? param.options, min: param.min, max: param.max, step: param.step,
+                enabled: param.enabledIf?.(historicalRecipe) ?? true,
+              };
+            }),
         refs: (historicalRecipe.refs ?? []).map((ref, index) =>
           refSnapshot(ref, take.generator.inputs?.[index]?.contentHash)),
       };
@@ -3893,10 +3954,6 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
           ),
         }
       : undefined;
-    // Only pay for account discovery when a param actually needs it.
-    const voiceChoices = definition.params.some((param) => param.dynamicOptions === "voices")
-      ? await this.loadVoiceChoices()
-      : { choices: [] as GenerativeChoiceSnapshot[] };
     return {
       compositionKey,
       recipeId: recipe.id,
@@ -4334,6 +4391,26 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     ) {
       return { ok: false, message: "The submitted generation recipe could not be verified as immutable." };
     }
+    const voiceChoices = definition.params.some((param) => param.dynamicOptions === "voices")
+      ? await this.loadVoiceChoices()
+      : { choices: [] as GenerativeChoiceSnapshot[] };
+    const presentation: GenPresentationSnapshot = {
+      modelName: definition.name,
+      mode: definition.modeOf(effectiveRecipe),
+      costUsd: definition.costUsd(effectiveRecipe),
+      params: definition.params.map((param) => {
+        const value = genParamValue(effectiveRecipe, param);
+        return {
+          key: param.key,
+          label: param.label,
+          value,
+          displayValue: param.dynamicOptions === "voices"
+            ? voiceChoices.choices.find((choice) => choice.value === String(value))?.label ?? String(value)
+            : String(value),
+          enabled: param.enabledIf?.(effectiveRecipe) ?? true,
+        };
+      }),
+    };
     const result = await this.project.submitGeneration({
       provider: definition.provider ?? recipe.provider ?? "fal",
       gen: recipe.id,
@@ -4350,6 +4427,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         ...fields.find((field) => field.kind === ref.kind),
       })),
       recipe: recipeSnapshot,
+      presentation,
     });
     return result.job && !result.error
       ? { ok: true, message: `Submitted generation ${result.job.id.slice(0, 8)}…` }
@@ -4359,6 +4437,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   public async configureProvider(provider: string, key: string): Promise<ProjectOperationResult> {
     const saved = await this.project.putSecret(provider, key);
     if (!saved.ok) return { ok: false, message: saved.error ?? `Could not save the ${provider} key.` };
+    if (provider === "elevenlabs") this.invalidateVoiceChoices();
     const verified = await this.project.verifyProvider(provider);
     return verified.ok
       ? { ok: true, message: `${provider} credentials saved.` }
@@ -4421,6 +4500,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
 
   public async clearProvider(provider: string): Promise<ProjectOperationResult> {
     const cleared = await this.project.deleteSecret(provider);
+    if (cleared.ok && provider === "elevenlabs") this.invalidateVoiceChoices();
     return cleared.ok
       ? { ok: true, message: `${provider} credentials removed.` }
       : { ok: false, message: cleared.error ?? `Could not remove the ${provider} credentials.` };

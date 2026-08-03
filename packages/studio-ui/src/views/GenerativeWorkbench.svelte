@@ -79,6 +79,7 @@
     }
     previousGeneratingCount = generatingCount;
   }
+  $: if (!$store.draftOpen && failedDraftStarted) failedDraftStarted = "";
   $: if (effectivePreviewSelection.kind === "draft" && takeVideo) {
     // A draft selection owns no media element. Explicitly stop the previous take while
     // Svelte tears down its branch so a pinned output cannot keep playing invisibly.
@@ -365,7 +366,7 @@
                 <div><span>MODEL</span><strong>{settings.modelName}</strong></div>
                 <div><span>MODE</span><strong>{settings.mode}</strong></div>
                 {#each settings.params.filter((param) => param.enabled) as param (param.key)}
-                  <div><span>{param.label}</span><strong>{String(param.value)}</strong></div>
+                  <div><span>{param.label}</span><strong>{param.displayValue ?? String(param.value)}</strong></div>
                 {/each}
                 <div class="take-endpoint"><span>ENDPOINT</span><code title={settings.endpoint}>{settings.endpoint}</code></div>
               </div>

@@ -91,6 +91,23 @@ export interface GenInputProvenance {
   adapt?: VisualAdaptation;
 }
 
+/** Submission-time labels for values whose stored provider identity is not human-readable.
+ * This metadata explains a historical take without changing its recipe hash or request. */
+export interface GenPresentationParamSnapshot {
+  key: string;
+  label: string;
+  value: string | number | boolean;
+  displayValue: string;
+  enabled: boolean;
+}
+
+export interface GenPresentationSnapshot {
+  modelName: string;
+  mode: string;
+  costUsd: number;
+  params: GenPresentationParamSnapshot[];
+}
+
 export function genRecipeSnapshotOf(recipe: GenRecipe): GenRecipeSnapshot {
   const { id: _id, file: _file, dataFile: _dataFile, take: _take, ...snapshot } = recipe;
   return snapshot;
@@ -226,6 +243,7 @@ export interface GenProvenance {
   endpoint: string;
   recipe: GenRecipeSnapshot;
   inputs: GenInputProvenance[];
+  presentation?: GenPresentationSnapshot;
   requestId?: string;
   seed?: number;
   outputKind?: "video" | "image" | "audio";

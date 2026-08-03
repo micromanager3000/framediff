@@ -3,7 +3,7 @@
 // works as a pure preview against any static server.
 
 import type { CacheEntry } from "./types";
-import type { GenInputProvenance, GenProvider, GenRecipeSnapshot, GenRefKind } from "../generative";
+import type { GenInputProvenance, GenPresentationSnapshot, GenProvenance, GenProvider, GenRecipeSnapshot, GenRefKind } from "../generative";
 import type {
   ProjectEditConflict,
   ProjectEditReceipt,
@@ -381,6 +381,7 @@ export interface GenJob {
   doneAt?: string;
   recipe?: GenRecipeSnapshot;
   inputs?: GenInputProvenance[];
+  presentation?: GenPresentationSnapshot;
 }
 
 /** Jobs are append-only in the repo-tracked framediff.generations.json ledger. A failure
@@ -396,18 +397,7 @@ export interface GenTakeRow {
   contentHash: string;
   bytes: number;
   mime?: string;
-  generator: {
-    gen: string;
-    take: number;
-    recipeHash: string;
-    endpoint: string;
-    recipe: GenRecipeSnapshot;
-    inputs: GenInputProvenance[];
-    requestId?: string;
-    seed?: number;
-    outputKind?: "video" | "image" | "audio";
-    at?: string;
-  };
+  generator: GenProvenance;
 }
 
 export async function genSubmit(payload: {
@@ -418,6 +408,7 @@ export async function genSubmit(payload: {
   input: Record<string, unknown>;
   refs: { kind: GenRefKind; src: string; authoredSrc: string; mime?: string; name?: string; field?: string; many?: boolean; adapt?: GenInputProvenance["adapt"] }[];
   recipe: GenRecipeSnapshot;
+  presentation?: GenPresentationSnapshot;
 }, request: StudioProjectRequest = globalThis.fetch.bind(globalThis)): Promise<{ job?: GenJob; error?: string }> {
   try {
     const r = await request("/__framediff/gen/submit", {

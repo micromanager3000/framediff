@@ -124,6 +124,49 @@ test("failed attempts stay in take-number order with generated takes", async ({ 
   await expect(page.locator(".gen-take.draft")).toHaveCount(0);
 });
 
+test("historical audio takes show the saved voice name instead of its provider id", async ({ page }) => {
+  await page.route("**/__framediff/gen/jobs*", async (route) => {
+    if (!route.request().url().includes("gen=lighthouseDialogueAudio")) return route.continue();
+    const response = await route.fetch();
+    const body = await response.json() as { jobs: unknown[]; takes: Array<Record<string, unknown> & { generator: Record<string, unknown> }> };
+    await route.fulfill({
+      json: {
+        ...body,
+        takes: body.takes.map((take) => ({
+          ...take,
+          generator: {
+            ...take.generator,
+            endpoint: "v1/text-to-speech/vox-jimmy",
+            recipe: {
+              provider: "elevenlabs",
+              output: "audio",
+              model: "elevenlabs-direct",
+              prompt: "Historical narration.",
+              voice: "vox-jimmy",
+              speed: 1,
+            },
+            presentation: {
+              modelName: "Eleven v3 · direct",
+              mode: "text-to-speech",
+              costUsd: 0.1,
+              params: [
+                { key: "voice", label: "VOICE", value: "vox-jimmy", displayValue: "Jimmy", enabled: true },
+                { key: "speed", label: "SPEED", value: 1, displayValue: "1", enabled: true },
+              ],
+            },
+          },
+        })),
+      },
+    });
+  });
+
+  await openComposition(page, "lighthouse-dialogue-audio", "http://127.0.0.1:4175/");
+
+  await expect(page.getByText("HISTORICAL TAKE 1", { exact: true })).toBeVisible();
+  await expect(page.locator(".take-settings").getByText("Jimmy", { exact: true })).toBeVisible();
+  await expect(page.locator(".take-settings").getByText("vox-jimmy", { exact: true })).toHaveCount(0);
+});
+
 test("generative rows advertise their output kind and input comps link to their source", async ({ page }) => {
   await openComposition(page, "harborShot", "http://127.0.0.1:4175/");
 

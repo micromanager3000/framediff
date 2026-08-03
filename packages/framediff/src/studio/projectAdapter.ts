@@ -30,7 +30,7 @@ import {
   type VerifyResult,
 } from "./devfs";
 import type { CacheEntry } from "./types";
-import type { GenInputProvenance, GenProvider, GenRecipeSnapshot, GenRefKind } from "../generative";
+import type { GenInputProvenance, GenPresentationSnapshot, GenProvider, GenRecipeSnapshot, GenRefKind } from "../generative";
 import type { SourceFileRevisionSnapshot } from "@framediff/studio-model";
 
 export interface GenerationSubmission {
@@ -50,6 +50,7 @@ export interface GenerationSubmission {
     adapt?: GenInputProvenance["adapt"];
   }[];
   recipe: GenRecipeSnapshot;
+  presentation?: GenPresentationSnapshot;
 }
 
 /**

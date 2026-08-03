@@ -101,6 +101,30 @@ describe("GenerativeManager", () => {
     manager.destroy();
   });
 
+  it("forgets draft state when a composition key is removed and later reused", async () => {
+    const composition = { key: "generate" } as CompositionDescriptor;
+    const empty = { compositionKey: "generate", jobs: [], takes: [] } as unknown as GenerativeWorkspaceSnapshot;
+    const historical = {
+      compositionKey: "generate",
+      jobs: [{ id: "job-1", status: "done", take: 1 }],
+      takes: [{ take: 1 }],
+    } as unknown as GenerativeWorkspaceSnapshot;
+    let reused = false;
+    const state = new ObservableValue({ currentKey: composition.key, compositions: [composition] } as StudioSessionState);
+    const manager = new GenerativeManager({ state } as StudioSession, {
+      getGenerativeWorkspace: vi.fn(async (key: string) => key === composition.key ? (reused ? historical : empty) : null),
+    } as unknown as ProjectWorkspacePort);
+
+    manager.start();
+    await vi.waitFor(() => expect(manager.state.get()).toMatchObject({ workspace: empty, draftOpen: true }));
+    state.update((current) => ({ ...current, currentKey: "", compositions: [] }));
+    await vi.waitFor(() => expect(manager.state.get().workspace).toBeNull());
+    reused = true;
+    state.update((current) => ({ ...current, currentKey: composition.key, compositions: [composition] }));
+    await vi.waitFor(() => expect(manager.state.get()).toMatchObject({ workspace: historical, draftOpen: false }));
+    manager.destroy();
+  });
+
   it("restores the draft when submission creates no attempt", async () => {
     const composition = { key: "generate" } as CompositionDescriptor;
     const workspace = { jobs: [], takes: [] } as unknown as GenerativeWorkspaceSnapshot;

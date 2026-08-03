@@ -110,6 +110,8 @@ export {
   type GenDesiredOutput,
   genRecipeDataOf,
   type GenInputProvenance,
+  type GenPresentationParamSnapshot,
+  type GenPresentationSnapshot,
   type GenRef,
   type GenRefKind,
   type GenMode,

@@ -54,6 +54,12 @@ export class GenerativeManager {
     this.unsubscribe = this.session.state.subscribe((state) => {
       const registryChanged = state.compositions !== this.lastCompositions;
       if (state.currentKey === this.lastKey && !registryChanged) return;
+      if (registryChanged) {
+        const liveKeys = new Set(state.compositions.map((composition) => composition.key));
+        for (const key of this.draftOpenByComposition.keys()) {
+          if (!liveKeys.has(key)) this.draftOpenByComposition.delete(key);
+        }
+      }
       const compositionChanged = state.currentKey !== this.lastKey;
       this.lastKey = state.currentKey;
       this.lastCompositions = state.compositions;

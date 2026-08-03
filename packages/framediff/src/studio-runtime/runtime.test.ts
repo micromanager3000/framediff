@@ -158,6 +158,130 @@ describe("HtmlStudioRuntime Inspector batches", () => {
     expect(project.submitGeneration).not.toHaveBeenCalled();
   });
 
+  it("persists human-readable voice presentation metadata with a submitted take", async () => {
+    const generated = generative({
+      id: "Narration",
+      output: "audio",
+      model: "elevenlabs-direct",
+      prompt: "A quiet introduction.",
+      voice: "vox-jimmy",
+      speed: 1.1,
+    });
+    const getProviderVoices = vi.fn(async () => ({
+      voices: [{ voice_id: "vox-jimmy", name: "Jimmy", category: "generated" }],
+    }));
+    const project = {
+      getAssets: vi.fn(async () => ({ version: 1, assets: {} })),
+      getProviderVoices,
+      submitGeneration: vi.fn(async () => ({ job: { id: "job-voice", status: "done" } })),
+    };
+    const runtime = createStudioRuntime({ generated } as CompRegistry, project as never);
+
+    await expect(runtime.submitGeneration("generated")).resolves.toMatchObject({ ok: true });
+
+    expect(project.submitGeneration).toHaveBeenCalledWith(expect.objectContaining({
+      presentation: expect.objectContaining({
+        modelName: "Eleven v3 · direct",
+        params: expect.arrayContaining([
+          expect.objectContaining({ key: "voice", value: "vox-jimmy", displayValue: "Jimmy" }),
+        ]),
+      }),
+    }));
+    expect(getProviderVoices).toHaveBeenCalledOnce();
+  });
+
+  it("shows durable voice labels and resolves legacy voice ids without repolling the account", async () => {
+    const generated = generative({
+      id: "Narration",
+      output: "audio",
+      model: "elevenlabs-direct",
+      prompt: "Current narration.",
+      voice: "vox-jimmy",
+      take: 2,
+    });
+    const historicalRecipe = {
+      provider: "elevenlabs" as const,
+      output: "audio" as const,
+      model: "elevenlabs-direct",
+      prompt: "Historical narration.",
+      voice: "vox-jimmy",
+      speed: 1,
+    };
+    const baseGenerator = {
+      gen: "Narration",
+      recipeHash: "sha256:voice",
+      endpoint: "v1/text-to-speech/vox-jimmy",
+      recipe: historicalRecipe,
+      inputs: [],
+      outputKind: "audio" as const,
+    };
+    const takes = [
+      {
+        assetId: "voice-one",
+        contentHash: "sha256:voice-one",
+        bytes: 100,
+        generator: {
+          ...baseGenerator,
+          take: 1,
+          endpoint: "v1/text-to-speech/submission-route",
+          presentation: {
+            modelName: "Eleven Direct at submission",
+            mode: "Saved narration mode",
+            costUsd: 1.23,
+            params: [{ key: "voice", label: "VOICE", value: "vox-jimmy", displayValue: "Original Jimmy", enabled: true }],
+          },
+        },
+      },
+      {
+        assetId: "voice-two",
+        contentHash: "sha256:voice-two",
+        bytes: 120,
+        generator: { ...baseGenerator, take: 2 },
+      },
+    ];
+    const getProviderVoices = vi.fn(async () => ({
+      voices: [{
+        voice_id: "vox-jimmy",
+        name: getProviderVoices.mock.calls.length === 1 ? "Current Jimmy" : "Replacement Jimmy",
+        category: "generated",
+      }],
+    }));
+    const project = {
+      getAssets: vi.fn(async () => ({ version: 1, assets: {} })),
+      getGenerationJobs: vi.fn(async () => ({ jobs: [], takes })),
+      getSecrets: vi.fn(async () => ({ providers: { elevenlabs: { set: true } } })),
+      getProviderVoices,
+      putSecret: vi.fn(async () => ({ ok: true })),
+      verifyProvider: vi.fn(async () => ({ ok: true })),
+    };
+    const runtime = createStudioRuntime({ generated } as CompRegistry, project as never);
+
+    const first = await runtime.getGenerativeWorkspace("generated");
+    const second = await runtime.getGenerativeWorkspace("generated");
+    const stored = first?.takes[0].settings;
+    const legacy = first?.takes[1].settings;
+
+    expect(stored).toMatchObject({
+      modelName: "Eleven Direct at submission",
+      mode: "Saved narration mode",
+      endpoint: "v1/text-to-speech/submission-route",
+      costUsd: 1.23,
+      params: [{ key: "voice", value: "vox-jimmy", displayValue: "Original Jimmy" }],
+    });
+    expect(legacy?.params.find((param) => param.key === "voice")).toMatchObject({
+      value: "vox-jimmy",
+      displayValue: "Current Jimmy",
+    });
+    expect(second?.takes).toHaveLength(2);
+    expect(getProviderVoices).toHaveBeenCalledOnce();
+
+    await expect(runtime.configureProvider("elevenlabs", "replacement-key")).resolves.toMatchObject({ ok: true });
+    const afterCredentialChange = await runtime.getGenerativeWorkspace("generated");
+    expect(afterCredentialChange?.takes[1].settings?.params.find((param) => param.key === "voice")?.displayValue)
+      .toBe("Replacement Jimmy");
+    expect(getProviderVoices).toHaveBeenCalledTimes(2);
+  });
+
   it("inherits a direct ElevenLabs voice id from a pinned audio anchor", async () => {
     const voiceRef = generative({
       id: "VoiceRef",

@@ -728,6 +728,8 @@ export interface GenerativeParamSnapshot {
   label: string;
   type: "enum" | "number";
   value: string | number | boolean;
+  /** Submission-time human label for opaque values such as provider voice ids. */
+  displayValue?: string;
   options?: (string | number | boolean)[];
   /** Populated at snapshot time from the provider account; takes precedence over `options`. */
   choices?: GenerativeChoiceSnapshot[];

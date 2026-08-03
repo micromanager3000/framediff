@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
 import { execFile, execFileSync } from "node:child_process";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { GenInputProvenance, GenProvider, GenRecipeSnapshot, GenRefKind } from "./src/generative";
+import type { GenInputProvenance, GenPresentationSnapshot, GenProvider, GenRecipeSnapshot, GenRefKind } from "./src/generative";
 
 type NextFn = (err?: unknown) => void;
 type DevServer = {
@@ -461,6 +461,7 @@ interface GenJobRecord {
   doneAt?: string;
   recipe: GenRecipeSnapshot;
   inputs: GenInputProvenance[];
+  presentation?: GenPresentationSnapshot;
 }
 function jobsFile(root: string): string {
   return path.join(root, "framediff.generations.json");
@@ -1049,6 +1050,7 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
               input?: Record<string, unknown>;
               refs?: { kind: GenRefKind; src: string; authoredSrc: string; mime?: string; name?: string; field?: string; many?: boolean; adapt?: GenInputProvenance["adapt"] }[];
               recipe?: GenRecipeSnapshot;
+              presentation?: GenPresentationSnapshot;
             };
             const { gen, endpoint, recipeHash } = body;
             const provider = body.provider ?? body.recipe?.provider ?? "fal";
@@ -1136,6 +1138,7 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
               at: new Date().toISOString(),
               recipe: body.recipe,
               inputs,
+              ...(body.presentation ? { presentation: body.presentation } : {}),
             };
             writeJobs(root, [...jobs, attempt]);
             if (provider === "byteplus") {
@@ -1227,6 +1230,7 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
                     endpoint: job.endpoint,
                     recipe: job.recipe,
                     inputs: job.inputs,
+                    presentation: job.presentation,
                     requestId: job.id,
                     seed: job.seed,
                     outputKind: "audio",
@@ -1443,6 +1447,7 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
                 endpoint: job.endpoint,
                 recipe: job.recipe,
                 inputs: job.inputs,
+                presentation: job.presentation,
                 requestId: job.id,
                 seed,
                 outputKind,
@@ -1580,6 +1585,7 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
                 endpoint: job.endpoint,
                 recipe: job.recipe,
                 inputs: job.inputs,
+                presentation: job.presentation,
                 requestId: job.id,
                 seed: job.seed,
                 outputKind: job.outputKind,

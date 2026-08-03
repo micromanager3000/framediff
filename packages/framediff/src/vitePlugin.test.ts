@@ -355,6 +355,12 @@ describe("framediffDev local cache folder", () => {
           seed: 0,
         },
         recipe: { id: "voiceJimmy", provider: "elevenlabs", model: "elevenlabs-direct", prompt: "Red Hook, Brooklyn. Nineteen thirty-two.", speed: 1.2, seed: 0 },
+        presentation: {
+          modelName: "Eleven v3 · direct",
+          mode: "text-to-speech",
+          costUsd: 0.1,
+          params: [{ key: "voice", label: "VOICE", value: "vox-jimmy-01", displayValue: "Jimmy", enabled: true }],
+        },
       })),
       { "content-type": "application/json" },
     );
@@ -387,8 +393,18 @@ describe("framediffDev local cache folder", () => {
     const jobs = JSON.parse((await request("/__framediff/gen/jobs?gen=voiceJimmy")).body);
     expect(jobs.takes[0]).toMatchObject({
       mime: "audio/mpeg",
-      generator: { gen: "voiceJimmy", take: 1, seed: 0, outputKind: "audio" },
+      generator: {
+        gen: "voiceJimmy",
+        take: 1,
+        seed: 0,
+        outputKind: "audio",
+        presentation: {
+          modelName: "Eleven v3 · direct",
+          params: [{ key: "voice", value: "vox-jimmy-01", displayValue: "Jimmy" }],
+        },
+      },
     });
+    expect(jobs.jobs[0].presentation.params[0].displayValue).toBe("Jimmy");
   });
 
   it("turns Voice Design candidates into one take each", async () => {
