@@ -25,14 +25,32 @@ at job runtime.
 The stack is deliberately a pilot, not a multi-tenant sandbox. The image contains trusted
 FrameDiff source and synthetic media only.
 
-## Account safety
+## Account safety and renewable machine authentication
 
-All scripts default to AWS CLI profile `ravenflow`, account `920373001555`, region `us-west-2`.
-If the login session has expired, refresh it with `aws login --profile ravenflow`; do not
-create or substitute another profile. The account guard still refuses every account except
-the dedicated FrameDiff account before any deployment mutation.
-They verify the live STS account before doing anything and explicitly reject account
-`730806780703` (LightTwist). Never remove this guard.
+Routine scripts default to AWS CLI profile `framediff-machine`, account `920373001555`, and
+region `us-west-2`. That profile uses AWS IAM Roles Anywhere to exchange the dedicated host's
+X.509 certificate for one-hour temporary credentials on demand. The AWS CLI invokes the official
+AWS signing helper through `credential_process`, so normal reads, releases, deployments, and
+canaries do not require browser login and do not store AWS access keys.
+
+Bootstrap once while the break-glass `ravenflow` login is valid:
+
+```bash
+cloud/aws-render/scripts/bootstrap-machine-auth.sh
+aws sts get-caller-identity --profile framediff-machine
+```
+
+The bootstrap creates a permission-scoped machine role, a subject-bound Roles Anywhere trust
+anchor, a one-hour profile, and a CloudFormation execution role limited to the FrameDiff render
+stack. Its local CA is valid for ten years; the client certificate is valid for 825 days and the
+bootstrap renews it locally whenever fewer than 30 days remain. Private keys live beneath
+`~/.config/framediff/aws` with owner-only permissions. Disable the trust anchor or machine role to
+revoke the host immediately.
+
+Keep `ravenflow` only for rare authentication-stack recovery. `aws login` sessions last at most
+12 hours and are no longer the normal project credential source. Never create static root or
+administrator access keys to avoid login friction. The account guard refuses both the LightTwist
+account (`730806780703`) and any routine identity other than the scoped FrameDiff machine role.
 
 The target account initially had a zero on-demand G/VT quota. Quota request
 `c40cf9132a514a92b0ce26974a1646bfVGtpz38n` requests 8 vCPUs, enough for one
@@ -72,6 +90,13 @@ cloud/aws-render/scripts/watch.sh "$job_id"
 context from `git archive HEAD`. Uncommitted workspace edits and local media are therefore never
 published to ECR. It resolves the pushed tag to an ECR digest, updates Batch to the digest reference,
 and the ECR repository rejects tag mutation.
+
+Every `deploy.sh` run finishes by submitting a production-shaped hosted-render canary. The canary
+keeps its HTML and CSS in separate project files, includes an encoded SVG fragment, and exercises
+the deployed Batch revision plus S3 publication. It downloads the result and independently requires
+H.264/yuv420p MP4, exact dimensions/duration/frame count, no browser errors, no black segment,
+styled-scene luminance, and distinct first/last frame hashes. A deployment is not successful if any
+artifact check fails. Canary evidence remains under `out/aws-render/deploy-canary-<job-id>/`.
 
 Results are written beneath `s3://<artifact-bucket>/jobs/<job-name>/`:
 

@@ -11,6 +11,7 @@ import {
   type CompositionSetup,
   type Plane3DParams,
 } from "framediff";
+import { withProjectStyles } from "./hosted-source.mjs";
 
 type Artifact = {
   contentType: string;
@@ -655,14 +656,6 @@ function hostedDocumentSetup(): CompositionSetup {
       }
     }
   };
-}
-
-function withProjectStyles(html: string, styles: string): string {
-  if (!styles.trim()) return html;
-  const tag = `<style data-framediff-hosted-styles>${styles}</style>`;
-  if (/<\/head\s*>/i.test(html)) return html.replace(/<\/head\s*>/i, `${tag}</head>`);
-  if (/<html\b[^>]*>/i.test(html)) return html.replace(/<html\b[^>]*>/i, `$&<head>${tag}</head>`);
-  return `${tag}${html}`;
 }
 
 async function runHostedRender(request: HostedRenderRequest) {

@@ -36,6 +36,7 @@ aws_fd cloudformation validate-template \
 aws_fd cloudformation deploy \
   --stack-name "$FD_AWS_STACK" \
   --template-file "$ROOT/cloud/aws-render/template.yaml" \
+  --role-arn "arn:aws:iam::$FD_EXPECTED_ACCOUNT_ID:role/framediff-cloud-render-cloudformation" \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
     "ImageTag=$IMAGE_TAG" \
@@ -52,3 +53,5 @@ aws_fd cloudformation describe-stacks \
   --stack-name "$FD_AWS_STACK" \
   --query 'Stacks[0].Outputs[].{key:OutputKey,value:OutputValue}' \
   --output table
+
+"$SCRIPT_DIR/verify-hosted-render.sh"

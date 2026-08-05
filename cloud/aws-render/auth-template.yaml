@@ -1,0 +1,282 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Renewable least-privilege machine identity for the FrameDiff dedicated host
+
+Parameters:
+  TrustAnchorCertificateBody:
+    Type: String
+    Description: PEM-encoded public CA certificate for the dedicated host
+    NoEcho: true
+  ArtifactBucketName:
+    Type: String
+    Default: framediff-cloud-render-artifactbucket-ow9o3bpky0ei
+  MachineSubjectCommonName:
+    Type: String
+    Default: FrameDiffDedicatedHost
+    AllowedPattern: "[A-Za-z0-9._-]{1,61}"
+
+Resources:
+  MachineTrustAnchor:
+    Type: AWS::RolesAnywhere::TrustAnchor
+    Properties:
+      Name: framediff-dedicated-host
+      Enabled: true
+      Source:
+        SourceType: CERTIFICATE_BUNDLE
+        SourceData:
+          X509CertificateData: !Ref TrustAnchorCertificateBody
+      Tags:
+        - Key: Project
+          Value: FrameDiff
+        - Key: Purpose
+          Value: DedicatedHostAuthentication
+
+  RenderCloudFormationExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: framediff-cloud-render-cloudformation
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: framediff-cloud-render-infrastructure
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ManageRenderStorage
+                Effect: Allow
+                Action:
+                  - s3:CreateBucket
+                  - s3:DeleteBucket
+                  - s3:GetBucketTagging
+                  - s3:GetBucketPolicy
+                  - s3:GetBucketPublicAccessBlock
+                  - s3:GetEncryptionConfiguration
+                  - s3:GetLifecycleConfiguration
+                  - s3:PutBucketTagging
+                  - s3:PutBucketPublicAccessBlock
+                  - s3:PutEncryptionConfiguration
+                  - s3:PutLifecycleConfiguration
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:s3:::framediff-cloud-render-*"
+              - Sid: ManageRenderRepository
+                Effect: Allow
+                Action:
+                  - ecr:CreateRepository
+                  - ecr:DeleteRepository
+                  - ecr:DescribeRepositories
+                  - ecr:GetLifecyclePolicy
+                  - ecr:ListTagsForResource
+                  - ecr:PutImageScanningConfiguration
+                  - ecr:PutImageTagMutability
+                  - ecr:PutLifecyclePolicy
+                  - ecr:TagResource
+                Resource: !Sub "arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:repository/framediff-cloud-render"
+              - Sid: ManageRenderLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:DeleteLogGroup
+                  - logs:DescribeLogGroups
+                  - logs:ListTagsForResource
+                  - logs:PutRetentionPolicy
+                  - logs:TagResource
+                Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/framediff/cloud-render*"
+              - Sid: ManageRenderNetwork
+                Effect: Allow
+                Action:
+                  - ec2:AuthorizeSecurityGroupEgress
+                  - ec2:CreateSecurityGroup
+                  - ec2:CreateTags
+                  - ec2:DeleteSecurityGroup
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeVpcs
+                  - ec2:RevokeSecurityGroupEgress
+                Resource: "*"
+              - Sid: ManageRenderRoles
+                Effect: Allow
+                Action:
+                  - iam:AddRoleToInstanceProfile
+                  - iam:AttachRolePolicy
+                  - iam:CreateInstanceProfile
+                  - iam:CreateRole
+                  - iam:DeleteInstanceProfile
+                  - iam:DeleteRole
+                  - iam:DeleteRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:GetInstanceProfile
+                  - iam:GetRole
+                  - iam:GetRolePolicy
+                  - iam:ListAttachedRolePolicies
+                  - iam:ListInstanceProfilesForRole
+                  - iam:ListRolePolicies
+                  - iam:PassRole
+                  - iam:PutRolePolicy
+                  - iam:RemoveRoleFromInstanceProfile
+                  - iam:TagRole
+                  - iam:UpdateAssumeRolePolicy
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/framediff-cloud-render-*"
+                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:instance-profile/framediff-cloud-render-*"
+              - Sid: ManageRenderBatch
+                Effect: Allow
+                Action:
+                  - batch:CreateComputeEnvironment
+                  - batch:CreateJobQueue
+                  - batch:DeleteComputeEnvironment
+                  - batch:DeleteJobQueue
+                  - batch:DeregisterJobDefinition
+                  - batch:DescribeComputeEnvironments
+                  - batch:DescribeJobDefinitions
+                  - batch:DescribeJobQueues
+                  - batch:ListTagsForResource
+                  - batch:RegisterJobDefinition
+                  - batch:TagResource
+                  - batch:UntagResource
+                  - batch:UpdateComputeEnvironment
+                  - batch:UpdateJobQueue
+                Resource: "*"
+
+  MachineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: framediff-cloud-render-machine
+      MaxSessionDuration: 43200
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: rolesanywhere.amazonaws.com
+            Action:
+              - sts:AssumeRole
+              - sts:SetSourceIdentity
+              - sts:TagSession
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !GetAtt MachineTrustAnchor.TrustAnchorArn
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+                aws:PrincipalTag/x509Subject/CN: !Ref MachineSubjectCommonName
+      Policies:
+        - PolicyName: framediff-cloud-render-operations
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: InspectIdentityAndNetwork
+                Effect: Allow
+                Action:
+                  - sts:GetCallerIdentity
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeVpcs
+                Resource: "*"
+              - Sid: ReadRenderStack
+                Effect: Allow
+                Action:
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:DescribeStackResources
+                  - cloudformation:DescribeStacks
+                  - cloudformation:GetTemplate
+                  - cloudformation:GetTemplateSummary
+                Resource: !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/framediff-cloud-render/*"
+              - Sid: UpdateRenderStack
+                Effect: Allow
+                Action:
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:ExecuteChangeSet
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/framediff-cloud-render/*"
+                  - !Sub "arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:changeSet/*/*"
+              - Sid: ValidateRenderTemplate
+                Effect: Allow
+                Action: cloudformation:ValidateTemplate
+                Resource: "*"
+              - Sid: PassRenderExecutionRole
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt RenderCloudFormationExecutionRole.Arn
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: cloudformation.amazonaws.com
+              - Sid: AuthenticateToEcr
+                Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: "*"
+              - Sid: PublishRenderImages
+                Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:BatchGetImage
+                  - ecr:CompleteLayerUpload
+                  - ecr:DescribeImages
+                  - ecr:DescribeRepositories
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:InitiateLayerUpload
+                  - ecr:ListImages
+                  - ecr:PutImage
+                  - ecr:UploadLayerPart
+                Resource: !Sub "arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:repository/framediff-cloud-render"
+              - Sid: DispatchRenderJobs
+                Effect: Allow
+                Action:
+                  - batch:SubmitJob
+                  - batch:TagResource
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:batch:${AWS::Region}:${AWS::AccountId}:job-queue/framediff-cloud-render"
+                  - !Sub "arn:${AWS::Partition}:batch:${AWS::Region}:${AWS::AccountId}:job-definition/framediff-cloud-workload:*"
+              - Sid: InspectRenderJobs
+                Effect: Allow
+                Action:
+                  - batch:DescribeJobs
+                  - batch:ListJobs
+                Resource: "*"
+              - Sid: ReadRenderLogs
+                Effect: Allow
+                Action:
+                  - logs:GetLogEvents
+                  - logs:FilterLogEvents
+                Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/framediff/cloud-render:*"
+              - Sid: ReadRenderBucket
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !Sub "arn:${AWS::Partition}:s3:::${ArtifactBucketName}"
+              - Sid: ExchangeRenderArtifacts
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub "arn:${AWS::Partition}:s3:::${ArtifactBucketName}/*"
+
+  MachineProfile:
+    Type: AWS::RolesAnywhere::Profile
+    Properties:
+      Name: framediff-dedicated-host
+      Enabled: true
+      DurationSeconds: 3600
+      RoleArns:
+        - !GetAtt MachineRole.Arn
+      AttributeMappings:
+        - CertificateField: x509Subject
+          MappingRules:
+            - Specifier: CN
+      Tags:
+        - Key: Project
+          Value: FrameDiff
+        - Key: Purpose
+          Value: DedicatedHostAuthentication
+
+Outputs:
+  MachineRoleArn:
+    Value: !GetAtt MachineRole.Arn
+  MachineProfileArn:
+    Value: !GetAtt MachineProfile.ProfileArn
+  MachineTrustAnchorArn:
+    Value: !GetAtt MachineTrustAnchor.TrustAnchorArn
+  RenderCloudFormationExecutionRoleArn:
+    Value: !GetAtt RenderCloudFormationExecutionRole.Arn
