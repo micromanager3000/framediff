@@ -16,6 +16,13 @@ test("the worker image includes the root TypeScript configuration required by Vi
   assert.match(dockerfile, /test -f tsconfig\.base\.json/);
 });
 
+test("ECR publishing uses isolated non-Keychain registry credentials", async () => {
+  const publish = await readFile(resolve(import.meta.dirname, "../scripts/build-and-push.sh"), "utf8");
+  assert.match(publish, /get-authorization-token/);
+  assert.match(publish, /DOCKER_CONFIG="\$DOCKER_AUTH_DIR" docker buildx build/);
+  assert.doesNotMatch(publish, /docker login/);
+});
+
 test("Linux cloud capture is normalized to a validated H.264 MP4", async () => {
   const harness = await readFile(resolve(import.meta.dirname, "../harness/main.ts"), "utf8");
   const runner = await readFile(resolve(import.meta.dirname, "../src/run-job.mjs"), "utf8");

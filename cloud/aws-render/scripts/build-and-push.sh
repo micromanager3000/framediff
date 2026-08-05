@@ -20,13 +20,22 @@ IMAGE_TAG="${FD_IMAGE_TAG:-${REVISION:0:12}}"
 REPOSITORY_URI="$(stack_output RepositoryUri)"
 REGISTRY="${REPOSITORY_URI%%/*}"
 BUILD_DIR="$(mktemp -d)"
-cleanup() { rm -rf "$BUILD_DIR"; }
+DOCKER_AUTH_DIR="$(mktemp -d)"
+cleanup() { rm -rf "${BUILD_DIR:?}" "${DOCKER_AUTH_DIR:?}"; }
 trap cleanup EXIT
 
 git -C "$ROOT" archive HEAD | tar -x -C "$BUILD_DIR"
-aws_fd ecr get-login-password | docker login --username AWS --password-stdin "$REGISTRY"
+ECR_AUTH="$(aws_fd ecr get-authorization-token \
+  --query 'authorizationData[0].authorizationToken' \
+  --output text)"
+if [[ ! "$ECR_AUTH" =~ ^[A-Za-z0-9+/]+={0,2}$ ]]; then
+  echo "ECR did not return a valid registry authorization token." >&2
+  exit 49
+fi
+jq -n --arg registry "$REGISTRY" --arg auth "$ECR_AUTH" \
+  '{auths: {($registry): {auth: $auth}}}' > "$DOCKER_AUTH_DIR/config.json"
 
-docker buildx build \
+DOCKER_CONFIG="$DOCKER_AUTH_DIR" docker buildx build \
   --platform linux/amd64 \
   --provenance=false \
   --file "$BUILD_DIR/cloud/aws-render/Dockerfile" \
