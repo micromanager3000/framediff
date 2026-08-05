@@ -34,6 +34,7 @@ test("AWS worker deployments require a production-shaped artifact canary", async
   assert.doesNotMatch(deploy, /SKIP_RENDER_CANARY/);
   assert.match(submit, /"src\/styles\.css"/);
   assert.match(submit, /url\(%23n\)/);
+  assert.match(submit, /from: 0,\s*to: 48,/);
   assert.match(verify, /ffprobe/);
   assert.match(verify, /blackdetect/);
   assert.match(verify, /signalstats/);

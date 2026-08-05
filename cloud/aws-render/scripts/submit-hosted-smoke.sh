@@ -47,7 +47,7 @@ jq -n \
         width: 320,
         height: 180,
         from: 0,
-        to: 47,
+        to: 48,
         outputKind: "video",
         fps: {numerator: 24, denominator: 1},
         bitrate: 1500000
