@@ -27,7 +27,10 @@ FrameDiff source and synthetic media only.
 
 ## Account safety
 
-All scripts default to AWS CLI profile `motbot`, account `920373001555`, region `us-west-2`.
+All scripts default to AWS CLI profile `ravenflow`, account `920373001555`, region `us-west-2`.
+If the login session has expired, refresh it with `aws login --profile ravenflow`; do not
+create or substitute another profile. The account guard still refuses every account except
+the dedicated FrameDiff account before any deployment mutation.
 They verify the live STS account before doing anything and explicitly reject account
 `730806780703` (LightTwist). Never remove this guard.
 

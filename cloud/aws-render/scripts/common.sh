@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-FD_AWS_PROFILE="${FD_AWS_PROFILE:-motbot}"
+FD_AWS_PROFILE="${FD_AWS_PROFILE:-ravenflow}"
 FD_AWS_REGION="${FD_AWS_REGION:-us-west-2}"
 FD_AWS_STACK="${FD_AWS_STACK:-framediff-cloud-render}"
 FD_EXPECTED_ACCOUNT_ID="920373001555"
