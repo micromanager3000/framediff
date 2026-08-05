@@ -27,7 +27,12 @@
   $: assetId = source?.src?.startsWith("asset://") ? source.src.slice("asset://".length) : undefined;
   $: asset = assetId ? assets.find((candidate) => candidate.id === assetId) : undefined;
   $: mediaUrl = asset ? `/__framediff-cache/${encodeURIComponent(asset.previewContentHash ?? asset.contentHash)}` : source?.src;
-  $: sourceFrame = frame + Math.round((source?.trimStart ?? 0) * (nested?.fps ?? fps));
+  // Hold the last frame when the scene outruns the nested source, matching how
+  // the media path clamps currentTime to the clip's duration below.
+  $: sourceFrame = Math.min(
+    frame + Math.round((source?.trimStart ?? 0) * (nested?.fps ?? fps)),
+    Math.max(0, (nested?.durationInFrames ?? 1) - 1),
+  );
   $: if (mounted) syncPreview(nested?.key, sourceFrame, playing);
   $: if (mounted) syncMedia(frame, playing);
 
