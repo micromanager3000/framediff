@@ -19,6 +19,7 @@ test("the worker image includes the root TypeScript configuration required by Vi
 test("ECR publishing uses isolated non-Keychain registry credentials", async () => {
   const publish = await readFile(resolve(import.meta.dirname, "../scripts/build-and-push.sh"), "utf8");
   assert.match(publish, /get-authorization-token/);
+  assert.match(publish, /del\(\.auths, \.credsStore, \.credHelpers\)/);
   assert.match(publish, /DOCKER_CONFIG="\$DOCKER_AUTH_DIR" docker buildx build/);
   assert.doesNotMatch(publish, /docker login/);
 });
