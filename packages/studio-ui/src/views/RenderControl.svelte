@@ -1,11 +1,13 @@
 <script lang="ts">
   import type { RenderViewModel } from "../viewmodels/Render.ViewModel";
   import { renderProgressPresentation } from "../renderProgressPresentation";
+  import RenderLibrary from "./RenderLibrary.svelte";
 
   export let viewModel: RenderViewModel;
   export let showTargets = true;
   const store = viewModel.store;
   let menuOpen = false;
+  let libraryOpen = false;
   let control: HTMLDivElement;
   $: progress = renderProgressPresentation($store.progress);
   $: batchPrefix = $store.batch && $store.batch.total > 1
@@ -14,19 +16,34 @@
   $: selectedName = $store.selectedTargetName ?? "MP4";
 
   function closeMenuFromOutside(event: PointerEvent): void {
-    if (menuOpen && control && !control.contains(event.target as Node)) menuOpen = false;
+    if ((menuOpen || libraryOpen) && control && !control.contains(event.target as Node)) {
+      menuOpen = false;
+      libraryOpen = false;
+    }
   }
 
   function closeMenuFromKeyboard(event: KeyboardEvent): void {
-    if (menuOpen && event.key === "Escape") {
+    if ((menuOpen || libraryOpen) && event.key === "Escape") {
       event.preventDefault();
       menuOpen = false;
+      libraryOpen = false;
     }
   }
 
   function selectTarget(compositionKey: string): void {
     viewModel.selectTarget(compositionKey);
     menuOpen = false;
+  }
+
+  function toggleMenu(): void {
+    menuOpen = !menuOpen;
+    if (menuOpen) libraryOpen = false;
+  }
+
+  function toggleLibrary(): void {
+    libraryOpen = !libraryOpen;
+    menuOpen = false;
+    if (libraryOpen) void viewModel.refreshLibrary();
   }
 
   function renderAll(): void {
@@ -65,7 +82,7 @@
         class="render render-menu-toggle"
         class:active={menuOpen}
         disabled={$store.status === "rendering"}
-        onclick={() => menuOpen = !menuOpen}
+        onclick={toggleMenu}
         aria-label="Choose render target"
         aria-haspopup="menu"
         aria-expanded={menuOpen}
@@ -98,6 +115,20 @@
         </div>
       {/if}
     </div>
+    {#if $store.library.available}
+      <button
+        class="render-library-toggle"
+        class:active={libraryOpen}
+        onclick={toggleLibrary}
+        aria-label="Open render library"
+        aria-expanded={libraryOpen}
+        title="Open durable project render history"
+      >
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10v8H3z"/><path d="M5 2.5h6v2H5z"/><path d="m7 7 3 1.5L7 10z"/></svg>
+        {#if $store.library.entries.length}<span>{$store.library.entries.length}</span>{/if}
+      </button>
+      {#if libraryOpen}<RenderLibrary {viewModel} onClose={() => { libraryOpen = false; }} />{/if}
+    {/if}
   {:else}
     <button class="render" disabled={$store.status === "rendering"} onclick={() => void viewModel.renderCurrentComposition()}>
       {$store.status === "rendering" ? "Rendering…" : "Render MP4"}

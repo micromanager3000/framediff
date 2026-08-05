@@ -1,5 +1,5 @@
 import { ObservableValue } from "../observable";
-import type { ProjectWorkspacePort, RenderProgressSnapshot, RenderResult } from "../types";
+import type { ProjectRenderSnapshot, ProjectWorkspacePort, RenderProgressSnapshot, RenderResult } from "../types";
 import type { StudioSession } from "../StudioSession";
 
 export interface RenderExecutor {
@@ -22,6 +22,14 @@ export interface RenderState {
   } | null;
 }
 
+export interface RenderLibraryState {
+  available: boolean;
+  loading: boolean;
+  entries: ProjectRenderSnapshot[];
+  error: string | null;
+  action: { id: string; kind: "download" | "retry" | "cancel" } | null;
+}
+
 export class RenderManager {
   public readonly state = new ObservableValue<RenderState>({
     status: "idle",
@@ -33,13 +41,103 @@ export class RenderManager {
     batch: null,
   });
 
+  public readonly library: ObservableValue<RenderLibraryState>;
+
   public constructor(
     private readonly session: StudioSession,
     private readonly workspace: ProjectWorkspacePort,
-  ) {}
+  ) {
+    this.library = new ObservableValue<RenderLibraryState>({
+      available: typeof workspace.listProjectRenders === "function",
+      loading: false,
+      entries: [],
+      error: null,
+      action: null,
+    });
+  }
 
   private generation = 0;
+  private libraryGeneration = 0;
+  private libraryTimer: ReturnType<typeof setTimeout> | null = null;
+  private libraryStarted = false;
   private activeExecutor: RenderExecutor | null = null;
+
+  public start(): void {
+    this.libraryStarted = true;
+    void this.refreshLibrary();
+  }
+
+  public destroy(): void {
+    this.libraryStarted = false;
+    this.libraryGeneration += 1;
+    if (this.libraryTimer) clearTimeout(this.libraryTimer);
+    this.libraryTimer = null;
+  }
+
+  public async refreshLibrary(): Promise<boolean> {
+    const list = this.workspace.listProjectRenders;
+    if (!list) return false;
+    const generation = ++this.libraryGeneration;
+    this.library.update((state) => ({ ...state, available: true, loading: true, error: null }));
+    try {
+      const entries = await list.call(this.workspace, 40);
+      if (generation !== this.libraryGeneration) return false;
+      this.library.update((state) => ({ ...state, available: true, loading: false, entries, error: null }));
+      this.scheduleLibraryRefresh(entries);
+      return true;
+    } catch (error) {
+      if (generation !== this.libraryGeneration) return false;
+      this.library.update((state) => ({
+        ...state,
+        loading: false,
+        error: error instanceof Error ? error.message : String(error),
+      }));
+      this.scheduleLibraryRefresh(this.library.get().entries);
+      return false;
+    }
+  }
+
+  public downloadLibraryEntry(renderId: string): Promise<boolean> {
+    return this.runLibraryAction(renderId, "download", this.workspace.downloadProjectRender);
+  }
+
+  public retryLibraryEntry(renderId: string): Promise<boolean> {
+    return this.runLibraryAction(renderId, "retry", this.workspace.retryProjectRender, true);
+  }
+
+  public cancelLibraryEntry(renderId: string): Promise<boolean> {
+    return this.runLibraryAction(renderId, "cancel", this.workspace.cancelProjectRender, true);
+  }
+
+  private async runLibraryAction(
+    renderId: string,
+    kind: "download" | "retry" | "cancel",
+    operation: ((renderId: string) => Promise<void>) | undefined,
+    refresh = false,
+  ): Promise<boolean> {
+    if (!operation || this.library.get().action) return false;
+    this.library.update((state) => ({ ...state, action: { id: renderId, kind }, error: null }));
+    try {
+      await operation.call(this.workspace, renderId);
+      this.library.update((state) => ({ ...state, action: null }));
+      if (refresh) void this.refreshLibrary();
+      return true;
+    } catch (error) {
+      this.library.update((state) => ({
+        ...state,
+        action: null,
+        error: error instanceof Error ? error.message : String(error),
+      }));
+      return false;
+    }
+  }
+
+  private scheduleLibraryRefresh(entries: ProjectRenderSnapshot[]): void {
+    if (this.libraryTimer) clearTimeout(this.libraryTimer);
+    this.libraryTimer = null;
+    if (!this.libraryStarted || !entries.some((entry) => ["queued", "starting", "rendering", "uploading"].includes(entry.state))) return;
+    this.libraryTimer = setTimeout(() => void this.refreshLibrary(), 3_000);
+  }
 
   /** The UI uses this to open the dedicated renderer before starting the state transition. */
   public get currentCompositionKey(): string | null {
@@ -107,6 +205,7 @@ export class RenderManager {
           : null,
       });
       this.activeExecutor = null;
+      void this.refreshLibrary();
       return true;
     } catch (error) {
       if (generation !== this.generation) return false;
@@ -120,6 +219,7 @@ export class RenderManager {
         error: error instanceof Error ? error.message : String(error),
       }));
       this.activeExecutor = null;
+      void this.refreshLibrary();
       return false;
     }
   }
@@ -135,6 +235,7 @@ export class RenderManager {
       this.generation += 1;
       this.activeExecutor = null;
       this.state.update((current) => ({ ...current, status: "cancelled", progress: null, error: null }));
+      void this.refreshLibrary();
       return true;
     } catch (error) {
       this.state.update((current) => ({ ...current, error: error instanceof Error ? error.message : String(error) }));

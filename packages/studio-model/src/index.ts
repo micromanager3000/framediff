@@ -10,7 +10,7 @@ export { StudioAgentApi, exposeStudioAgentApi } from "./agent";
 export { SourceManager, type SourceState } from "./managers/SourceManager";
 export { AssetManager, type AssetState } from "./managers/AssetManager";
 export { GitManager, type GitState } from "./managers/GitManager";
-export { RenderManager, type RenderExecutor, type RenderState } from "./managers/RenderManager";
+export { RenderManager, type RenderExecutor, type RenderLibraryState, type RenderState } from "./managers/RenderManager";
 export {
   canonicalRenderRequest,
   createRemoteRenderExecutor,
@@ -210,6 +210,8 @@ export type {
   NewCompositionRequest,
   CompositionBakeInputsSnapshot,
   ProjectOperationResult,
+  ProjectRenderSnapshot,
+  ProjectRenderState,
   PreviewHandle,
   PreviewElementEditRequest,
   PreviewElementPatch,

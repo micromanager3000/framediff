@@ -29,6 +29,7 @@ import type {
   PreviewOptions,
   GenerativeChoiceSnapshot,
   ProviderCredentialsSnapshot,
+  ProjectWorkspacePort,
   ProcessingCompositionDocument,
   ProcessingOperationResult,
   ProcessingWorkspaceSnapshot,
@@ -1094,6 +1095,10 @@ const seenGenTakes = new Set<string>();
 
 export class HtmlStudioRuntime implements CompositionRuntimePort {
   public renderExecutionMode: "local" | "remote" = "local";
+  public listProjectRenders?: ProjectWorkspacePort["listProjectRenders"];
+  public downloadProjectRender?: ProjectWorkspacePort["downloadProjectRender"];
+  public retryProjectRender?: ProjectWorkspacePort["retryProjectRender"];
+  public cancelProjectRender?: ProjectWorkspacePort["cancelProjectRender"];
   private registry: CompRegistry;
   private listeners = new Set<(compositions: CompositionDescriptor[]) => void>();
   private previews = new Set<PreviewRecord>();

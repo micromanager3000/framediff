@@ -51,6 +51,7 @@ export class StudioApplication {
     this.operations.start();
     void this.operations.refreshCache();
     this.git.start();
+    this.render.start();
     this.history.start();
     void this.assets.refresh();
     await this.session.start();
@@ -64,6 +65,7 @@ export class StudioApplication {
     this.credentials.destroy();
     this.operations.destroy();
     this.git.destroy();
+    this.render.destroy();
     this.history.destroy();
     this.session.destroy();
   }

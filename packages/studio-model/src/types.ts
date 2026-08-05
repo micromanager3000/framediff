@@ -674,6 +674,55 @@ export interface RenderResult {
   provenance?: import("./renderContracts").RenderProvenance;
 }
 
+export type ProjectRenderState = "queued" | "starting" | "rendering" | "uploading" | "succeeded" | "failed" | "cancelled";
+
+/**
+ * Durable, project-scoped JSON manifest for one render. Hosted adapters back this
+ * with their control plane; local adapters can omit the optional render-library seam.
+ */
+export interface ProjectRenderSnapshot {
+  schemaVersion: 1;
+  id: string;
+  compositionKey: string;
+  state: ProjectRenderState;
+  attempt: number;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+  parentRenderId?: string;
+  progress?: {
+    phase: string;
+    completed: number;
+    total: number;
+    message?: string;
+  };
+  source: {
+    revision: string;
+    bundleIdentity: string;
+  };
+  provenance: {
+    fingerprint: string;
+    frameDiffRevision: string;
+    workerImageDigest: string;
+    engineRevision: string;
+    runtimeIdentity: string;
+  };
+  artifact?: {
+    contentHash: string;
+    filename: string;
+    mime: string;
+    bytes: number;
+    width?: number;
+    height?: number;
+    durationSeconds?: number;
+  };
+  failure?: {
+    code: string;
+    message: string;
+    retryable: boolean;
+  };
+}
+
 export interface CacheEntryDescriptor {
   name: string;
   filename?: string;
@@ -870,6 +919,11 @@ export interface ProjectWorkspacePort {
     compositionKey: string,
     onProgress: (progress: RenderProgressSnapshot) => void,
   ): Promise<RenderResult>;
+  /** Optional durable render library. Each entry is a portable project-side JSON manifest. */
+  listProjectRenders?(limit?: number): Promise<ProjectRenderSnapshot[]>;
+  downloadProjectRender?(renderId: string): Promise<void>;
+  retryProjectRender?(renderId: string): Promise<void>;
+  cancelProjectRender?(renderId: string): Promise<void>;
   listCacheEntries(): Promise<CacheEntryDescriptor[]>;
   /** Must use the same dependency traversal and hashes as `bakeComposition`. */
   getCompositionBakeInputs(compositionKey: string, outputKind?: CompositionOutputKind): Promise<CompositionBakeInputsSnapshot>;

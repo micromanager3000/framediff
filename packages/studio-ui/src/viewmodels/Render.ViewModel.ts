@@ -2,6 +2,8 @@ import { derived, type Readable } from "svelte/store";
 import {
   renderTargetCompositions,
   selectedRenderTarget,
+  type ProjectRenderSnapshot,
+  type RenderLibraryState,
   type RenderManager,
   type RenderState,
   type StudioSession,
@@ -15,6 +17,7 @@ export interface RenderTargetView {
 }
 
 export interface RenderViewState extends RenderState {
+  library: RenderLibraryState;
   targets: RenderTargetView[];
   selectedTargetKey: string | null;
   selectedTargetName: string | null;
@@ -28,12 +31,13 @@ export class RenderViewModel {
     private readonly session: StudioSession,
   ) {
     this.store = derived(
-      [observableStore(manager.state), sessionStore(session)],
-      ([render, sessionState]) => {
+      [observableStore(manager.state), observableStore(manager.library), sessionStore(session)],
+      ([render, library, sessionState]) => {
         const targets = renderTargetCompositions(sessionState);
         const selected = selectedRenderTarget(sessionState, targets);
         return {
           ...render,
+          library,
           targets: targets.map((target) => ({ key: target.key, name: target.id })),
           selectedTargetKey: selected?.key ?? null,
           selectedTargetName: selected?.id ?? null,
@@ -61,6 +65,26 @@ export class RenderViewModel {
   public selectTarget(compositionKey: string): void {
     if (!renderTargetCompositions(this.session.state.get()).some((target) => target.key === compositionKey)) return;
     this.session.navigate(compositionKey);
+  }
+
+  public refreshLibrary(): Promise<boolean> {
+    return this.manager.refreshLibrary();
+  }
+
+  public download(renderId: string): Promise<boolean> {
+    return this.manager.downloadLibraryEntry(renderId);
+  }
+
+  public retry(renderId: string): Promise<boolean> {
+    return this.manager.retryLibraryEntry(renderId);
+  }
+
+  public cancel(renderId: string): Promise<boolean> {
+    return this.manager.cancelLibraryEntry(renderId);
+  }
+
+  public manifest(renderId: string): ProjectRenderSnapshot | null {
+    return this.manager.library.get().entries.find((entry) => entry.id === renderId) ?? null;
   }
 
   private renderKeys(compositionKeys: string[]): Promise<boolean> {

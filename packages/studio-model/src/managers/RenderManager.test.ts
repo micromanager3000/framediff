@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ObservableValue } from "../observable";
-import type { RenderProgressSnapshot, StudioSessionState } from "../types";
+import type { ProjectRenderSnapshot, RenderProgressSnapshot, StudioSessionState } from "../types";
 import type { StudioSession } from "../StudioSession";
 import type { ProjectWorkspacePort } from "../types";
 import { RenderManager, type RenderExecutor } from "./RenderManager";
@@ -13,6 +13,24 @@ const session = () => ({
 const workspace = {
   renderComposition: vi.fn(),
 } as unknown as ProjectWorkspacePort;
+
+const renderEntry = (id: string, state: ProjectRenderSnapshot["state"] = "succeeded"): ProjectRenderSnapshot => ({
+  schemaVersion: 1,
+  id,
+  compositionKey: "main",
+  state,
+  attempt: 1,
+  createdAt: "2026-08-04T00:00:00Z",
+  updatedAt: "2026-08-04T00:01:00Z",
+  source: { revision: "a".repeat(64), bundleIdentity: `blake3:${"a".repeat(64)}` },
+  provenance: {
+    fingerprint: `sha256:${id}`,
+    frameDiffRevision: "revision",
+    workerImageDigest: "sha256:worker",
+    engineRevision: "engine",
+    runtimeIdentity: "runtime",
+  },
+});
 
 describe("RenderManager", () => {
   it("renders a requested batch sequentially and reports the collected downloads", async () => {
@@ -111,5 +129,47 @@ describe("RenderManager", () => {
     await Promise.resolve();
     expect(await manager.cancel()).toBe(false);
     expect(manager.state.get()).toMatchObject({ status: "rendering", error: "cancel conflict" });
+  });
+
+  it("loads durable project renders and ignores a stale overlapping refresh", async () => {
+    const completions: Array<(entries: ProjectRenderSnapshot[]) => void> = [];
+    const listProjectRenders = vi.fn(() => new Promise<ProjectRenderSnapshot[]>((resolve) => completions.push(resolve)));
+    const manager = new RenderManager(session(), {
+      ...workspace,
+      listProjectRenders,
+    } as unknown as ProjectWorkspacePort);
+
+    const first = manager.refreshLibrary();
+    const second = manager.refreshLibrary();
+    completions[1]([renderEntry("new")]);
+    await expect(second).resolves.toBe(true);
+    completions[0]([renderEntry("old")]);
+    await expect(first).resolves.toBe(false);
+
+    expect(manager.library.get()).toMatchObject({
+      available: true,
+      loading: false,
+      entries: [{ id: "new" }],
+      error: null,
+    });
+  });
+
+  it("restores library action state and exposes an actionable download error", async () => {
+    const downloadProjectRender = vi.fn(async () => { throw new Error("signed download expired"); });
+    const manager = new RenderManager(session(), {
+      ...workspace,
+      listProjectRenders: vi.fn(async () => [renderEntry("render-1")]),
+      downloadProjectRender,
+    } as unknown as ProjectWorkspacePort);
+    await manager.refreshLibrary();
+
+    await expect(manager.downloadLibraryEntry("render-1")).resolves.toBe(false);
+
+    expect(downloadProjectRender).toHaveBeenCalledWith("render-1");
+    expect(manager.library.get()).toMatchObject({
+      action: null,
+      error: "signed download expired",
+      entries: [{ id: "render-1" }],
+    });
   });
 });
