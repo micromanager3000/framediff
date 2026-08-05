@@ -42,8 +42,13 @@ else
   jq -n --arg registry "$REGISTRY" --arg auth "$ECR_AUTH" \
     '{auths: {($registry): {auth: $auth}}}' > "$DOCKER_AUTH_DIR/config.json"
 fi
+for metadata in contexts buildx; do
+  if [[ -d "$DOCKER_CONFIG_ROOT/$metadata" ]]; then
+    ln -s "$DOCKER_CONFIG_ROOT/$metadata" "$DOCKER_AUTH_DIR/$metadata"
+  fi
+done
 
-DOCKER_CONFIG="$DOCKER_AUTH_DIR" BUILDX_CONFIG="$DOCKER_CONFIG_ROOT/buildx" docker buildx build \
+DOCKER_CONFIG="$DOCKER_AUTH_DIR" docker buildx build \
   --platform linux/amd64 \
   --provenance=false \
   --file "$BUILD_DIR/cloud/aws-render/Dockerfile" \
