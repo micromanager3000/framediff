@@ -35,7 +35,7 @@ describe("example composition authoring contracts", () => {
 
     expect([...kinds].sort()).toEqual([
       "3d", "audio", "board", "cast", "custom", "doc", "edit", "generate", "locations",
-      "moodboard", "plan", "scene", "script", "storyboard",
+      "moodboard", "plan", "scene", "script",
     ]);
   });
 
@@ -129,7 +129,7 @@ describe("example composition authoring contracts", () => {
   });
 
   it("backs directly editable authored comps with JSON and optional schemas", () => {
-    const dataKinds = new Set(["scene", "3d", "audio", "plan", "doc", "script", "storyboard", "board", "locations", "cast"]);
+    const dataKinds = new Set(["scene", "3d", "audio", "plan", "doc", "script", "board", "locations", "cast"]);
     const dataFiles = htmlFiles.filter((file) => dataKinds.has(attribute(rootTag(readFileSync(file, "utf8")), "data-fd-kind") ?? ""));
     expect(dataFiles.length).toBeGreaterThan(0);
 

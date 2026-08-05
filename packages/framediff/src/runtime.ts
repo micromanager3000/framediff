@@ -821,7 +821,7 @@ export function mountComposition(
 
     // Document-flow comps (plans, docs) keep every timed row visible: rows are prose
     // first and placements second, so the active window is a highlight, not visibility.
-    const documentFlow = ["plan", "doc", "script", "storyboard", "locations", "cast", "moodboard"].includes(composition.meta?.kind ?? "");
+    const documentFlow = ["plan", "doc", "script", "locations", "cast", "moodboard"].includes(composition.meta?.kind ?? "");
     for (const clip of clipMap.values()) {
       const local = localFrameAt(clip.element, frame, clipMap);
       clip.element.style.display = documentFlow || (inDomain && local.active) ? clip.originalDisplay : "none";

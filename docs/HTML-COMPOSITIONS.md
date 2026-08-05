@@ -290,8 +290,8 @@ An optional addressable element with `data-fd-script-field="summary"` supplies t
 sheet header notes. The source slot stays the same element when its type changes.
 
 Each pre-production document is its own first-class kind — `moodboard`, `script`,
-`storyboard`, `locations`, `cast` (with `plan` as the generic fallback) — and
-`kind="scene"`/`kind="board"` mark per-scene source comps and promoted storyboard
+`locations`, `cast` (with `plan` as the generic fallback) — and
+`kind="scene"`/`kind="board"` mark per-scene source comps and promoted scene
 holds. Card-library kinds (moodboard/locations/cast) have no temporal axis, so the
 Studio hides timeline chrome for them.
 

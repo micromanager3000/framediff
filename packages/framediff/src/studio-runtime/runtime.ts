@@ -497,7 +497,7 @@ function compositionScaffoldData(options: HtmlCompositionScaffoldOptions): Compo
       },
     };
   }
-  if (["board", "moodboard", "storyboard"].includes(options.kind)) {
+  if (["board", "moodboard"].includes(options.kind)) {
     return {
       document: {
         title,
@@ -530,7 +530,7 @@ function htmlCompositionScaffold(options: HtmlCompositionScaffoldOptions): strin
   if (options.kind === "plan") return planCompositionScaffold(options);
   const webGpu = options.kind === "3d" ? `
     <canvas data-fd-id="scene" data-fd-name="Scene" data-fd-type="layers" data-fd-webgpu></canvas>` : "";
-  const board = ["board", "moodboard", "storyboard"].includes(options.kind)
+  const board = ["board", "moodboard"].includes(options.kind)
     ? `\n    <h1 class="board-title" data-fd-id="board-title"></h1>
     <section class="card" data-fd-id="card-1"></section>
     <section class="card" data-fd-id="card-2"></section>

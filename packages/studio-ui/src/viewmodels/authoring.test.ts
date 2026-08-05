@@ -47,9 +47,9 @@ describe("composition authoring surfaces", () => {
   it("has one deliberate contract for every public composition kind", () => {
     expect(COMPOSITION_KIND_CONTRACTS.map((contract) => contract.kind)).toEqual([
       "edit", "custom", "scene", "3d", "generate", "processing", "audio", "plan", "doc", "script",
-      "storyboard", "board", "moodboard", "locations", "cast",
+      "board", "moodboard", "locations", "cast",
     ]);
-    expect(new Set(COMPOSITION_KIND_CONTRACTS.map((contract) => contract.kind)).size).toBe(15);
+    expect(new Set(COMPOSITION_KIND_CONTRACTS.map((contract) => contract.kind)).size).toBe(14);
   });
 
   it.each([
@@ -64,7 +64,6 @@ describe("composition authoring surfaces", () => {
     ["board", false, false, true, false],
     ["moodboard", false, false, true, false],
     ["script", false, false, true, false],
-    ["storyboard", false, false, true, false],
     ["locations", false, false, true, false],
     ["cast", false, false, true, false],
   ] as const)("resolves %s defaults", (kind, timeline, transport, directManipulation, acceptsCompositionDrop) => {
@@ -89,9 +88,8 @@ describe("composition authoring surfaces", () => {
     expect(resolveCompositionAuthoring(videoPlane, [item("video")])).toMatchObject({ timeline: false, transport: true });
   });
 
-  it("gives timed scripts and storyboards temporal UI without turning static documents into edits", () => {
+  it("gives timed scripts temporal UI without turning static documents into edits", () => {
     expect(resolveCompositionAuthoring(composition("script"), [item("nested")])).toMatchObject({ timeline: true, transport: true });
-    expect(resolveCompositionAuthoring(composition("storyboard"), [item("layers", 0, 60)])).toMatchObject({ timeline: true, transport: true });
     expect(resolveCompositionAuthoring(composition("doc"), [item("nested")])).toMatchObject({ timeline: false, transport: false });
   });
 

@@ -1,6 +1,6 @@
 import type { AssetResolver } from "./assets/resolver";
 
-export type CompositionKind = "edit" | "custom" | "3d" | "generate" | "processing" | "audio" | "doc" | "plan" | "scene" | "board" | "moodboard" | "script" | "storyboard" | "locations" | "cast";
+export type CompositionKind = "edit" | "custom" | "3d" | "generate" | "processing" | "audio" | "doc" | "plan" | "scene" | "board" | "moodboard" | "script" | "locations" | "cast";
 export type CompositionOutputKind = "video" | "image" | "audio";
 export type CompositionTimelineMode = "auto" | "always" | "hidden";
 export type CompositionTransportMode = "auto" | "always" | "hidden";

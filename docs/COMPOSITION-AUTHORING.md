@@ -29,7 +29,7 @@ semantic rather than treating every time-varying render as an edit:
 | `generate` | recipe inputs, parameters, and takes | no | no | inputs use `comp://`, not timeline nesting |
 | `audio` | audio arrangement | always | yes | no |
 | `plan` | timed beats/shot plan | always | yes | no |
-| `script`, `storyboard` | timed narrative document/boards | only when rows carry timing | with that timeline | no |
+| `script` | timed narrative document | only when rows carry timing | with that timeline | no |
 | `doc`, `locations`, `cast` | structured reference document | no | no | no |
 | `board`, `moodboard` | directly editable planning canvas | no | no | no |
 

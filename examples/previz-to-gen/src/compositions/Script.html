@@ -42,6 +42,6 @@
   <div class="thumb" data-fd-clip data-fd-script-source data-fd-id="scene-gallery-ref" data-fd-name="gallery · previz" data-fd-from="170" data-fd-duration="70" data-fd-type="nested" data-fd-comp="HarborPreviz" data-fd-trim-start="5.67" data-fd-nested-scale="0.15625"></div>
   <div class="chips"><span class="chip cast">💡 cast-lamp</span><span class="chip loc">📍 loc-gallery</span><span class="chip previz">previz · take not generated</span></div>
  </section>
- <p class="foot">kind=<code>script</code> — <code>generateEditSkeleton(source)</code> derives the edit; boards for these scenes live in <code>Storyboard</code>; who/where ids live in <code>Cast</code> / <code>Locations</code>.</p>
+ <p class="foot">kind=<code>script</code> — <code>generateEditSkeleton(source)</code> derives the edit; who/where ids live in <code>Cast</code> / <code>Locations</code>.</p>
  <script>const rows=queryAll(".row"),fps=30,mmss=f=>{const s=Math.round(f/fps);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0")};for(const row of rows){const a=+row.getAttribute("data-fd-from"),d=+row.getAttribute("data-fd-duration");row.querySelector(".tc").textContent=mmss(a)+"–"+mmss(a+d);row.querySelector(".dur").textContent=d+"f @30"}onFrame(({frame})=>{for(const row of rows){const a=+row.getAttribute("data-fd-from"),d=+row.getAttribute("data-fd-duration");row.classList.toggle("active",frame>=a&&frame<a+d)}})</script>
 </main></body></html>

@@ -7,7 +7,6 @@ import { mainComp } from "./compositions/Main";
 import { harborPrevizComp } from "./compositions/HarborPreviz";
 import { moodboardComp } from "./compositions/Moodboard";
 import { scriptComp } from "./compositions/Script";
-import { storyboardComp } from "./compositions/Storyboard";
 import { locationsComp } from "./compositions/Locations";
 import { castComp } from "./compositions/Cast";
 import { lighthouseConceptComp } from "./compositions/LighthouseConcept";
@@ -30,7 +29,6 @@ export const COMPOSITIONS = {
   // boat's cast card nests its pinned take.
   moodboard: moodboardComp,
   script: scriptComp,
-  storyboard: storyboardComp,
   locations: locationsComp,
   cast: castComp,
   "harbor-previz": harborPrevizComp,

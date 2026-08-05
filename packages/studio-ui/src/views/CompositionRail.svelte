@@ -24,7 +24,6 @@
     board: "▢",
     moodboard: "▦",
     script: "☰",
-    storyboard: "⊞",
     locations: "⌖",
     cast: "♟",
   };
