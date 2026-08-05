@@ -657,6 +657,14 @@ function hostedDocumentSetup(): CompositionSetup {
   };
 }
 
+function withProjectStyles(html: string, styles: string): string {
+  if (!styles.trim()) return html;
+  const tag = `<style data-framediff-hosted-styles>${styles}</style>`;
+  if (/<\/head\s*>/i.test(html)) return html.replace(/<\/head\s*>/i, `${tag}</head>`);
+  if (/<html\b[^>]*>/i.test(html)) return html.replace(/<html\b[^>]*>/i, `$&<head>${tag}</head>`);
+  return `${tag}${html}`;
+}
+
 async function runHostedRender(request: HostedRenderRequest) {
   artifacts.clear();
   const startedAt = new Date().toISOString();
@@ -670,9 +678,14 @@ async function runHostedRender(request: HostedRenderRequest) {
     decoded.set(path, bytes);
   }
   const decoder = new TextDecoder("utf-8", { fatal: true });
+  const projectStyles = Array.from(decoded.entries())
+    .filter(([path]) => path.toLowerCase().endsWith(".css"))
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([, bytes]) => decoder.decode(bytes))
+    .join("\n");
   const htmlCandidates = Array.from(decoded.entries())
     .filter(([path]) => path.toLowerCase().endsWith(".html"))
-    .map(([path, bytes]) => ({ path, source: decoder.decode(bytes) }))
+    .map(([path, bytes]) => ({ path, source: withProjectStyles(decoder.decode(bytes), projectStyles) }))
     .filter(({ source }) => source.includes("data-fd-composition"));
   const requested = request.compositionKey.toLowerCase();
   const candidates = htmlCandidates.map((candidate) => ({

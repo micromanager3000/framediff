@@ -1,10 +1,12 @@
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import process from "node:process";
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { chromium } from "playwright";
 import { validateJobSpec } from "./job-spec.mjs";
+import { normalizeHostedVideo } from "./hosted-video.mjs";
 import { viteExecutablePath } from "./runtime-paths.mjs";
 
 const workspace = process.env.FD_WORKSPACE || resolve(import.meta.dirname, "../../..");
@@ -231,9 +233,39 @@ async function runCloudWorkload(spec, prefix) {
     };
     if (browserErrors.length) throw new Error(`Browser errors: ${browserErrors.join(" | ")}`);
 
+    let artifactRecords = [];
     for (const artifactName of report.artifactNames) {
       const artifact = await page.evaluate((name) => window.__readFrameDiffCloudArtifact(name), artifactName);
-      await putArtifact(`${prefix}/artifacts/${artifactName}`, Buffer.from(artifact.base64, "base64"), artifact.contentType);
+      artifactRecords.push({
+        filename: artifactName,
+        contentType: artifact.contentType,
+        bytes: Buffer.from(artifact.base64, "base64"),
+      });
+    }
+    if (spec.kind === "hosted-render" && spec.renderRequest.settings.outputKind === "video") {
+      const source = artifactRecords.find(({ filename }) => filename === report.result.filename);
+      if (!source) throw new Error(`Hosted video artifact is missing: ${report.result.filename}`);
+      const normalized = await normalizeHostedVideo({
+        bytes: source.bytes,
+        inputFilename: source.filename,
+        width: spec.renderRequest.settings.width,
+        height: spec.renderRequest.settings.height,
+      });
+      artifactRecords = [normalized];
+      report.result = {
+        ...report.result,
+        filename: normalized.filename,
+        contentType: normalized.contentType,
+        bytes: normalized.bytes.byteLength,
+        sha256: createHash("sha256").update(normalized.bytes).digest("hex"),
+        durationSeconds: normalized.durationSeconds,
+        codec: normalized.codec,
+      };
+      report.artifactNames = [normalized.filename];
+      report.worker.mediaPipeline = "FrameDiff WebCodecs capture + FFmpeg H.264 MP4 normalization";
+    }
+    for (const artifact of artifactRecords) {
+      await putArtifact(`${prefix}/artifacts/${artifact.filename}`, artifact.bytes, artifact.contentType);
     }
     await putArtifact(`${prefix}/report.json`, JSON.stringify(report, null, 2), "application/json");
     return report;

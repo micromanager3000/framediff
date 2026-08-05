@@ -16,8 +16,10 @@ test("the worker image includes the root TypeScript configuration required by Vi
   assert.match(dockerfile, /test -f tsconfig\.base\.json/);
 });
 
-test("Linux cloud rendering negotiates software VP9 WebM when hardware MP4 encoders are unavailable", async () => {
+test("Linux cloud capture is normalized to a validated H.264 MP4", async () => {
   const harness = await readFile(resolve(import.meta.dirname, "../harness/main.ts"), "utf8");
+  const runner = await readFile(resolve(import.meta.dirname, "../src/run-job.mjs"), "utf8");
+  const dockerfile = await readFile(resolve(import.meta.dirname, "../Dockerfile"), "utf8");
   const encoder = await readFile(
     resolve(import.meta.dirname, "../../../packages/framediff/src/render/encodeWorker.ts"),
     "utf8",
@@ -30,6 +32,17 @@ test("Linux cloud rendering negotiates software VP9 WebM when hardware MP4 encod
   assert.match(harness, /hardwareAcceleration: video\.hardwareAcceleration/);
   assert.match(encoder, /new WebMOutputFormat\(\)/);
   assert.match(encoder, /codec: "vp9"/);
+  assert.match(runner, /normalizeHostedVideo/);
+  assert.match(runner, /FrameDiff WebCodecs capture \+ FFmpeg H\.264 MP4 normalization/);
+  assert.match(dockerfile, /apt-get install -y --no-install-recommends ffmpeg google-chrome-stable/);
+  assert.match(dockerfile, /command -v ffmpeg/);
+});
+
+test("hosted cloud rendering injects the same project CSS used by Studio", async () => {
+  const harness = await readFile(resolve(import.meta.dirname, "../harness/main.ts"), "utf8");
+  assert.match(harness, /function withProjectStyles/);
+  assert.match(harness, /path\.toLowerCase\(\)\.endsWith\("\.css"\)/);
+  assert.match(harness, /source: withProjectStyles\(decoder\.decode\(bytes\), projectStyles\)/);
 });
 
 test("the background-removal smoke uses a human portrait by default", async () => {

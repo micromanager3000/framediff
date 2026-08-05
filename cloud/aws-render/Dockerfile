@@ -33,7 +33,7 @@ RUN apt-get update \
     && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" \
       > /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update \
-    && apt-get install -y --no-install-recommends google-chrome-stable \
+    && apt-get install -y --no-install-recommends ffmpeg google-chrome-stable \
     && apt-get purge -y \
       curl \
       gnupg \
@@ -43,19 +43,9 @@ RUN apt-get update \
       gpgconf \
       gpgsm \
       keyboxd \
-      gstreamer1.0-libav \
-      gstreamer1.0-plugins-bad \
-      libavcodec60 \
-      libavfilter9 \
-      libavformat60 \
-      libavutil58 \
       libcjson1 \
-      libgstreamer-plugins-bad1.0-0 \
       libopenexr-3-1-30 \
-      libpostproc57 \
       librist4 \
-      libswresample4 \
-      libswscale7 \
       libzvbi0t64 \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
@@ -74,6 +64,8 @@ COPY cloud/aws-render ./cloud/aws-render
 
 RUN npm ci --ignore-scripts \
     && npm --prefix cloud/aws-render ci --omit=dev \
+    && command -v ffmpeg \
+    && command -v ffprobe \
     && test -f cloud/aws-render/node_modules/vite/bin/vite.js \
     && test -f tsconfig.base.json \
     && mkdir -p cloud/aws-render/harness/public/fixtures \
