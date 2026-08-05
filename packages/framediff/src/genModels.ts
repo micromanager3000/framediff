@@ -1,10 +1,11 @@
 // The model registry: one entry per wired media model, each fitted to its fal endpoint's
-// OpenAPI (fetched 2026-07-07 — see each def's `fitted` note). The registry drives the
+// OpenAPI (fetch date in each def's `fitted` note). The registry drives the
 // whole generative workbench: which ref kinds a model accepts, which params exist (and
 // their literals in the .gen.ts), how the provider input is built, what a take costs.
 //
-// Seedance pricing is exact (fal token pricing); the others are estimates (`est: true`)
-// until we've paid a real invoice — the UI says "est." wherever that's true.
+// Seedance, H3 and FLUX 3 (fal) pricing is exact (fal published rates); the others are
+// estimates (`est: true`) until we've paid a real invoice — the UI says "est." wherever
+// that's true.
 
 import type { CompositionOutputKind } from "@framediff/studio-model";
 import type { GenProvider, GenRecipe, GenRef, GenRefKind } from "./generative";
@@ -84,12 +85,24 @@ export interface GenModelDef {
 const dur = (r: GenRecipe, fallback: number) => r.duration ?? fallback;
 const hasKind = (r: GenRecipe, k: GenRefKind) => (r.refs ?? []).some((x) => x.kind === k);
 
+/** Seedance-family mode rule: no refs → t2v; exactly one start image (+ optional end
+ *  frame) → i2v; any other mix → r2v. Module-level so `enabledIf`/`refFieldsOf` closures
+ *  (which have no `this`) can share it with `modeOf`. */
+function startEndRefMode(r: GenRecipe): "text-to-video" | "image-to-video" | "reference-to-video" {
+  const refs = r.refs ?? [];
+  if (!refs.length) return "text-to-video";
+  const starts = refs.filter((x) => x.kind === "image").length;
+  const ends = refs.filter((x) => x.kind === "endImage").length;
+  if (starts + ends === refs.length && starts === 1 && ends <= 1) return "image-to-video";
+  return "reference-to-video";
+}
+
 // ---------------------------------------------------------------------------
 // Seedance 2.0 — the original fit (shipped 52fda87); pricing exact
 // ---------------------------------------------------------------------------
 
 const SEEDANCE_RATE_PER_1K = { standard: 0.014, fast: 0.0112 } as const;
-const RES_H: Record<string, number> = { "480p": 480, "720p": 720, "1080p": 1080, "4k": 2160 };
+const RES_H: Record<string, number> = { "480p": 480, "720p": 720, "768p": 768, "1080p": 1080, "2k": 1440, "4k": 2160 };
 const AR: Record<string, number> = {
   "21:9": 21 / 9, "16:9": 16 / 9, "4:3": 4 / 3, "1:1": 1, "3:4": 3 / 4, "9:16": 9 / 16, auto: 16 / 9,
 };
@@ -169,6 +182,70 @@ const seedance: GenModelDef = {
     return (tokensPerSec / 1000) * rate * dur(r, 4) * videoRefMult;
   },
   baseline: "$1.21 · fast 720p 5s",
+};
+
+// ---------------------------------------------------------------------------
+// Seedance 2.5 — fitted 2026-08-04. Schemas are live on fal but the model is not in
+// fal's public listing or pricing index yet, so cost estimates borrow the 2.0 standard
+// token rates ($0.014/1K ≤1080p, $0.008/1K at 4k). Single tier — no /fast endpoints.
+// ---------------------------------------------------------------------------
+
+const SEEDANCE_25_RATE_PER_1K = (resolution: string) => (resolution === "4k" ? 0.008 : 0.014);
+
+const seedance25: GenModelDef = {
+  id: "seedance-2.5",
+  name: "Seedance 2.5",
+  vendor: "ByteDance · fal",
+  output: "video",
+  est: true,
+  fitted: "bytedance/seedance-2.5 OpenAPI (fetched 2026-08-04) · price estimated at 2.0 token rates",
+  accepts: { video: true, image: true, endImage: true, audio: true },
+  maxRefs: { image: 9, endImage: 1, video: 3, audio: 3 },
+  caps: ["video ref (r2v)", "start + end image", "audio guide", "4–15s", "480p–4k", "opt. audio"],
+  limits: ["no seed", "no negative prompt", "no fast tier yet", "12 ref files max across kinds", "audio can't be the only ref"],
+  negativePrompt: false,
+  params: [
+    { key: "resolution", label: "RES", type: "enum", options: ["480p", "720p", "1080p", "4k"], def: "720p" },
+    { key: "duration", label: "DUR", type: "number", min: 4, max: 15, step: 1, def: 5 },
+    { key: "aspect", label: "ASPECT", type: "enum", options: ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"], def: "16:9" },
+    { key: "audio", label: "AUDIO", type: "enum", options: [true, false], def: true },
+  ],
+  dropHint: "video = motion ref (r2v) · image = start frame · a second image = end frame",
+  modeOf(r) {
+    return startEndRefMode(r);
+  },
+  endpointOf(r) {
+    return `bytedance/seedance-2.5/${this.modeOf(r)}`;
+  },
+  buildInput(r) {
+    return {
+      prompt: r.prompt,
+      resolution: r.resolution ?? "720p",
+      duration: String(dur(r, 5)),
+      aspect_ratio: r.aspect ?? "16:9",
+      generate_audio: r.audio ?? true,
+    };
+  },
+  refFieldsOf(r) {
+    if (startEndRefMode(r) === "image-to-video") {
+      return [
+        { kind: "image", field: "image_url" },
+        { kind: "endImage", field: "end_image_url" },
+      ];
+    }
+    return [
+      { kind: "image", field: "image_urls", many: true },
+      { kind: "endImage", field: "image_urls", many: true },
+      { kind: "video", field: "video_urls", many: true },
+      { kind: "audio", field: "audio_urls", many: true },
+    ];
+  },
+  costUsd(r) {
+    const { width, height } = dimsOf(r, "720p");
+    const tokensPerSec = (width * height * 24) / 1024;
+    return (tokensPerSec / 1000) * SEEDANCE_25_RATE_PER_1K(r.resolution ?? "720p") * dur(r, 5);
+  },
+  baseline: "est. $1.51 · 720p 5s",
 };
 
 // ---------------------------------------------------------------------------
@@ -471,6 +548,205 @@ const wan25: GenModelDef = {
     return perSec * dur(r, 5);
   },
   baseline: "est. $0.75 · 1080p 5s",
+};
+
+// ---------------------------------------------------------------------------
+// MiniMax H3 (Hailuo 03) — fitted 2026-08-04; omni-modal refs, native stereo audio
+// always on (the endpoint has no audio toggle, seed, or negative prompt).
+// ---------------------------------------------------------------------------
+
+const H3_PER_SEC: Record<string, number> = { "768p": 0.16, "2k": 0.26 };
+
+const minimaxH3: GenModelDef = {
+  id: "minimax-h3",
+  name: "MiniMax H3",
+  vendor: "MiniMax · fal",
+  output: "video",
+  est: false,
+  fitted: "minimax/h3 OpenAPI (fetched 2026-08-04) · pricing exact (fal)",
+  accepts: { video: true, image: true, endImage: true, audio: true },
+  maxRefs: { image: 9, endImage: 1, video: 3, audio: 3 },
+  caps: ["start + end image", "up to 9 subject/style image refs", "video refs (2–15s)", "audio refs", "native stereo audio", "5–15s", "768p or 2K"],
+  limits: ["no seed", "no negative prompt", "audio always on — no toggle", "audio can't be the only ref", "12 ref files max across kinds", "aspect is t2v/r2v-only (i2v follows the image)"],
+  negativePrompt: false,
+  params: [
+    { key: "resolution", label: "RES", type: "enum", options: ["768p", "2k"], def: "768p" },
+    { key: "duration", label: "DUR", type: "number", min: 5, max: 15, step: 1, def: 5 },
+    {
+      key: "aspect", label: "ASPECT", type: "enum", options: ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"], def: "16:9",
+      enabledIf: (r) => startEndRefMode(r) !== "image-to-video",
+    },
+  ],
+  dropHint: "image = start frame · a second image = end frame · more images/videos/audio = references (say “Image 1”, “Video 1”, “Audio 1” in the prompt)",
+  modeOf(r) {
+    return startEndRefMode(r);
+  },
+  endpointOf(r) {
+    return `minimax/h3/${this.modeOf(r)}`;
+  },
+  buildInput(r) {
+    return {
+      // H3 names references "Image 1"; rewrite fal-Seedance-style @Image1 mentions so
+      // prompts stay portable when a recipe switches models.
+      prompt: r.prompt
+        .replace(/@Image(\d+)/gi, "Image $1")
+        .replace(/@Video(\d+)/gi, "Video $1")
+        .replace(/@Audio(\d+)/gi, "Audio $1"),
+      resolution: (r.resolution ?? "768p") === "2k" ? "2K" : "768P",
+      duration: dur(r, 5),
+      ...(startEndRefMode(r) === "image-to-video" ? {} : { aspect_ratio: r.aspect ?? "16:9" }),
+    };
+  },
+  refFieldsOf(r) {
+    if (startEndRefMode(r) === "image-to-video") {
+      return [
+        { kind: "image", field: "image_url" },
+        { kind: "endImage", field: "end_image_url" },
+      ];
+    }
+    return [
+      { kind: "image", field: "reference_image_urls", many: true },
+      { kind: "endImage", field: "reference_image_urls", many: true },
+      { kind: "video", field: "reference_video_urls", many: true },
+      { kind: "audio", field: "reference_audio_urls", many: true },
+    ];
+  },
+  costUsd(r) {
+    const perSec = H3_PER_SEC[r.resolution ?? "768p"] ?? H3_PER_SEC["768p"];
+    // r2v: the first 5 reference images are free, each additional one is $0.08.
+    const imageRefs = startEndRefMode(r) === "reference-to-video"
+      ? (r.refs ?? []).filter((x) => x.kind === "image" || x.kind === "endImage").length
+      : 0;
+    return perSec * dur(r, 5) + Math.max(0, imageRefs - 5) * 0.08;
+  },
+  baseline: "$0.80 · 768p 5s",
+};
+
+// ---------------------------------------------------------------------------
+// FLUX 3 — fitted 2026-08-04; BFL's omni video model on fal. Draft tier (TIER fast)
+// renders cheap 720p previews; standard renders full quality at 720p/1080p. The 2:1
+// aspect and `auto` duration the endpoint also offers are omitted: 2:1 isn't in the
+// shared recipe union and the comp needs honest bounds.
+// ---------------------------------------------------------------------------
+
+function flux3Mode(r: GenRecipe): "text-to-video" | "image-to-video" | "first-last-frame-to-video" {
+  if (!hasKind(r, "image")) return "text-to-video";
+  return hasKind(r, "endImage") ? "first-last-frame-to-video" : "image-to-video";
+}
+
+const flux3: GenModelDef = {
+  id: "flux-3",
+  name: "FLUX 3",
+  vendor: "Black Forest Labs · fal",
+  output: "video",
+  est: false,
+  fitted: "blackforestlabs/flux-3 OpenAPI (fetched 2026-08-04) · pricing exact (fal)",
+  accepts: { video: false, image: true, endImage: true, audio: false },
+  maxRefs: { image: 1, endImage: 1 },
+  caps: ["start + end frame", "native dialogue/sfx/music", "draft tier — $0.06/s previews", "5–20s", "720p/1080p", "opt. audio"],
+  limits: ["no video or audio refs", "no seed", "no negative prompt", "draft renders 720p only", "safety tolerance pinned at 2"],
+  negativePrompt: false,
+  params: [
+    // tier is canonical:false — the endpoint string already encodes /draft (seedance rule)
+    { key: "tier", label: "TIER", type: "enum", options: ["fast", "standard"], def: "fast", canonical: false },
+    {
+      key: "resolution", label: "RES", type: "enum", options: ["720p", "1080p"], def: "720p",
+      gate: (r) => ((r.tier ?? "fast") === "fast" ? ["720p"] : null),
+    },
+    { key: "duration", label: "DUR", type: "number", min: 5, max: 20, step: 1, def: 5 },
+    { key: "aspect", label: "ASPECT", type: "enum", options: ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"], def: "16:9" },
+    { key: "audio", label: "AUDIO", type: "enum", options: [true, false], def: true },
+  ],
+  dropHint: "two image slots — start frame, then end frame; fast tier drafts at $0.06/s",
+  modeOf(r) {
+    return flux3Mode(r);
+  },
+  endpointOf(r) {
+    return `blackforestlabs/flux-3/${this.modeOf(r)}${(r.tier ?? "fast") === "fast" ? "/draft" : ""}`;
+  },
+  buildInput(r) {
+    return {
+      prompt: r.prompt,
+      duration: dur(r, 5),
+      aspect_ratio: r.aspect ?? "16:9",
+      generate_audio: r.audio ?? true,
+      // pinned to the schema default so server-side drift can't loosen it silently
+      safety_tolerance: 2,
+      // draft endpoints render 720p only and take no resolution field
+      ...((r.tier ?? "fast") === "fast" ? {} : { resolution: r.resolution ?? "720p" }),
+    };
+  },
+  refFieldsOf(r) {
+    if (flux3Mode(r) === "first-last-frame-to-video") {
+      return [
+        { kind: "image", field: "start_image_url" },
+        { kind: "endImage", field: "end_image_url" },
+      ];
+    }
+    return [{ kind: "image", field: "image_url" }];
+  },
+  costUsd(r) {
+    const perSec = (r.tier ?? "fast") === "fast" ? 0.06 : r.resolution === "1080p" ? 0.29 : 0.17;
+    return perSec * dur(r, 5);
+  },
+  baseline: "$0.30 · draft 720p 5s",
+};
+
+// ---------------------------------------------------------------------------
+// FLUX 3 direct — Black Forest Labs' own API (api.bfl.ai /v1/flux-3-video). One
+// discriminated endpoint: `mode` picks t2v/i2v, and start/end frames ride the
+// `keyframes` array (one image starts the video, a second ends it), assembled by the
+// bfl provider adapter. BFL bills in credits; per-second cost assumes fal parity.
+// ---------------------------------------------------------------------------
+
+const flux3Direct: GenModelDef = {
+  id: "flux-3-direct",
+  name: "FLUX 3 · direct",
+  vendor: "Black Forest Labs",
+  provider: "bfl",
+  output: "video",
+  est: true,
+  fitted: "api.bfl.ai /v1/flux-3-video OpenAPI (fetched 2026-08-04) · billed in BFL credits — price estimated at fal parity",
+  accepts: { video: false, image: true, endImage: true, audio: false },
+  maxRefs: { image: 1, endImage: 1 },
+  caps: ["official BFL API", "start + end frame", "native dialogue/sfx/music", "5–20s", "hd/fhd out", "opt. audio"],
+  limits: ["needs a BFL key under SERVICES (fal's key does not work)", "no video or audio refs", "no seed", "no negative prompt", "draft/enhance flow not wired — use FLUX 3 on fal's fast tier for previews", "safety tolerance pinned at 2"],
+  negativePrompt: false,
+  params: [
+    { key: "resolution", label: "RES", type: "enum", options: ["720p", "1080p"], def: "720p" },
+    { key: "duration", label: "DUR", type: "number", min: 5, max: 20, step: 1, def: 5 },
+    { key: "aspect", label: "ASPECT", type: "enum", options: ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"], def: "16:9" },
+    { key: "audio", label: "AUDIO", type: "enum", options: [true, false], def: true },
+  ],
+  dropHint: "one image starts the video, a second one ends it — both ride the keyframes input",
+  modeOf(r) {
+    return hasKind(r, "image") ? "image-to-video" : "text-to-video";
+  },
+  endpointOf() {
+    return "v1/flux-3-video";
+  },
+  buildInput(r) {
+    return {
+      mode: hasKind(r, "image") ? "i2v" : "t2v",
+      prompt: r.prompt,
+      duration: dur(r, 5),
+      aspect_ratio: r.aspect ?? "16:9",
+      // the recipe keeps fal's 720p/1080p names; BFL calls the same classes hd/fhd
+      resolution: (r.resolution ?? "720p") === "1080p" ? "fhd" : "hd",
+      generate_audio: r.audio ?? true,
+      safety_tolerance: 2,
+      draft: false,
+    };
+  },
+  refFieldsOf() {
+    // start/end frames become the ordered `keyframes` array, assembled by the bfl
+    // provider adapter instead of being assigned to flat input fields.
+    return [];
+  },
+  costUsd(r) {
+    return (r.resolution === "1080p" ? 0.29 : 0.17) * dur(r, 5);
+  },
+  baseline: "est. $0.85 · hd 5s",
 };
 
 // ---------------------------------------------------------------------------
@@ -815,11 +1091,15 @@ const elevenVoiceDesign: GenModelDef = {
 
 export const GEN_MODELS: Record<string, GenModelDef> = {
   [seedance.id]: seedance,
+  [seedance25.id]: seedance25,
   [seedanceDirect.id]: seedanceDirect,
   [ltx23Audio.id]: ltx23Audio,
   [veo31.id]: veo31,
   [kling25.id]: kling25,
   [wan25.id]: wan25,
+  [minimaxH3.id]: minimaxH3,
+  [flux3.id]: flux3,
+  [flux3Direct.id]: flux3Direct,
   [seedream50.id]: seedream50,
   [seedAudio10.id]: seedAudio10,
   [elevenV3.id]: elevenV3,

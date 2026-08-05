@@ -4400,6 +4400,14 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         ...(secrets.providers.elevenlabs ?? { set: false }),
       },
       {
+        provider: "bfl",
+        name: "Black Forest Labs direct",
+        envVar: "BFL_API_KEY",
+        description: "Runs FLUX 3 video against Black Forest Labs' own API. fal's key does not work here — the same model is also wired through fal if you'd rather not add one.",
+        integration: "active",
+        ...(secrets.providers.bfl ?? { set: false }),
+      },
+      {
         provider: "midjourney",
         name: "Midjourney",
         envVar: "MIDJOURNEY_API_KEY",

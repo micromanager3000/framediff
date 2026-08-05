@@ -398,7 +398,7 @@ function writeSourceTransaction(
 // <root>/framediff.generations.json ledger. The former gitignored .framediff/gen-jobs.json
 // is read once as a migration source so existing paid request history is not lost.
 
-const KNOWN_PROVIDERS = ["fal", "midjourney", "luma", "byteplus", "replicate", "elevenlabs"] as const;
+const KNOWN_PROVIDERS = ["fal", "midjourney", "luma", "byteplus", "replicate", "elevenlabs", "bfl"] as const;
 const PROVIDER_ENV: Record<string, string> = {
   fal: "FAL_KEY",
   midjourney: "MIDJOURNEY_API_KEY",
@@ -406,6 +406,7 @@ const PROVIDER_ENV: Record<string, string> = {
   byteplus: "ARK_API_KEY",
   replicate: "REPLICATE_API_TOKEN",
   elevenlabs: "ELEVENLABS_API_KEY",
+  bfl: "BFL_API_KEY",
 };
 
 /** Nearest .framediff/secrets.json walking up from root; settle at the git top-level. */
@@ -543,6 +544,7 @@ async function falUpload(key: string, buf: Buffer, mime: string, name: string): 
 const DATA_URI_MAX = 8 * 1024 * 1024; // fallback when storage upload fails; ~10.7MB base64
 const BYTEPLUS_ARK_BASE = "https://ark.ap-southeast.bytepluses.com/api/v3";
 const ELEVENLABS_BASE = "https://api.elevenlabs.io";
+const BFL_BASE = "https://api.bfl.ai";
 
 /** Jobs mid-finalization — two overlapping /gen/jobs polls must not ingest a take twice. */
 const finalizing = new Set<string>();
@@ -1017,6 +1019,24 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
               return json(res, 200, { ok: false, authed: false, error: String((e as Error).message) });
             }
           }
+          if (provider === "bfl") {
+            try {
+              // The credits balance is read-only — verifies the key without spending it.
+              const r = await fetch(`${BFL_BASE}/v1/credits`, { headers: { "x-key": k.key } });
+              const body = (await r.text()).slice(0, 500);
+              if (!r.ok) {
+                let detail = body;
+                try {
+                  const parsed = JSON.parse(body) as { detail?: unknown; message?: string };
+                  detail = typeof parsed.detail === "string" ? parsed.detail : parsed.message ?? body;
+                } catch { /* raw */ }
+                return json(res, 200, { ok: false, authed: false, error: detail || `BFL rejected the key (${r.status})` });
+              }
+              return json(res, 200, { ok: true, authed: true });
+            } catch (e) {
+              return json(res, 200, { ok: false, authed: false, error: String((e as Error).message) });
+            }
+          }
           if (provider !== "fal") return json(res, 200, { ok: true, authed: true, note: "stored — no live verification adapter" });
           try {
             // a status probe on a nonexistent request: 401 = bad key; anything else = authed
@@ -1056,7 +1076,7 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
               return json(res, 400, { error: "gen, endpoint, recipeHash, input, recipe required" });
             }
             if (!/^[a-zA-Z0-9/_.-]+$/.test(endpoint)) return json(res, 400, { error: "bad endpoint" });
-            if (provider !== "fal" && provider !== "byteplus" && provider !== "elevenlabs") {
+            if (provider !== "fal" && provider !== "byteplus" && provider !== "elevenlabs" && provider !== "bfl") {
               return json(res, 400, { error: "unsupported generation provider" });
             }
             if (
@@ -1065,6 +1085,9 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
               && !/^v1\/text-to-speech\/[a-zA-Z0-9_-]+$/.test(endpoint)
             ) {
               return json(res, 400, { error: "unsupported ElevenLabs endpoint" });
+            }
+            if (provider === "bfl" && endpoint !== "v1/flux-3-video") {
+              return json(res, 400, { error: "unsupported BFL endpoint" });
             }
             const k = providerKey(root, provider);
             if (!k) return json(res, 400, { error: `no ${provider} key — add one under SERVICES` });
@@ -1179,6 +1202,44 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
               if (!task.id) throw new Error("BytePlus accepted the request but returned no task id");
               attempt.providerJobId = task.id;
               attempt.statusUrl = `${BYTEPLUS_ARK_BASE}/contents/generations/tasks/${encodeURIComponent(task.id)}`;
+              attempt.responseUrl = attempt.statusUrl;
+              saveJob(root, attempt);
+              return json(res, 200, { job: attempt });
+            }
+
+            if (provider === "bfl") {
+              // BFL keyframes are positional: the first URL starts the video and the
+              // last one ends it, so ref order — not a named field — carries the intent.
+              const keyframes: string[] = [];
+              const start = refs.find((r) => r.kind === "image");
+              const end = refs.find((r) => r.kind === "endImage");
+              if (start) keyframes.push(await refToUrl(start));
+              if (end) keyframes.push(await refToUrl(end));
+              const directInput = keyframes.length ? { ...input, keyframes } : input;
+              const r = await fetch(`${BFL_BASE}/${endpoint}`, {
+                method: "POST",
+                headers: { "x-key": k.key, "content-type": "application/json" },
+                body: JSON.stringify(directInput),
+              });
+              const text = await r.text();
+              if (!r.ok) {
+                let detail = text.slice(0, 500);
+                try {
+                  const parsed = JSON.parse(text) as { detail?: unknown; message?: string };
+                  detail = typeof parsed.detail === "string"
+                    ? parsed.detail
+                    : parsed.message ?? JSON.stringify(parsed.detail ?? {}).slice(0, 500);
+                } catch { /* raw */ }
+                attempt.status = "failed";
+                attempt.error = detail;
+                attempt.doneAt = new Date().toISOString();
+                saveJob(root, attempt);
+                return json(res, r.status, { error: detail, job: attempt });
+              }
+              const task = JSON.parse(text) as { id?: string; polling_url?: string };
+              if (!task.id) throw new Error("BFL accepted the request but returned no request id");
+              attempt.providerJobId = task.id;
+              attempt.statusUrl = task.polling_url ?? `${BFL_BASE}/v1/get_result?id=${encodeURIComponent(task.id)}`;
               attempt.responseUrl = attempt.statusUrl;
               saveJob(root, attempt);
               return json(res, 200, { job: attempt });
@@ -1468,7 +1529,9 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
             finalizing.add(job.id);
             try {
               const authorization = provider === "byteplus" ? `Bearer ${k.key}` : `Key ${k.key}`;
-              const s = await fetch(job.statusUrl, { headers: { authorization } });
+              const s = await fetch(job.statusUrl, {
+                headers: provider === "bfl" ? { "x-key": k.key } : { authorization },
+              });
               if (provider === "byteplus") {
                 const task = (await s.json().catch(() => ({}))) as {
                   status?: string;
@@ -1491,6 +1554,39 @@ export function framediffDev(options: FrameDiffDevOptions = {}): FrameDiffDevPlu
                   job.error = typeof task.error === "string"
                     ? task.error
                     : task.error?.message ?? task.message ?? `BytePlus task ${task.status}`;
+                  job.doneAt = new Date().toISOString();
+                  changed = true;
+                } else if (job.status !== "running") {
+                  job.status = "running";
+                  changed = true;
+                }
+                continue;
+              }
+              if (provider === "bfl") {
+                const task = (await s.json().catch(() => ({}))) as {
+                  status?: string;
+                  result?: { sample?: string; seed?: number };
+                  details?: unknown;
+                };
+                if (!s.ok) {
+                  job.status = "failed";
+                  job.error = `status ${s.status}: ${JSON.stringify(task).slice(0, 300)}`;
+                  job.doneAt = new Date().toISOString();
+                  changed = true;
+                } else if (task.status === "Ready") {
+                  const sample = task.result?.sample;
+                  if (sample) {
+                    await finalizeTake(job, { url: sample }, "video", task.result?.seed);
+                  } else {
+                    job.status = "failed";
+                    job.error = "BFL returned Ready without a result sample URL";
+                    job.doneAt = new Date().toISOString();
+                    changed = true;
+                  }
+                } else if (task.status && !["Pending", "Reasoning", "Generating"].includes(task.status)) {
+                  // "Error", both moderation statuses, and "Task not found" are terminal.
+                  job.status = "failed";
+                  job.error = `BFL ${task.status}${task.details ? `: ${JSON.stringify(task.details).slice(0, 300)}` : ""}`;
                   job.doneAt = new Date().toISOString();
                   changed = true;
                 } else if (job.status !== "running") {

@@ -21,7 +21,7 @@ import type { StudioComposition } from "./studio/types";
 import { defineComposition } from "./composition";
 
 export type GenRefKind = "image" | "endImage" | "video" | "audio";
-export type GenProvider = "fal" | "byteplus" | "elevenlabs";
+export type GenProvider = "fal" | "byteplus" | "elevenlabs" | "bfl";
 
 /** A reference input: `asset://<manifest-id>`, a `/__framediff-cache/<hash>` URL, an http(s)
  *  URL, or a data: URI. asset:// and cache refs are resolved server-side at submit time. */
@@ -56,7 +56,7 @@ export interface GenRecipe {
   refs?: GenRef[];
   /** Output seconds. Concrete on purpose: the comp needs honest bounds. */
   duration?: number;
-  resolution?: "480p" | "720p" | "1080p" | "4k";
+  resolution?: "480p" | "720p" | "768p" | "1080p" | "2k" | "4k";
   aspect?: "21:9" | "16:9" | "4:3" | "1:1" | "3:4" | "9:16";
   /** Ask the model for synced audio. */
   audio?: boolean;
@@ -155,7 +155,7 @@ export function genOutputKindOf(recipe: Pick<GenRecipe, "model" | "output">): Co
   return recipe.output ?? genModelOf(recipe).output;
 }
 
-const RES_HEIGHT = { "480p": 480, "720p": 720, "1080p": 1080, "4k": 2160 } as const;
+const RES_HEIGHT = { "480p": 480, "720p": 720, "768p": 768, "1080p": 1080, "2k": 1440, "4k": 2160 } as const;
 const ASPECT: Record<NonNullable<GenRecipe["aspect"]>, number> = {
   "21:9": 21 / 9, "16:9": 16 / 9, "4:3": 4 / 3, "1:1": 1, "3:4": 3 / 4, "9:16": 9 / 16,
 };

@@ -199,4 +199,149 @@ describe("multi-media generative models", () => {
     expect(genRefAccept(value, model, "audio")).toMatchObject({ ok: false });
     expect(genRefAccept(value, model, "video")).toMatchObject({ ok: false });
   });
+
+  it("maps an H3 keyframe pair to image-to-video with provider-cased resolution", () => {
+    const value = recipe({
+      model: "minimax-h3",
+      resolution: "2k",
+      duration: 8,
+      aspect: "9:16",
+      refs: [
+        { kind: "image", src: "comp://start" },
+        { kind: "endImage", src: "comp://end" },
+      ],
+    });
+    const model = genModelOf(value);
+    expect(model.modeOf(value)).toBe("image-to-video");
+    expect(model.endpointOf(value)).toBe("minimax/h3/image-to-video");
+    expect(model.refFieldsOf(value)).toEqual([
+      { kind: "image", field: "image_url" },
+      { kind: "endImage", field: "end_image_url" },
+    ]);
+    const input = model.buildInput(value);
+    expect(input).toMatchObject({ resolution: "2K", duration: 8 });
+    // i2v output follows the start image — the endpoint takes no aspect field
+    expect(input).not.toHaveProperty("aspect_ratio");
+    expect(model.params.find((p) => p.key === "aspect")?.enabledIf?.(value)).toBe(false);
+    expect(model.costUsd(value)).toBeCloseTo(0.26 * 8, 5);
+  });
+
+  it("spells out H3 reference mentions and charges for images beyond the free five", () => {
+    const value = recipe({
+      model: "minimax-h3",
+      duration: 5,
+      prompt: "@Image1 walks past @Video1 humming @Audio1.",
+      refs: [
+        ...Array.from({ length: 7 }, (_, i) => ({ kind: "image" as const, src: `comp://ref${i}` })),
+        { kind: "video", src: "comp://motion" },
+        { kind: "audio", src: "comp://hum" },
+      ],
+    });
+    const model = genModelOf(value);
+    expect(model.modeOf(value)).toBe("reference-to-video");
+    expect(model.endpointOf(value)).toBe("minimax/h3/reference-to-video");
+    expect(model.refFieldsOf(value)).toEqual([
+      { kind: "image", field: "reference_image_urls", many: true },
+      { kind: "endImage", field: "reference_image_urls", many: true },
+      { kind: "video", field: "reference_video_urls", many: true },
+      { kind: "audio", field: "reference_audio_urls", many: true },
+    ]);
+    expect(model.buildInput(value)).toMatchObject({
+      prompt: "Image 1 walks past Video 1 humming Audio 1.",
+      resolution: "768P",
+      aspect_ratio: "16:9",
+    });
+    // 5s at $0.16/s plus two reference images past the free five at $0.08 each
+    expect(model.costUsd(value)).toBeCloseTo(0.16 * 5 + 2 * 0.08, 5);
+  });
+
+  it("keeps Seedance 2.5 on the 2.0 wire shape without a tier suffix", async () => {
+    const t2v = recipe({ model: "seedance-2.5", resolution: "1080p", duration: 10, aspect: "21:9", audio: false });
+    const model = genModelOf(t2v);
+    expect(model.endpointOf(t2v)).toBe("bytedance/seedance-2.5/text-to-video");
+    expect(model.buildInput(t2v)).toMatchObject({
+      resolution: "1080p",
+      duration: "10",
+      aspect_ratio: "21:9",
+      generate_audio: false,
+    });
+
+    const r2v = {
+      ...t2v,
+      refs: [
+        { kind: "image" as const, src: "comp://subject" },
+        { kind: "video" as const, src: "comp://motion" },
+      ],
+    };
+    expect(model.modeOf(r2v)).toBe("reference-to-video");
+    expect(model.endpointOf(r2v)).toBe("bytedance/seedance-2.5/reference-to-video");
+    expect(model.refFieldsOf(r2v)).toEqual([
+      { kind: "image", field: "image_urls", many: true },
+      { kind: "endImage", field: "image_urls", many: true },
+      { kind: "video", field: "video_urls", many: true },
+      { kind: "audio", field: "audio_urls", many: true },
+    ]);
+    // the endpoint changes with the refs, so the hash must move too
+    await expect(recipeHashOf(r2v)).resolves.not.toBe(await recipeHashOf(t2v));
+  });
+
+  it("folds the FLUX 3 draft tier into the endpoint and gates draft resolution", () => {
+    const draft = recipe({ model: "flux-3", duration: 12 });
+    const model = genModelOf(draft);
+    expect(model.endpointOf(draft)).toBe("blackforestlabs/flux-3/text-to-video/draft");
+    const draftInput = model.buildInput(draft);
+    expect(draftInput).toMatchObject({ duration: 12, safety_tolerance: 2, generate_audio: true });
+    // draft endpoints render 720p only and take no resolution field
+    expect(draftInput).not.toHaveProperty("resolution");
+    const resolutionParam = model.params.find((p) => p.key === "resolution");
+    expect(resolutionParam?.gate?.(draft)).toEqual(["720p"]);
+    expect(model.params.find((p) => p.key === "tier")?.canonical).toBe(false);
+    expect(model.costUsd(draft)).toBeCloseTo(0.06 * 12, 5);
+
+    const full = recipe({ model: "flux-3", tier: "standard", resolution: "1080p", duration: 12 });
+    expect(model.endpointOf(full)).toBe("blackforestlabs/flux-3/text-to-video");
+    expect(model.buildInput(full)).toMatchObject({ resolution: "1080p" });
+    expect(resolutionParam?.gate?.(full)).toBeNull();
+    expect(model.costUsd(full)).toBeCloseTo(0.29 * 12, 5);
+  });
+
+  it("routes a FLUX 3 start + end pair through first-last-frame endpoints", () => {
+    const value = recipe({
+      model: "flux-3",
+      tier: "standard",
+      refs: [
+        { kind: "image", src: "comp://start" },
+        { kind: "endImage", src: "comp://end" },
+      ],
+    });
+    const model = genModelOf(value);
+    expect(model.modeOf(value)).toBe("first-last-frame-to-video");
+    expect(model.endpointOf(value)).toBe("blackforestlabs/flux-3/first-last-frame-to-video");
+    expect(model.refFieldsOf(value)).toEqual([
+      { kind: "image", field: "start_image_url" },
+      { kind: "endImage", field: "end_image_url" },
+    ]);
+    const startOnly = { ...value, refs: value.refs!.slice(0, 1) };
+    expect(model.endpointOf(startOnly)).toBe("blackforestlabs/flux-3/image-to-video");
+    expect(model.refFieldsOf(startOnly)).toEqual([{ kind: "image", field: "image_url" }]);
+  });
+
+  it("maps direct FLUX 3 onto BFL's discriminated endpoint with hd/fhd classes", () => {
+    const t2v = recipe({ model: "flux-3-direct", resolution: "1080p", duration: 6, aspect: "9:16" });
+    const model = genModelOf(t2v);
+    expect(model.provider).toBe("bfl");
+    expect(model.endpointOf(t2v)).toBe("v1/flux-3-video");
+    expect(model.buildInput(t2v)).toMatchObject({
+      mode: "t2v",
+      resolution: "fhd",
+      duration: 6,
+      aspect_ratio: "9:16",
+      draft: false,
+    });
+
+    const i2v = { ...t2v, resolution: "720p" as const, refs: [{ kind: "image" as const, src: "comp://start" }] };
+    expect(model.buildInput(i2v)).toMatchObject({ mode: "i2v", resolution: "hd" });
+    // keyframes are positional — the bfl adapter assembles them, not a named field
+    expect(model.refFieldsOf(i2v)).toEqual([]);
+  });
 });

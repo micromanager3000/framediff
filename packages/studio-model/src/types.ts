@@ -881,7 +881,7 @@ export interface GenerativeWorkspaceSnapshot {
 }
 
 export interface ProviderCredentialSnapshot {
-  provider: "fal" | "byteplus" | "elevenlabs" | "midjourney" | "luma";
+  provider: "fal" | "byteplus" | "elevenlabs" | "bfl" | "midjourney" | "luma";
   name: string;
   envVar: string;
   description: string;
