@@ -623,7 +623,11 @@ export function mountComposition(
       const compositionRef = ref.slice("comp://".length);
       const outputKind = resolveNested(registry, compositionRef)?.meta?.output;
       if (outputKind === "image" || outputKind === "audio") {
-        return options.resolveCompositionOutput(compositionRef, outputKind);
+        const resolved = options.resolveCompositionOutput(compositionRef, outputKind);
+        // An audio reference without a pinned take plays as silence rather than
+        // failing the mount — the placement already surfaces as silent in the UI.
+        if (outputKind === "audio") return resolved.catch(() => "");
+        return resolved;
       }
     }
     if (!resolver) return ref;
@@ -642,7 +646,7 @@ export function mountComposition(
       const immediate = resolver?.peek(authored)?.url;
       if (immediate) element.src = immediate;
       const url = await resolveAsset(authored);
-      if (!abort.signal.aborted && element.getAttribute("data-fd-src") === authored) element.src = url;
+      if (!abort.signal.aborted && url && element.getAttribute("data-fd-src") === authored) element.src = url;
     }));
   };
 
@@ -671,7 +675,7 @@ export function mountComposition(
         element.setAttribute("data-fd-src", authored);
         const immediate = resolver?.peek(authored)?.url;
         if (immediate) element.src = immediate;
-        tasks.push(resolveAsset(authored).then((url) => { if (!abort.signal.aborted) element.src = url; }));
+        tasks.push(resolveAsset(authored).then((url) => { if (!abort.signal.aborted && url) element.src = url; }));
       }
     }
     const image = element.getAttribute("data-fd-image");
