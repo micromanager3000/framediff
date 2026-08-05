@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import process from "node:process";
 import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { chromium } from "playwright";
+import { isIgnorableBrowserResponse } from "./browser-response.mjs";
 import { validateJobSpec } from "./job-spec.mjs";
 import { normalizeHostedVideo } from "./hosted-video.mjs";
 import { viteExecutablePath } from "./runtime-paths.mjs";
@@ -211,12 +212,12 @@ async function runCloudWorkload(spec, prefix) {
       }
     });
     page.on("response", (response) => {
-      const url = new URL(response.url());
-      const optionalModelProbe = response.status() === 404 && (
-        url.hostname.endsWith("huggingface.co")
-        || url.pathname.startsWith("/models/")
-      );
-      if (response.status() >= 400 && !response.url().endsWith("/favicon.ico") && !optionalModelProbe) {
+      const ignored = isIgnorableBrowserResponse({
+        status: response.status(),
+        url: response.url(),
+        harnessOrigin: url,
+      });
+      if (response.status() >= 400 && !ignored) {
         browserErrors.push(`http ${response.status()}: ${response.url()}`);
       }
     });
