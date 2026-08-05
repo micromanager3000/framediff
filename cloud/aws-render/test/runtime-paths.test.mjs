@@ -54,6 +54,7 @@ test("routine AWS access uses renewable scoped machine credentials", async () =>
   assert.match(common, /assumed-role\/framediff-cloud-render-machine/);
   assert.match(bootstrap, /aws_signing_helper credential-process/);
   assert.match(bootstrap, /--session-duration 3600/);
+  assert.match(bootstrap, /FD_MACHINE_CERTIFICATE_ONLY/);
   assert.doesNotMatch(bootstrap, /aws_access_key_id|aws_secret_access_key/i);
   assert.match(authTemplate, /AWS::RolesAnywhere::TrustAnchor/);
   assert.match(authTemplate, /AWS::RolesAnywhere::Profile/);

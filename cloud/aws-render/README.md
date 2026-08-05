@@ -47,6 +47,15 @@ bootstrap renews it locally whenever fewer than 30 days remain. Private keys liv
 `~/.config/framediff/aws` with owner-only permissions. Disable the trust anchor or machine role to
 revoke the host immediately.
 
+Certificate renewal does not require AWS access because the protected local CA is already trusted:
+
+```bash
+FD_MACHINE_CERTIFICATE_ONLY=1 cloud/aws-render/scripts/bootstrap-machine-auth.sh
+```
+
+Run that command any time, or on a local schedule, before the certificate's final 30 days. It is
+idempotent and never calls the `ravenflow` profile.
+
 Keep `ravenflow` only for rare authentication-stack recovery. `aws login` sessions last at most
 12 hours and are no longer the normal project credential source. Never create static root or
 administrator access keys to avoid login friction. The account guard refuses both the LightTwist

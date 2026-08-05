@@ -73,6 +73,11 @@ if [[ ! -f "$CLIENT_CERT" ]] || ! openssl x509 -checkend 2592000 -noout -in "$CL
   chmod 600 "$CLIENT_CERT"
 fi
 
+if [[ "${FD_MACHINE_CERTIFICATE_ONLY:-0}" == "1" ]]; then
+  echo "Machine certificate is valid for at least 30 days; no AWS login was used." >&2
+  exit 0
+fi
+
 CALLER_ACCOUNT="$(aws --profile "$BOOTSTRAP_PROFILE" --region "$REGION" sts get-caller-identity --query Account --output text)"
 if [[ "$CALLER_ACCOUNT" != "$ACCOUNT_ID" ]]; then
   echo "Refusing bootstrap in account $CALLER_ACCOUNT; expected $ACCOUNT_ID." >&2
