@@ -32,7 +32,8 @@ if [[ ! "$ECR_AUTH" =~ ^[A-Za-z0-9+/]+={0,2}$ ]]; then
   echo "ECR did not return a valid registry authorization token." >&2
   exit 49
 fi
-DOCKER_CONFIG_SOURCE="${DOCKER_CONFIG:-${HOME:?}/.docker}/config.json"
+DOCKER_CONFIG_ROOT="${DOCKER_CONFIG:-${HOME:?}/.docker}"
+DOCKER_CONFIG_SOURCE="$DOCKER_CONFIG_ROOT/config.json"
 if [[ -f "$DOCKER_CONFIG_SOURCE" ]]; then
   jq --arg registry "$REGISTRY" --arg auth "$ECR_AUTH" \
     'del(.auths, .credsStore, .credHelpers) | .auths = {($registry): {auth: $auth}}' \
@@ -42,7 +43,7 @@ else
     '{auths: {($registry): {auth: $auth}}}' > "$DOCKER_AUTH_DIR/config.json"
 fi
 
-DOCKER_CONFIG="$DOCKER_AUTH_DIR" docker buildx build \
+DOCKER_CONFIG="$DOCKER_AUTH_DIR" BUILDX_CONFIG="$DOCKER_CONFIG_ROOT/buildx" docker buildx build \
   --platform linux/amd64 \
   --provenance=false \
   --file "$BUILD_DIR/cloud/aws-render/Dockerfile" \
