@@ -43,10 +43,6 @@ RUN apt-get update \
       gpgconf \
       gpgsm \
       keyboxd \
-      libcjson1 \
-      libopenexr-3-1-30 \
-      librist4 \
-      libzvbi0t64 \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 

@@ -36,6 +36,7 @@ test("Linux cloud capture is normalized to a validated H.264 MP4", async () => {
   assert.match(runner, /FrameDiff WebCodecs capture \+ FFmpeg H\.264 MP4 normalization/);
   assert.match(dockerfile, /apt-get install -y --no-install-recommends ffmpeg google-chrome-stable/);
   assert.match(dockerfile, /command -v ffmpeg/);
+  assert.doesNotMatch(dockerfile, /^\s+(?:libav\w+|libcjson1|libopenexr\S+|libpostproc\S+|librist\S+|libsw\w+|libzvbi\S+)\s+\\$/m);
 });
 
 test("hosted cloud rendering injects the same project CSS used by Studio", async () => {
