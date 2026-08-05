@@ -29,6 +29,7 @@ test("AWS worker deployments require a production-shaped artifact canary", async
   const deploy = await readFile(resolve(import.meta.dirname, "../scripts/deploy.sh"), "utf8");
   const submit = await readFile(resolve(import.meta.dirname, "../scripts/submit-hosted-smoke.sh"), "utf8");
   const verify = await readFile(resolve(import.meta.dirname, "../scripts/verify-hosted-render.sh"), "utf8");
+  const hostedConfig = await readFile(resolve(import.meta.dirname, "../scripts/verify-hosted-config.sh"), "utf8");
   assert.match(deploy, /--role-arn "arn:aws:iam::\$FD_EXPECTED_ACCOUNT_ID:role\/framediff-cloud-render-cloudformation"/);
   assert.match(deploy, /"\$SCRIPT_DIR\/verify-hosted-render\.sh"/);
   assert.doesNotMatch(deploy, /SKIP_RENDER_CANARY/);
@@ -39,6 +40,10 @@ test("AWS worker deployments require a production-shaped artifact canary", async
   assert.match(verify, /blackdetect/);
   assert.match(verify, /signalstats/);
   assert.match(verify, /framemd5/);
+  assert.match(deploy, /verify-hosted-config\.sh/);
+  assert.match(hostedConfig, /FRAMEDIFF_AWS_BATCH_JOB_DEFINITION_ARN/);
+  assert.match(hostedConfig, /FRAMEDIFF_RENDER_WORKER_IMAGE_DIGEST/);
+  assert.match(hostedConfig, /FRAMEDIFF_RENDER_FRAMEDIFF_REVISION/);
 });
 
 test("routine AWS access uses renewable scoped machine credentials", async () => {

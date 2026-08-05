@@ -55,3 +55,11 @@ aws_fd cloudformation describe-stacks \
   --output table
 
 "$SCRIPT_DIR/verify-hosted-render.sh"
+
+HOSTED_MANIFEST="${FD_HOSTED_RENDER_MANIFEST:-$(dirname "$ROOT")/framediff-hosted/render.yaml}"
+if [[ -f "$HOSTED_MANIFEST" ]]; then
+  JOB_DEFINITION_ARN="$(stack_output JobDefinitionArn)"
+  "$SCRIPT_DIR/verify-hosted-config.sh" "$HOSTED_MANIFEST" "$JOB_DEFINITION_ARN" "$IMAGE_DIGEST" "$IMAGE_TAG"
+else
+  echo "Hosted manifest not found at $HOSTED_MANIFEST; verify production control-plane pins separately." >&2
+fi
