@@ -472,7 +472,12 @@
           <button class="task-close" onclick={() => activeGuideStep = null} aria-label="Dismiss guided task">×</button>
         </aside>
       {/if}
-      <CompositionFrameBar composition={$store.current} operations={$operationsStore} onbake={() => void operations.bakeCurrent()} />
+      <CompositionFrameBar
+        composition={$store.current}
+        operations={$operationsStore}
+        onbake={() => void operations.bakeCurrent()}
+        onopeninput={(compositionKey) => session.navigate(compositionKey)}
+      />
       {#if $store.current?.kind === "generate"}
         <GenerativeWorkbench viewModel={generative} {runtime} {session} onservices={() => chrome.setServicesOpen(true)} />
       {:else if $store.current?.kind === "script"}

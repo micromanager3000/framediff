@@ -2,8 +2,8 @@ import type * as Three from "three";
 import type { CompositionSetup } from "../composition";
 import { registerCanvasCapture } from "../runtime";
 import { isVisualElementActive } from "../render/activeElement";
-import { evaluateCameraTrack, resolveSceneCamera } from "./cameraTrack";
-import { loadCameraFile, mountCameraLab, type CameraLabPose } from "./cameraLab";
+import { cameraFrameWithinCut, evaluateCameraTrack, resolveSceneCamera } from "./cameraTrack";
+import { cameraRotationFromTarget, loadCameraFile, mountCameraLab, type CameraLabPose } from "./cameraLab";
 import { focalLengthToFov } from "./cameraTrack";
 import type { ThreeSceneDef, ThreeSceneInstance } from "./sceneDef";
 
@@ -63,22 +63,25 @@ export function createThreeSceneSetup(options: ThreeSceneSetupOptions): Composit
       const duration = Number(clip.getAttribute("data-fd-duration") ?? composition.durationInFrames);
       return { name: element.dataset.fdCamera ?? "", from, duration, order };
     });
-    const cameraAt = (frame: number): string | undefined => cuts
+    const cutAt = (frame: number): CameraCut | undefined => cuts
       .filter((cut) => frame >= cut.from && frame < cut.from + cut.duration)
       .sort((a, b) => a.order - b.order)
-      .at(-1)?.name ?? options.camera;
+      .at(-1);
+    const cameraAt = (frame: number): string | undefined => cutAt(frame)?.name ?? options.camera;
 
     const warned = new Set<string>();
     const fileTracks = options.cameraFile ? await loadCameraFile(options.cameraFile) : { version: 1 as const, cameras: {} };
     let lastFrame = 0;
-    let lab: { draftPose: () => CameraLabPose | null; dispose: () => void } | undefined;
+    let lab: { draftPose: () => CameraLabPose | null; sync: () => void; dispose: () => void } | undefined;
     const poseFor = (frame: number, name: string | undefined) => {
       const fileTrack = name ? fileTracks.cameras[name] : undefined;
       if (fileTrack && fileTrack.keyframes.length > 0) {
         return evaluateCameraTrack(fileTrack.keyframes, frame, fileTrack.interpolation ?? "ease");
       }
       const definition = name ? options.scene.cameras[name] : undefined;
-      return definition ? resolveSceneCamera(definition, frame, composition.fps) : undefined;
+      const cut = cutAt(frame);
+      const definitionFrame = cut && cut.name === name ? cameraFrameWithinCut(frame, cut.from) : frame;
+      return definition ? resolveSceneCamera(definition, definitionFrame, composition.fps) : undefined;
     };
     const renderAt = (frame: number) => {
       instance?.update?.(frame / composition.fps, frame);
@@ -87,7 +90,7 @@ export function createThreeSceneSetup(options: ThreeSceneSetupOptions): Composit
       const definition = name ? options.scene.cameras[name] : undefined;
       const draft = lab?.draftPose();
       const pose = draft
-        ? { eye: draft.eye, target: draft.target, fov: focalLengthToFov(draft.focalLength) }
+        ? { eye: draft.eye, target: draft.target, rotation: draft.rotation, fov: focalLengthToFov(draft.focalLength) }
         : poseFor(frame, name);
       if (!pose) {
         if (name && !warned.has(name)) {
@@ -103,23 +106,37 @@ export function createThreeSceneSetup(options: ThreeSceneSetupOptions): Composit
       camera.aspect = width / height;
       camera.position.set(pose.eye[0], pose.eye[1], pose.eye[2]);
       camera.up.set(0, 1, 0);
-      camera.lookAt(pose.target[0], pose.target[1], pose.target[2]);
+      if (pose.rotation) {
+        camera.rotation.order = "YXZ";
+        camera.rotation.set(pose.rotation[0], pose.rotation[1], pose.rotation[2], "YXZ");
+      } else {
+        camera.lookAt(pose.target[0], pose.target[1], pose.target[2]);
+      }
       camera.updateProjectionMatrix();
       renderer.render(world, camera);
+      lab?.sync();
     };
 
     if (options.cameraFile) {
       lab = mountCameraLab(root, { path: options.cameraFile, data: fileTracks }, {
         frame: () => lastFrame,
+        durationInFrames: composition.durationInFrames,
         cameraAt: (frame) => cameraAt(frame),
         trackPose: (frame) => {
           const pose = poseFor(frame, cameraAt(frame));
           return pose
             ? { eye: [...pose.eye] as [number, number, number], target: [...pose.target] as [number, number, number],
+                rotation: pose.rotation
+                  ? [...pose.rotation] as [number, number, number]
+                  : cameraRotationFromTarget(pose.eye, pose.target),
                 focalLength: 24 / (2 * Math.tan((pose.fov * Math.PI) / 360)) }
-            : { eye: [0, 0, 5], target: [0, 0, 0], focalLength: 35 };
+            : { eye: [0, 0, 5], target: [0, 0, 0], rotation: [0, 0, 0], focalLength: 35 };
         },
         invalidate: () => renderAt(lastFrame),
+        seek: (frame) => root.dispatchEvent(new CustomEvent("framediff:seek", {
+          bubbles: true,
+          detail: { frame },
+        })),
       });
     }
 

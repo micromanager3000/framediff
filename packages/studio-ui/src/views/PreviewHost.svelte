@@ -433,13 +433,21 @@
     void session.editSelectedElement(patch, { label: `Nudge ${selected.label}` });
   }
 
+  function onCompositionSeek(event: Event): void {
+    const frame = (event as CustomEvent<{ frame?: unknown }>).detail?.frame;
+    if (typeof frame !== "number" || !Number.isFinite(frame)) return;
+    session.setFrame(frame);
+  }
+
   onMount(() => {
     mounted = true;
+    host.addEventListener("framediff:seek", onCompositionSeek);
     syncPreviewMode(cachedUrl, $store.currentKey, $store.frame, $store.playing, $store.gradeBypass);
   });
 
   onDestroy(() => {
     mounted = false;
+    host?.removeEventListener("framediff:seek", onCompositionSeek);
     destroyLivePreview();
   });
 

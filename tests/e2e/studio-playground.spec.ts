@@ -412,6 +412,47 @@ test("the agent surface can inspect every new composition kind", async ({ page }
   expect(visual.railTop).toBeGreaterThan(0.9);
 });
 
+test("set-linked previz exposes its input and a persistent numeric camera key editor", async ({ page }) => {
+  const cameraFile = "examples/studio-playground/src/compositions/playground/WorldLab.cameras.json";
+  const original = await readFile(cameraFile, "utf8");
+  try {
+    await openComposition(page, "world-lab");
+    await expect(page.getByRole("region", { name: "Camera Lab" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open SET composition WorldSet" })).toBeVisible();
+    await page.getByRole("button", { name: "Open SET composition WorldSet" }).click();
+    await expect(page.locator(".breadcrumb button.active")).toHaveText("WorldSet");
+
+    await openComposition(page, "world-lab");
+    const positionX = page.getByRole("spinbutton", { name: "Position X" });
+    const roll = page.getByRole("spinbutton", { name: "Rotation Z" });
+    await expect(positionX).toHaveValue("0");
+    await positionX.fill("1.25");
+    await roll.fill("7.5");
+    await expect(page.locator(".fd-cl-status")).toContainText("UNSAVED CAMERA DRAFT");
+    await page.getByRole("button", { name: "Add camera keyframe" }).click();
+    await expect.poll(async () => {
+      const key = JSON.parse(await readFile(cameraFile, "utf8")).cameras.overview.keyframes[0];
+      return { x: key.pose.cameraPosition[0], roll: key.pose.cameraRotation[2] };
+    }).toEqual({ x: 1.25, roll: expect.closeTo(7.5 * Math.PI / 180, 8) });
+    await expect(page.locator(".fd-cl-status")).toContainText(/SAVED|JSON/);
+
+    await page.getByRole("button", { name: "Camera keyframe 2 at frame 119" }).click();
+    await expect(page.locator(".fd-cl-title span")).toContainText("119f");
+    await expect(page.getByRole("spinbutton", { name: "Selected keyframe frame" })).toHaveValue("119");
+    await page.getByRole("spinbutton", { name: "Selected keyframe frame" }).fill("110");
+    await page.getByRole("spinbutton", { name: "Selected keyframe frame" }).press("Enter");
+    await expect.poll(async () => JSON.parse(await readFile(cameraFile, "utf8")).cameras.overview.keyframes[1].frame).toBe(110);
+    await expect(page.locator(".fd-cl-title span")).toContainText("110f");
+
+    await page.reload();
+    await openComposition(page, "world-lab");
+    await expect(page.getByRole("spinbutton", { name: "Position X" })).toHaveValue("1.25");
+    await expect(page.getByRole("button", { name: "Camera keyframe 2 at frame 110" })).toBeVisible();
+  } finally {
+    if (await readFile(cameraFile, "utf8") !== original) await writeFile(cameraFile, original);
+  }
+});
+
 test("the 3D camera editor loads its deferred runtime on demand", async ({ page }) => {
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));

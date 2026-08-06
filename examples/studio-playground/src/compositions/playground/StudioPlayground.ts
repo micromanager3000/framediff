@@ -16,7 +16,7 @@ import { audioLabComp } from "./AudioLab";
 import { clothLabComp } from "./ClothLab";
 import { packageEffectsLabComp } from "./PackageEffectsLab";
 import { studioPlaygroundGuide } from "./StudioPlaygroundGuide";
-import { worldLabComp } from "./WorldLab";
+import { worldLabComp, worldSetComp } from "./WorldLab";
 
 export const coverageMapComp = defineComposition(coverageSource, {
   document: coverageDocument,
@@ -54,4 +54,4 @@ export const studioPlaygroundComp = defineComposition(playgroundSource, {
 
 studioPlaygroundComp.meta = { ...studioPlaygroundComp.meta, guide: studioPlaygroundGuide };
 
-export { audioLabComp, clothLabComp, packageEffectsLabComp, worldLabComp };
+export { audioLabComp, clothLabComp, packageEffectsLabComp, worldLabComp, worldSetComp };

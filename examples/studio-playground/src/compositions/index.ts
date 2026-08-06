@@ -28,6 +28,7 @@ import {
   pipelineChapterComp,
   studioPlaygroundComp,
   worldLabComp,
+  worldSetComp,
 } from "./playground/StudioPlayground";
 import { planLabComp } from "./playground/PlanLab";
 import { boardLabComp } from "./playground/BoardLab";
@@ -58,6 +59,7 @@ export {
   packageEffectsLabComp,
   clothLabComp,
   worldLabComp,
+  worldSetComp,
   audioLabComp,
   planLabComp,
   boardLabComp,
@@ -73,6 +75,7 @@ export const baseRegistry: CompRegistry = {
   "package-effects-lab": packageEffectsLabComp,
   "cloth-lab": clothLabComp,
   "world-lab": worldLabComp,
+  "world-set": worldSetComp,
   "audio-lab": audioLabComp,
   "plan-lab": planLabComp,
   "board-lab": boardLabComp,

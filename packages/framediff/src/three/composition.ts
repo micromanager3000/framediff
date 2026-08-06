@@ -18,7 +18,12 @@ export interface ThreeSceneCameraCut {
 }
 
 /** A three-scene comp carries its scene so other comps can reference the COMP itself. */
-export type ThreeSceneComp = CompositionConfig & { threeScene: ThreeSceneDef; threeSceneCompId: string };
+export type ThreeSceneComp = CompositionConfig & {
+  threeScene: ThreeSceneDef;
+  threeSceneCompId: string;
+  /** Id of the upstream Set/scene composition, when this comp shoots another comp. */
+  threeSceneSourceCompId?: string;
+};
 
 export interface ThreeSceneCompositionOptions {
   /** The scene to shoot: a raw defineThreeScene recipe, or ANOTHER three-scene comp
@@ -91,5 +96,6 @@ export function defineThreeSceneComposition(options: ThreeSceneCompositionOption
   }) as ThreeSceneComp;
   config.threeScene = scene;
   config.threeSceneCompId = id;
+  config.threeSceneSourceCompId = sourceComp?.threeSceneCompId;
   return config;
 }

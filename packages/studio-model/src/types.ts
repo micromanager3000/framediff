@@ -112,6 +112,13 @@ export interface CompositionDescriptor {
   timelineDocument?: boolean;
   /** Complete source/dependency set used for revision guards and artifact fingerprints. */
   sources?: string[];
+  /** First-class upstream compositions that can be opened from the composition frame. */
+  inputs?: Array<{
+    kind: "composition";
+    role: string;
+    key: string;
+    id: string;
+  }>;
   library?: boolean;
   /** Render window: only [from, to) ships; absent = the whole comp. */
   render?: { from: number; to: number };
