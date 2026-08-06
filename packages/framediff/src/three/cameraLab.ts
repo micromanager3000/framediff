@@ -88,6 +88,17 @@ export function mountCameraLab(
   readout.style.cssText = "opacity:.6;font-weight:400";
   hud.appendChild(readout);
   root.appendChild(hud);
+  // the comp root is usually scaled to fit the preview — counter-scale so the HUD
+  // renders at UI size regardless of stage zoom
+  const counterScale = () => {
+    const rect = root.getBoundingClientRect();
+    const s = rect.width > 0 && root.offsetWidth > 0 ? rect.width / root.offsetWidth : 1;
+    hud.style.transformOrigin = "top right";
+    hud.style.transform = `scale(${(1 / Math.max(0.05, s)).toFixed(4)})`;
+  };
+  counterScale();
+  const scaleWatch = typeof ResizeObserver !== "undefined" ? new ResizeObserver(counterScale) : undefined;
+  scaleWatch?.observe(root);
 
   const paint = () => {
     fly.style.background = flying ? "rgba(255,138,112,.25)" : "transparent";
@@ -225,6 +236,7 @@ export function mountCameraLab(
       root.removeEventListener("pointermove", onMove);
       root.removeEventListener("pointerup", onUp);
       root.removeEventListener("wheel", onWheel);
+      scaleWatch?.disconnect();
       hud.remove();
     },
   };
