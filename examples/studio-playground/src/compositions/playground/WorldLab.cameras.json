@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "cameras": {
+    "overview": {
+      "interpolation": "ease",
+      "keyframes": [
+        {
+          "frame": 0,
+          "pose": {
+            "cameraPosition": [0, 3.6, 15],
+            "cameraTarget": [0, 0, 0],
+            "cameraRotation": [-0.23554498072086333, 0, 0],
+            "focalLength": 34
+          }
+        },
+        {
+          "frame": 119,
+          "pose": {
+            "cameraPosition": [3.25, 2.85, 13],
+            "cameraTarget": [0, 0.1, 0],
+            "cameraRotation": [-0.19863092360212608, 0.24497866312686414, 0],
+            "focalLength": 38
+          }
+        }
+      ]
+    }
+  }
+}

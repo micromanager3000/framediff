@@ -77,8 +77,27 @@ const playgroundWorld = defineThreeScene({
   },
 });
 
-export const worldLabComp = defineThreeSceneComposition({
+export const worldSetComp = defineThreeSceneComposition({
   scene: playgroundWorld,
+  id: "WorldSet",
+  width: 1920,
+  height: 1080,
+  fps: 30,
+  durationInFrames: 240,
+  background: "radial-gradient(circle at 50% 45%,#1d2745,#080b13 72%)",
+  cameras: [{ id: "set-overview", name: "set overview", camera: "overview", from: 0, durationInFrames: 240 }],
+  defaultCamera: "overview",
+  meta: {
+    file: "src/compositions/playground/WorldLab.ts",
+    module: "src/compositions/playground/WorldLab.ts",
+    exportName: "worldSetComp",
+    deps: ["src/compositions/playground/WorldLab.ts"],
+    library: true,
+  },
+});
+
+export const worldLabComp = defineThreeSceneComposition({
+  scene: worldSetComp,
   id: "WorldLab",
   width: 1920,
   height: 1080,
@@ -90,6 +109,7 @@ export const worldLabComp = defineThreeSceneComposition({
     { id: "world-orbit", name: "procedural orbit camera", camera: "orbit", from: 120, durationInFrames: 120 },
   ],
   defaultCamera: "overview",
+  cameraFile: "src/compositions/playground/WorldLab.cameras.json",
   meta: {
     file: "src/compositions/playground/WorldLab.ts",
     module: "src/compositions/playground/WorldLab.ts",

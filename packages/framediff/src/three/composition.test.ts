@@ -21,4 +21,33 @@ describe("defineThreeSceneComposition", () => {
     expect(composition.html).toContain('data-fd-duration="90"');
     expect(composition.setup).toBeTypeOf("function");
   });
+
+  it("keeps an explicitly referenced Set composition as a first-class input", () => {
+    const scene = defineThreeScene({ id: "pizza-world", create: () => undefined, cameras: { counter: {} } });
+    const set = defineThreeSceneComposition({
+      scene,
+      id: "Set",
+      width: 1280,
+      height: 720,
+      fps: 30,
+      durationInFrames: 240,
+      meta: { file: "src/Set.ts" },
+    });
+    const shot = defineThreeSceneComposition({
+      scene: set,
+      id: "PrevizCountertalk",
+      width: 1280,
+      height: 720,
+      fps: 30,
+      durationInFrames: 120,
+      cameraFile: "src/PrevizCountertalk.cameras.json",
+      meta: { file: "src/PrevizCountertalk.ts" },
+    });
+
+    expect(shot.threeScene).toBe(scene);
+    expect(shot.threeSceneSourceCompId).toBe("Set");
+    expect(shot.html).toContain('data-fd-scene-comp="Set"');
+    expect(shot.html).toContain('data-fd-camera-file="src/PrevizCountertalk.cameras.json"');
+    expect(shot.meta?.deps).toEqual(expect.arrayContaining(["src/Set.ts", "src/PrevizCountertalk.cameras.json"]));
+  });
 });

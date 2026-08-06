@@ -373,6 +373,12 @@
 :where(.framediff-studio) .composition-frame-identity > span { flex: none; color: var(--blue); font: 800 6px/1 var(--mono); letter-spacing: .13em; }
 :where(.framediff-studio) .composition-frame-identity > strong { overflow: hidden; color: var(--text); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 :where(.framediff-studio) .composition-frame-identity > small { overflow: hidden; color: var(--faint); font: 7px/1 var(--mono); text-overflow: ellipsis; white-space: nowrap; }
+:where(.framediff-studio) .composition-frame-inputs { min-width: 0; display: flex; align-items: center; gap: 5px; margin-left: auto; }
+:where(.framediff-studio) .composition-frame-inputs button { min-width: 0; display: grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:6px; height:24px; padding:0 7px; border:1px solid color-mix(in srgb,var(--blue) 35%,var(--line)); border-radius:6px; color:var(--text); background:color-mix(in srgb,var(--blue) 7%,var(--panel-raised)); }
+:where(.framediff-studio) .composition-frame-inputs button:hover { border-color:color-mix(in srgb,var(--blue) 70%,var(--line)); background:color-mix(in srgb,var(--blue) 13%,var(--panel-raised)); }
+:where(.framediff-studio) .composition-frame-inputs span { color:var(--blue); font:800 6px/1 var(--mono); letter-spacing:.09em; white-space:nowrap; }
+:where(.framediff-studio) .composition-frame-inputs strong { overflow:hidden; max-width:120px; font-size:8px; text-overflow:ellipsis; white-space:nowrap; }
+:where(.framediff-studio) .composition-frame-inputs b { color:var(--blue); font-size:9px; }
 :where(.framediff-studio) .composition-bake-control { flex: none; display: flex; align-items: center; gap: 7px; }
 :where(.framediff-studio) .composition-bake-state { color: var(--faint); font: 700 6px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
 :where(.framediff-studio) .composition-bake-state.current { color: var(--green); }:where(.framediff-studio) .composition-bake-state.stale { color: var(--yellow); }:where(.framediff-studio) .composition-bake-state.missing, :where(.framediff-studio) .composition-bake-state.untracked { color: var(--blue); }

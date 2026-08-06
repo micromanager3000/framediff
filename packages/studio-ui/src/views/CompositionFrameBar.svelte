@@ -4,6 +4,7 @@
   export let composition: CompositionDescriptor | undefined;
   export let operations: ProjectOperationsState;
   export let onbake: () => void;
+  export let onopeninput: (compositionKey: string) => void;
 
   const actionTitle = (status: string): string => status === "current"
     ? "The cached artifact matches every current render input. Bake it again."
@@ -33,6 +34,15 @@
       <small>{composition.kind} · {composition.outputKind} · {composition.width}×{composition.height}{composition.durationInFrames > 1 ? ` · ${composition.durationInFrames}f` : ""}</small>
     {/if}
   </div>
+  {#if composition?.inputs?.length}
+    <div class="composition-frame-inputs" aria-label="Composition inputs">
+      {#each composition.inputs as input}
+        <button onclick={() => onopeninput(input.key)} aria-label={`Open ${input.role} composition ${input.id}`} title={`Open ${input.id}`}>
+          <span>{input.role} INPUT</span><strong>{input.id}</strong><b>↗</b>
+        </button>
+      {/each}
+    </div>
+  {/if}
   {#if operations.currentBake}
     <div class="composition-bake-control">
       <span class="composition-bake-state {operations.currentBake.status}">{stateLabel(operations.currentBake.status)}</span>

@@ -1026,23 +1026,30 @@ function descendantCompositionTreesEqual(
 }
 
 function describeRegistry(registry: CompRegistry): CompositionDescriptor[] {
-  return Object.entries(registry).map(([key, composition]) => ({
-    key,
-    id: composition.id,
-    width: composition.width,
-    height: composition.height,
-    fps: composition.fps,
-    durationInFrames: composition.durationInFrames,
-    kind: composition.meta?.kind ?? "edit",
-    outputKind: composition.meta?.output ?? "video",
-    file: composition.meta?.file,
-    timelineDocument: !!composition.meta?.timelineFile,
-    sources: compositionSourcePaths(registry, key),
-    library: composition.meta?.library,
-    render: composition.meta?.render,
-    guide: composition.meta?.guide,
-    authoring: composition.meta?.authoring,
-  }));
+  return Object.entries(registry).map(([key, composition]) => {
+    const sourceId = (composition as StudioComposition & { threeSceneSourceCompId?: string }).threeSceneSourceCompId;
+    const source = sourceId
+      ? Object.entries(registry).find(([candidateKey, candidate]) => candidateKey === sourceId || candidate.id === sourceId)
+      : undefined;
+    return {
+      key,
+      id: composition.id,
+      width: composition.width,
+      height: composition.height,
+      fps: composition.fps,
+      durationInFrames: composition.durationInFrames,
+      kind: composition.meta?.kind ?? "edit",
+      outputKind: composition.meta?.output ?? "video",
+      file: composition.meta?.file,
+      timelineDocument: !!composition.meta?.timelineFile,
+      sources: compositionSourcePaths(registry, key),
+      ...(source ? { inputs: [{ kind: "composition" as const, role: "SET", key: source[0], id: source[1].id }] } : {}),
+      library: composition.meta?.library,
+      render: composition.meta?.render,
+      guide: composition.meta?.guide,
+      authoring: composition.meta?.authoring,
+    };
+  });
 }
 
 const escapeAttribute = (value: string): string => value

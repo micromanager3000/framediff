@@ -11,6 +11,9 @@ export interface Plane3DTransform {
 export interface VirtualCameraPose {
   cameraPosition?: V3;
   cameraTarget?: V3;
+  /** Camera Euler rotation in radians, ordered pitch (X), yaw (Y), roll (Z).
+   *  When present it is authoritative over cameraTarget for rendering. */
+  cameraRotation?: V3;
   focalLength?: number;
   focusPosition?: V3;
   focusDistance?: number;
@@ -58,6 +61,16 @@ const mixVector = (from: V3 | undefined, to: V3 | undefined, t: number): V3 | un
   return lerpV3(from, to, t);
 };
 
+const mixAngleVector = (from: V3 | undefined, to: V3 | undefined, t: number): V3 | undefined => {
+  if (!from) return to;
+  if (!to) return from;
+  const angle = (a: number, b: number) => {
+    const delta = ((b - a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+    return a + delta * t;
+  };
+  return [angle(from[0], to[0]), angle(from[1], to[1]), angle(from[2], to[2])];
+};
+
 /** Linearly mix authored virtual-camera channels while preserving optional fields. */
 export function interpolateVirtualCameraPose(
   from: VirtualCameraPose,
@@ -68,6 +81,7 @@ export function interpolateVirtualCameraPose(
   return {
     cameraPosition: mixVector(from.cameraPosition, to.cameraPosition, t),
     cameraTarget: mixVector(from.cameraTarget, to.cameraTarget, t),
+    cameraRotation: mixAngleVector(from.cameraRotation, to.cameraRotation, t),
     focalLength: mixNumber(from.focalLength, to.focalLength, t),
     focusPosition: mixVector(from.focusPosition, to.focusPosition, t),
     focusDistance: mixNumber(from.focusDistance, to.focusDistance, t),

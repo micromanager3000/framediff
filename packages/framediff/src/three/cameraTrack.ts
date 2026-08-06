@@ -12,21 +12,36 @@ import type { SceneCameraDef } from "./sceneDef";
 export interface ResolvedCameraPose {
   eye: V3;
   target: V3;
+  /** Explicit pitch/yaw/roll in radians. Undefined keeps legacy look-at behavior. */
+  rotation?: V3;
   /** Vertical field of view, degrees. */
   fov: number;
 }
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const lv = (a: V3, b: V3, t: number): V3 => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+const lerpAngle = (a: number, b: number, t: number) => {
+  const delta = ((b - a + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+  return a + delta * t;
+};
+const lvAngle = (a: V3, b: V3, t: number): V3 => [
+  lerpAngle(a[0], b[0], t),
+  lerpAngle(a[1], b[1], t),
+  lerpAngle(a[2], b[2], t),
+];
 
 export const focalLengthToFov = (focalLength: number, sensorHeight = 24): number =>
   (2 * Math.atan(sensorHeight / (2 * Math.max(1, focalLength))) * 180) / Math.PI;
+
+/** Scene-authored camera motion is local to its cut; persisted Camera Lab keys stay global. */
+export const cameraFrameWithinCut = (frame: number, cutFrom = 0): number => frame - cutFrom;
 
 /** Scene-camera default: a loose full-frame 35mm at [0,0,5] looking at the origin. */
 function resolvePose(p: VirtualCameraPose): ResolvedCameraPose {
   return {
     eye: p.cameraPosition ?? [0, 0, 5],
     target: p.cameraTarget ?? [0, 0, 0],
+    rotation: p.cameraRotation,
     fov: focalLengthToFov(p.focalLength ?? 35, p.sensorHeight ?? 24),
   };
 }
@@ -81,6 +96,9 @@ export function evaluateCameraTrack(
     return {
       eye: [s((p) => p.eye[0]), s((p) => p.eye[1]), s((p) => p.eye[2])],
       target: [s((p) => p.target[0]), s((p) => p.target[1]), s((p) => p.target[2])],
+      rotation: ks[seg].pose.cameraRotation && ks[seg + 1].pose.cameraRotation
+        ? lvAngle(ks[seg].pose.cameraRotation!, ks[seg + 1].pose.cameraRotation!, (frame - ks[seg].frame) / (ks[seg + 1].frame - ks[seg].frame))
+        : ks[seg].pose.cameraRotation ?? ks[seg + 1].pose.cameraRotation,
       fov: s((p) => p.fov),
     };
   }
@@ -90,7 +108,12 @@ export function evaluateCameraTrack(
   const u = (frame - ks[seg].frame) / (ks[seg + 1].frame - ks[seg].frame);
   const [outInf, inInf] = ks[seg].ease ?? [1 / 3, 1 / 3];
   const t = interpolation === "linear" ? Math.max(0, Math.min(1, u)) : aeEaseInfluence(u, outInf, inInf);
-  return { eye: lv(f.eye, g.eye, t), target: lv(f.target, g.target, t), fov: lerp(f.fov, g.fov, t) };
+  return {
+    eye: lv(f.eye, g.eye, t),
+    target: lv(f.target, g.target, t),
+    rotation: f.rotation && g.rotation ? lvAngle(f.rotation, g.rotation, t) : f.rotation ?? g.rotation,
+    fov: lerp(f.fov, g.fov, t),
+  };
 }
 
 /** Resolve a named camera at a scene frame: poseAt > keyframes > pose (first match wins). */
