@@ -146,7 +146,15 @@ describe("example composition authoring contracts", () => {
       const dataMode = attribute(root, "data-fd-data-mode") ?? (jsonFiles.length ? "json" : undefined);
       expect(dataMode, relative(repositoryRoot, file)).toBeTruthy();
       expect(["json", "source"], relative(repositoryRoot, file)).toContain(dataMode);
-      if (dataMode === "source") expect(attribute(root, "data-fd-kind"), relative(repositoryRoot, file)).toBe("scene");
+      if (dataMode === "source") {
+        expect(attribute(root, "data-fd-kind"), relative(repositoryRoot, file)).toBe("scene");
+        expect(attribute(root, "data-fd-timeline"), relative(repositoryRoot, file)).toBe("hidden");
+        const moduleFile = attribute(root, "data-fd-module");
+        expect(moduleFile, relative(repositoryRoot, file)).toBeTruthy();
+        const sourceMarker = file.lastIndexOf("/src/");
+        const modulePath = `${file.slice(0, sourceMarker)}/${moduleFile}`;
+        expect(readFileSync(modulePath, "utf8"), relative(repositoryRoot, modulePath)).toContain("defineCodeScene(");
+      }
     }
   });
 

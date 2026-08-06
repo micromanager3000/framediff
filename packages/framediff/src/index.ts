@@ -2,12 +2,14 @@
 
 export {
   defineComposition,
+  defineCodeScene,
   defineCompositionRegistry,
   defineTimelineDocument,
   combineCompositionSetups,
   COMPOSITION_DEFINITION_VERSION,
+  SOURCE_COMPOSITION_CONTRACT_VERSION,
   type CompositionDefinition,
-  type CompositionDefinitionV2,
+  type CompositionDefinitionV3,
   type CompositionDataMode,
   type CompositionType,
   type CompositionConfig,
@@ -31,6 +33,11 @@ export {
   type CompositionFrameState,
   type CompositionFrameListener,
   type DefineCompositionOptions,
+  type DefineCodeSceneOptions,
+  type DefineCodeSceneDependencies,
+  type SourceCompositionCapability,
+  type SourceCompositionContract,
+  type SourceCompositionDependencies,
 } from "./composition";
 export {
   defineVideoPlane3DComposition,

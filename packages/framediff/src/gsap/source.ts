@@ -83,7 +83,7 @@ export interface InsertGsapTweenOptions extends AnalyzeGsapSourceOptions {
 }
 
 export interface EnsureGsapTimelineOptions extends AnalyzeGsapSourceOptions {
-  /** Named composition export whose defineComposition() call should receive the generated setup. */
+  /** Named composition export whose composition factory call should receive the generated setup. */
   exportName?: string;
 }
 
@@ -230,7 +230,7 @@ export function ensureGsapTimelineSource(source: string, options: EnsureGsapTime
     for (const declarator of declaration.declarations) {
       const init = unwrap(declarator.init as Expression | null | undefined);
       if (declarator.id.type !== "Identifier" || init?.type !== "CallExpression"
-        || init.callee.type !== "Identifier" || init.callee.name !== "defineComposition") continue;
+        || init.callee.type !== "Identifier" || !["defineComposition", "defineCodeScene"].includes(init.callee.name)) continue;
       candidates.push({ call: init, statementStart: statement.start ?? 0, exportName: declarator.id.name });
     }
   }
@@ -241,7 +241,7 @@ export function ensureGsapTimelineSource(source: string, options: EnsureGsapTime
     return {
       ok: false,
       error: options.exportName
-        ? `Could not find defineComposition() for export "${options.exportName}" in this module.`
+        ? `Could not find a FrameDiff composition factory for export "${options.exportName}" in this module.`
         : "This module has multiple compositions; declare data-fd-export so Studio can attach the recorded motion to the right one.",
     };
   }

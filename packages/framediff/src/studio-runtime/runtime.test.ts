@@ -3,6 +3,7 @@ import type { CompRegistry, StudioComposition } from "../studio/types";
 import { generative, recipeHashOf } from "../generative";
 import { genModelOf } from "../genModels";
 import { processing } from "../processingComposition";
+import { defineCodeScene } from "../composition";
 import { fingerprintProcessingRecipe, type NewCompositionRequest, type ProcessingRecipe } from "@framediff/studio-model";
 import {
   compositionAssetIds,
@@ -18,8 +19,10 @@ const cameraSource = `export const CAMERAS = [
   { name: "shot", startCameraX: 1, startCameraY: 2, startCameraZ: 3 }
 ];`;
 
+const sourceContract = { version: 1, role: "code-scene", capabilities: ["canvas-2d"], dependencies: { assets: [], compositions: [], files: [] } } as const;
+
 const composition = {
-  definition: { version: 2, type: "html", kind: "scene", dataMode: "source" },
+  definition: { version: 3, type: "html", kind: "scene", dataMode: "source" },
   id: "CameraComp",
   width: 1920,
   height: 1080,
@@ -29,6 +32,7 @@ const composition = {
   meta: {
     file: "src/comp.ts",
     sourceFormat: "generated",
+    sourceContract,
     editableData: [{ type: "camera3d", file: "src/camera.ts", exportName: "CAMERAS" }],
   },
 } satisfies StudioComposition;
@@ -395,7 +399,7 @@ describe("HtmlStudioRuntime script sheets", () => {
       fps: 30,
       durationInFrames: 60,
       html,
-      definition: { version: 2, type: "html", kind: "script", dataMode: "json" } as const,
+      definition: { version: 3, type: "html", kind: "script", dataMode: "json" } as const,
       meta: { file: "src/Script.html", sourceFormat: "html" as const, dataFiles: ["src/Script.comp.json"] },
     } satisfies StudioComposition;
     let transaction: { label: string; files: Array<{ file: string; text: string }> } | undefined;
@@ -487,9 +491,9 @@ describe("HtmlStudioRuntime first recorded motion", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("bootstraps a registered timeline and commits the fitted path as one source edit", async () => {
-    const moduleSource = `import { defineComposition } from "framediff";
+    const moduleSource = `import { defineCodeScene } from "framediff";
 import source from "./Scene.html?raw";
-export const sceneComp = defineComposition(source);`;
+export const sceneComp = defineCodeScene(source, { capabilities: ["dom"] });`;
     const scene = {
       ...composition,
       id: "Scene",
@@ -499,6 +503,7 @@ export const sceneComp = defineComposition(source);`;
         module: "src/Scene.ts",
         exportName: "sceneComp",
         sourceFormat: "html" as const,
+        sourceContract,
       },
     } satisfies StudioComposition;
     let transaction: { label: string; files: Array<{ file: string; text: string }> } | undefined;
@@ -602,7 +607,7 @@ describe("HtmlStudioRuntime external timeline documents", () => {
       id: "Edit",
       html: htmlText,
       timeline: JSON.parse(timelineText),
-      definition: { version: 2, type: "html", kind: "edit", dataMode: "json" } as const,
+      definition: { version: 3, type: "html", kind: "edit", dataMode: "json" } as const,
       meta: { file: "src/Edit.html", sourceFormat: "html" as const, timelineFile: "src/Edit.timeline.json", dataFiles: ["src/Edit.timeline.json"] },
     } satisfies StudioComposition;
     const transactions: Array<{ label: string; groupId?: string; files: Array<{ file: string; text: string }> }> = [];
@@ -706,7 +711,7 @@ describe("HtmlStudioRuntime external timeline documents", () => {
       id: "Edit",
       html: htmlText,
       timeline: JSON.parse(timelineText),
-      definition: { version: 2, type: "html", kind: "edit", dataMode: "json" } as const,
+      definition: { version: 3, type: "html", kind: "edit", dataMode: "json" } as const,
       meta: { file: "src/Edit.html", sourceFormat: "html" as const, timelineFile: "src/Edit.timeline.json", dataFiles: ["src/Edit.timeline.json"] },
     } satisfies StudioComposition;
     let transaction: { label: string; files: Array<{ file: string; text: string }> } | undefined;
@@ -826,14 +831,14 @@ describe("HtmlStudioRuntime external timeline documents", () => {
       durationInFrames: 120,
       html: targetHtml,
       timeline,
-      definition: { version: 2, type: "html", kind: "edit", dataMode: "json" } as const,
+      definition: { version: 3, type: "html", kind: "edit", dataMode: "json" } as const,
       meta: { file: "src/Main.html", sourceFormat: "html" as const, timelineFile: "src/Main.timeline.json", dataFiles: ["src/Main.timeline.json"] },
     } satisfies StudioComposition;
     const child = {
       ...composition,
       id: "Title",
       html: '<!doctype html><main data-fd-composition data-fd-id="Title" data-fd-width="1920" data-fd-height="1080" data-fd-fps="24" data-fd-duration="48" data-fd-kind="scene"></main>',
-      meta: { sourceFormat: "generated" as const },
+      meta: { sourceFormat: "generated" as const, sourceContract },
     } satisfies StudioComposition;
     let transaction: { files: Array<{ file: string; text: string }> } | undefined;
     vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -1324,11 +1329,24 @@ describe("HtmlStudioRuntime composition invalidation graph", () => {
     expect(compositionAssetIds({ parent, leaf }, "parent")).toEqual(["plate"]);
   });
 
+  it("tracks declared code-scene ports even when setup resolves them dynamically", () => {
+    const leaf = { ...composition, id: "Leaf", meta: { file: "src/Leaf.ts" } } satisfies StudioComposition;
+    const code = defineCodeScene(`<!doctype html><main data-fd-composition data-fd-id="Code" data-fd-kind="scene" data-fd-data-mode="source" data-fd-width="1920" data-fd-height="1080" data-fd-fps="24" data-fd-duration="48" data-fd-source="src/Code.html"></main>`, {
+      capabilities: ["dom", "nested-compositions"],
+      dependencies: { assets: ["texture"], compositions: ["Leaf"], files: ["src/codeShader.ts"] },
+    });
+    const registry = { code, leaf } satisfies CompRegistry;
+
+    expect(compositionRenderKeys(registry, "code")).toEqual(["code", "leaf"]);
+    expect(compositionSourcePaths(registry, "code")).toEqual(["src/Code.html", "src/codeShader.ts", "src/Leaf.ts"]);
+    expect(compositionAssetIds(registry, "code")).toEqual(["texture"]);
+  });
+
   it("uses fresh source, runtime, and asset hashes from one authoritative bake-input API", async () => {
     let plateHash = "sha256:plate-v1";
     const assetComp = {
       ...composition,
-      meta: { file: "src/comp.ts", sourceFormat: "generated" as const },
+      meta: { file: "src/comp.ts", sourceFormat: "generated" as const, sourceContract },
       timeline: { version: 1 as const, items: [{
         id: "plate", from: 0, durationInFrames: 48,
         content: { type: "video" as const, src: "asset://plate" },
@@ -1395,7 +1413,7 @@ describe("HtmlStudioRuntime composition creation", () => {
     const parentHtml = '<!doctype html><main data-fd-composition data-fd-id="Main" data-fd-width="1920" data-fd-height="1080" data-fd-fps="24" data-fd-duration="240" data-fd-kind="edit" data-fd-source="src/Main.html"></main>';
     const parent = {
       ...composition,
-      definition: { version: 2, type: "html", kind: "edit", dataMode: "json" } as const,
+      definition: { version: 3, type: "html", kind: "edit", dataMode: "json" } as const,
       id: "Main",
       html: parentHtml,
       meta: { file: "src/Main.html", sourceFormat: "html" as const, dataFiles: ["src/Main.timeline.json"] },
@@ -1498,7 +1516,7 @@ describe("HtmlStudioRuntime composition creation", () => {
 
   it("creates a top-level RVM processing composition from the selected composition fingerprint", async () => {
     const parentHtml = '<!doctype html><main data-fd-composition data-fd-id="Main" data-fd-width="1920" data-fd-height="1080" data-fd-fps="24" data-fd-duration="240" data-fd-kind="edit" data-fd-source="src/Main.html"></main>';
-    const parent = { ...composition, id: "Main", html: parentHtml, meta: { file: "src/Main.html", sourceFormat: "html" as const } };
+    const parent = { ...composition, id: "Main", html: parentHtml, meta: { file: "src/Main.html", sourceFormat: "html" as const, sourceContract } };
     const sources: Record<string, string> = {
       "src/Main.html": parentHtml,
       "src/config.ts": 'import { composition } from "./Main";\nexport const COMPOSITIONS = { main: composition };\n',
@@ -1583,7 +1601,8 @@ describe("HtmlStudioRuntime composition creation", () => {
     expect(sources["src/FrameLogic.html"]).toContain('data-fd-timeline="hidden" data-fd-transport="always"');
     expect(sources["src/FrameLogic.html"]).toContain("onFrame(({ frame, time, playing, fps, durationInFrames }) =>");
     expect(sources["src/FrameLogic.html"]).toContain('data-fd-comp="its-registry-key"');
-    expect(sources["src/FrameLogic.ts"]).toContain("defineComposition(source)");
+    expect(sources["src/FrameLogic.ts"]).toContain("defineCodeScene(source");
+    expect(sources["src/FrameLogic.ts"]).toContain('capabilities: ["dom"]');
     expect(sources["src/FrameLogic.ts"]).not.toContain("import document");
     expect(sources["src/FrameLogic.comp.json"]).toBeUndefined();
     expect(sources["src/FrameLogic.schema.json"]).toBeUndefined();
@@ -1613,7 +1632,7 @@ describe("HtmlStudioRuntime composition creation", () => {
       ...composition,
       id: "Scene",
       html: sceneHtml,
-      meta: { file: "src/Scene.html", sourceFormat: "html" as const },
+      meta: { file: "src/Scene.html", sourceFormat: "html" as const, sourceContract },
     };
     const sources: Record<string, string> = {
       "src/Scene.html": sceneHtml,

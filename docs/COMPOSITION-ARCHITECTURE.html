@@ -9,26 +9,26 @@
   </style>
 </head>
 <body><main>
-  <div class="eyebrow">FrameDiff architecture · definition contract v2</div>
+  <div class="eyebrow">FrameDiff architecture · definition contract v3</div>
   <h1>One comp model.<br>Adapters, not species.</h1>
   <p class="lead">A composition is always the same project primitive. Its version defines compatibility, its type selects package-owned machinery, and its kind describes what the creator is making. Projects keep creative source and data; FrameDiff keeps the runtime and Studio UX.</p>
-  <div class="facts"><span class="fact">LATEST-ONLY V2</span><span class="fact">JSON BY DEFAULT</span><span class="fact">PACKAGE-OWNED UX</span><span class="fact">PROJECT-PINNED RELEASES</span></div>
+  <div class="facts"><span class="fact">LATEST-ONLY V3</span><span class="fact">JSON BY DEFAULT</span><span class="fact">CONTRACTED CODE SCENES</span><span class="fact">PROJECT-PINNED RELEASES</span></div>
 
   <section class="policy">
     <h2>The policy</h2>
-    <p><strong>Version the boundary now; do not support old boundaries yet.</strong> A video project pins one FrameDiff revision. Updating that dependency deliberately adopts the current definition contract, runtime adapters, validation, and Studio UX. Version 2 rejects stale definitions with an actionable error. If backwards compatibility becomes valuable, migrations are added in one place—<code>defineCompositionRegistry</code>—without changing project registry shape.</p>
+    <p><strong>Version the boundary now; do not support old boundaries yet.</strong> A video project pins one FrameDiff revision. Updating that dependency deliberately adopts the current definition contract, runtime adapters, validation, and Studio UX. Version 3 rejects stale definitions with an actionable error. If backwards compatibility becomes valuable, migrations are added in one place—<code>defineCompositionRegistry</code>—without changing project registry shape.</p>
   </section>
 
   <section class="section">
     <div class="eyebrow">The model</div><h2>Version, adapter, intent, and data authority</h2>
     <div class="flow">
-      <div class="node"><small>COMPATIBILITY</small><b><code>definition.version</code></b><span>Which definition schema this comp satisfies. Current value: <code>2</code>.</span></div><div class="arrow">→</div>
+      <div class="node"><small>COMPATIBILITY</small><b><code>definition.version</code></b><span>Which definition schema this comp satisfies. Current value: <code>3</code>.</span></div><div class="arrow">→</div>
       <div class="node"><small>IMPLEMENTATION</small><b><code>definition.type</code></b><span>Which FrameDiff runtime adapter and package UX implement it.</span></div><div class="arrow">→</div>
       <div class="node"><small>INTENT</small><b><code>definition.kind</code></b><span>What the creator is making and which normal authoring surfaces it needs.</span></div><div class="arrow">→</div>
       <div class="node"><small>AUTHORITY</small><b><code>definition.dataMode</code></b><span>Whether project creative values live in declared JSON files or explicitly in HTML source.</span></div>
     </div>
     <div class="code">{
-  definition: { version: 2, type: "three", kind: "scene", dataMode: "json" },
+  definition: { version: 3, type: "three", kind: "scene", dataMode: "json" },
   id: "JimmyCounterPreviz",
   width: 1920, height: 1080, fps: 30, durationInFrames: 1350,
   // creative source, data, timeline, setup, and metadata
@@ -47,7 +47,15 @@
         <tr><td><span class="tag">moodboard</span></td><td>Board JSON</td><td>Stable registration only</td></tr>
       </tbody>
     </table>
-    <p>Copy, prompts, timing, camera cuts/defaults/backgrounds, positions, blocking, and adjustable parameters are project data. Algorithms, rendering behavior, shaders, and reusable scene construction are source. The registry rejects package adapters without declared JSON files.</p>
+    <p>Copy, prompts, timing, camera cuts/defaults/backgrounds, positions, blocking, and adjustable parameters are project data. Algorithms, rendering behavior, shaders, and reusable scene construction are source. The registry rejects package adapters without declared JSON files and source-owned project scenes not created through <code>defineCodeScene()</code>.</p>
+    <div class="code">defineCodeScene(source, {
+  capabilities: ["dom", "webgpu", "nested-compositions"],
+  dependencies: {
+    assets: ["surface-texture"],
+    compositions: ["HarborPreviz"],
+    files: ["src/shaders/surface.ts"],
+  },
+});</div>
   </section>
 
   <section class="section">

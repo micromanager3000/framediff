@@ -24,7 +24,7 @@ describe("defineVideoPlane3DComposition", () => {
       height: 1080,
       fps: 24,
       durationInFrames: 48,
-      definition: { version: 2, type: "three", kind: "scene", dataMode: "json" },
+      definition: { version: 3, type: "three", kind: "scene", dataMode: "json" },
       meta: { library: true, sourceFormat: "generated" },
     });
     expect(composition.setup).toBeTypeOf("function");

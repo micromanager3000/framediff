@@ -43,10 +43,10 @@ copying UI into a video project.
 ## Creative-data contract
 
 JSON is the default and is mandatory for package-owned runtime adapters. The current definition is
-version 2 and records `dataMode: "json" | "source"` explicitly. `defineComposition()` infers JSON
-mode only from declared `.json` document or timeline paths. A composition without one must explicitly
-declare `dataMode: "source"` or `data-fd-data-mode="source"`; source ownership is accepted only by the
-HTML runtime. The Add Composition UI offers that escape hatch only as the **Code scene** starter.
+version 3 and records `dataMode: "json" | "source"` explicitly. `defineComposition()` infers JSON
+mode only from declared `.json` document or timeline paths. Source ownership is accepted only through
+the HTML runtime's `defineCodeScene()` boundary. The Add Composition UI offers it only as the
+**Code scene** starter; ad-hoc source-owned registry entries are rejected.
 
 | Runtime type | Data rule | What stays in source |
 | --- | --- | --- |
@@ -60,6 +60,12 @@ Put copy, prompts, timing, camera cuts/defaults/backgrounds, blocking, positions
 parameters in JSON. Put algorithms, scene construction, shaders, and reusable rendering behavior in
 HTML/TypeScript. `meta.dataFiles` is the normalized list used by registry validation and render input
 tracking; factories populate it from their declared data files.
+
+`defineCodeScene()` treats a procedural comp as an opaque, frame-addressable renderer. It requires
+declared capabilities (`dom`, Canvas/WebGL/WebGPU, audio, or nested compositions) and explicit asset,
+composition, and additional-file dependencies. FrameDiff includes those ports in render invalidation
+and rejects undeclared nested/asset references, JSON data, wall-clock scheduling, unseeded randomness,
+and direct network access. The implementation inside the root remains unrestricted rendering code.
 
 When adding a new runtime type, it must ship together with: its required versioned JSON document,
 factory validation, a compatible starter/kind entry, package-owned Studio UX, registry-load tests, a

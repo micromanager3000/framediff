@@ -1,7 +1,8 @@
-import { defineComposition } from "framediff";
+import { defineCodeScene } from "framediff";
 import source from "./MaterialPoster.html?raw";
 
-export const materialPosterComposition = defineComposition(source, {
+export const materialPosterComposition = defineCodeScene(source, {
+  capabilities: ["dom"],
   meta: {
     authoring: { timeline: "hidden", transport: "always", directManipulation: true },
   },

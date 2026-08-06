@@ -3,7 +3,12 @@
 // generate an edit skeleton from a plan, measure plan-vs-master drift, sync actual
 // timing back into the plan, and swap a nested slot's comp reference in source.
 
-import { defineComposition, type CompositionConfig } from "./composition";
+import {
+  SOURCE_COMPOSITION_CONTRACT_VERSION,
+  defineComposition,
+  type CompositionConfig,
+  type SourceCompositionCapability,
+} from "./composition";
 import {
   findHtmlElementById,
   flattenHtmlElements,
@@ -463,5 +468,27 @@ export function swapNestedComp(
 
 /** Convenience: the generated skeleton as a ready CompositionConfig. */
 export function defineEditSkeleton(planSource: string, options: GenerateEditSkeletonOptions = {}): CompositionConfig {
-  return defineComposition(generateEditSkeleton(planSource, options), { meta: { sourceFormat: "generated" } });
+  const source = generateEditSkeleton(planSource, options);
+  const composition = defineComposition(source, { meta: { sourceFormat: "generated" } });
+  const compositions = [...new Set([...source.matchAll(/\bdata-fd-comp\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)]
+    .map((match) => match[1] ?? match[2])
+    .filter((value): value is string => !!value))];
+  const assets = [...new Set([...source.matchAll(/asset:\/\/([^\s"'<>`)]+)/g)].map((match) => match[1]))];
+  const capabilities: SourceCompositionCapability[] = [
+    "dom",
+    ...(compositions.length ? ["nested-compositions" as const] : []),
+    ...(assets.length ? ["audio" as const] : []),
+  ];
+  return {
+    ...composition,
+    meta: {
+      ...composition.meta,
+      sourceContract: {
+        version: SOURCE_COMPOSITION_CONTRACT_VERSION,
+        role: "generated-edit",
+        capabilities,
+        dependencies: { assets, compositions, files: [] },
+      },
+    },
+  };
 }

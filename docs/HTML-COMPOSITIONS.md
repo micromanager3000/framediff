@@ -93,6 +93,27 @@ schema, or timeline files. The containing edit owns timing, rectangle, fit, radi
 layer order in its timeline JSON; the code scene source
 owns everything inside that rectangle.
 
+Register every source-owned project scene with `defineCodeScene()`, never `defineComposition()`:
+
+```ts
+import { defineCodeScene } from "framediff";
+import source from "./ProceduralMap.html?raw";
+
+export const proceduralMapComp = defineCodeScene(source, {
+  capabilities: ["dom", "nested-compositions"],
+  dependencies: {
+    assets: ["paper-texture"],
+    compositions: ["HarborPreviz"],
+    files: ["src/shaders/mapNoise.ts"],
+  },
+});
+```
+
+Empty dependency groups may be omitted; FrameDiff normalizes them to explicit arrays in
+`meta.sourceContract`. Declared files feed render fingerprints, declared compositions feed the render
+graph, and declared assets feed content hashes. Inline code must use `onFrame()` rather than wall-clock
+scheduling and must resolve declared project inputs rather than fetching network state directly.
+
 Timeline nodes remain mounted while inactive so setup state survives scrubbing. Built-in media,
 grade, video-plane, and three.js adapters skip hidden branches automatically. An expensive code-scene
 effect can do the same with `isVisualElementActive(canvas, root)`; capture and export also exclude

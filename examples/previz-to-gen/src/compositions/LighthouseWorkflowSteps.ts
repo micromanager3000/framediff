@@ -1,4 +1,6 @@
-import { defineComposition } from "framediff";
+import { defineCodeScene } from "framediff";
 import source from "./LighthouseWorkflowSteps.html?raw";
 
-export const lighthouseWorkflowStepsComp = defineComposition(source);
+export const lighthouseWorkflowStepsComp = defineCodeScene(source, {
+  capabilities: ["dom"],
+});

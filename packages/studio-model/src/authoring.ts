@@ -75,7 +75,7 @@ export const COMPOSITION_TYPE_CONTRACTS: readonly CompositionTypeContract[] = [
 /** Starters describe implementation, not creative intent. Compatibility is explicit and validated. */
 export const COMPOSITION_STARTER_CONTRACTS: readonly CompositionStarterContract[] = [
   { starter: "blank", label: "Blank", help: "JSON-backed creative data with standard Studio tools", type: "html", kinds: ["edit", "scene", "audio", "plan", "doc", "script", "board", "locations", "cast"] },
-  { starter: "code", label: "Code scene", help: "Explicitly source-owned HTML, CSS, and frame-aware JavaScript", type: "html", kinds: ["scene"] },
+  { starter: "code", label: "Code scene", help: "Contracted source renderer with declared capabilities, dependencies, and frame-aware JavaScript", type: "html", kinds: ["scene"] },
   { starter: "three", label: "3D scene", help: "Three.js scene code with JSON-backed editorial and camera state", type: "three", kinds: ["scene"] },
   { starter: "generative", label: "Generated", help: "Generative recipe with inputs, parameters, and pinned takes", type: "generative", kinds: ["scene", "audio"] },
   { starter: "processing", label: "Processed media", help: "Pinned media-processing recipe and output channels", type: "processing", kinds: ["scene"] },

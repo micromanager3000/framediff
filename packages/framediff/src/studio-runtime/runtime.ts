@@ -753,6 +753,17 @@ ${options.timelineFile ? "const timelineDocument = defineTimelineDocument(timeli
 `;
 }
 
+function codeSceneModule(htmlFile: string, exportName: string): string {
+  const fileName = htmlFile.split("/").pop()!;
+  return `import { defineCodeScene } from "framediff";
+import source from "./${fileName}?raw";
+
+export const ${exportName} = defineCodeScene(source, {
+  capabilities: ["dom"],
+});
+`;
+}
+
 const GENERATIVE_ASPECTS = [
   ["21:9", 21 / 9],
   ["16:9", 16 / 9],
@@ -915,6 +926,7 @@ function ownCompositionSourcePaths(composition: StudioComposition): string[] {
     composition.meta?.document?.file,
     ...(composition.meta?.dataFiles ?? []),
     ...(composition.meta?.deps ?? []),
+    ...(composition.meta?.sourceContract?.dependencies.files ?? []),
     ...(composition.meta?.editableData ?? []).map((source) => source.file),
   ].filter((file): file is string => !!file);
 }
@@ -966,6 +978,7 @@ export function compositionAssetIds(registry: CompRegistry, compositionKey: stri
         if (ref.src.startsWith("asset://")) assets.push(ref.src.slice("asset://".length));
       }
     }
+    assets.push(...(composition.meta?.sourceContract?.dependencies.assets ?? []));
   }
   return [...new Set(assets)];
 }
@@ -986,6 +999,7 @@ async function compositionRuntimeHash(composition: StudioComposition): Promise<s
     outputFrame: composition.meta?.outputFrame,
     render: composition.meta?.render,
     alpha: composition.meta?.alpha,
+    sourceContract: composition.meta?.sourceContract,
   };
   return hashString(JSON.stringify(renderState));
 }
@@ -1048,6 +1062,10 @@ function childCompositionKeys(registry: CompRegistry, composition: StudioComposi
       const child = resolveCompositionKey(registry, reference);
       if (child) children.push(child);
     }
+  }
+  for (const reference of composition.meta?.sourceContract?.dependencies.compositions ?? []) {
+    const child = resolveCompositionKey(registry, reference);
+    if (child) children.push(child);
   }
   return [...new Set(children)].sort();
 }
@@ -3469,7 +3487,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         fps: relative.fps,
         duration: request.durationInFrames,
       })))) return { ok: false, message: `Could not write ${file}.` };
-      if (!(await this.project.writeSource(module, htmlCompositionModule(file, varName)))) {
+      if (!(await this.project.writeSource(module, codeSceneModule(file, varName)))) {
         return { ok: false, message: `Wrote ${file}, but could not write ${module}.` };
       }
       const inserted = insertRegistryEntry(registryFile, sources, { key, varName, importFrom: relModule(registryFile, module) });

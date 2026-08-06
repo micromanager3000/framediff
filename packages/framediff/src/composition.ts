@@ -6,16 +6,39 @@ export type CompositionKind = "edit" | "audio" | "doc" | "plan" | "scene" | "boa
 export type CompositionType = "html" | "three" | "generative" | "processing" | "moodboard";
 /** Where project-specific creative values are authoritative. */
 export type CompositionDataMode = "json" | "source";
-export const COMPOSITION_DEFINITION_VERSION = 2 as const;
+export const COMPOSITION_DEFINITION_VERSION = 3 as const;
+export const SOURCE_COMPOSITION_CONTRACT_VERSION = 1 as const;
+
+export type SourceCompositionCapability =
+  | "dom"
+  | "canvas-2d"
+  | "webgl"
+  | "webgpu"
+  | "audio"
+  | "nested-compositions";
+
+export interface SourceCompositionDependencies {
+  assets: readonly string[];
+  compositions: readonly string[];
+  files: readonly string[];
+}
+
+/** Enforced ports around an otherwise opaque source-owned renderer. */
+export interface SourceCompositionContract {
+  version: typeof SOURCE_COMPOSITION_CONTRACT_VERSION;
+  role: "code-scene" | "generated-edit";
+  capabilities: readonly SourceCompositionCapability[];
+  dependencies: SourceCompositionDependencies;
+}
 
 /**
  * The versioned boundary shared by projects, the runtime, and Studio.
  *
- * Version 2 is latest-only: registries reject every other version. A future release can widen
+ * Version 3 is latest-only: registries reject every other version. A future release can widen
  * this union and migrate older definitions inside `defineCompositionRegistry` without changing
  * project registries or package-owned Studio UI.
  */
-export interface CompositionDefinitionV2 {
+export interface CompositionDefinitionV3 {
   /** Runtime registries enforce the current value; the broad type keeps migration errors actionable. */
   version: number;
   type: CompositionType;
@@ -24,7 +47,7 @@ export interface CompositionDefinitionV2 {
   dataMode?: CompositionDataMode;
 }
 
-export type CompositionDefinition = CompositionDefinitionV2;
+export type CompositionDefinition = CompositionDefinitionV3;
 export type CompositionOutputKind = "video" | "image" | "audio";
 export type CompositionTimelineMode = "auto" | "always" | "hidden";
 export type CompositionTransportMode = "auto" | "always" | "hidden";
@@ -210,6 +233,8 @@ export interface CompositionMetadata {
   deps?: string[];
   /** Complete JSON-authoritative creative-data set. Schemas are intentionally excluded. */
   dataFiles?: string[];
+  /** Required lifecycle/capability/dependency boundary for source-owned compositions. */
+  sourceContract?: SourceCompositionContract;
   library?: boolean;
   render?: { from: number; to: number };
   alpha?: boolean;
@@ -308,7 +333,7 @@ export interface DefineCompositionOptions {
   kind?: CompositionKind;
   /** Runtime adapter. Ordinary authored documents default to `html`; package factories set this. */
   type?: CompositionType;
-  /** Required for source-owned HTML scenes; JSON mode is inferred from declared JSON data files. */
+  /** Factories set this boundary; project-owned source scenes use defineCodeScene(). */
   dataMode?: CompositionDataMode;
   id?: string;
   width?: number;
@@ -321,6 +346,17 @@ export interface DefineCompositionOptions {
   meta?: CompositionMetadata;
   /** Project-relative source path. Prefer `data-fd-source` in the HTML for portable documents. */
   file?: string;
+}
+
+export interface DefineCodeSceneDependencies {
+  assets?: readonly string[];
+  compositions?: readonly string[];
+  files?: readonly string[];
+}
+
+export interface DefineCodeSceneOptions extends Omit<DefineCompositionOptions, "kind" | "type" | "dataMode" | "document" | "timeline"> {
+  capabilities: readonly SourceCompositionCapability[];
+  dependencies?: DefineCodeSceneDependencies;
 }
 
 const attr = (source: string, name: string): string | undefined => {
@@ -345,6 +381,136 @@ function compositionTag(source: string): string {
   const match = source.match(/<[^>]+\bdata-fd-composition(?:\s|=|>)[^>]*>/i);
   if (!match) throw new Error("A composition HTML document needs one element with data-fd-composition.");
   return match[0];
+}
+
+const SOURCE_CAPABILITIES: readonly SourceCompositionCapability[] = [
+  "dom", "canvas-2d", "webgl", "webgpu", "audio", "nested-compositions",
+];
+
+function attributeValues(source: string, name: string): string[] {
+  const matches = source.matchAll(new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "gi"));
+  return [...matches].map((match) => match[1] ?? match[2] ?? match[3]).filter((value): value is string => value != null);
+}
+
+function normalizedStrings(label: string, values: readonly string[] | undefined): string[] {
+  const normalized = (values ?? []).map((value) => value.trim());
+  if (normalized.some((value) => !value)) throw new Error(`${label} cannot contain an empty value.`);
+  if (new Set(normalized).size !== normalized.length) throw new Error(`${label} cannot contain duplicate values.`);
+  return normalized;
+}
+
+function validateProjectFile(file: string): void {
+  if (file.startsWith("/") || file.startsWith("\\") || /^[a-z][a-z0-9+.-]*:/i.test(file) || file.split(/[\\/]/).includes("..")) {
+    throw new Error(`Code-scene dependency file "${file}" must be project-relative and cannot traverse outside the project.`);
+  }
+}
+
+function sourceReferences(source: string): { assets: string[]; compositions: string[] } {
+  const assets = [...source.matchAll(/asset:\/\/([^\s"'<>`)]+)/g)].map((match) => match[1]);
+  return {
+    assets: [...new Set(assets)],
+    compositions: [...new Set(attributeValues(source, "data-fd-comp"))],
+  };
+}
+
+function assertSourceContractShape(id: string, contract: SourceCompositionContract | undefined): SourceCompositionContract {
+  if (!contract || contract.version !== SOURCE_COMPOSITION_CONTRACT_VERSION) {
+    throw new Error(`Composition "${id}" is source-owned but has no current source contract. Define project code scenes with defineCodeScene().`);
+  }
+  if (contract.role !== "code-scene" && contract.role !== "generated-edit") throw new Error(`Composition "${id}" has an unsupported source-contract role.`);
+  if (!Array.isArray(contract.capabilities) || !contract.capabilities.length || contract.capabilities.some((capability) => !SOURCE_CAPABILITIES.includes(capability))) {
+    throw new Error(`Composition "${id}" must declare at least one supported source capability.`);
+  }
+  for (const key of ["assets", "compositions", "files"] as const) {
+    if (!Array.isArray(contract.dependencies?.[key]) || contract.dependencies[key].some((value) => typeof value !== "string" || !value.trim())) {
+      throw new Error(`Composition "${id}" must declare source dependencies.${key} as a string array.`);
+    }
+  }
+  return contract;
+}
+
+function validateSourceReferences(id: string, source: string, contract: SourceCompositionContract): void {
+  const references = sourceReferences(source);
+  for (const asset of references.assets) {
+    if (!contract.dependencies.assets.includes(asset)) throw new Error(`Code scene "${id}" references asset://${asset} without declaring it in dependencies.assets.`);
+  }
+  for (const composition of references.compositions) {
+    if (!contract.dependencies.compositions.includes(composition)) throw new Error(`Code scene "${id}" nests "${composition}" without declaring it in dependencies.compositions.`);
+  }
+  if (references.compositions.length && !contract.capabilities.includes("nested-compositions")) {
+    throw new Error(`Code scene "${id}" nests compositions but does not declare the nested-compositions capability.`);
+  }
+  if (/<canvas\b/i.test(source) && !contract.capabilities.some((capability) => capability === "canvas-2d" || capability === "webgl" || capability === "webgpu")) {
+    throw new Error(`Code scene "${id}" contains a canvas but declares no canvas-2d, webgl, or webgpu capability.`);
+  }
+  if (/<audio\b|\bAudioContext\b|\bOfflineAudioContext\b/i.test(source) && !contract.capabilities.includes("audio")) {
+    throw new Error(`Code scene "${id}" uses audio but does not declare the audio capability.`);
+  }
+}
+
+function validateDeterministicInlineScripts(id: string, source: string): void {
+  const scripts = [...source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map((match) => match[1]).join("\n");
+  const forbidden: Array<[RegExp, string]> = [
+    [/\brequestAnimationFrame\s*\(/, "requestAnimationFrame"],
+    [/\bsetTimeout\s*\(/, "setTimeout"],
+    [/\bsetInterval\s*\(/, "setInterval"],
+    [/\bDate\.now\s*\(|\bnew\s+Date\s*\(/, "wall-clock time"],
+    [/\bMath\.random\s*\(/, "unseeded randomness"],
+    [/\bfetch\s*\(|\bXMLHttpRequest\b|\bWebSocket\b|\bEventSource\b/, "direct network access"],
+    [/\bwindow\s*(?:\.|\[)|\bglobalThis\s*(?:\.|\[)/, "global window access"],
+    [/\bdocument\s*\.\s*(?:querySelector|querySelectorAll|getElementById|createElement|body|head|documentElement|addEventListener)\b/, "global document access"],
+  ];
+  for (const [pattern, primitive] of forbidden) {
+    if (pattern.test(scripts)) throw new Error(`Code scene "${id}" uses ${primitive}; drive rendering from onFrame() and declared FrameDiff dependencies instead.`);
+  }
+}
+
+/** Define an opaque, deterministic, frame-addressable source renderer with explicit system ports. */
+export function defineCodeScene(source: string, options: DefineCodeSceneOptions): CompositionConfig {
+  const tag = compositionTag(source);
+  const id = options.id ?? attr(tag, "data-fd-id") ?? attr(tag, "id") ?? "unknown";
+  if (attr(tag, "data-fd-kind") !== "scene" || attr(tag, "data-fd-data-mode") !== "source") {
+    throw new Error(`Code scene "${id}" must declare data-fd-kind="scene" and data-fd-data-mode="source" on its composition root.`);
+  }
+  if (options.meta?.document || options.meta?.timelineFile || options.meta?.dataFiles?.length) {
+    throw new Error(`Code scene "${id}" cannot declare JSON creative data. Use defineComposition() for JSON-backed scenes.`);
+  }
+  if (options.meta?.deps?.length) throw new Error(`Code scene "${id}" must declare additional files through dependencies.files, not meta.deps.`);
+  const capabilities = normalizedStrings("Code-scene capabilities", options.capabilities) as SourceCompositionCapability[];
+  if (!capabilities.length || capabilities.some((capability) => !SOURCE_CAPABILITIES.includes(capability))) {
+    throw new Error(`Code scene "${id}" must declare at least one supported capability.`);
+  }
+  const dependencies: SourceCompositionDependencies = {
+    assets: normalizedStrings("Code-scene asset dependencies", options.dependencies?.assets),
+    compositions: normalizedStrings("Code-scene composition dependencies", options.dependencies?.compositions),
+    files: normalizedStrings("Code-scene file dependencies", options.dependencies?.files),
+  };
+  dependencies.files.forEach(validateProjectFile);
+  const sourceContract: SourceCompositionContract = {
+    version: SOURCE_COMPOSITION_CONTRACT_VERSION,
+    role: "code-scene",
+    capabilities,
+    dependencies,
+  };
+  validateSourceReferences(id, source, sourceContract);
+  validateDeterministicInlineScripts(id, source);
+  return defineComposition(source, {
+    ...options,
+    kind: "scene",
+    type: "html",
+    dataMode: "source",
+    meta: {
+      ...options.meta,
+      deps: [...dependencies.files],
+      sourceContract,
+      authoring: {
+        transport: "always",
+        directManipulation: false,
+        ...options.meta?.authoring,
+        timeline: "hidden",
+      },
+    },
+  });
 }
 
 /** Build a composition from a real HTML document. Output metadata lives on the root element. */
@@ -393,7 +559,7 @@ export function defineComposition(source: string, options: DefineCompositionOpti
   ].filter((file): file is string => !!file))];
   const dataMode = options.dataMode ?? attr(tag, "data-fd-data-mode") ?? (dataFiles.length ? "json" : undefined);
   if (dataMode !== "json" && dataMode !== "source") {
-    throw new Error(`Composition "${id}" must declare JSON creative data or explicitly opt into source ownership with dataMode: "source".`);
+    throw new Error(`Composition "${id}" must declare JSON creative data or use defineCodeScene() for an explicitly contracted source renderer.`);
   }
   if (dataMode === "source" && type !== "html") {
     throw new Error(`Composition "${id}" cannot use source-owned data. Package-owned runtime adapters require JSON; only HTML compositions may explicitly opt out.`);
@@ -408,6 +574,7 @@ export function defineComposition(source: string, options: DefineCompositionOpti
     sourceFormat: options.meta?.sourceFormat ?? "html",
     deps: options.meta?.deps,
     dataFiles,
+    sourceContract: options.meta?.sourceContract,
     library: booleanAttr(tag, "data-fd-library") ?? options.meta?.library,
     render: renderFrom != null && renderTo != null ? { from: renderFrom, to: renderTo } : options.meta?.render,
     alpha: booleanAttr(tag, "data-fd-alpha") ?? options.meta?.alpha,
@@ -445,7 +612,7 @@ export function defineComposition(source: string, options: DefineCompositionOpti
 
 /**
  * Validate the complete project boundary once. This is intentionally the future migration seam:
- * version 2 rejects stale definitions; a later implementation may normalize supported old
+ * version 3 rejects stale definitions; a later implementation may normalize supported old
  * versions here before returning the registry.
  */
 export function defineCompositionRegistry<const T extends CompositionRegistry>(registry: T): T & CompositionRegistry {
@@ -461,6 +628,18 @@ export function defineCompositionRegistry<const T extends CompositionRegistry>(r
     }
     if (composition.definition.dataMode === "source" && composition.definition.type !== "html") {
       throw new Error(`Composition "${key}" uses source-owned data, which is only valid for HTML compositions.`);
+    }
+    if (composition.definition.dataMode === "source") {
+      const contract = assertSourceContractShape(composition.id, composition.meta?.sourceContract);
+      if (contract.role === "code-scene" && composition.definition.kind !== "scene") throw new Error(`Code scene "${composition.id}" must use the scene kind.`);
+      if (contract.role === "generated-edit" && composition.definition.kind !== "edit") throw new Error(`Generated source composition "${composition.id}" must use the edit kind.`);
+      validateSourceReferences(composition.id, composition.html, contract);
+      validateDeterministicInlineScripts(composition.id, composition.html);
+      for (const file of contract.dependencies.files) validateProjectFile(file);
+      for (const reference of contract.dependencies.compositions) {
+        const exists = Object.entries(registry).some(([registryKey, candidate]) => registryKey === reference || candidate.id === reference);
+        if (!exists) throw new Error(`Source composition "${composition.id}" declares missing composition dependency "${reference}".`);
+      }
     }
     if (composition.definition.dataMode === "json" && !composition.meta?.dataFiles?.some((file) => file.toLowerCase().endsWith(".json"))) {
       throw new Error(`Composition "${key}" uses JSON data mode but declares no JSON data file.`);

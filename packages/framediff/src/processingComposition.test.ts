@@ -39,7 +39,7 @@ describe("processing composition", () => {
       },
     };
     const composition = processing({ id: "Subject", dataFile: "src/Subject.process.json", width: 1920, height: 1080, fps: 30, durationInFrames: 60, document });
-    expect(composition.definition).toEqual({ version: 2, type: "processing", kind: "scene", dataMode: "json" });
+    expect(composition.definition).toEqual({ version: 3, type: "processing", kind: "scene", dataMode: "json" });
     expect(composition.meta).toMatchObject({ output: "video", library: true, sourceFormat: "generated" });
     expect(composition.processingOutputChannel).toBe("foreground");
     expect(composition.html).toContain(`data-fd-src="${processingChannelCacheUrl("sha256:foreground")}"`);
