@@ -323,7 +323,7 @@ export interface GenerateEditSkeletonOptions {
  * skeleton, or shot reel) is generated, not assembled.
  */
 export function generateEditSkeleton(planSource: string, options: GenerateEditSkeletonOptions = {}): string {
-  const plan = defineComposition(planSource);
+  const plan = defineComposition(planSource, { dataMode: "source" });
   const rows = parsePlanRows(planSource);
   const id = options.id ?? `${plan.id}-master`;
   const matchProp = options.matchProp ?? "plan";
@@ -356,7 +356,7 @@ export function generateEditSkeleton(planSource: string, options: GenerateEditSk
     `</style></head><body>`,
     `<main data-fd-composition data-fd-id="${escapeAttr(id)}" data-fd-name="${escapeAttr(name)}"`,
     `  data-fd-width="${plan.width}" data-fd-height="${plan.height}" data-fd-fps="${plan.fps}"`,
-    `  data-fd-duration="${plan.durationInFrames}" data-fd-kind="edit"${options.file ? ` data-fd-source="${escapeAttr(options.file)}"` : ""}>`,
+    `  data-fd-duration="${plan.durationInFrames}" data-fd-kind="edit" data-fd-data-mode="source"${options.file ? ` data-fd-source="${escapeAttr(options.file)}"` : ""}>`,
     ...lines,
     `</main>`,
     `</body></html>`,

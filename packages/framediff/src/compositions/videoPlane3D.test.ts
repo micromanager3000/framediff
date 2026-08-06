@@ -11,6 +11,8 @@ describe("defineVideoPlane3DComposition", () => {
       height: 1080,
       fps: 24,
       durationInFrames: 48,
+      document: { camera: "hero" },
+      meta: { document: { file: "src/PlanePush.comp.json" } },
       trimStart: 3.5,
       grade: { exposure: 0.25, bloomThreshold: 0.55 },
       effect: { maxBlur: 0.04 },
@@ -22,7 +24,7 @@ describe("defineVideoPlane3DComposition", () => {
       height: 1080,
       fps: 24,
       durationInFrames: 48,
-      definition: { version: 1, type: "three", kind: "scene" },
+      definition: { version: 2, type: "three", kind: "scene", dataMode: "json" },
       meta: { library: true, sourceFormat: "generated" },
     });
     expect(composition.setup).toBeTypeOf("function");

@@ -19,7 +19,7 @@ const cameraSource = `export const CAMERAS = [
 ];`;
 
 const composition = {
-  definition: { version: 1, type: "html", kind: "scene" },
+  definition: { version: 2, type: "html", kind: "scene", dataMode: "source" },
   id: "CameraComp",
   width: 1920,
   height: 1080,
@@ -78,6 +78,7 @@ describe("HtmlStudioRuntime Inspector batches", () => {
   it("preserves imported asset references when submitting a generative composition", async () => {
     const generated = generative({
       id: "Generated",
+      dataFile: "src/Generated.gen.json",
       output: "video",
       model: "seedance-2.0",
       prompt: "Bring the portrait to life",
@@ -125,6 +126,7 @@ describe("HtmlStudioRuntime Inspector batches", () => {
   it("identifies ElevenLabs and blocks direct speech until a voice id is set", async () => {
     const generated = generative({
       id: "Narration",
+      dataFile: "src/Narration.gen.json",
       output: "audio",
       model: "elevenlabs-direct",
       prompt: "A quiet introduction.",
@@ -162,6 +164,7 @@ describe("HtmlStudioRuntime Inspector batches", () => {
   it("inherits a direct ElevenLabs voice id from a pinned audio anchor", async () => {
     const voiceRef = generative({
       id: "VoiceRef",
+      dataFile: "src/VoiceRef.gen.json",
       output: "audio",
       model: "elevenlabs-direct",
       prompt: "The approved narrator reference.",
@@ -170,6 +173,7 @@ describe("HtmlStudioRuntime Inspector batches", () => {
     });
     const narration = generative({
       id: "Narration",
+      dataFile: "src/Narration.gen.json",
       output: "audio",
       model: "elevenlabs-direct",
       prompt: "[calm] A measured introduction.",
@@ -233,6 +237,7 @@ describe("HtmlStudioRuntime Inspector batches", () => {
   it("blocks an unsupported ElevenLabs Direct speed before provider submission", async () => {
     const generated = generative({
       id: "Narration",
+      dataFile: "src/Narration.gen.json",
       output: "audio",
       model: "elevenlabs-direct",
       prompt: "A quiet introduction.",
@@ -390,8 +395,8 @@ describe("HtmlStudioRuntime script sheets", () => {
       fps: 30,
       durationInFrames: 60,
       html,
-      definition: { version: 1, type: "html", kind: "script" } as const,
-      meta: { file: "src/Script.html", sourceFormat: "html" as const },
+      definition: { version: 2, type: "html", kind: "script", dataMode: "json" } as const,
+      meta: { file: "src/Script.html", sourceFormat: "html" as const, dataFiles: ["src/Script.comp.json"] },
     } satisfies StudioComposition;
     let transaction: { label: string; files: Array<{ file: string; text: string }> } | undefined;
     vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -597,8 +602,8 @@ describe("HtmlStudioRuntime external timeline documents", () => {
       id: "Edit",
       html: htmlText,
       timeline: JSON.parse(timelineText),
-      definition: { version: 1, type: "html", kind: "edit" } as const,
-      meta: { file: "src/Edit.html", sourceFormat: "html" as const, timelineFile: "src/Edit.timeline.json" },
+      definition: { version: 2, type: "html", kind: "edit", dataMode: "json" } as const,
+      meta: { file: "src/Edit.html", sourceFormat: "html" as const, timelineFile: "src/Edit.timeline.json", dataFiles: ["src/Edit.timeline.json"] },
     } satisfies StudioComposition;
     const transactions: Array<{ label: string; groupId?: string; files: Array<{ file: string; text: string }> }> = [];
     vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -701,8 +706,8 @@ describe("HtmlStudioRuntime external timeline documents", () => {
       id: "Edit",
       html: htmlText,
       timeline: JSON.parse(timelineText),
-      definition: { version: 1, type: "html", kind: "edit" } as const,
-      meta: { file: "src/Edit.html", sourceFormat: "html" as const, timelineFile: "src/Edit.timeline.json" },
+      definition: { version: 2, type: "html", kind: "edit", dataMode: "json" } as const,
+      meta: { file: "src/Edit.html", sourceFormat: "html" as const, timelineFile: "src/Edit.timeline.json", dataFiles: ["src/Edit.timeline.json"] },
     } satisfies StudioComposition;
     let transaction: { label: string; files: Array<{ file: string; text: string }> } | undefined;
     vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -821,8 +826,8 @@ describe("HtmlStudioRuntime external timeline documents", () => {
       durationInFrames: 120,
       html: targetHtml,
       timeline,
-      definition: { version: 1, type: "html", kind: "edit" } as const,
-      meta: { file: "src/Main.html", sourceFormat: "html" as const, timelineFile: "src/Main.timeline.json" },
+      definition: { version: 2, type: "html", kind: "edit", dataMode: "json" } as const,
+      meta: { file: "src/Main.html", sourceFormat: "html" as const, timelineFile: "src/Main.timeline.json", dataFiles: ["src/Main.timeline.json"] },
     } satisfies StudioComposition;
     const child = {
       ...composition,
@@ -950,6 +955,7 @@ describe("HtmlStudioRuntime generative recipe documents", () => {
   it("reports only same-type models and classifies composition input geometry", async () => {
     const generated = generative({
       id: "Generated",
+      dataFile: "src/Generated.gen.json",
       output: "video",
       model: "seedance-2.0",
       prompt: "Animate the portrait",
@@ -1389,10 +1395,10 @@ describe("HtmlStudioRuntime composition creation", () => {
     const parentHtml = '<!doctype html><main data-fd-composition data-fd-id="Main" data-fd-width="1920" data-fd-height="1080" data-fd-fps="24" data-fd-duration="240" data-fd-kind="edit" data-fd-source="src/Main.html"></main>';
     const parent = {
       ...composition,
-      definition: { version: 1, type: "html", kind: "edit" } as const,
+      definition: { version: 2, type: "html", kind: "edit", dataMode: "json" } as const,
       id: "Main",
       html: parentHtml,
-      meta: { file: "src/Main.html", sourceFormat: "html" as const },
+      meta: { file: "src/Main.html", sourceFormat: "html" as const, dataFiles: ["src/Main.timeline.json"] },
     };
     const sources: Record<string, string> = {
       "src/Main.html": parentHtml,
@@ -1573,6 +1579,7 @@ describe("HtmlStudioRuntime composition creation", () => {
 
     expect(codeScene).toMatchObject({ ok: true, compositionKey: "frame-logic" });
     expect(sources["src/FrameLogic.html"]).toContain('data-fd-kind="scene"');
+    expect(sources["src/FrameLogic.html"]).toContain('data-fd-data-mode="source"');
     expect(sources["src/FrameLogic.html"]).toContain('data-fd-timeline="hidden" data-fd-transport="always"');
     expect(sources["src/FrameLogic.html"]).toContain("onFrame(({ frame, time, playing, fps, durationInFrames }) =>");
     expect(sources["src/FrameLogic.html"]).toContain('data-fd-comp="its-registry-key"');
@@ -1590,12 +1597,14 @@ describe("HtmlStudioRuntime composition creation", () => {
     }, "");
 
     expect(threeScene).toMatchObject({ ok: true, compositionKey: "spatial-stage" });
-    expect(sources["src/SpatialStage.html"]).toContain("data-fd-webgpu");
-    expect(JSON.parse(sources["src/SpatialStage.comp.json"])).toEqual({
-      scene: { background: "#111827", opacity: 1, intensity: 1 },
+    expect(sources["src/SpatialStage.html"]).toBeUndefined();
+    expect(JSON.parse(sources["src/SpatialStage.scene.json"])).toMatchObject({
+      version: 1,
+      defaultCamera: "main",
+      cameras: [{ camera: "main", from: 0, durationInFrames: 72 }],
     });
-    expect(sources["src/SpatialStage.ts"]).toContain('type: "three"');
-    expect(sources["src/SpatialStage.ts"]).toContain('bindings: {"scene":"/scene"}');
+    expect(sources["src/SpatialStage.ts"]).toContain("defineThreeSceneComposition");
+    expect(sources["src/SpatialStage.ts"]).toContain('dataFile: "src/SpatialStage.scene.json"');
   });
 
   it("does not inject timeline clips into scene and document compositions", async () => {

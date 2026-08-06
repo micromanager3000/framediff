@@ -1,4 +1,6 @@
 import { defineThreeScene, defineThreeSceneComposition } from "framediff/three";
+import worldSetData from "./WorldSet.scene.json";
+import worldLabData from "./WorldLab.scene.json";
 
 const palette = [0x8f7cff, 0x5bd3c2, 0xef86ba, 0xf4c86f];
 
@@ -84,9 +86,8 @@ export const worldSetComp = defineThreeSceneComposition({
   height: 1080,
   fps: 30,
   durationInFrames: 240,
-  background: "radial-gradient(circle at 50% 45%,#1d2745,#080b13 72%)",
-  cameras: [{ id: "set-overview", name: "set overview", camera: "overview", from: 0, durationInFrames: 240 }],
-  defaultCamera: "overview",
+  dataFile: "src/compositions/playground/WorldSet.scene.json",
+  data: worldSetData,
   meta: {
     file: "src/compositions/playground/WorldLab.ts",
     module: "src/compositions/playground/WorldLab.ts",
@@ -103,12 +104,8 @@ export const worldLabComp = defineThreeSceneComposition({
   height: 1080,
   fps: 30,
   durationInFrames: 240,
-  background: "radial-gradient(circle at 50% 45%,#1d2745,#080b13 72%)",
-  cameras: [
-    { id: "world-overview", name: "overview camera", camera: "overview", from: 0, durationInFrames: 120 },
-    { id: "world-orbit", name: "procedural orbit camera", camera: "orbit", from: 120, durationInFrames: 120 },
-  ],
-  defaultCamera: "overview",
+  dataFile: "src/compositions/playground/WorldLab.scene.json",
+  data: worldLabData,
   cameraFile: "src/compositions/playground/WorldLab.cameras.json",
   meta: {
     file: "src/compositions/playground/WorldLab.ts",

@@ -18,8 +18,9 @@ FrameDiff has three distinct owners:
 The JSON document is persistent render data. Viewport orbit, hover, open panels, selection, and modal
 state remain ephemeral Studio state.
 
-Every composition has a versioned `definition` with two independent axes. `kind` describes creative
-intent and supplies the normal Studio surfaces; `type` selects the package runtime adapter. A 3D
+Every composition has a versioned `definition` with three independent axes. `kind` describes creative
+intent and supplies the normal Studio surfaces; `type` selects the package runtime adapter; and
+`dataMode` declares whether project-specific creative values are authoritative in JSON or source. A 3D
 shot is therefore `{ kind: "scene", type: "three" }`, not a new semantic kind. A generated voice is
 `{ kind: "audio", type: "generative" }`. See the full [composition architecture and upgrade
 plan](./COMPOSITION-ARCHITECTURE.html).
@@ -38,6 +39,32 @@ Runtime types refine those defaults: `three` supplies spatial setup, `generative
 workbench, `processing` supplies processor status and execution, and `moodboard` supplies its complete
 canvas UX. Those surfaces live in FrameDiff, so upgrading the pinned package updates them without
 copying UI into a video project.
+
+## Creative-data contract
+
+JSON is the default and is mandatory for package-owned runtime adapters. The current definition is
+version 2 and records `dataMode: "json" | "source"` explicitly. `defineComposition()` infers JSON
+mode only from declared `.json` document or timeline paths. A composition without one must explicitly
+declare `dataMode: "source"` or `data-fd-data-mode="source"`; source ownership is accepted only by the
+HTML runtime. The Add Composition UI offers that escape hatch only as the **Code scene** starter.
+
+| Runtime type | Data rule | What stays in source |
+| --- | --- | --- |
+| `html` | JSON by default; explicit source opt-out | markup, CSS, rendering and frame logic |
+| `three` | required versioned `.scene.json`; optional `.cameras.json` tracks | scene graph, shaders, loaders, procedural geometry |
+| `generative` | required `.gen.json` | stable recipe identity and registration |
+| `processing` | required `.process.json` | stable processor registration |
+| `moodboard` | required JSON document | package factory registration |
+
+Put copy, prompts, timing, camera cuts/defaults/backgrounds, blocking, positions, and adjustable
+parameters in JSON. Put algorithms, scene construction, shaders, and reusable rendering behavior in
+HTML/TypeScript. `meta.dataFiles` is the normalized list used by registry validation and render input
+tracking; factories populate it from their declared data files.
+
+When adding a new runtime type, it must ship together with: its required versioned JSON document,
+factory validation, a compatible starter/kind entry, package-owned Studio UX, registry-load tests, a
+curated example, and migration notes. Do not add a runtime type merely to represent a new creative
+intent, and do not add a kind merely to select an engine.
 
 A full-duration DOM wrapper is usually structural content, not a clip. Static scene examples do not
 add `data-fd-clip` simply to make their children selectable; stable `data-fd-id` values and JSON

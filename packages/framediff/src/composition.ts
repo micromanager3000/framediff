@@ -4,22 +4,27 @@ import type { AssetResolver } from "./assets/resolver";
 export type CompositionKind = "edit" | "audio" | "doc" | "plan" | "scene" | "board" | "script" | "locations" | "cast";
 /** Package-owned runtime adapter. This is deliberately separate from creative intent. */
 export type CompositionType = "html" | "three" | "generative" | "processing" | "moodboard";
-export const COMPOSITION_DEFINITION_VERSION = 1 as const;
+/** Where project-specific creative values are authoritative. */
+export type CompositionDataMode = "json" | "source";
+export const COMPOSITION_DEFINITION_VERSION = 2 as const;
 
 /**
  * The versioned boundary shared by projects, the runtime, and Studio.
  *
- * Version 1 is latest-only: registries reject every other version. A future release can widen
+ * Version 2 is latest-only: registries reject every other version. A future release can widen
  * this union and migrate older definitions inside `defineCompositionRegistry` without changing
  * project registries or package-owned Studio UI.
  */
-export interface CompositionDefinitionV1 {
-  version: typeof COMPOSITION_DEFINITION_VERSION;
+export interface CompositionDefinitionV2 {
+  /** Runtime registries enforce the current value; the broad type keeps migration errors actionable. */
+  version: number;
   type: CompositionType;
   kind: CompositionKind;
+  /** JSON is the normal project-data boundary; source is an explicit HTML code-scene opt-out. */
+  dataMode?: CompositionDataMode;
 }
 
-export type CompositionDefinition = CompositionDefinitionV1;
+export type CompositionDefinition = CompositionDefinitionV2;
 export type CompositionOutputKind = "video" | "image" | "audio";
 export type CompositionTimelineMode = "auto" | "always" | "hidden";
 export type CompositionTransportMode = "auto" | "always" | "hidden";
@@ -203,6 +208,8 @@ export interface CompositionMetadata {
   /** `generated` means HTML is assembled by JavaScript; timeline placement values are read-only. */
   sourceFormat?: "html" | "generated";
   deps?: string[];
+  /** Complete JSON-authoritative creative-data set. Schemas are intentionally excluded. */
+  dataFiles?: string[];
   library?: boolean;
   render?: { from: number; to: number };
   alpha?: boolean;
@@ -301,6 +308,8 @@ export interface DefineCompositionOptions {
   kind?: CompositionKind;
   /** Runtime adapter. Ordinary authored documents default to `html`; package factories set this. */
   type?: CompositionType;
+  /** Required for source-owned HTML scenes; JSON mode is inferred from declared JSON data files. */
+  dataMode?: CompositionDataMode;
   id?: string;
   width?: number;
   height?: number;
@@ -376,12 +385,29 @@ export function defineComposition(source: string, options: DefineCompositionOpti
     ?? options.meta?.authoring?.directManipulation;
   const documentFile = attr(tag, "data-fd-document") ?? options.meta?.document?.file;
   const schemaFile = attr(tag, "data-fd-schema") ?? options.meta?.document?.schema;
+  const timelineFile = attr(tag, "data-fd-timeline-source") ?? options.meta?.timelineFile;
+  const dataFiles = [...new Set([
+    ...(options.meta?.dataFiles ?? []),
+    documentFile,
+    timelineFile,
+  ].filter((file): file is string => !!file))];
+  const dataMode = options.dataMode ?? attr(tag, "data-fd-data-mode") ?? (dataFiles.length ? "json" : undefined);
+  if (dataMode !== "json" && dataMode !== "source") {
+    throw new Error(`Composition "${id}" must declare JSON creative data or explicitly opt into source ownership with dataMode: "source".`);
+  }
+  if (dataMode === "source" && type !== "html") {
+    throw new Error(`Composition "${id}" cannot use source-owned data. Package-owned runtime adapters require JSON; only HTML compositions may explicitly opt out.`);
+  }
+  if (dataMode === "json" && !dataFiles.some((file) => file.toLowerCase().endsWith(".json"))) {
+    throw new Error(`Composition "${id}" uses JSON data mode but declares no JSON data file.`);
+  }
   const meta: CompositionMetadata = {
     file: options.file ?? attr(tag, "data-fd-source") ?? options.meta?.file,
     module: attr(tag, "data-fd-module") ?? options.meta?.module,
     exportName: attr(tag, "data-fd-export") ?? options.meta?.exportName,
     sourceFormat: options.meta?.sourceFormat ?? "html",
     deps: options.meta?.deps,
+    dataFiles,
     library: booleanAttr(tag, "data-fd-library") ?? options.meta?.library,
     render: renderFrom != null && renderTo != null ? { from: renderFrom, to: renderTo } : options.meta?.render,
     alpha: booleanAttr(tag, "data-fd-alpha") ?? options.meta?.alpha,
@@ -390,7 +416,7 @@ export function defineComposition(source: string, options: DefineCompositionOpti
     authoring: timeline != null || transport != null || directManipulation != null
       ? { timeline, transport, directManipulation }
       : undefined,
-    timelineFile: attr(tag, "data-fd-timeline-source") ?? options.meta?.timelineFile,
+    timelineFile,
     document: documentFile
       ? {
           file: documentFile,
@@ -403,7 +429,7 @@ export function defineComposition(source: string, options: DefineCompositionOpti
   };
 
   return {
-    definition: { version: COMPOSITION_DEFINITION_VERSION, type, kind: kind as CompositionKind },
+    definition: { version: COMPOSITION_DEFINITION_VERSION, type, kind: kind as CompositionKind, dataMode },
     id,
     html: source,
     width,
@@ -419,7 +445,7 @@ export function defineComposition(source: string, options: DefineCompositionOpti
 
 /**
  * Validate the complete project boundary once. This is intentionally the future migration seam:
- * version 1 rejects stale definitions; a later implementation may normalize supported old
+ * version 2 rejects stale definitions; a later implementation may normalize supported old
  * versions here before returning the registry.
  */
 export function defineCompositionRegistry<const T extends CompositionRegistry>(registry: T): T & CompositionRegistry {
@@ -429,6 +455,15 @@ export function defineCompositionRegistry<const T extends CompositionRegistry>(r
     if (!composition?.definition) throw new Error(`Composition registry entry "${key}" has no versioned definition.`);
     if (composition.definition.version !== COMPOSITION_DEFINITION_VERSION) {
       throw new Error(`Composition "${key}" uses definition version ${String(composition.definition.version)}; FrameDiff requires version ${COMPOSITION_DEFINITION_VERSION}.`);
+    }
+    if (composition.definition.dataMode !== "json" && composition.definition.dataMode !== "source") {
+      throw new Error(`Composition "${key}" has no explicit data mode. Recreate it with the latest FrameDiff composition factory.`);
+    }
+    if (composition.definition.dataMode === "source" && composition.definition.type !== "html") {
+      throw new Error(`Composition "${key}" uses source-owned data, which is only valid for HTML compositions.`);
+    }
+    if (composition.definition.dataMode === "json" && !composition.meta?.dataFiles?.some((file) => file.toLowerCase().endsWith(".json"))) {
+      throw new Error(`Composition "${key}" uses JSON data mode but declares no JSON data file.`);
     }
     const previous = ids.get(composition.id);
     if (previous && previous !== composition) throw new Error(`Composition id "${composition.id}" belongs to more than one definition.`);

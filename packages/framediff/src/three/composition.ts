@@ -17,6 +17,15 @@ export interface ThreeSceneCameraCut {
   name?: string;
 }
 
+/** JSON-authoritative editorial state for a Three.js composition. */
+export const THREE_SCENE_DATA_VERSION = 1 as const;
+export interface ThreeSceneCompositionData {
+  version: number;
+  cameras?: ThreeSceneCameraCut[];
+  defaultCamera?: string;
+  background?: string;
+}
+
 /** A three-scene comp carries its scene so other comps can reference the COMP itself. */
 export type ThreeSceneComp = CompositionConfig & {
   threeScene: ThreeSceneDef;
@@ -35,17 +44,21 @@ export interface ThreeSceneCompositionOptions {
   height: number;
   fps: number;
   durationInFrames: number;
-  cameras?: ThreeSceneCameraCut[];
-  defaultCamera?: string;
+  /** Imported JSON editorial state. Scene construction remains in TypeScript. */
+  data: ThreeSceneCompositionData;
+  /** Project-relative path of the imported JSON editorial state. */
+  dataFile: string;
   /** Project-relative JSON for hand-flown camera keyframes (enables the Camera Lab). */
   cameraFile?: string;
-  background?: string;
   setup?: CompositionSetup;
   meta?: CompositionMetadata;
 }
 
 /** Define a nestable three.js scene composition without repeating canvas/camera-cut boilerplate. */
 export function defineThreeSceneComposition(options: ThreeSceneCompositionOptions): ThreeSceneComp {
+  if (options.data.version !== THREE_SCENE_DATA_VERSION) {
+    throw new Error(`Three.js composition "${options.id ?? options.scene.id}" uses scene data version ${String(options.data.version)}; FrameDiff requires version ${THREE_SCENE_DATA_VERSION}.`);
+  }
   const sourceComp = "threeScene" in options.scene ? (options.scene as ThreeSceneComp) : undefined;
   const scene = sourceComp ? sourceComp.threeScene : (options.scene as ThreeSceneDef);
   const id = options.id ?? scene.id;
@@ -63,7 +76,7 @@ export function defineThreeSceneComposition(options: ThreeSceneCompositionOption
     "data-fd-interactive": options.cameraFile ? true : undefined,
     "data-fd-camera-file": options.cameraFile,
   });
-  const cameraCuts = (options.cameras ?? []).map((cut, index) => `<i ${htmlAttributes({
+  const cameraCuts = (options.data.cameras ?? []).map((cut, index) => `<i ${htmlAttributes({
     "data-fd-clip": true,
     "data-fd-id": cut.id ?? `camera-${kebabCase(cut.camera)}-${index + 1}`,
     "data-fd-name": cut.name ?? cut.camera,
@@ -72,25 +85,30 @@ export function defineThreeSceneComposition(options: ThreeSceneCompositionOption
     "data-fd-type": "camera",
     "data-fd-camera": cut.camera,
   })}></i>`).join("");
-  const background = escapeHtml(options.background ?? "#000");
+  const background = escapeHtml(options.data.background ?? "#000");
   const source = `<!doctype html><html><head><style>[data-fd-composition]{position:relative;overflow:hidden;background:${background}}canvas{position:absolute;inset:0;width:100%;height:100%}[data-fd-camera]{display:none}</style></head><body><main ${rootAttributes}><canvas data-fd-three data-fd-webgpu></canvas>${cameraCuts}</main></body></html>`;
   const deps = [
     ...(options.meta?.deps ?? []),
     ...(sourceComp?.meta?.file ? [sourceComp.meta.file] : []),
+    options.dataFile,
     ...(options.cameraFile ? [options.cameraFile] : []),
   ];
   const config = defineComposition(source, {
     id,
     type: "three",
+    dataMode: "json",
+    document: options.data,
     setup: combineCompositionSetups(options.setup, createThreeSceneSetup({
       scene,
-      camera: options.defaultCamera,
+      camera: options.data.defaultCamera,
       cameraFile: options.cameraFile,
     })),
     meta: {
       ...options.meta,
       sourceFormat: "generated",
       library: options.meta?.library ?? true,
+      dataFiles: [options.dataFile, ...(options.cameraFile ? [options.cameraFile] : [])],
+      document: { file: options.dataFile, hotUpdate: "remount" },
       ...(deps.length ? { deps } : {}),
     },
   }) as ThreeSceneComp;

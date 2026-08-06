@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "background": "radial-gradient(circle at 50% 45%,#1d2745,#080b13 72%)",
+  "defaultCamera": "overview",
+  "cameras": [
+    { "id": "set-overview", "name": "set overview", "camera": "overview", "from": 0, "durationInFrames": 240 }
+  ]
+}

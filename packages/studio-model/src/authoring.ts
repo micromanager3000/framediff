@@ -65,8 +65,8 @@ export const COMPOSITION_KIND_CONTRACTS: readonly CompositionKindContract[] = [
 
 /** Runtime adapters may refine the UX without inventing new semantic composition kinds. */
 export const COMPOSITION_TYPE_CONTRACTS: readonly CompositionTypeContract[] = [
-  { type: "html", label: "HTML", help: "Authored HTML, CSS, and module setup" },
-  { type: "three", label: "Three.js", help: "Package-mounted spatial scene with camera tools" },
+  { type: "html", label: "HTML", help: "JSON-backed document by default, with an explicit source-owned escape hatch" },
+  { type: "three", label: "Three.js", help: "Code-owned scene graph with JSON-owned editorial and camera state" },
   { type: "generative", label: "Generative", help: "Recipe inputs, parameters, and pinned takes", authoring: { timeline: "hidden", transport: "hidden", directManipulation: false, acceptsCompositionDrop: false } },
   { type: "processing", label: "Processing", help: "Pinned processing recipe and named output channels", authoring: { timeline: "hidden", transport: "always", directManipulation: false, acceptsCompositionDrop: false } },
   { type: "moodboard", label: "Moodboard", help: "Package-owned pan, zoom, cards, and media tools", authoring: { timeline: "hidden", transport: "hidden", directManipulation: true, acceptsCompositionDrop: false } },
@@ -74,9 +74,9 @@ export const COMPOSITION_TYPE_CONTRACTS: readonly CompositionTypeContract[] = [
 
 /** Starters describe implementation, not creative intent. Compatibility is explicit and validated. */
 export const COMPOSITION_STARTER_CONTRACTS: readonly CompositionStarterContract[] = [
-  { starter: "blank", label: "Blank", help: "Editable FrameDiff document and standard Studio tools", type: "html", kinds: ["edit", "scene", "audio", "plan", "doc", "script", "board", "locations", "cast"] },
-  { starter: "code", label: "Code scene", help: "Source-owned HTML, CSS, and frame-aware JavaScript", type: "html", kinds: ["scene"] },
-  { starter: "three", label: "3D scene", help: "Three.js canvas with spatial and camera tools", type: "three", kinds: ["scene"] },
+  { starter: "blank", label: "Blank", help: "JSON-backed creative data with standard Studio tools", type: "html", kinds: ["edit", "scene", "audio", "plan", "doc", "script", "board", "locations", "cast"] },
+  { starter: "code", label: "Code scene", help: "Explicitly source-owned HTML, CSS, and frame-aware JavaScript", type: "html", kinds: ["scene"] },
+  { starter: "three", label: "3D scene", help: "Three.js scene code with JSON-backed editorial and camera state", type: "three", kinds: ["scene"] },
   { starter: "generative", label: "Generated", help: "Generative recipe with inputs, parameters, and pinned takes", type: "generative", kinds: ["scene", "audio"] },
   { starter: "processing", label: "Processed media", help: "Pinned media-processing recipe and output channels", type: "processing", kinds: ["scene"] },
   { starter: "moodboard", label: "Moodboard", help: "Reference canvas with package-owned pan, zoom, and cards", type: "moodboard", kinds: ["board"] },

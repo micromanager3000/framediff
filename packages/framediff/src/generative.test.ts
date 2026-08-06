@@ -117,6 +117,7 @@ describe("just-landed generative takes", () => {
 
     const composition = generative({
       id: "shot",
+      dataFile: "src/shot.gen.json",
       prompt: "A clean lighthouse dialogue shot",
       take: 2,
     });
@@ -154,7 +155,7 @@ describe("generative output contracts", () => {
     expect(genDims(recipe)).toEqual(native);
     expect(genDims(shaped)).toEqual({ width: 1920, height: 1080 });
     expect(recipeCanonical(shaped)).toEqual(recipeCanonical(recipe));
-    expect(generative(shaped)).toMatchObject({
+    expect(generative({ ...shaped, dataFile: "src/image.gen.json" })).toMatchObject({
       width: 1920,
       height: 1080,
       durationInFrames: 1,

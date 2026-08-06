@@ -129,11 +129,24 @@ describe("example composition authoring contracts", () => {
     for (const file of codeSceneFiles) {
       const root = rootTag(readFileSync(file, "utf8"));
       expect(attribute(root, "data-fd-timeline"), relative(repositoryRoot, file)).toBe("hidden");
+      expect(attribute(root, "data-fd-data-mode"), relative(repositoryRoot, file)).toBe("source");
       expect(attribute(root, "data-fd-transport"), relative(repositoryRoot, file)).toBe("always");
       expect(attribute(root, "data-fd-document"), relative(repositoryRoot, file)).toBeUndefined();
       expect(attribute(root, "data-fd-schema"), relative(repositoryRoot, file)).toBeUndefined();
       expect(attribute(root, "data-fd-timeline-source"), relative(repositoryRoot, file)).toBeUndefined();
       expect(readFileSync(file, "utf8"), relative(repositoryRoot, file)).toContain("onFrame(");
+    }
+  });
+
+  it("makes every example's creative-data ownership explicit", () => {
+    for (const file of htmlFiles) {
+      const root = rootTag(readFileSync(file, "utf8"));
+      if (!root) continue;
+      const jsonFiles = [attribute(root, "data-fd-document"), attribute(root, "data-fd-timeline-source")].filter(Boolean);
+      const dataMode = attribute(root, "data-fd-data-mode") ?? (jsonFiles.length ? "json" : undefined);
+      expect(dataMode, relative(repositoryRoot, file)).toBeTruthy();
+      expect(["json", "source"], relative(repositoryRoot, file)).toContain(dataMode);
+      if (dataMode === "source") expect(attribute(root, "data-fd-kind"), relative(repositoryRoot, file)).toBe("scene");
     }
   });
 

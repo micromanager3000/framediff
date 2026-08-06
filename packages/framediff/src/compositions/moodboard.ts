@@ -49,8 +49,8 @@ export interface MoodboardOptions {
   boardWidth?: number;
   boardHeight?: number;
   title?: string;
-  /** Project-relative JSON file edits are persisted to (omit for read-only boards). */
-  dataFile?: string;
+  /** Project-relative JSON file edits are persisted to. */
+  dataFile: string;
   /** Project-relative module registering this comp (data-fd-source). */
   file?: string;
   module?: string;
@@ -65,7 +65,7 @@ const MAX_ZOOM = 3;
 const esc = (input: string): string =>
   input.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll('"', "&quot;");
 
-export function defineMoodboardComposition(data: MoodboardData, options: MoodboardOptions = {}): CompositionConfig {
+export function defineMoodboardComposition(data: MoodboardData, options: MoodboardOptions): CompositionConfig {
   const id = options.id ?? "Moodboard";
   const width = options.width ?? 1280;
   const height = options.height ?? 720;
@@ -118,6 +118,7 @@ export function defineMoodboardComposition(data: MoodboardData, options: Moodboa
 
   return defineComposition(html, {
     type: "moodboard",
+    dataMode: "json",
     document: data,
     meta: {
       sourceFormat: "generated",
@@ -128,7 +129,7 @@ export function defineMoodboardComposition(data: MoodboardData, options: Moodboa
       output: "image",
       outputFrame: 0,
       authoring: { timeline: "hidden", transport: "hidden", directManipulation: true },
-      ...(options.dataFile ? { document: { file: options.dataFile, hotUpdate: "patch" } } : {}),
+      document: { file: options.dataFile, hotUpdate: "patch" },
     },
     setup: createMoodboardSetup(data, { width, height, dataFile: options.dataFile }),
   });

@@ -124,7 +124,8 @@ export function forkGenRecipe(
   };
 }
 
-export type GenerativeComposition = StudioComposition & { recipe: GenRecipe };
+export type JsonBackedGenRecipe = GenRecipe & { dataFile: string };
+export type GenerativeComposition = StudioComposition & { recipe: JsonBackedGenRecipe };
 
 export const GEN_DEFAULTS = {
   provider: "fal",
@@ -317,7 +318,7 @@ export const __generativeTest = {
  * bakes and exports like any comp; its versioned `generative` runtime type selects the package
  * workbench while semantic kind remains `scene` or `audio`.
  */
-export function generative(recipe: GenRecipe): GenerativeComposition {
+export function generative(recipe: JsonBackedGenRecipe): GenerativeComposition {
   const outputKind = genOutputKindOf(recipe);
   const fps = recipe.fps ?? GEN_DEFAULTS.fps;
   const native = genNativeDims(recipe);
@@ -373,7 +374,8 @@ export function generative(recipe: GenRecipe): GenerativeComposition {
   </main></body></html>`;
   const composition = defineComposition(source, {
     type: "generative",
-    meta: { output: outputKind, file: recipe.file, module: recipe.file, sourceFormat: "generated", library: true, deps: recipe.dataFile ? [recipe.dataFile] : undefined },
+    dataMode: "json",
+    meta: { output: outputKind, file: recipe.file, module: recipe.file, sourceFormat: "generated", library: true, deps: [recipe.dataFile], dataFiles: [recipe.dataFile] },
     setup: ({ query, onCleanup, signal }) => {
       const output = query<HTMLMediaElement | HTMLImageElement>("[data-gen-output]")!;
       const slate = query<HTMLElement>(".gen-slate")!;

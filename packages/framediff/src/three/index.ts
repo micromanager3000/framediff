@@ -10,6 +10,8 @@ export {
 export { createThreeSceneSetup, type ThreeSceneSetupOptions } from "./runtime";
 export {
   defineThreeSceneComposition,
+  THREE_SCENE_DATA_VERSION,
+  type ThreeSceneCompositionData,
   type ThreeSceneCompositionOptions,
   type ThreeSceneCameraCut,
 } from "./composition";

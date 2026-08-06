@@ -12,10 +12,11 @@ describe("defineThreeSceneComposition", () => {
       height: 720,
       fps: 30,
       durationInFrames: 90,
-      cameras: [{ camera: "wide", from: 0, durationInFrames: 90, name: "Opening wide" }],
+      dataFile: "src/HarborPreviz.scene.json",
+      data: { version: 1, cameras: [{ camera: "wide", from: 0, durationInFrames: 90, name: "Opening wide" }] },
     });
 
-    expect(composition.definition).toEqual({ version: 1, type: "three", kind: "scene" });
+    expect(composition.definition).toEqual({ version: 2, type: "three", kind: "scene", dataMode: "json" });
     expect(composition.meta).toMatchObject({ library: true, sourceFormat: "generated" });
     expect(composition.html).toContain('data-fd-camera="wide"');
     expect(composition.html).toContain('data-fd-name="Opening wide"');
@@ -32,6 +33,8 @@ describe("defineThreeSceneComposition", () => {
       height: 720,
       fps: 30,
       durationInFrames: 240,
+      dataFile: "src/Set.scene.json",
+      data: { version: 1, defaultCamera: "counter" },
       meta: { file: "src/Set.ts" },
     });
     const shot = defineThreeSceneComposition({
@@ -41,6 +44,8 @@ describe("defineThreeSceneComposition", () => {
       height: 720,
       fps: 30,
       durationInFrames: 120,
+      dataFile: "src/PrevizCountertalk.scene.json",
+      data: { version: 1, defaultCamera: "counter" },
       cameraFile: "src/PrevizCountertalk.cameras.json",
       meta: { file: "src/PrevizCountertalk.ts" },
     });
@@ -49,6 +54,6 @@ describe("defineThreeSceneComposition", () => {
     expect(shot.threeSceneSourceCompId).toBe("Set");
     expect(shot.html).toContain('data-fd-scene-comp="Set"');
     expect(shot.html).toContain('data-fd-camera-file="src/PrevizCountertalk.cameras.json"');
-    expect(shot.meta?.deps).toEqual(expect.arrayContaining(["src/Set.ts", "src/PrevizCountertalk.cameras.json"]));
+    expect(shot.meta?.deps).toEqual(expect.arrayContaining(["src/Set.ts", "src/PrevizCountertalk.scene.json", "src/PrevizCountertalk.cameras.json"]));
   });
 });

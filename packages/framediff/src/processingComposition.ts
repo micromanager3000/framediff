@@ -11,7 +11,7 @@ import { defineComposition, type CompositionConfig, type CompositionOutputKind }
 export interface ProcessingCompositionOptions {
   id: string;
   file?: string;
-  dataFile?: string;
+  dataFile: string;
   width: number;
   height: number;
   fps: number;
@@ -23,7 +23,7 @@ export interface ProcessingCompositionOptions {
 
 export type ProcessingComposition = CompositionConfig & {
   processing: ProcessingCompositionDocument;
-  processingDataFile?: string;
+  processingDataFile: string;
   processingOutputChannel: string;
 };
 
@@ -86,13 +86,15 @@ export function processing(options: ProcessingCompositionOptions): ProcessingCom
   </main></body></html>`;
   return Object.assign(defineComposition(source, {
     type: "processing",
+    dataMode: "json",
     meta: {
       output: outputKind,
       file: options.file,
       module: options.file,
       sourceFormat: "generated",
       library: true,
-      deps: options.dataFile ? [options.dataFile] : undefined,
+      deps: [options.dataFile],
+      dataFiles: [options.dataFile],
       authoring: { timeline: "hidden", transport: "always", directManipulation: false },
     },
   }), {

@@ -38,8 +38,8 @@ describe("processing composition", () => {
         },
       },
     };
-    const composition = processing({ id: "Subject", width: 1920, height: 1080, fps: 30, durationInFrames: 60, document });
-    expect(composition.definition).toEqual({ version: 1, type: "processing", kind: "scene" });
+    const composition = processing({ id: "Subject", dataFile: "src/Subject.process.json", width: 1920, height: 1080, fps: 30, durationInFrames: 60, document });
+    expect(composition.definition).toEqual({ version: 2, type: "processing", kind: "scene", dataMode: "json" });
     expect(composition.meta).toMatchObject({ output: "video", library: true, sourceFormat: "generated" });
     expect(composition.processingOutputChannel).toBe("foreground");
     expect(composition.html).toContain(`data-fd-src="${processingChannelCacheUrl("sha256:foreground")}"`);
@@ -48,7 +48,7 @@ describe("processing composition", () => {
 
   it("shows a deterministic slate until an artifact is pinned", () => {
     const document: ProcessingCompositionDocument = { recipe: recipe(), recipeFingerprint: null, artifact: null, pinnedRecipeFingerprint: null };
-    const composition = processing({ id: "Subject", width: 1280, height: 720, fps: 24, durationInFrames: 120, document });
+    const composition = processing({ id: "Subject", dataFile: "src/Subject.process.json", width: 1280, height: 720, fps: 24, durationInFrames: 120, document });
     expect(composition.meta?.output).toBe("video");
     expect(composition.html).toContain("no artifact yet — run processing from Studio");
     expect(composition.html).not.toContain("processing-slate\" hidden");

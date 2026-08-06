@@ -631,6 +631,7 @@ function codeSceneScaffold(options: HtmlCompositionScaffoldOptions): string {
     data-fd-width="${options.width}" data-fd-height="${options.height}"
     data-fd-fps="${options.fps}" data-fd-duration="${options.duration}"
     data-fd-kind="scene" data-fd-timeline="hidden" data-fd-transport="always"
+    data-fd-data-mode="source"
     data-fd-source="${options.file}" data-fd-module="${options.module}" data-fd-export="${options.exportName}">
     <section class="code-scene-card" data-fd-id="code-scene-card" data-fd-name="Code scene">
       <p class="eyebrow">CODE SCENE · SOURCE OWNED</p>
@@ -824,6 +825,56 @@ export const ${options.exportName} = processing({
 `;
 }
 
+function threeCompositionModule(options: {
+  id: string;
+  exportName: string;
+  file: string;
+  dataFile: string;
+  width: number;
+  height: number;
+  fps: number;
+  durationInFrames: number;
+}): string {
+  const directory = options.file.split("/").slice(0, -1).join("/") || ".";
+  const dataImport = options.dataFile.startsWith(`${directory}/`)
+    ? `./${options.dataFile.slice(directory.length + 1)}`
+    : options.dataFile;
+  return `import { defineThreeScene, defineThreeSceneComposition } from "framediff/three";
+import data from ${JSON.stringify(dataImport)};
+
+const scene = defineThreeScene({
+  id: ${JSON.stringify(`${options.id}Scene`)},
+  cameras: {
+    main: { pose: { cameraPosition: [0, 1.5, 5], cameraTarget: [0, 0, 0], focalLength: 50 } },
+  },
+  async create({ scene }) {
+    const THREE = await import("three");
+    const geometry = new THREE.BoxGeometry(1.8, 1.8, 1.8);
+    const material = new THREE.MeshStandardMaterial({ color: 0x67e8f9, roughness: 0.45 });
+    const mesh = new THREE.Mesh(geometry, material);
+    scene.add(mesh);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x1e293b, 2.2));
+    return {
+      update(time) { mesh.rotation.set(time * 0.25, time * 0.5, 0); },
+      dispose() { geometry.dispose(); material.dispose(); },
+    };
+  },
+});
+
+export const ${options.exportName} = defineThreeSceneComposition({
+  scene,
+  id: ${JSON.stringify(options.id)},
+  width: ${options.width},
+  height: ${options.height},
+  fps: ${options.fps},
+  durationInFrames: ${options.durationInFrames},
+  data,
+  dataFile: ${JSON.stringify(options.dataFile)},
+  meta: { file: ${JSON.stringify(options.file)}, module: ${JSON.stringify(options.file)}, exportName: ${JSON.stringify(options.exportName)} },
+});
+`;
+}
+
 function moodboardCompositionModule(options: {
   id: string;
   exportName: string;
@@ -862,6 +913,7 @@ function ownCompositionSourcePaths(composition: StudioComposition): string[] {
     composition.meta?.module,
     composition.meta?.timelineFile,
     composition.meta?.document?.file,
+    ...(composition.meta?.dataFiles ?? []),
     ...(composition.meta?.deps ?? []),
     ...(composition.meta?.editableData ?? []).map((source) => source.file),
   ].filter((file): file is string => !!file);
@@ -3177,6 +3229,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       return { ok: false, message: "Generated scenes output image or video; choose the Audio kind for generated sound." };
     }
     const isProcessing = request.starter === "processing";
+    const isThree = request.starter === "three";
     let processingRecipe = request.processingRecipe;
     if (isProcessing) {
       if (!processingRecipe) {
@@ -3204,10 +3257,11 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       if (errors.length) return { ok: false, message: `Invalid processing recipe: ${errors.join("; ")}` };
     }
     const isMoodboard = request.starter === "moodboard";
-    const file = isGenerative ? `src/${pascal}.gen.ts` : isProcessing ? `src/${pascal}.process.ts` : isMoodboard ? `src/${pascal}.ts` : `src/${pascal}.html`;
-    const module = isGenerative || isProcessing || isMoodboard ? file : `src/${pascal}.ts`;
+    const file = isGenerative ? `src/${pascal}.gen.ts` : isProcessing ? `src/${pascal}.process.ts` : isMoodboard || isThree ? `src/${pascal}.ts` : `src/${pascal}.html`;
+    const module = isGenerative || isProcessing || isMoodboard || isThree ? file : `src/${pascal}.ts`;
     const generativeDataFile = `src/${pascal}.gen.json`;
     const processingDataFile = `src/${pascal}.process.json`;
+    const threeDataFile = `src/${pascal}.scene.json`;
     const documentFile = `src/${pascal}.comp.json`;
     const schemaFile = `src/${pascal}.schema.json`;
     const parentFile = !isProcessing && selectedParent?.definition.kind === "edit" && selectedParent?.meta?.file?.endsWith(".html")
@@ -3368,6 +3422,32 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         fps: relative.fps,
         durationInFrames: request.durationInFrames,
       })))) return { ok: false, message: `Wrote ${documentFile}, but could not write ${file}.` };
+      const inserted = insertRegistryEntry(registryFile, sources, { key, varName, importFrom: relModule(registryFile, file) });
+      if (!inserted || !(await this.project.writeSource(registryFile, inserted.text))) {
+        return { ok: false, message: `Wrote ${file}, but could not register it in ${registryFile}.` };
+      }
+      return finishCreation();
+    }
+    if (isThree) {
+      const sceneData = {
+        version: 1,
+        background: "radial-gradient(circle at 50% 42%,#1e293b,#080b13 72%)",
+        defaultCamera: "main",
+        cameras: [{ id: "main", name: "Main camera", camera: "main", from: 0, durationInFrames: request.durationInFrames }],
+      };
+      if (!(await this.project.writeSource(threeDataFile, `${JSON.stringify(sceneData, null, 2)}\n`))) {
+        return { ok: false, message: `Could not write ${threeDataFile}.` };
+      }
+      if (!(await this.project.writeSource(file, threeCompositionModule({
+        id: pascal,
+        exportName: varName,
+        file,
+        dataFile: threeDataFile,
+        width: relative.width,
+        height: relative.height,
+        fps: relative.fps,
+        durationInFrames: request.durationInFrames,
+      })))) return { ok: false, message: `Wrote ${threeDataFile}, but could not write ${file}.` };
       const inserted = insertRegistryEntry(registryFile, sources, { key, varName, importFrom: relModule(registryFile, file) });
       if (!inserted || !(await this.project.writeSource(registryFile, inserted.text))) {
         return { ok: false, message: `Wrote ${file}, but could not register it in ${registryFile}.` };

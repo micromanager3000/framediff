@@ -21,6 +21,7 @@ to preview, Studio, nesting, and export. There is no component-framework runtime
   <main data-fd-composition data-fd-id="Main"
     data-fd-width="1920" data-fd-height="1080"
     data-fd-fps="30" data-fd-duration="300"
+    data-fd-kind="scene" data-fd-data-mode="source"
     data-fd-source="src/Main.html" data-fd-module="src/Main.ts" data-fd-export="mainComp">
     <section data-fd-clip data-fd-id="title" data-fd-name="Title"
       data-fd-from="0" data-fd-duration="90">
@@ -34,7 +35,7 @@ to preview, Studio, nesting, and export. There is no component-framework runtime
 `data-fd-id`, width, height, fps, and duration are required and must be positive. Root metadata can
 also declare `data-fd-kind`, `data-fd-library`, `data-fd-alpha`, `data-fd-output`,
 `data-fd-output-frame`, and an export window with `data-fd-render-from`/`data-fd-render-to`.
-Authoring metadata includes `data-fd-timeline="auto|always|hidden"`,
+Authoring metadata includes `data-fd-data-mode="source"`, `data-fd-timeline="auto|always|hidden"`,
 `data-fd-direct-manipulation`, `data-fd-document`, `data-fd-schema`, and
 `data-fd-timeline-source`.
 
@@ -77,7 +78,8 @@ Preview and export mount the same document and call the same frame listeners. Th
 
 ### Source-owned code scenes
 
-Use `data-fd-kind="scene"` with `data-fd-timeline="hidden"` for a source-owned
+Use `data-fd-kind="scene"` with `data-fd-data-mode="source"` and
+`data-fd-timeline="hidden"` for a source-owned
 HTML/CSS/JavaScript render surface that should not have a timeline of its own. Code scenes keep
 preview transport, receive the full `onFrame` state, and may reference any registered composition
 with `data-fd-type="nested"` plus `data-fd-comp`. When an edit places a code scene on its timeline,

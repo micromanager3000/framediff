@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "background": "radial-gradient(circle at 50% 45%,#1d2745,#080b13 72%)",
+  "defaultCamera": "overview",
+  "cameras": [
+    { "id": "world-overview", "name": "overview camera", "camera": "overview", "from": 0, "durationInFrames": 120 },
+    { "id": "world-orbit", "name": "procedural orbit camera", "camera": "orbit", "from": 120, "durationInFrames": 120 }
+  ]
+}

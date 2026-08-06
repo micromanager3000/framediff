@@ -13,34 +13,42 @@ const htmlComposition = (id: string, kind = "scene") => `<!doctype html><main da
 
 describe("composition definitions", () => {
   it("separates a versioned runtime type from semantic authoring kind", () => {
-    const composition = defineComposition(htmlComposition("Title"));
+    const composition = defineComposition(htmlComposition("Title"), { dataMode: "source" });
     expect(composition.definition).toEqual({
       version: COMPOSITION_DEFINITION_VERSION,
       type: "html",
       kind: "scene",
+      dataMode: "source",
     });
   });
 
   it("rejects runtime adapter names used as semantic kinds", () => {
-    expect(() => defineComposition(htmlComposition("OldGenerator", "generate"))).toThrow(
+    expect(() => defineComposition(htmlComposition("OldGenerator", "generate"), { dataMode: "source" })).toThrow(
       'Runtime adapters belong in definition.type',
     );
-    expect(() => defineComposition(htmlComposition("OldCustom", "custom"))).toThrow(
+    expect(() => defineComposition(htmlComposition("OldCustom", "custom"), { dataMode: "source" })).toThrow(
       'unsupported kind "custom"',
     );
   });
 
   it("validates the latest-only project registry boundary", () => {
-    const current = defineComposition(htmlComposition("Current"));
+    const current = defineComposition(htmlComposition("Current"), { dataMode: "source" });
     expect(defineCompositionRegistry({ current })).toEqual({ current });
     const stale = {
       ...current,
       definition: { ...current.definition, version: 0 },
     } as unknown as CompositionConfig;
-    expect(() => defineCompositionRegistry({ stale })).toThrow("FrameDiff requires version 1");
+    expect(() => defineCompositionRegistry({ stale })).toThrow("FrameDiff requires version 2");
     expect(defineCompositionRegistry({ first: current, alias: current })).toEqual({ first: current, alias: current });
-    const duplicate = defineComposition(htmlComposition("Current"));
+    const duplicate = defineComposition(htmlComposition("Current"), { dataMode: "source" });
     expect(() => defineCompositionRegistry({ first: current, duplicate })).toThrow("belongs to more than one definition");
+  });
+
+  it("requires JSON by default and limits source ownership to HTML runtimes", () => {
+    expect(() => defineComposition(htmlComposition("Undeclared"))).toThrow("must declare JSON creative data");
+    expect(defineComposition(htmlComposition("Edit", "edit"), { dataMode: "source" }).definition.dataMode).toBe("source");
+    expect(() => defineComposition(htmlComposition("Three"), { type: "three", dataMode: "source" })).toThrow("only HTML compositions");
+    expect(() => defineComposition(htmlComposition("Missing"), { dataMode: "json" })).toThrow("declares no JSON data file");
   });
 });
 

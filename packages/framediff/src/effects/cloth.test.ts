@@ -147,6 +147,8 @@ describe("cloth composition", () => {
       width: 1280,
       height: 720,
       fit: "cover",
+      document: { wind: 0.2 },
+      meta: { document: { file: "src/TitleCardMaterial.comp.json" } },
     });
 
     expect(cloth).toMatchObject({
@@ -171,6 +173,8 @@ describe("cloth composition", () => {
       id: 'Material "One"',
       sourceKey: "title&card",
       background: "linear-gradient(#111, #222)",
+      document: { wind: 0.2 },
+      meta: { document: { file: "src/MaterialOne.comp.json" } },
     });
 
     expect(cloth.html).toContain('data-fd-id="Material &quot;One&quot;"');

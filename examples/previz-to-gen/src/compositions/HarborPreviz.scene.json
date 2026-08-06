@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "background": "linear-gradient(180deg,#202b4a 0%,#131a2e 46%,#0d1120 100%)",
+  "defaultCamera": "approach",
+  "cameras": [
+    { "id": "approach", "name": "approach", "camera": "approach", "from": 0, "durationInFrames": 90 },
+    { "id": "boat-chase", "name": "boat chase", "camera": "boat", "from": 90, "durationInFrames": 80 },
+    { "id": "from-lamp", "name": "from the lamp", "camera": "beacon", "from": 170, "durationInFrames": 70 }
+  ]
+}
