@@ -4,7 +4,7 @@ import { validateGraph, topoSort, resolveGraph, type Baker } from "./scheduler";
 import type { Toolchain } from "./fingerprint";
 
 const tc = (): Toolchain => ({ recipeVersion: "1", codeHash: "sha256:c", deps: {} });
-const base = { html: '<main data-fd-composition data-fd-id="X" data-fd-width="1920" data-fd-height="1080" data-fd-fps="30" data-fd-duration="30"></main>', width: 1920, height: 1080, fps: 30, durationInFrames: 30 };
+const base = { definition: { version: 1, type: "html", kind: "scene" } as const, html: '<main data-fd-composition data-fd-id="X" data-fd-width="1920" data-fd-height="1080" data-fd-fps="30" data-fd-duration="30"></main>', width: 1920, height: 1080, fps: 30, durationInFrames: 30 };
 
 describe("planner", () => {
   it("captures a DAG with dependency edges from passed-in Artifacts", () => {

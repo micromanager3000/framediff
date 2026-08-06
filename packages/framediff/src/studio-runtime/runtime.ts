@@ -5,7 +5,9 @@ import type {
   AgentFrameSnapshot,
   CompositionBakeInputsSnapshot,
   CompositionDescriptor,
+  CompositionKind,
   CompositionOutputKind,
+  CompositionType,
   CompositionRuntimePort,
   InspectorDetailsSnapshot,
   InspectorFieldEditRequest,
@@ -49,6 +51,7 @@ import {
   classifyVisualGeometry,
   cropRegionMatchesTargetAspect,
   normalizeCropRegion,
+  compositionTemplateContract,
   fingerprintProcessingRecipe,
   RVM_PROCESSOR,
   validateProcessingArtifactManifest,
@@ -121,6 +124,7 @@ import {
 import { mountComposition, type CompositionHandle } from "../runtime";
 import {
   defineComposition,
+  defineCompositionRegistry,
   defineTimelineDocument,
   type CompositionTimelineDocument,
   type CompositionTimelinePlacement,
@@ -377,7 +381,8 @@ type HtmlCompositionScaffoldOptions = {
   documentFile: string;
   schemaFile: string;
   timelineFile?: string;
-  kind: NewCompositionRequest["kind"];
+  kind: CompositionKind;
+  template: NewCompositionRequest["template"];
   width: number;
   height: number;
   fps: number;
@@ -454,7 +459,7 @@ function compositionScaffoldData(options: HtmlCompositionScaffoldOptions): Compo
       timeline: { version: 1, items: [{ id: "audio", from: 0, durationInFrames: options.duration, layer: 0 }] },
     };
   }
-  if (options.kind === "3d") {
+  if (options.template === "three") {
     return {
       document: { scene: { background: "#111827", opacity: 1, intensity: 1 } },
       schema: {
@@ -497,7 +502,7 @@ function compositionScaffoldData(options: HtmlCompositionScaffoldOptions): Compo
       },
     };
   }
-  if (["board", "moodboard"].includes(options.kind)) {
+  if (options.kind === "board") {
     return {
       document: {
         title,
@@ -528,9 +533,9 @@ function compositionScaffoldData(options: HtmlCompositionScaffoldOptions): Compo
 
 function htmlCompositionScaffold(options: HtmlCompositionScaffoldOptions): string {
   if (options.kind === "plan") return planCompositionScaffold(options);
-  const webGpu = options.kind === "3d" ? `
+  const webGpu = options.template === "three" ? `
     <canvas data-fd-id="scene" data-fd-name="Scene" data-fd-type="layers" data-fd-webgpu></canvas>` : "";
-  const board = ["board", "moodboard"].includes(options.kind)
+  const board = options.kind === "board"
     ? `\n    <h1 class="board-title" data-fd-id="board-title"></h1>
     <section class="card" data-fd-id="card-1"></section>
     <section class="card" data-fd-id="card-2"></section>
@@ -721,6 +726,7 @@ function htmlCompositionModule(
   htmlFile: string,
   exportName: string,
   options: {
+    type?: CompositionType;
     setupImport?: string;
     documentFile?: string;
     schemaFile?: string;
@@ -736,8 +742,8 @@ function htmlCompositionModule(
   };
   const documentImport = options.documentFile ? `import document from ${JSON.stringify(localImport(options.documentFile))};\n` : "";
   const timelineImport = options.timelineFile ? `import timeline from ${JSON.stringify(localImport(options.timelineFile))};\n` : "";
-  const defineOptions = options.documentFile || options.timelineFile || options.setupImport
-    ? `, {${options.setupImport ? " setup: sourceComposition.setup," : ""}${options.documentFile ? ` document, meta: { document: { file: ${JSON.stringify(options.documentFile)},${options.schemaFile ? ` schema: ${JSON.stringify(options.schemaFile)},` : ""} bindings: ${JSON.stringify(options.bindings ?? {})} }${options.timelineFile ? `, timelineFile: ${JSON.stringify(options.timelineFile)}` : ""} },` : options.timelineFile ? ` meta: { timelineFile: ${JSON.stringify(options.timelineFile)} },` : ""}${options.timelineFile ? " timeline," : ""} }`
+  const defineOptions = options.type || options.documentFile || options.timelineFile || options.setupImport
+    ? `, {${options.type ? ` type: ${JSON.stringify(options.type)},` : ""}${options.setupImport ? " setup: sourceComposition.setup," : ""}${options.documentFile ? ` document, meta: { document: { file: ${JSON.stringify(options.documentFile)},${options.schemaFile ? ` schema: ${JSON.stringify(options.schemaFile)},` : ""} bindings: ${JSON.stringify(options.bindings ?? {})} }${options.timelineFile ? `, timelineFile: ${JSON.stringify(options.timelineFile)}` : ""} },` : options.timelineFile ? ` meta: { timelineFile: ${JSON.stringify(options.timelineFile)} },` : ""}${options.timelineFile ? " timeline," : ""} }`
     : "";
   return `import { defineComposition${options.timelineFile ? ", defineTimelineDocument" : ""} } from "framediff";
 import source from "./${fileName}?raw";
@@ -1038,7 +1044,9 @@ function describeRegistry(registry: CompRegistry): CompositionDescriptor[] {
       height: composition.height,
       fps: composition.fps,
       durationInFrames: composition.durationInFrames,
-      kind: composition.meta?.kind ?? "edit",
+      definitionVersion: composition.definition.version,
+      type: composition.definition.type,
+      kind: composition.definition.kind,
       outputKind: composition.meta?.output ?? "video",
       file: composition.meta?.file,
       timelineDocument: !!composition.meta?.timelineFile,
@@ -1089,10 +1097,11 @@ function adaptedVisualComposition(options: {
     img,video{position:absolute;inset:0;width:100%;height:100%}
   </style></head><body><main data-fd-composition data-fd-id="${escapeAttribute(options.id)}"
     data-fd-width="${options.width}" data-fd-height="${options.height}"
-    data-fd-fps="${options.fps}" data-fd-duration="${options.durationInFrames}">
+    data-fd-fps="${options.fps}" data-fd-duration="${options.durationInFrames}" data-fd-kind="scene">
     ${media}
   </main></body></html>`, {
-    meta: { kind: "generate", output: options.kind, sourceFormat: "generated" },
+    type: "generative",
+    meta: { output: options.kind, sourceFormat: "generated" },
   });
 }
 
@@ -1124,7 +1133,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     registry: CompRegistry,
     private readonly project: StudioProjectAdapter = createHttpStudioProjectAdapter(),
   ) {
-    this.registry = registry;
+    this.registry = defineCompositionRegistry(registry);
     this.assetsReady = this.loadAssets()
       .catch((error) => console.error("FrameDiff could not load the asset manifest.", error))
       .finally(() => {
@@ -1216,7 +1225,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
 
   public replaceRegistry(registry: CompRegistry): void {
     const previous = this.registry;
-    this.registry = registry;
+    this.registry = defineCompositionRegistry(registry);
     this.probed.clear();
     const descriptions = this.getCompositions();
     for (const listener of this.listeners) listener(descriptions);
@@ -1546,7 +1555,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   public async probeScriptSheet(compositionKey: string): Promise<ScriptSheetSnapshot | null> {
     const composition = this.registry[compositionKey];
     const file = composition?.meta?.sourceFormat !== "generated" ? composition.meta?.file : undefined;
-    if (!composition || composition.meta?.kind !== "script" || !file) return null;
+    if (!composition || composition.definition.kind !== "script" || !file) return null;
     const source = await this.project.readSource(file);
     return source == null ? null : parseScriptSheet(source);
   }
@@ -1566,7 +1575,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   public async editPlan(request: PlanEditRequest): Promise<PlacementEditResult> {
     const composition = this.registry[request.compositionKey];
     const file = composition?.meta?.sourceFormat !== "generated" ? composition.meta?.file : undefined;
-    if (!composition || !file || (composition.meta?.kind !== "script" && composition.meta?.kind !== "plan")) {
+    if (!composition || !file || (composition.definition.kind !== "script" && composition.definition.kind !== "plan")) {
       return { ok: false, message: "This composition is not a writable plan document." };
     }
     const revision = await this.project.readSourceRevision(file);
@@ -1767,7 +1776,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
   public async deleteTimelineItems(request: TimelineDeleteRequest): Promise<PlacementEditResult> {
     const composition = this.registry[request.compositionKey];
     const itemIds = [...new Set(request.itemIds)];
-    if (!composition || (composition.meta?.kind ?? "edit") !== "edit") return { ok: false, message: "Only edit compositions expose removable timeline layers." };
+    if (!composition || composition.definition.kind !== "edit") return { ok: false, message: "Only edit compositions expose removable timeline layers." };
     if (!itemIds.length) return { ok: false, message: "No timeline items were selected for deletion." };
 
     const snapshot = await this.probe(request.compositionKey);
@@ -3147,11 +3156,13 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const registryFile = await this.findRegistryFile();
     if (!registryFile) return { ok: false, message: "No COMPOSITIONS registry source file was found." };
     if (!sources[registryFile]) sources[registryFile] = (await this.project.readSource(registryFile)) ?? "";
-    const isGenerative = request.kind === "generate";
+    const template = compositionTemplateContract(request.template);
+    const kind: CompositionKind = request.template === "generate" && request.outputKind === "audio" ? "audio" : template.kind;
+    const isGenerative = request.template === "generate";
     if (isGenerative && !request.outputKind) {
       return { ok: false, message: "Choose whether this generative composition outputs image, video, or audio." };
     }
-    const isProcessing = request.kind === "processing";
+    const isProcessing = request.template === "processing";
     let processingRecipe = request.processingRecipe;
     if (isProcessing) {
       if (!processingRecipe) {
@@ -3178,14 +3189,14 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       const errors = validateProcessingRecipe(processingRecipe);
       if (errors.length) return { ok: false, message: `Invalid processing recipe: ${errors.join("; ")}` };
     }
-    const isMoodboard = request.kind === "moodboard";
+    const isMoodboard = request.template === "moodboard";
     const file = isGenerative ? `src/${pascal}.gen.ts` : isProcessing ? `src/${pascal}.process.ts` : isMoodboard ? `src/${pascal}.ts` : `src/${pascal}.html`;
     const module = isGenerative || isProcessing || isMoodboard ? file : `src/${pascal}.ts`;
     const generativeDataFile = `src/${pascal}.gen.json`;
     const processingDataFile = `src/${pascal}.process.json`;
     const documentFile = `src/${pascal}.comp.json`;
     const schemaFile = `src/${pascal}.schema.json`;
-    const parentFile = !isProcessing && (selectedParent?.meta?.kind ?? "edit") === "edit" && selectedParent?.meta?.file?.endsWith(".html")
+    const parentFile = !isProcessing && selectedParent?.definition.kind === "edit" && selectedParent?.meta?.file?.endsWith(".html")
       ? selectedParent.meta.file
       : undefined;
     const finishCreation = async (): Promise<ProjectOperationResult> => {
@@ -3349,7 +3360,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       }
       return finishCreation();
     }
-    if (request.kind === "custom") {
+    if (request.template === "custom") {
       if (!(await this.project.writeSource(file, customCompositionScaffold({
         id: pascal,
         exportName: varName,
@@ -3357,7 +3368,8 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         module,
         documentFile,
         schemaFile,
-        kind: request.kind,
+        kind,
+        template: request.template,
         width: relative.width,
         height: relative.height,
         fps: relative.fps,
@@ -3379,7 +3391,8 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       module,
       documentFile,
       schemaFile,
-      kind: request.kind,
+      kind,
+      template: request.template,
       width: relative.width,
       height: relative.height,
       fps: relative.fps,
@@ -3400,6 +3413,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       return { ok: false, message: `Wrote the composition files, but could not write ${timelineFile}.` };
     }
     if (!(await this.project.writeSource(module, htmlCompositionModule(file, varName, {
+      type: template.type === "html" ? undefined : template.type,
       documentFile,
       schemaFile,
       bindings: scaffoldData.bindings,
@@ -3463,7 +3477,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       if (!inserted || !(await this.project.writeSource(registryFile, inserted.text))) return { ok: false, message: `Forked ${recipeFile}, but could not register it.` };
       return { ok: true, message: `Forked ${source.id} as ${pascal}; the new recipe starts without a pinned take.`, compositionKey: key };
     }
-    if (source.meta?.kind === "moodboard" && source.meta.document?.file) {
+    if (source.definition.type === "moodboard" && source.meta?.document?.file) {
       const documentFile = `${sourceDirectory}/${pascal}.comp.json`;
       const moduleFile = `${sourceDirectory}/${pascal}.ts`;
       const documentText = sources[source.meta.document.file] ?? await this.project.readSource(source.meta.document.file);
@@ -3521,6 +3535,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       ? `import { ${source.meta.exportName} as sourceComposition } from "${relModule(module, source.meta.module)}";`
       : undefined;
     if (!(await this.project.writeSource(module, htmlCompositionModule(file, varName, {
+      type: source.definition.type === "html" ? undefined : source.definition.type,
       setupImport,
       documentFile,
       schemaFile,
@@ -3571,7 +3586,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const file = composition.meta?.file;
     const module = composition.meta?.module;
     const ownsSources = !!file
-      && (composition.meta?.sourceFormat !== "generated" || composition.meta?.kind === "generate" || composition.meta?.kind === "moodboard")
+      && (composition.meta?.sourceFormat !== "generated" || composition.definition.type === "generative" || composition.definition.type === "moodboard")
       && !Object.entries(this.registry).some(([key, other]) => key !== compositionKey && (other.meta?.file === file || (module && other.meta?.module === module)));
     if (!ownsSources) return { ok: true, message: `Unregistered ${composition.id}; its shared source remains in place.` };
     const deletionResults = await Promise.all([...ownedFiles].map((owned) => this.project.deleteSource(owned)));
@@ -3705,7 +3720,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
 
   public async getProcessingWorkspace(compositionKey: string): Promise<ProcessingWorkspaceSnapshot | null> {
     const candidate = this.registry[compositionKey];
-    if (!candidate || candidate.meta?.kind !== "processing" || !("processing" in candidate)) return null;
+    if (!candidate || candidate.definition.type !== "processing" || !("processing" in candidate)) return null;
     const composition = candidate as ProcessingComposition;
     const document = composition.processing;
     const recipeFingerprint = await fingerprintProcessingRecipe(document.recipe);
@@ -3745,7 +3760,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
 
   public async pinProcessingArtifact(compositionKey: string, recipeFingerprint: string): Promise<ProcessingOperationResult> {
     const candidate = this.registry[compositionKey];
-    if (!candidate || candidate.meta?.kind !== "processing" || !("processing" in candidate)) {
+    if (!candidate || candidate.definition.type !== "processing" || !("processing" in candidate)) {
       return { ok: false, message: "The selected composition is not a processing recipe." };
     }
     const composition = candidate as ProcessingComposition;

@@ -376,10 +376,10 @@ test("the agent surface can inspect every new composition kind", async ({ page }
     { key: "studio-playground", kind: "edit", objects: 7 },
     { key: "rich-properties-lab", kind: "scene", objects: 0 },
     { key: "coverage-map", kind: "doc", objects: 0 },
-    { key: "cloth-lab", kind: "3d", objects: 1 },
-    { key: "world-lab", kind: "3d", objects: 2 },
+    { key: "cloth-lab", kind: "scene", objects: 1 },
+    { key: "world-lab", kind: "scene", objects: 2 },
     { key: "audio-lab", kind: "audio", objects: 2 },
-    { key: "skyTimelapse", kind: "generate", objects: 1 },
+    { key: "skyTimelapse", kind: "scene", objects: 1 },
   ]);
 
   const visual = await page.evaluate(async () => {

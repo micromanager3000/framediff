@@ -1,9 +1,9 @@
 <script lang="ts">
   import {
-    COMPOSITION_KIND_CONTRACTS,
+    COMPOSITION_TEMPLATE_CONTRACTS,
     type CompositionDescriptor,
     type CompositionOutputKind,
-    type NewCompositionKind,
+    type NewCompositionTemplate,
   } from "@framediff/studio-model";
   import { onMount } from "svelte";
   import type { OperationsViewModel } from "../viewmodels/Operations.ViewModel";
@@ -14,12 +14,12 @@
   export let oncreated: (compositionKey: string) => void = () => {};
   const operationsStore = viewModel.store;
   let name = "";
-  let kind: NewCompositionKind = "edit";
+  let template: NewCompositionTemplate = "edit";
   let outputKind: CompositionOutputKind | "" = "";
   let seconds = 5;
   let nameInput: HTMLInputElement;
-  const kinds = COMPOSITION_KIND_CONTRACTS.map((contract) => ({
-    value: contract.kind as NewCompositionKind,
+  const templates = COMPOSITION_TEMPLATE_CONTRACTS.map((contract) => ({
+    value: contract.template,
     label: contract.label,
     help: contract.help,
   }));
@@ -28,9 +28,9 @@
     nameInput.focus();
     return () => returnFocus?.focus();
   });
-  $: generate = kind === "generate";
+  $: generate = template === "generate";
   $: nestsUnderCurrent = current.kind === "edit" && current.file?.endsWith(".html") === true;
-  $: kindHelp = kinds.find((option) => option.value === kind)?.help ?? "";
+  $: templateHelp = templates.find((option) => option.value === template)?.help ?? "";
   $: if (generate) seconds = Math.max(1, Math.round(seconds));
   $: frames = generate && outputKind === "image" ? 1 : Math.max(1, Math.round(seconds * current.fps));
   $: canCreate = !!name.trim() && (!generate || !!outputKind) && !$operationsStore.busy;
@@ -39,7 +39,7 @@
     if (!name.trim()) return;
     const compositionKey = await viewModel.create({
       name,
-      kind,
+      template,
       durationInFrames: frames,
       ...(generate ? { outputKind: outputKind as CompositionOutputKind } : {}),
     });
@@ -66,7 +66,7 @@
   <div class="sheet" role="dialog" aria-modal="true" aria-label="New composition">
     <header><strong>NEW COMPOSITION</strong><button onclick={onclose} aria-label="Close new composition">×</button></header>
     <label><span>Name</span><input bind:this={nameInput} bind:value={name} placeholder="TitleCard" /></label>
-    <label><span>Kind</span><select bind:value={kind}>{#each kinds as option}<option value={option.value}>{option.label}</option>{/each}</select><small>{kindHelp}</small></label>
+    <label><span>Template</span><select bind:value={template}>{#each templates as option}<option value={option.value}>{option.label}</option>{/each}</select><small>{templateHelp}</small></label>
     {#if generate}
       <fieldset class="output-kind-picker">
         <legend>OUTPUT TYPE <small>locked after creation</small></legend>

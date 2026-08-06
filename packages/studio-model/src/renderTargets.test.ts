@@ -6,6 +6,7 @@ const composition = (
   key: string,
   kind: CompositionDescriptor["kind"],
   library = false,
+  type: CompositionDescriptor["type"] = "html",
 ): CompositionDescriptor => ({
   key,
   id: key,
@@ -13,6 +14,8 @@ const composition = (
   height: 720,
   fps: 30,
   durationInFrames: 90,
+  definitionVersion: 1,
+  type,
   kind,
   outputKind: "video",
   library,
@@ -33,9 +36,9 @@ const state = (currentKey = "main"): Pick<
 > => ({
   compositions: [
     composition("lighthouse-workflow", "edit"),
-    composition("lighthouse-dialogue", "generate"),
+    composition("lighthouse-dialogue", "scene", false, "generative"),
     composition("main", "edit"),
-    composition("moodboard", "moodboard", true),
+    composition("moodboard", "board", true, "moodboard"),
   ],
   currentKey,
   path: currentKey === "lighthouse-dialogue"
@@ -61,7 +64,7 @@ describe("render targets", () => {
 
   it("falls back to the active composition in a project without edit roots", () => {
     const snapshot = state("lighthouse-dialogue");
-    snapshot.compositions = [composition("lighthouse-dialogue", "generate")];
+    snapshot.compositions = [composition("lighthouse-dialogue", "scene", false, "generative")];
     snapshot.path = ["lighthouse-dialogue"];
     expect(renderTargetCompositions(snapshot).map(({ key }) => key)).toEqual(["lighthouse-dialogue"]);
   });

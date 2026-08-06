@@ -56,7 +56,7 @@ export function defineThreeSceneComposition(options: ThreeSceneCompositionOption
     "data-fd-height": options.height,
     "data-fd-fps": options.fps,
     "data-fd-duration": options.durationInFrames,
-    "data-fd-kind": "3d",
+    "data-fd-kind": "scene",
     "data-fd-library": options.meta?.library ?? true,
     "data-fd-alpha": options.meta?.alpha,
     "data-fd-scene-comp": sourceComp?.threeSceneCompId,
@@ -81,6 +81,7 @@ export function defineThreeSceneComposition(options: ThreeSceneCompositionOption
   ];
   const config = defineComposition(source, {
     id,
+    type: "three",
     setup: combineCompositionSetups(options.setup, createThreeSceneSetup({
       scene,
       camera: options.defaultCamera,
@@ -88,7 +89,6 @@ export function defineThreeSceneComposition(options: ThreeSceneCompositionOption
     })),
     meta: {
       ...options.meta,
-      kind: "3d",
       sourceFormat: "generated",
       library: options.meta?.library ?? true,
       ...(deps.length ? { deps } : {}),

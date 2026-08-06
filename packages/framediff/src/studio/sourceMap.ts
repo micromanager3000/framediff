@@ -1121,6 +1121,15 @@ export function insertNestedSequence(
 }
 
 /** Add `"key": varName,` to the exported COMPOSITIONS registry object, plus the import. */
+function registryObjectStart(masked: string, declarationStart: number, declarationEnd: number): number | null {
+  if (masked[declarationStart] === "{") return declarationStart;
+  const expression = masked.slice(declarationStart, declarationEnd);
+  const wrapper = /^defineCompositionRegistry\s*\(/.exec(expression);
+  if (!wrapper) return null;
+  const objectOffset = expression.indexOf("{", wrapper[0].length);
+  return objectOffset < 0 ? null : declarationStart + objectOffset;
+}
+
 export function insertRegistryEntry(
   configFile: string,
   files: FileSet,
@@ -1130,14 +1139,16 @@ export function insertRegistryEntry(
   if (text === undefined) return null;
   const masked = mask(text);
   const decl = findDecl("COMPOSITIONS", configFile, { [configFile]: text });
-  if (!decl || masked[decl.s] !== "{") return null;
-  const objEnd = matching(masked, decl.s, "{", "}");
+  if (!decl) return null;
+  const objStart = registryObjectStart(masked, decl.s, decl.e);
+  if (objStart == null) return null;
+  const objEnd = matching(masked, objStart, "{", "}");
   if (objEnd == null) return null;
   const lineStart = text.lastIndexOf("\n", objEnd - 1) + 1;
   const closingLineIsBare = /^\s*$/.test(text.slice(lineStart, objEnd));
   let previousToken = objEnd - 1;
   while (previousToken > decl.s && /\s/.test(masked[previousToken])) previousToken--;
-  const hasEntries = previousToken > decl.s;
+  const hasEntries = previousToken > objStart;
   const needsComma = hasEntries && masked[previousToken] !== ",";
   const hasClosingWhitespace = previousToken + 1 < objEnd;
   const entryEdit: TextEdit = closingLineIsBare
@@ -1165,34 +1176,36 @@ export function removeRegistryEntry(configFile: string, files: FileSet, varName:
   if (text === undefined) return null;
   const masked = mask(text);
   const decl = findDecl("COMPOSITIONS", configFile, { [configFile]: text });
-  if (!decl || masked[decl.s] !== "{") return null;
-  const objEnd = matching(masked, decl.s, "{", "}");
+  if (!decl) return null;
+  const objStart = registryObjectStart(masked, decl.s, decl.e);
+  if (objStart == null) return null;
+  const objEnd = matching(masked, objStart, "{", "}");
   if (objEnd == null) return null;
 
   // the entry's value is the bare identifier — find it inside the object literal
   const word = new RegExp(`\\b${varName.replace(/\$/g, "\\$")}\\b`, "g");
-  word.lastIndex = decl.s;
+  word.lastIndex = objStart;
   const hit = word.exec(masked);
   if (!hit || hit.index >= objEnd) return null;
 
   // walk back over `:`, whitespace, and the (quoted or bare) key
   let s = hit.index;
-  while (s > decl.s && /\s/.test(masked[s - 1])) s--;
+  while (s > objStart && /\s/.test(masked[s - 1])) s--;
   if (masked[s - 1] !== ":") return null;
   s--;
-  while (s > decl.s && /\s/.test(masked[s - 1])) s--;
+  while (s > objStart && /\s/.test(masked[s - 1])) s--;
   if (masked[s - 1] === '"' || masked[s - 1] === "'") {
     const quote = masked[s - 1];
     s = masked.lastIndexOf(quote, s - 2);
   } else {
-    while (s > decl.s && /[\w$]/.test(masked[s - 1])) s--;
+    while (s > objStart && /[\w$]/.test(masked[s - 1])) s--;
   }
   let e = hit.index + varName.length;
   const trailing = /^\s*,/.exec(masked.slice(e, objEnd));
   if (trailing) e += trailing[0].length;
   else {
-    const previousComma = masked.slice(decl.s, s).lastIndexOf(",");
-    if (previousComma !== -1) s = decl.s + previousComma;
+    const previousComma = masked.slice(objStart, s).lastIndexOf(",");
+    if (previousComma !== -1) s = objStart + previousComma;
   }
   // swallow the whole line when the entry is alone on it
   const lineStart = text.lastIndexOf("\n", s - 1) + 1;

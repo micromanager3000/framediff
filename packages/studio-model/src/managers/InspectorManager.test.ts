@@ -10,6 +10,8 @@ const composition: CompositionDescriptor = {
   height: 1080,
   fps: 30,
   durationInFrames: 60,
+  definitionVersion: 1,
+  type: "html",
   kind: "edit",
   outputKind: "video",
 };

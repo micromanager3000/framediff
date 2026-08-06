@@ -2,8 +2,13 @@
 
 export {
   defineComposition,
+  defineCompositionRegistry,
   defineTimelineDocument,
   combineCompositionSetups,
+  COMPOSITION_DEFINITION_VERSION,
+  type CompositionDefinition,
+  type CompositionDefinitionV1,
+  type CompositionType,
   type CompositionConfig,
   type CompositionRegistry,
   type CompositionMetadata,

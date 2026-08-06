@@ -124,7 +124,7 @@ describe("generateEditSkeleton", () => {
     const config = defineComposition(master);
     expect(config.id).toBe("Script-master");
     expect(config).toMatchObject({ width: 1920, height: 1080, fps: 30, durationInFrames: 9000 });
-    expect(config.meta?.kind).toBe("edit");
+    expect(config.definition.kind).toBe("edit");
     expect(master).toContain('data-fd-comp="board-sc1"');
     expect(master).toContain('data-fd-prop-plan="sc2"');
     expect(master).toContain('data-fd-prop-status="animatic"');

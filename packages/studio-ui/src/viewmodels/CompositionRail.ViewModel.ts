@@ -11,7 +11,7 @@ export interface CompositionRailSnapshot {
 export function compositionMatchesSearch(composition: CompositionDescriptor, query: string): boolean {
   const needle = query.trim().toLocaleLowerCase();
   if (!needle) return true;
-  return [composition.id, composition.key, composition.kind, composition.file ?? ""]
+  return [composition.id, composition.key, composition.kind, composition.type, composition.file ?? ""]
     .some((value) => value.toLocaleLowerCase().includes(needle));
 }
 

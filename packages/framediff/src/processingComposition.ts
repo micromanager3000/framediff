@@ -80,13 +80,13 @@ export function processing(options: ProcessingCompositionOptions): ProcessingCom
   <main data-fd-composition data-fd-id="${escapeHtml(options.id)}"
     data-fd-width="${options.width}" data-fd-height="${options.height}"
     data-fd-fps="${options.fps}" data-fd-duration="${options.durationInFrames}"
-    data-fd-kind="processing" data-fd-output="${outputKind}" data-fd-library="true">
+    data-fd-kind="scene" data-fd-output="${outputKind}" data-fd-library="true">
     ${media}
     <div class="processing-slate"${pinned ? " hidden" : ""}><div><div class="processing-id">PROCESS · ${escapeHtml(options.document.recipe.provenance.processor)}</div><div class="processing-status">${status}</div></div></div>
   </main></body></html>`;
   return Object.assign(defineComposition(source, {
+    type: "processing",
     meta: {
-      kind: "processing",
       output: outputKind,
       file: options.file,
       module: options.file,

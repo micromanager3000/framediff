@@ -20,8 +20,8 @@ import type {
 } from "./types";
 
 const compositions: CompositionDescriptor[] = [
-  { key: "main", id: "Main", width: 1920, height: 1080, fps: 30, durationInFrames: 120, kind: "edit", outputKind: "video", file: "src/Main.tsx" },
-  { key: "title", id: "Title", width: 1920, height: 1080, fps: 30, durationInFrames: 60, kind: "edit", outputKind: "video", file: "src/Title.tsx" },
+  { key: "main", id: "Main", width: 1920, height: 1080, fps: 30, durationInFrames: 120, definitionVersion: 1, type: "html", kind: "edit", outputKind: "video", file: "src/Main.tsx" },
+  { key: "title", id: "Title", width: 1920, height: 1080, fps: 30, durationInFrames: 60, definitionVersion: 1, type: "html", kind: "edit", outputKind: "video", file: "src/Title.tsx" },
 ];
 
 const items: TimelineItemSnapshot[] = [
@@ -109,7 +109,7 @@ describe("StudioSession", () => {
     runtime.probeItems = [{ ...items[0], id: "plane-uizoom", name: "uizoom" }];
     vi.spyOn(runtime, "getCompositions").mockReturnValue([
       ...compositions,
-      { key: "camera", id: "HeroPlane3D.uizoom", width: 1920, height: 1080, fps: 24, durationInFrames: 58, kind: "3d", outputKind: "video" },
+      { key: "camera", id: "HeroPlane3D.uizoom", width: 1920, height: 1080, fps: 24, durationInFrames: 58, definitionVersion: 1, type: "three", kind: "scene", outputKind: "video" },
     ]);
 
     const session = new StudioSession(runtime, new ManualClock(), "camera");
@@ -413,7 +413,7 @@ describe("StudioSession", () => {
     const runtime = new FakeRuntime();
     runtime.compositions = [
       ...runtime.compositions,
-      { key: "dialogue-audio", id: "DialogueAudio", kind: "audio", outputKind: "audio", width: 1920, height: 1080, fps: 24, durationInFrames: 40, library: true },
+      { key: "dialogue-audio", id: "DialogueAudio", definitionVersion: 1, type: "generative", kind: "audio", outputKind: "audio", width: 1920, height: 1080, fps: 24, durationInFrames: 40, library: true },
     ];
     runtime.probeItems = [{
       id: "audio-placement",

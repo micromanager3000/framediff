@@ -10,7 +10,9 @@ const compositions: CompositionDescriptor[] = [
     height: 1280,
     fps: 30,
     durationInFrames: 420,
-    kind: "generate",
+    definitionVersion: 1,
+    type: "generative",
+    kind: "scene",
     outputKind: "video",
   },
 ];

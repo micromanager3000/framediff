@@ -15,7 +15,8 @@ describe("defineThreeSceneComposition", () => {
       cameras: [{ camera: "wide", from: 0, durationInFrames: 90, name: "Opening wide" }],
     });
 
-    expect(composition.meta).toMatchObject({ kind: "3d", library: true, sourceFormat: "generated" });
+    expect(composition.definition).toEqual({ version: 1, type: "three", kind: "scene" });
+    expect(composition.meta).toMatchObject({ library: true, sourceFormat: "generated" });
     expect(composition.html).toContain('data-fd-camera="wide"');
     expect(composition.html).toContain('data-fd-name="Opening wide"');
     expect(composition.html).toContain('data-fd-duration="90"');

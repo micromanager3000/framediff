@@ -3,7 +3,7 @@ import { canNestComposition } from "./nesting";
 import type { CompositionDescriptor, TimelineItemSnapshot } from "./types";
 
 const comp = (key: string, id: string, extra: Partial<CompositionDescriptor> = {}): CompositionDescriptor => ({
-  key, id, width: 1920, height: 1080, fps: 30, durationInFrames: 120, kind: "edit", outputKind: "video", ...extra,
+  key, id, width: 1920, height: 1080, fps: 30, durationInFrames: 120, definitionVersion: 1, type: "html", kind: "edit", outputKind: "video", ...extra,
 });
 
 const nested = (compId: string): TimelineItemSnapshot => ({
@@ -20,7 +20,7 @@ const state = {
   compositions: [
     comp("main", "Main"),
     comp("title", "Title"),
-    comp("shot", "Shot", { kind: "generate" }),
+    comp("shot", "Shot", { type: "generative", kind: "scene" }),
     comp("scene", "Scene", { kind: "scene" }),
     comp("free", "Free"),
   ],

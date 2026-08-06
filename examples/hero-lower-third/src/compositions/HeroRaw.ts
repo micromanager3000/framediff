@@ -48,7 +48,6 @@ export const heroRawComp = defineComposition(heroRawSource, {
   timeline: defineTimelineDocument(heroRawTimeline),
   setup: combineCompositionSetups(preloadHeroLutsSetup, heroMotionSetup, heroGradeVideoSetup),
   meta: {
-    kind: "edit",
     file: "src/compositions/HeroRaw.ts",
     sourceFormat: "generated",
     timelineFile: "src/compositions/HeroRaw.timeline.json",

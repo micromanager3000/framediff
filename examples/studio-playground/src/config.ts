@@ -1,4 +1,4 @@
-import type { CompRegistry } from "framediff";
+import { defineCompositionRegistry } from "framediff";
 import { blazerRelight } from "./gen/blazerRelight.gen";
 import { skyTimelapse } from "./gen/skyTimelapse.gen";
 import { baseRegistry, composition } from "./compositions";
@@ -8,4 +8,4 @@ import { sdasdfComp } from "./Sdasdf";
 import { testComp } from "./Test.gen";
 import { blahComp } from "./Blah.gen";
 export { composition };
-export const COMPOSITIONS: CompRegistry = { ...baseRegistry, skyTimelapse, blazerRelight, "test-generate": testGenerateComp, "asdf": asdfComp, "sdasdf": sdasdfComp, "test": testComp, "blah": blahComp, };
+export const COMPOSITIONS = defineCompositionRegistry({ ...baseRegistry, skyTimelapse, blazerRelight, "test-generate": testGenerateComp, "asdf": asdfComp, "sdasdf": sdasdfComp, "test": testComp, "blah": blahComp, });

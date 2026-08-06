@@ -4,7 +4,7 @@ import { findHtmlElementById, inspectorFieldsFromHtml, removeHtmlElement, rewrit
 
 const HTML = `<!doctype html>
 <html><head><style>.title { color: white }</style></head><body>
-  <main data-fd-composition data-fd-id="Demo" data-fd-width="1920" data-fd-height="1080" data-fd-fps="30" data-fd-duration="90">
+  <main data-fd-composition data-fd-id="Demo" data-fd-width="1920" data-fd-height="1080" data-fd-fps="30" data-fd-duration="90" data-fd-kind="edit">
     <section data-fd-clip data-fd-id="hero" data-fd-name="Hero" data-fd-from="-5" data-fd-duration="45" data-fd-x="12">
       <video data-fd-id="hero-media" data-fd-src="asset://hero" data-fd-trim-start="1.5"></video>
     </section>
@@ -24,11 +24,12 @@ describe("HTML composition source", () => {
 
   it("reads composition-owned authoring overrides independently", () => {
     const source = HTML.replace(
-      "data-fd-duration=\"90\"",
-      "data-fd-duration=\"90\" data-fd-kind=\"scene\" data-fd-timeline=\"hidden\" data-fd-transport=\"hidden\" data-fd-direct-manipulation=\"false\"",
+      "data-fd-kind=\"edit\"",
+      "data-fd-kind=\"scene\" data-fd-timeline=\"hidden\" data-fd-transport=\"hidden\" data-fd-direct-manipulation=\"false\"",
     );
-    expect(defineComposition(source).meta).toMatchObject({
-      kind: "scene",
+    const composition = defineComposition(source);
+    expect(composition.definition.kind).toBe("scene");
+    expect(composition.meta).toMatchObject({
       authoring: { timeline: "hidden", transport: "hidden", directManipulation: false },
     });
   });

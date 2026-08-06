@@ -462,7 +462,7 @@
       {/if}
     </section>
 
-    <section class="workspace" class:guided={!!activeGuideStep} class:generate-workspace={$store.current?.kind === "generate"} class:script-workspace={$store.current?.kind === "script"} class:timeline-hidden={!showTimeline} class:transport-hidden={!authoring.transport}>
+    <section class="workspace" class:guided={!!activeGuideStep} class:generate-workspace={$store.current?.type === "generative"} class:script-workspace={$store.current?.kind === "script"} class:timeline-hidden={!showTimeline} class:transport-hidden={!authoring.transport}>
       {#if activeGuideStep}
         <aside class="guide-task-bar" aria-label={`Guided task: ${activeGuideStep.title}`}>
           <div><span>{activeGuideStep.phase} · GUIDED TASK</span><strong>{activeGuideStep.title}</strong></div>
@@ -478,7 +478,7 @@
         onbake={() => void operations.bakeCurrent()}
         onopeninput={(compositionKey) => session.navigate(compositionKey)}
       />
-      {#if $store.current?.kind === "generate"}
+      {#if $store.current?.type === "generative"}
         <GenerativeWorkbench viewModel={generative} {runtime} {session} onservices={() => chrome.setServicesOpen(true)} />
       {:else if $store.current?.kind === "script"}
         <ScriptSheet viewModel={script} {runtime} />

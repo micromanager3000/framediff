@@ -108,7 +108,7 @@ export function defineMoodboardComposition(data: MoodboardData, options: Moodboa
 </style></head><body>
 <main data-fd-composition data-fd-id="${esc(id)}"${options.name ? ` data-fd-name="${esc(options.name)}"` : ""}
  data-fd-width="${width}" data-fd-height="${height}" data-fd-fps="${options.fps ?? 30}" data-fd-duration="${options.durationInFrames ?? 240}"
- data-fd-kind="moodboard" data-fd-interactive${options.file ? ` data-fd-source="${esc(options.file)}"` : ""}>
+ data-fd-kind="board" data-fd-interactive${options.file ? ` data-fd-source="${esc(options.file)}"` : ""}>
  <div class="fd-mb-world"></div>
  <header class="fd-mb-head"><h1>${esc(options.title ?? id)}</h1><p><b>Drag media from the Media rail or Finder</b> · drag cards · drag empty space to pan · scroll to zoom.</p></header>
  <div class="fd-mb-tools"><button type="button" data-fd-mb-add-note>+ NOTE</button></div>
@@ -117,6 +117,7 @@ export function defineMoodboardComposition(data: MoodboardData, options: Moodboa
 `;
 
   return defineComposition(html, {
+    type: "moodboard",
     document: data,
     meta: {
       sourceFormat: "generated",

@@ -19,6 +19,7 @@ const cameraSource = `export const CAMERAS = [
 ];`;
 
 const composition = {
+  definition: { version: 1, type: "html", kind: "scene" },
   id: "CameraComp",
   width: 1920,
   height: 1080,
@@ -389,7 +390,8 @@ describe("HtmlStudioRuntime script sheets", () => {
       fps: 30,
       durationInFrames: 60,
       html,
-      meta: { kind: "script" as const, file: "src/Script.html", sourceFormat: "html" as const },
+      definition: { version: 1, type: "html", kind: "script" } as const,
+      meta: { file: "src/Script.html", sourceFormat: "html" as const },
     } satisfies StudioComposition;
     let transaction: { label: string; files: Array<{ file: string; text: string }> } | undefined;
     vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -488,7 +490,6 @@ export const sceneComp = defineComposition(source);`;
       id: "Scene",
       html: '<main data-fd-composition data-fd-id="Scene" data-fd-width="1920" data-fd-height="1080" data-fd-fps="24" data-fd-duration="48"><div data-fd-id="orb"></div></main>',
       meta: {
-        kind: "scene" as const,
         file: "src/Scene.html",
         module: "src/Scene.ts",
         exportName: "sceneComp",
@@ -596,7 +597,8 @@ describe("HtmlStudioRuntime external timeline documents", () => {
       id: "Edit",
       html: htmlText,
       timeline: JSON.parse(timelineText),
-      meta: { kind: "edit" as const, file: "src/Edit.html", sourceFormat: "html" as const, timelineFile: "src/Edit.timeline.json" },
+      definition: { version: 1, type: "html", kind: "edit" } as const,
+      meta: { file: "src/Edit.html", sourceFormat: "html" as const, timelineFile: "src/Edit.timeline.json" },
     } satisfies StudioComposition;
     const transactions: Array<{ label: string; groupId?: string; files: Array<{ file: string; text: string }> }> = [];
     vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -699,7 +701,8 @@ describe("HtmlStudioRuntime external timeline documents", () => {
       id: "Edit",
       html: htmlText,
       timeline: JSON.parse(timelineText),
-      meta: { kind: "edit" as const, file: "src/Edit.html", sourceFormat: "html" as const, timelineFile: "src/Edit.timeline.json" },
+      definition: { version: 1, type: "html", kind: "edit" } as const,
+      meta: { file: "src/Edit.html", sourceFormat: "html" as const, timelineFile: "src/Edit.timeline.json" },
     } satisfies StudioComposition;
     let transaction: { label: string; files: Array<{ file: string; text: string }> } | undefined;
     vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -818,13 +821,14 @@ describe("HtmlStudioRuntime external timeline documents", () => {
       durationInFrames: 120,
       html: targetHtml,
       timeline,
-      meta: { kind: "edit" as const, file: "src/Main.html", sourceFormat: "html" as const, timelineFile: "src/Main.timeline.json" },
+      definition: { version: 1, type: "html", kind: "edit" } as const,
+      meta: { file: "src/Main.html", sourceFormat: "html" as const, timelineFile: "src/Main.timeline.json" },
     } satisfies StudioComposition;
     const child = {
       ...composition,
       id: "Title",
       html: '<!doctype html><main data-fd-composition data-fd-id="Title" data-fd-width="1920" data-fd-height="1080" data-fd-fps="24" data-fd-duration="48" data-fd-kind="scene"></main>',
-      meta: { kind: "scene" as const, sourceFormat: "generated" as const },
+      meta: { sourceFormat: "generated" as const },
     } satisfies StudioComposition;
     let transaction: { files: Array<{ file: string; text: string }> } | undefined;
     vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
@@ -1385,6 +1389,7 @@ describe("HtmlStudioRuntime composition creation", () => {
     const parentHtml = '<!doctype html><main data-fd-composition data-fd-id="Main" data-fd-width="1920" data-fd-height="1080" data-fd-fps="24" data-fd-duration="240" data-fd-kind="edit" data-fd-source="src/Main.html"></main>';
     const parent = {
       ...composition,
+      definition: { version: 1, type: "html", kind: "edit" } as const,
       id: "Main",
       html: parentHtml,
       meta: { file: "src/Main.html", sourceFormat: "html" as const },
@@ -1412,7 +1417,7 @@ describe("HtmlStudioRuntime composition creation", () => {
 
     const result = await runtime.createComposition({
       name: "New Shot",
-      kind: "generate",
+      template: "generate",
       durationInFrames: 120,
       outputKind: "video",
     }, "main");
@@ -1438,7 +1443,7 @@ describe("HtmlStudioRuntime composition creation", () => {
 
     await expect(runtime.createComposition({
       name: "Poster Frame",
-      kind: "generate",
+      template: "generate",
       durationInFrames: 1,
       outputKind: "image",
     }, "main")).resolves.toMatchObject({ ok: true, compositionKey: "poster-frame" });
@@ -1450,7 +1455,7 @@ describe("HtmlStudioRuntime composition creation", () => {
 
     await expect(runtime.createComposition({
       name: "Dialogue Track",
-      kind: "generate",
+      template: "generate",
       durationInFrames: 120,
       outputKind: "audio",
     }, "main")).resolves.toMatchObject({ ok: true, compositionKey: "dialogue-track" });
@@ -1482,7 +1487,7 @@ describe("HtmlStudioRuntime composition creation", () => {
     }));
     const runtime = createStudioRuntime({ main: parent } as CompRegistry);
 
-    const result = await runtime.createComposition({ name: "Background Removal", kind: "processing", durationInFrames: 240 }, "main");
+    const result = await runtime.createComposition({ name: "Background Removal", template: "processing", durationInFrames: 240 }, "main");
 
     expect(result).toMatchObject({ ok: true, compositionKey: "background-removal" });
     expect(result.message).toContain("top level");
@@ -1524,7 +1529,7 @@ describe("HtmlStudioRuntime composition creation", () => {
     }));
     const runtime = createStudioRuntime({ main: composition } as CompRegistry);
 
-    const result = await runtime.createComposition({ name: "Top Level", kind: "edit", durationInFrames: 48 }, "");
+    const result = await runtime.createComposition({ name: "Top Level", template: "edit", durationInFrames: 48 }, "");
 
     expect(result).toMatchObject({ ok: true, compositionKey: "top-level" });
     expect(result.message).toContain("at the top level");
@@ -1538,7 +1543,7 @@ describe("HtmlStudioRuntime composition creation", () => {
 
     const custom = await runtime.createComposition({
       name: "Frame Logic",
-      kind: "custom",
+      template: "custom",
       durationInFrames: 72,
     }, "");
 
@@ -1560,7 +1565,7 @@ describe("HtmlStudioRuntime composition creation", () => {
       ...composition,
       id: "Scene",
       html: sceneHtml,
-      meta: { file: "src/Scene.html", sourceFormat: "html" as const, kind: "scene" as const },
+      meta: { file: "src/Scene.html", sourceFormat: "html" as const },
     };
     const sources: Record<string, string> = {
       "src/Scene.html": sceneHtml,
@@ -1583,7 +1588,7 @@ describe("HtmlStudioRuntime composition creation", () => {
     }));
     const runtime = createStudioRuntime({ scene } as CompRegistry);
 
-    const result = await runtime.createComposition({ name: "Notes", kind: "doc", durationInFrames: 48 }, "scene");
+    const result = await runtime.createComposition({ name: "Notes", template: "doc", durationInFrames: 48 }, "scene");
 
     expect(result).toMatchObject({ ok: true, compositionKey: "notes" });
     expect(result.message).toContain("at the top level");

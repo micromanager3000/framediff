@@ -4,6 +4,7 @@ import document from "./KineticCloth.comp.json";
 import { kineticPosterClothSetup } from "../effects/kineticPosterCloth";
 
 export const kineticClothComposition = defineComposition(source, {
+  type: "three",
   setup: kineticPosterClothSetup,
   document,
   meta: {

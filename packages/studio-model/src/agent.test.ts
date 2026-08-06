@@ -19,7 +19,7 @@ import type {
 
 const comp: CompositionDescriptor = {
   key: "main", id: "Main", width: 1920, height: 1080, fps: 30,
-  durationInFrames: 90, kind: "edit", outputKind: "video", file: "src/Main.html",
+  durationInFrames: 90, definitionVersion: 1, type: "html", kind: "edit", outputKind: "video", file: "src/Main.html",
 };
 
 const revision = (file: string, text: string): SourceFileRevisionSnapshot => ({ file, text, hash: `test:${text}` });
@@ -182,7 +182,7 @@ describe("StudioAgentApi", () => {
   it("warns when a placement whose source is an audio composition is muted", async () => {
     const voice: CompositionDescriptor = {
       key: "voColdOpen", id: "voColdOpen", width: 16, height: 16, fps: 30,
-      durationInFrames: 870, kind: "generate", outputKind: "audio", library: true,
+      durationInFrames: 870, definitionVersion: 1, type: "generative", kind: "audio", outputKind: "audio", library: true,
     };
     const runtime = new AgentRuntime();
     runtime.getCompositions = () => [comp, voice];

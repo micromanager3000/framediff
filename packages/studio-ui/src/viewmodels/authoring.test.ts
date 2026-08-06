@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   COMPOSITION_KIND_CONTRACTS,
+  COMPOSITION_TYPE_CONTRACTS,
   resolveCompositionAuthoring,
   type CompositionAuthoringDescriptor,
   type CompositionDescriptor,
   type CompositionKind,
+  type CompositionType,
   type TimelineItemSnapshot,
 } from "@framediff/studio-model";
 import { shouldShowTimeline } from "./authoring";
@@ -12,6 +14,7 @@ import { shouldShowTimeline } from "./authoring";
 const composition = (
   kind: CompositionKind,
   authoring?: CompositionAuthoringDescriptor,
+  type: CompositionType = "html",
 ): CompositionDescriptor => ({
   key: "demo",
   id: "Demo",
@@ -19,6 +22,8 @@ const composition = (
   height: 1080,
   fps: 30,
   durationInFrames: 120,
+  definitionVersion: 1,
+  type,
   kind,
   outputKind: "video",
   ...(authoring ? { authoring } : {}),
@@ -46,23 +51,22 @@ const item = (
 describe("composition authoring surfaces", () => {
   it("has one deliberate contract for every public composition kind", () => {
     expect(COMPOSITION_KIND_CONTRACTS.map((contract) => contract.kind)).toEqual([
-      "edit", "custom", "scene", "3d", "generate", "processing", "audio", "plan", "doc", "script",
-      "board", "moodboard", "locations", "cast",
+      "edit", "custom", "scene", "audio", "plan", "doc", "script", "board", "locations", "cast",
     ]);
-    expect(new Set(COMPOSITION_KIND_CONTRACTS.map((contract) => contract.kind)).size).toBe(14);
+    expect(new Set(COMPOSITION_KIND_CONTRACTS.map((contract) => contract.kind)).size).toBe(10);
+    expect(COMPOSITION_TYPE_CONTRACTS.map((contract) => contract.type)).toEqual([
+      "html", "three", "generative", "processing", "moodboard",
+    ]);
   });
 
   it.each([
     ["edit", true, true, true, true],
     ["custom", false, true, true, false],
-    ["3d", false, true, true, false],
-    ["generate", false, false, false, false],
     ["audio", true, true, false, false],
     ["doc", false, false, true, false],
     ["plan", true, true, true, false],
     ["scene", false, true, true, false],
     ["board", false, false, true, false],
-    ["moodboard", false, false, true, false],
     ["script", false, false, true, false],
     ["locations", false, false, true, false],
     ["cast", false, false, true, false],
@@ -84,8 +88,11 @@ describe("composition authoring surfaces", () => {
     expect(shouldShowTimeline(scene, [item("video", 0, 120, { from: false, duration: true })], [], [])).toBe(false);
     expect(shouldShowTimeline(scene, [item("nested"), { ...item("video"), id: "video-2", order: 1 }], [], [])).toBe(true);
 
-    const videoPlane = composition("3d");
+    const videoPlane = composition("scene", undefined, "three");
     expect(resolveCompositionAuthoring(videoPlane, [item("video")])).toMatchObject({ timeline: false, transport: true });
+    expect(resolveCompositionAuthoring(composition("scene", undefined, "generative"))).toMatchObject({ timeline: false, transport: false, directManipulation: false });
+    expect(resolveCompositionAuthoring(composition("scene", undefined, "processing"))).toMatchObject({ timeline: false, transport: true, directManipulation: false });
+    expect(resolveCompositionAuthoring(composition("board", undefined, "moodboard"))).toMatchObject({ timeline: false, transport: false, directManipulation: true });
   });
 
   it("gives timed scripts temporal UI without turning static documents into edits", () => {

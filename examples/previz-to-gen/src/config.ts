@@ -2,7 +2,7 @@
 // This file is the example's orchestration entry point; the pipeline it registers:
 //   harbor-previz (three.js, 3 cameras) → bake → harborShot (Seedance r2v) → main (the edit).
 
-import type { CompRegistry } from "framediff";
+import { defineCompositionRegistry } from "framediff";
 import { mainComp } from "./compositions/Main";
 import { harborPrevizComp } from "./compositions/HarborPreviz";
 import { moodboardComp } from "./compositions/Moodboard";
@@ -20,7 +20,7 @@ import { lighthouseDialogue } from "./gen/lighthouseDialogue.gen";
 
 /** The Studio registry. The first entry is also the runtime fallback; every other composition
  *  stays reachable from the project rail. */
-export const COMPOSITIONS = {
+export const COMPOSITIONS = defineCompositionRegistry({
   "lighthouse-workflow": lighthouseWorkflowComp,
   "lighthouse-workflow-steps": lighthouseWorkflowStepsComp,
   main: mainComp,
@@ -39,7 +39,7 @@ export const COMPOSITIONS = {
   "lighthouse-keeper": lighthouseKeeper,
   "lighthouse-dialogue-audio": lighthouseDialogueAudio,
   "lighthouse-dialogue": lighthouseDialogue,
-} satisfies CompRegistry;
+});
 
 /** The composition served at the project URL. */
 export const PROJECT_ROOT: keyof typeof COMPOSITIONS = "lighthouse-workflow";

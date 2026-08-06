@@ -868,6 +868,22 @@ describe("insertRegistryEntry", () => {
 
     expect(res.text).toContain('  main: composition,\n  "title-card": titleCardComp,\n};');
   });
+
+  it("edits a registry wrapped by the versioned project boundary", () => {
+    const file = "src/versioned-config.ts";
+    const files = {
+      [file]: 'import { defineCompositionRegistry } from "framediff";\nexport const COMPOSITIONS = defineCompositionRegistry({\n  main: composition,\n});\n',
+    };
+    const inserted = insertRegistryEntry(file, files, {
+      key: "title-card",
+      varName: "titleCardComp",
+      importFrom: "./TitleCard",
+    })!;
+    expect(inserted.text).toContain('  "title-card": titleCardComp,\n});');
+    const removed = removeRegistryEntry(file, { [file]: inserted.text }, "titleCardComp")!;
+    expect(removed.text).toContain("defineCompositionRegistry({\n  main: composition,\n});");
+    expect(removed.text).not.toContain("titleCardComp");
+  });
 });
 
 describe("removeRegistryEntry", () => {

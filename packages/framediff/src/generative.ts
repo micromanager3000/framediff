@@ -314,8 +314,8 @@ export const __generativeTest = {
 
 /**
  * Declare a generative composition. Returns a real StudioComposition — it nests, probes,
- * bakes and exports like any comp; the Studio recognizes `meta.kind === "generate"` (plus
- * the attached `recipe`) and shows the generative editor for it.
+ * bakes and exports like any comp; its versioned `generative` runtime type selects the package
+ * workbench while semantic kind remains `scene` or `audio`.
  */
 export function generative(recipe: GenRecipe): GenerativeComposition {
   const outputKind = genOutputKindOf(recipe);
@@ -367,12 +367,13 @@ export function generative(recipe: GenRecipe): GenerativeComposition {
     .wave { height:48px;display:flex;align-items:center;justify-content:center;gap:5px;margin:18px 0 12px; }
     .wave i { width:4px;height:var(--h);border-radius:9px;background:#c3a5df;opacity:.75; }
   </style></head><body>
-  <main data-fd-composition data-fd-id="${escapeHtml(recipe.id)}" data-fd-width="${width}" data-fd-height="${height}" data-fd-fps="${fps}" data-fd-duration="${durationInFrames}" data-fd-kind="generate" data-fd-output="${outputKind}" data-fd-library="true">
+  <main data-fd-composition data-fd-id="${escapeHtml(recipe.id)}" data-fd-width="${width}" data-fd-height="${height}" data-fd-fps="${fps}" data-fd-duration="${durationInFrames}" data-fd-kind="${outputKind === "audio" ? "audio" : "scene"}" data-fd-output="${outputKind}" data-fd-library="true">
     ${media}
     <div class="gen-slate${outputKind === "audio" ? " audio" : ""}"${initial && outputKind !== "audio" ? " hidden" : ""}><div><div class="gen-id">◇ ${escapeHtml(recipe.id)} · ${outputKind}</div>${outputKind === "audio" ? '<div class="wave"><i style="--h:16px"></i><i style="--h:31px"></i><i style="--h:44px"></i><i style="--h:25px"></i><i style="--h:38px"></i><i style="--h:20px"></i><i style="--h:34px"></i><i style="--h:14px"></i></div>' : ""}<div class="gen-prompt">“${prompt}”</div><div class="gen-status">${initial && outputKind === "audio" ? `take ${wantTake} pinned · audio-first performance` : initialStatus}</div></div></div>
   </main></body></html>`;
   const composition = defineComposition(source, {
-    meta: { kind: "generate", output: outputKind, file: recipe.file, module: recipe.file, sourceFormat: "generated", library: true, deps: recipe.dataFile ? [recipe.dataFile] : undefined },
+    type: "generative",
+    meta: { output: outputKind, file: recipe.file, module: recipe.file, sourceFormat: "generated", library: true, deps: recipe.dataFile ? [recipe.dataFile] : undefined },
     setup: ({ query, onCleanup, signal }) => {
       const output = query<HTMLMediaElement | HTMLImageElement>("[data-gen-output]")!;
       const slate = query<HTMLElement>(".gen-slate")!;

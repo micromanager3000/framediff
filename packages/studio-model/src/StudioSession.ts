@@ -55,7 +55,7 @@ function sole3dShot(
   compositionKey: string,
   timelineByComposition: Record<string, TimelineItemSnapshot[]>,
 ): TimelineItemSnapshot | undefined {
-  if (compositions.find((entry) => entry.key === compositionKey)?.kind !== "3d") return undefined;
+  if (compositions.find((entry) => entry.key === compositionKey)?.type !== "three") return undefined;
   const items = timelineByComposition[compositionKey] ?? [];
   return items.length === 1 ? items[0] : undefined;
 }

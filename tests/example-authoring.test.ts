@@ -13,7 +13,6 @@ function filesBelow(directory: string): string[] {
 }
 
 const htmlFiles = filesBelow(examplesRoot).filter((file) => file.endsWith(".html"));
-const sourceFiles = filesBelow(examplesRoot).filter((file) => /\.(?:ts|html)$/.test(file));
 const timelineFiles = filesBelow(examplesRoot).filter((file) => file.endsWith(".timeline.json"));
 const attribute = (tag: string, name: string): string | undefined =>
   tag.match(new RegExp(`\\b${name}="([^"]*)"`, "i"))?.[1];
@@ -29,14 +28,18 @@ describe("example composition authoring contracts", () => {
     const kinds = new Set(
       htmlFiles.map((file) => attribute(rootTag(readFileSync(file, "utf8")), "data-fd-kind")).filter(Boolean),
     );
-    const allSource = sourceFiles.map((file) => readFileSync(file, "utf8")).join("\n");
-    if (allSource.includes("defineMoodboardComposition(")) kinds.add("moodboard");
-    if (allSource.includes("generative(")) kinds.add("generate");
-
     expect([...kinds].sort()).toEqual([
-      "3d", "audio", "board", "cast", "custom", "doc", "edit", "generate", "locations",
-      "moodboard", "plan", "scene", "script",
+      "audio", "board", "cast", "custom", "doc", "edit", "locations", "plan", "scene", "script",
     ]);
+  });
+
+  it("routes every Studio example through the versioned registry boundary", () => {
+    const configs = filesBelow(examplesRoot).filter((file) => file.endsWith("/src/config.ts"));
+    const registries = configs.filter((file) => readFileSync(file, "utf8").includes("COMPOSITIONS"));
+    expect(registries.length).toBeGreaterThan(0);
+    for (const file of registries) {
+      expect(readFileSync(file, "utf8"), relative(repositoryRoot, file)).toContain("defineCompositionRegistry(");
+    }
   });
 
   it("stores authored edit placement in external timeline documents", () => {
@@ -129,7 +132,7 @@ describe("example composition authoring contracts", () => {
   });
 
   it("backs directly editable authored comps with JSON and optional schemas", () => {
-    const dataKinds = new Set(["scene", "3d", "audio", "plan", "doc", "script", "board", "locations", "cast"]);
+    const dataKinds = new Set(["audio", "plan", "doc", "script", "board", "locations", "cast"]);
     const dataFiles = htmlFiles.filter((file) => dataKinds.has(attribute(rootTag(readFileSync(file, "utf8")), "data-fd-kind") ?? ""));
     expect(dataFiles.length).toBeGreaterThan(0);
 

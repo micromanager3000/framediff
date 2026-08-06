@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { CompositionKind } from "@framediff/studio-model";
+  import type { CompositionDescriptor, CompositionKind, CompositionType } from "@framediff/studio-model";
   import { compositionMatchesSearch, type CompositionRailViewModel } from "../viewmodels/CompositionRail.ViewModel";
 
   export let viewModel: CompositionRailViewModel;
@@ -14,19 +14,23 @@
   const glyph: Record<CompositionKind, string> = {
     edit: "⌗",
     custom: "⌘",
-    "3d": "◇",
-    generate: "✦",
-    processing: "◈",
     audio: "♒",
     doc: "¶",
     plan: "▤",
     scene: "▣",
     board: "▢",
-    moodboard: "▦",
     script: "☰",
     locations: "⌖",
     cast: "♟",
   };
+  const typeGlyph: Partial<Record<CompositionType, string>> = {
+    three: "◇",
+    generative: "✦",
+    processing: "◈",
+    moodboard: "▦",
+  };
+  const compositionGlyph = (composition: CompositionDescriptor): string => typeGlyph[composition.type] ?? glyph[composition.kind];
+  const compositionLabel = (composition: CompositionDescriptor): string => composition.type === "html" ? composition.kind : `${composition.kind} · ${composition.type}`;
   const COMP_DRAG_MIME = "application/x-framediff-comp";
   // dataTransfer payloads are sealed until drop — the key rides here for dragover feedback
   let draggedKey: string | null = null;
@@ -139,16 +143,16 @@
           ondragstart={(event) => startCompositionDrag(event, composition.key)}
           ondragend={endCompositionDrag}
           class:active={composition.key === $store.currentKey}
-          class="composition-row kind-{composition.kind}"
+          class="composition-row kind-{composition.kind} type-{composition.type}"
           onclick={() => { viewModel.open(composition.key); onopen(); }}
           title={composition.file ?? composition.id}
           style:padding-left={`${7 + row.depth * 15}px`}
         >
-          <span class="glyph">{glyph[composition.kind]}</span>
+          <span class="glyph">{compositionGlyph(composition)}</span>
           <span class="name">{composition.id}</span>
           {#if composition.guide}<span class="tour-badge">START</span>{/if}
-          <span class="kind">{composition.kind}</span>
-          {#if composition.kind === "generate"}<span class="out-badge out-{composition.outputKind}">{composition.outputKind}</span>{/if}
+          <span class="kind">{compositionLabel(composition)}</span>
+          {#if composition.type === "generative"}<span class="out-badge out-{composition.outputKind}">{composition.outputKind}</span>{/if}
         </button>
         <div class="row-actions">
           <button class="row-action" onclick={() => onduplicate(composition.key)} title="Duplicate {composition.id}" aria-label="Duplicate {composition.id}">⧉</button>
@@ -194,14 +198,14 @@
               ondragstart={(event) => startCompositionDrag(event, composition.key)}
               ondragend={endCompositionDrag}
               class:active={composition.key === $store.currentKey}
-              class="composition-row kind-{composition.kind}"
+              class="composition-row kind-{composition.kind} type-{composition.type}"
               onclick={() => { viewModel.open(composition.key); onopen(); }}
               title={composition.file ?? composition.id}
             >
-              <span class="glyph">{glyph[composition.kind]}</span>
+              <span class="glyph">{compositionGlyph(composition)}</span>
               <span class="name">{composition.id}</span>
-              <span class="kind">{composition.kind}</span>
-              {#if composition.kind === "generate"}<span class="out-badge out-{composition.outputKind}">{composition.outputKind}</span>{/if}
+              <span class="kind">{compositionLabel(composition)}</span>
+              {#if composition.type === "generative"}<span class="out-badge out-{composition.outputKind}">{composition.outputKind}</span>{/if}
             </button>
             <div class="row-actions">
               <button class="row-action" onclick={() => onduplicate(composition.key)} title="Duplicate {composition.id}" aria-label="Duplicate {composition.id}">⧉</button>

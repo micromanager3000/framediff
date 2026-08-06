@@ -1,5 +1,45 @@
 import { describe, expect, it } from "vitest";
-import { combineCompositionSetups, defineTimelineDocument, type CompositionSetupContext } from "./composition";
+import {
+  COMPOSITION_DEFINITION_VERSION,
+  combineCompositionSetups,
+  defineComposition,
+  defineCompositionRegistry,
+  defineTimelineDocument,
+  type CompositionConfig,
+  type CompositionSetupContext,
+} from "./composition";
+
+const htmlComposition = (id: string, kind = "scene") => `<!doctype html><main data-fd-composition data-fd-id="${id}" data-fd-kind="${kind}" data-fd-width="1920" data-fd-height="1080" data-fd-fps="30" data-fd-duration="90"></main>`;
+
+describe("composition definitions", () => {
+  it("separates a versioned runtime type from semantic authoring kind", () => {
+    const composition = defineComposition(htmlComposition("Title"));
+    expect(composition.definition).toEqual({
+      version: COMPOSITION_DEFINITION_VERSION,
+      type: "html",
+      kind: "scene",
+    });
+  });
+
+  it("rejects runtime adapter names used as semantic kinds", () => {
+    expect(() => defineComposition(htmlComposition("OldGenerator", "generate"))).toThrow(
+      'Runtime adapters belong in definition.type',
+    );
+  });
+
+  it("validates the latest-only project registry boundary", () => {
+    const current = defineComposition(htmlComposition("Current"));
+    expect(defineCompositionRegistry({ current })).toEqual({ current });
+    const stale = {
+      ...current,
+      definition: { ...current.definition, version: 0 },
+    } as unknown as CompositionConfig;
+    expect(() => defineCompositionRegistry({ stale })).toThrow("FrameDiff requires version 1");
+    expect(defineCompositionRegistry({ first: current, alias: current })).toEqual({ first: current, alias: current });
+    const duplicate = defineComposition(htmlComposition("Current"));
+    expect(() => defineCompositionRegistry({ first: current, duplicate })).toThrow("belongs to more than one definition");
+  });
+});
 
 describe("combineCompositionSetups", () => {
   it("runs setup in declaration order and cleanup in reverse order", async () => {

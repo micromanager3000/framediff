@@ -73,7 +73,6 @@ export const heroGridRevealComp = defineComposition(gridSource, {
     heroGradeVideoSetup,
   ),
   meta: {
-    kind: "scene",
     file: "src/compositions/HeroRawFeatures.ts",
     sourceFormat: "generated",
     library: true,
@@ -122,7 +121,6 @@ export const heroSplitScreenComp = defineComposition(splitSource, {
     heroGradeVideoSetup,
   ),
   meta: {
-    kind: "scene",
     file: "src/compositions/HeroRawFeatures.ts",
     sourceFormat: "generated",
     library: true,
@@ -168,7 +166,6 @@ export const heroKeynoteStackComp = defineComposition(keynoteSource, {
     heroGradeVideoSetup,
   ),
   meta: {
-    kind: "scene",
     file: "src/compositions/HeroRawFeatures.ts",
     sourceFormat: "generated",
     library: true,
@@ -233,7 +230,6 @@ export const heroTextOverlaysComp = defineComposition(overlaySource, {
     createCharacterRiseSetup(),
   ),
   meta: {
-    kind: "scene",
     file: "src/compositions/HeroRawFeatures.ts",
     sourceFormat: "generated",
     library: true,
@@ -314,7 +310,6 @@ export const heroLogoBumperComp = defineComposition(bumperSource, {
   document: initialDocument,
   setup: bumperSetup,
   meta: {
-    kind: "scene",
     file: "src/compositions/HeroRawFeatures.ts",
     sourceFormat: "generated",
     library: true,

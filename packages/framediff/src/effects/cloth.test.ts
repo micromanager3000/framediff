@@ -130,6 +130,7 @@ describe("cloth simulation", () => {
 
 describe("cloth composition", () => {
   const source: CompositionConfig = {
+    definition: { version: 1, type: "html", kind: "scene" },
     id: "TitleCard",
     html: '<main data-fd-composition data-fd-id="TitleCard" data-fd-width="960" data-fd-height="540" data-fd-fps="24" data-fd-duration="120"></main>',
     width: 960,
@@ -155,7 +156,6 @@ describe("cloth composition", () => {
       fps: 24,
       durationInFrames: 120,
       meta: {
-        kind: "3d",
         deps: ["src/compositions/TitleCard.ts"],
         authoring: { timeline: "hidden", transport: "always", directManipulation: false },
       },

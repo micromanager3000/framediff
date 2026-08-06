@@ -114,6 +114,7 @@ const clothSetup: CompositionSetup = async (context) => {
 };
 
 export const clothLabComp = defineComposition(source, {
+  type: "three",
   setup: clothSetup,
   document: initialDocument,
   meta: {

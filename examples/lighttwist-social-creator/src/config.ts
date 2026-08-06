@@ -1,7 +1,7 @@
-import type { CompRegistry } from "framediff";
+import { defineCompositionRegistry } from "framediff";
 import { creatorSocialComp } from "./compositions/CreatorSocial";
 
 export const composition = creatorSocialComp;
-export const COMPOSITIONS: CompRegistry = {
+export const COMPOSITIONS = defineCompositionRegistry({
   "creator-social": composition,
-};
+});

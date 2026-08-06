@@ -3,7 +3,8 @@ import type { VisualAdaptation, VisualGeometryClassification } from "./generativ
 import type { CubicMotionSegment, GestureSample } from "./motionPath";
 import type { ProcessingRecipe, ProcessingWorkspacePort } from "./processing";
 
-export type CompositionKind = "edit" | "custom" | "3d" | "generate" | "processing" | "audio" | "doc" | "plan" | "scene" | "board" | "moodboard" | "script" | "locations" | "cast";
+export type CompositionKind = "edit" | "custom" | "audio" | "doc" | "plan" | "scene" | "board" | "script" | "locations" | "cast";
+export type CompositionType = "html" | "three" | "generative" | "processing" | "moodboard";
 export type CompositionOutputKind = "video" | "image" | "audio";
 export type CompositionTimelineMode = "auto" | "always" | "hidden";
 export type CompositionTransportMode = "auto" | "always" | "hidden";
@@ -105,6 +106,8 @@ export interface CompositionDescriptor {
   height: number;
   fps: number;
   durationInFrames: number;
+  definitionVersion: number;
+  type: CompositionType;
   kind: CompositionKind;
   outputKind: CompositionOutputKind;
   file?: string;
@@ -749,12 +752,14 @@ export interface CompositionBakeInputsSnapshot {
   missing: string[];
 }
 
-export type NewCompositionKind = CompositionKind;
+export type NewCompositionTemplate =
+  | "edit" | "custom" | "scene" | "three" | "generate" | "processing" | "audio"
+  | "plan" | "doc" | "script" | "board" | "moodboard" | "locations" | "cast";
 export interface NewCompositionRequest {
   name: string;
-  kind: NewCompositionKind;
+  template: NewCompositionTemplate;
   durationInFrames: number;
-  /** Required by the runtime when kind is generate. It becomes the composition's locked contract. */
+  /** Required by the runtime when template is generate. It becomes the composition's locked contract. */
   outputKind?: CompositionOutputKind;
   /** Optional for processing. When omitted, the runtime derives a pinned RVM recipe from the selected composition. */
   processingRecipe?: ProcessingRecipe;

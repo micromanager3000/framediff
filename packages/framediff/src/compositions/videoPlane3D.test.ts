@@ -22,7 +22,8 @@ describe("defineVideoPlane3DComposition", () => {
       height: 1080,
       fps: 24,
       durationInFrames: 48,
-      meta: { kind: "3d", library: true, sourceFormat: "generated" },
+      definition: { version: 1, type: "three", kind: "scene" },
+      meta: { library: true, sourceFormat: "generated" },
     });
     expect(composition.setup).toBeTypeOf("function");
     expect(composition.html).toContain('data-fd-src="asset://screen-recording"');

@@ -92,8 +92,8 @@
 :where(.framediff-studio) .crumb-separator { color: var(--faint); }
 :where(.framediff-studio) .current .file { overflow: hidden; color: var(--faint); font-family: var(--mono); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 :where(.framediff-studio) .kind { padding: 2px 6px; border-radius: 4px; color: var(--accent); background: rgb(240 180 95 / 14%); font-size: 9px; font-weight: 800; text-transform: uppercase; }
-:where(.framediff-studio) .kind-3d { color: var(--blue); background: rgb(143 201 236 / 14%); }
-:where(.framediff-studio) .kind-generate { color: var(--pink); background: rgb(213 169 232 / 14%); }
+:where(.framediff-studio) .type-three { color: var(--blue); background: rgb(143 201 236 / 14%); }
+:where(.framediff-studio) .type-generative { color: var(--pink); background: rgb(213 169 232 / 14%); }
 :where(.framediff-studio) .top-status { margin-left: auto; color: var(--faint); font-family: var(--mono); font-size: 9px; }
 :where(.framediff-studio) .top-status.error { color: var(--red); }
 :where(.framediff-studio) .refresh, :where(.framediff-studio) .render { border: 1px solid var(--line-strong); border-radius: 7px; background: var(--panel-raised); cursor: pointer; }
@@ -290,8 +290,8 @@
 :where(.framediff-studio) .composition-row.active { background: color-mix(in srgb, var(--accent) 8%, var(--panel-raised)); color: var(--text); }
 :where(.framediff-studio) .composition-row.active .glyph { filter: drop-shadow(0 0 5px color-mix(in srgb, currentColor 65%, transparent)); }
 :where(.framediff-studio) .composition-row .glyph { color: var(--accent); text-align: center; }
-:where(.framediff-studio) .composition-row.kind-3d .glyph { color: var(--blue); }
-:where(.framediff-studio) .composition-row.kind-generate .glyph { color: var(--pink); }
+:where(.framediff-studio) .composition-row.type-three .glyph { color: var(--blue); }
+:where(.framediff-studio) .composition-row.type-generative .glyph { color: var(--pink); }
 :where(.framediff-studio) .composition-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 :where(.framediff-studio) .composition-row .kind { color: var(--faint); background: none; font-family: var(--mono); font-size: 8px; }
 :where(.framediff-studio) .composition-row .out-badge { padding: 2px 5px; border-radius: 4px; font: 800 8px/1.2 var(--mono); letter-spacing: .02em; text-transform: uppercase; }

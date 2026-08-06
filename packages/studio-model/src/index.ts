@@ -83,11 +83,17 @@ export { compositionByReference } from "./compositionRef";
 export { renderTargetCompositions, selectedRenderTarget } from "./renderTargets";
 export {
   COMPOSITION_KIND_CONTRACTS,
+  COMPOSITION_TYPE_CONTRACTS,
+  COMPOSITION_TEMPLATE_CONTRACTS,
   compositionKindContract,
   compositionKindAuthoringDefaults,
+  compositionTypeContract,
+  compositionTemplateContract,
   resolveCompositionAuthoring,
   type CompositionKindContract,
   type CompositionKindAuthoringDefaults,
+  type CompositionTypeContract,
+  type CompositionTemplateContract,
   type ResolvedCompositionAuthoring,
 } from "./authoring";
 export {
@@ -164,6 +170,7 @@ export type {
   CompositionDescriptor,
   CompositionAuthoringDescriptor,
   CompositionKind,
+  CompositionType,
   CompositionOutputKind,
   CompositionTimelineMode,
   CompositionTransportMode,
@@ -206,7 +213,7 @@ export type {
   GenerativeTakeSettingsSnapshot,
   GenerativeTakeSnapshot,
   GenerativeWorkspaceSnapshot,
-  NewCompositionKind,
+  NewCompositionTemplate,
   NewCompositionRequest,
   CompositionBakeInputsSnapshot,
   ProjectOperationResult,

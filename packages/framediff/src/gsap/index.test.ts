@@ -8,7 +8,7 @@ function contextFor(
 ): CompositionSetupContext {
   return {
     root: {} as HTMLElement,
-    composition: { id: "test", html: "", width: 100, height: 100, fps: 30, durationInFrames: 90 },
+    composition: { definition: { version: 1, type: "html", kind: "scene" }, id: "test", html: "", width: 100, height: 100, fps: 30, durationInFrames: 90 },
     registry: {},
     signal: new AbortController().signal,
     query: () => null,

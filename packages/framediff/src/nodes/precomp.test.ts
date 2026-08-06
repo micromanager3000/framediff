@@ -5,7 +5,7 @@ import { MemoryCAS } from "../assets/cas";
 import type { MediaBundle } from "./mediaBundle";
 import type { ResolvedNode } from "../graph/scheduler";
 
-const subComp = { id: "Intro", html: '<main data-fd-composition data-fd-id="Intro" data-fd-width="1920" data-fd-height="1080" data-fd-fps="30" data-fd-duration="60"></main>', width: 1920, height: 1080, fps: 30, durationInFrames: 60 };
+const subComp = { definition: { version: 1, type: "html", kind: "scene" } as const, id: "Intro", html: '<main data-fd-composition data-fd-id="Intro" data-fd-width="1920" data-fd-height="1080" data-fd-fps="30" data-fd-duration="60"></main>', width: 1920, height: 1080, fps: 30, durationInFrames: 60 };
 
 describe("precomp baking", () => {
   it("bakes a sub-composition into a MediaBundle and caches by fingerprint", async () => {
@@ -25,6 +25,7 @@ describe("precomp baking", () => {
     const cacheAdapter = { get: (fp: string) => cache.get(fp), set: (fp: string, r: ResolvedNode) => void cache.set(fp, r) };
 
     const def = defineComposition({
+      definition: { version: 1, type: "html", kind: "edit" },
       id: "Final",
       html: '<main data-fd-composition data-fd-id="Final" data-fd-width="1920" data-fd-height="1080" data-fd-fps="30" data-fd-duration="120"></main>',
       width: 1920,

@@ -705,7 +705,7 @@ export function createClothComposition(
   </style>
 </head>
 <body>
-  <main data-fd-composition data-fd-id="${htmlAttribute(id)}" data-fd-width="${width}" data-fd-height="${height}" data-fd-fps="${fps}" data-fd-duration="${durationInFrames}" data-fd-kind="3d">
+  <main data-fd-composition data-fd-id="${htmlAttribute(id)}" data-fd-width="${width}" data-fd-height="${height}" data-fd-fps="${fps}" data-fd-duration="${durationInFrames}" data-fd-kind="scene">
     <section id="fd-cloth-input" data-fd-cloth-input data-fd-type="nested" data-fd-comp="${htmlAttribute(sourceKey)}" data-fd-layout-space="composition" data-fd-x="0" data-fd-y="0" data-fd-width="${width}" data-fd-height="${height}" data-fd-fit="${fit}" aria-hidden="true"></section>
     <canvas data-fd-cloth-output data-fd-cloth data-fd-cloth-source="#fd-cloth-input" data-fd-cloth-refresh="frame" aria-label="${htmlAttribute(sourceComposition.id)} rendered as animated cloth"></canvas>
     <div class="fd-cloth-error" role="alert"></div>
@@ -769,11 +769,11 @@ export function createClothComposition(
   };
 
   return defineComposition(source, {
+    type: "three",
     setup,
     document: options.document,
     meta: {
       ...options.meta,
-      kind: "3d",
       deps: [...new Set([...(options.meta?.deps ?? []), sourceComposition.meta?.module].filter((value): value is string => !!value))],
       authoring: {
         timeline: "hidden",

@@ -187,7 +187,7 @@
   {:else if !$store.item && !$store.elementId && !$store.animation && !$store.unrollGroup && !$store.detailsLoading && !$store.sections.length}
     <div class="empty inspector-onboarding">
       <span class="empty-icon">⌁</span>
-      {#if $store.composition?.kind === "scene" || $store.composition?.kind === "3d"}
+      {#if $store.composition?.kind === "scene"}
         <strong>Select something in the scene</strong>
         <p>The Inspector follows your canvas selection and edits its declared JSON or source authority.</p>
         <ul>

@@ -1,6 +1,25 @@
 import type { AssetResolver } from "./assets/resolver";
 
-export type CompositionKind = "edit" | "custom" | "3d" | "generate" | "processing" | "audio" | "doc" | "plan" | "scene" | "board" | "moodboard" | "script" | "locations" | "cast";
+/** Creative intent. Studio derives its normal authoring surfaces from this axis. */
+export type CompositionKind = "edit" | "custom" | "audio" | "doc" | "plan" | "scene" | "board" | "script" | "locations" | "cast";
+/** Package-owned runtime adapter. This is deliberately separate from creative intent. */
+export type CompositionType = "html" | "three" | "generative" | "processing" | "moodboard";
+export const COMPOSITION_DEFINITION_VERSION = 1 as const;
+
+/**
+ * The versioned boundary shared by projects, the runtime, and Studio.
+ *
+ * Version 1 is latest-only: registries reject every other version. A future release can widen
+ * this union and migrate older definitions inside `defineCompositionRegistry` without changing
+ * project registries or package-owned Studio UI.
+ */
+export interface CompositionDefinitionV1 {
+  version: typeof COMPOSITION_DEFINITION_VERSION;
+  type: CompositionType;
+  kind: CompositionKind;
+}
+
+export type CompositionDefinition = CompositionDefinitionV1;
 export type CompositionOutputKind = "video" | "image" | "audio";
 export type CompositionTimelineMode = "auto" | "always" | "hidden";
 export type CompositionTransportMode = "auto" | "always" | "hidden";
@@ -176,7 +195,6 @@ export interface CompositionDocumentMetadata {
 }
 
 export interface CompositionMetadata {
-  kind?: CompositionKind;
   file?: string;
   /** Project-relative JavaScript/TypeScript module exporting this config (Studio copy/HMR). */
   module?: string;
@@ -262,6 +280,7 @@ export function combineCompositionSetups(
  * Both preview and export mount this same document and advance it through the same frame lifecycle.
  */
 export interface CompositionConfig {
+  definition: CompositionDefinition;
   id: string;
   html: string;
   width: number;
@@ -278,6 +297,10 @@ export interface CompositionConfig {
 export type CompositionRegistry = Record<string, CompositionConfig>;
 
 export interface DefineCompositionOptions {
+  /** Semantic authoring kind. Prefer `data-fd-kind` for portable HTML compositions. */
+  kind?: CompositionKind;
+  /** Runtime adapter. Ordinary authored documents default to `html`; package factories set this. */
+  type?: CompositionType;
   id?: string;
   width?: number;
   height?: number;
@@ -329,6 +352,15 @@ export function defineComposition(source: string, options: DefineCompositionOpti
   if (!(width && height && fps && durationInFrames)) {
     throw new Error(`Composition "${id}" needs positive data-fd-width, data-fd-height, data-fd-fps, and data-fd-duration values.`);
   }
+  const kind = options.kind ?? attr(tag, "data-fd-kind");
+  const kinds: readonly CompositionKind[] = ["edit", "custom", "audio", "doc", "plan", "scene", "board", "script", "locations", "cast"];
+  if (!kind) throw new Error(`Composition "${id}" needs a semantic data-fd-kind.`);
+  if (!kinds.includes(kind as CompositionKind)) {
+    throw new Error(`Composition "${id}" has unsupported kind "${kind}". Runtime adapters belong in definition.type, not data-fd-kind.`);
+  }
+  const type = options.type ?? "html";
+  const types: readonly CompositionType[] = ["html", "three", "generative", "processing", "moodboard"];
+  if (!types.includes(type)) throw new Error(`Composition "${id}" has unsupported runtime type "${type}".`);
 
   const renderFrom = numberAttr(tag, "data-fd-render-from");
   const renderTo = numberAttr(tag, "data-fd-render-to");
@@ -345,7 +377,6 @@ export function defineComposition(source: string, options: DefineCompositionOpti
   const documentFile = attr(tag, "data-fd-document") ?? options.meta?.document?.file;
   const schemaFile = attr(tag, "data-fd-schema") ?? options.meta?.document?.schema;
   const meta: CompositionMetadata = {
-    kind: (attr(tag, "data-fd-kind") as CompositionKind | undefined) ?? options.meta?.kind,
     file: options.file ?? attr(tag, "data-fd-source") ?? options.meta?.file,
     module: attr(tag, "data-fd-module") ?? options.meta?.module,
     exportName: attr(tag, "data-fd-export") ?? options.meta?.exportName,
@@ -371,5 +402,37 @@ export function defineComposition(source: string, options: DefineCompositionOpti
       : undefined,
   };
 
-  return { id, html: source, width, height, fps, durationInFrames, setup: options.setup, document: options.document, timeline: options.timeline, meta };
+  return {
+    definition: { version: COMPOSITION_DEFINITION_VERSION, type, kind: kind as CompositionKind },
+    id,
+    html: source,
+    width,
+    height,
+    fps,
+    durationInFrames,
+    setup: options.setup,
+    document: options.document,
+    timeline: options.timeline,
+    meta,
+  };
+}
+
+/**
+ * Validate the complete project boundary once. This is intentionally the future migration seam:
+ * version 1 rejects stale definitions; a later implementation may normalize supported old
+ * versions here before returning the registry.
+ */
+export function defineCompositionRegistry<const T extends CompositionRegistry>(registry: T): T & CompositionRegistry {
+  const ids = new Map<string, CompositionConfig>();
+  for (const [key, composition] of Object.entries(registry)) {
+    if (!key.trim()) throw new Error("A composition registry key cannot be empty.");
+    if (!composition?.definition) throw new Error(`Composition registry entry "${key}" has no versioned definition.`);
+    if (composition.definition.version !== COMPOSITION_DEFINITION_VERSION) {
+      throw new Error(`Composition "${key}" uses definition version ${String(composition.definition.version)}; FrameDiff requires version ${COMPOSITION_DEFINITION_VERSION}.`);
+    }
+    const previous = ids.get(composition.id);
+    if (previous && previous !== composition) throw new Error(`Composition id "${composition.id}" belongs to more than one definition.`);
+    ids.set(composition.id, composition);
+  }
+  return registry;
 }

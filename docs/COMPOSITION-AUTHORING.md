@@ -18,20 +18,26 @@ FrameDiff has three distinct owners:
 The JSON document is persistent render data. Viewport orbit, hover, open panels, selection, and modal
 state remain ephemeral Studio state.
 
-`kind` describes what a composition is; Studio derives its normal authoring surfaces from that
-semantic rather than treating every time-varying render as an edit:
+Every composition has a versioned `definition` with two independent axes. `kind` describes creative
+intent and supplies the normal Studio surfaces; `type` selects the package runtime adapter. A 3D
+shot is therefore `{ kind: "scene", type: "three" }`, not a new semantic kind. A generated voice is
+`{ kind: "audio", type: "generative" }`. See the full [composition architecture and upgrade
+plan](./COMPOSITION-ARCHITECTURE.html).
 
 | Kind | Primary authoring surface | Timeline default | Transport | Accepts comp drops |
 | --- | --- | --- | --- | --- |
 | `edit` | layered assembly | always, including an empty drop target | yes | yes, as timed nested clips |
 | `scene` | directly editable visual canvas | only for real temporal rows or registered motion | yes | no |
-| `3d` | spatial/procedural canvas and custom tools | only for cameras or other temporal rows | yes | no |
-| `generate` | recipe inputs, parameters, and takes | no | no | inputs use `comp://`, not timeline nesting |
 | `audio` | audio arrangement | always | yes | no |
 | `plan` | timed beats/shot plan | always | yes | no |
 | `script` | timed narrative document | only when rows carry timing | with that timeline | no |
 | `doc`, `locations`, `cast` | structured reference document | no | no | no |
-| `board`, `moodboard` | directly editable planning canvas | no | no | no |
+| `board` | directly editable planning canvas | no | no | no |
+
+Runtime types refine those defaults: `three` supplies spatial setup, `generative` supplies the recipe
+workbench, `processing` supplies processor status and execution, and `moodboard` supplies its complete
+canvas UX. Those surfaces live in FrameDiff, so upgrading the pinned package updates them without
+copying UI into a video project.
 
 A full-duration DOM wrapper is usually structural content, not a clip. Static scene examples do not
 add `data-fd-clip` simply to make their children selectable; stable `data-fd-id` values and JSON

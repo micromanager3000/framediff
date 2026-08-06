@@ -10,7 +10,7 @@ import {
 import { compositionMatchesSearch, CompositionRailViewModel } from "./CompositionRail.ViewModel";
 
 const comp = (key: string, id: string, extra: Partial<CompositionDescriptor> = {}): CompositionDescriptor => ({
-  key, id, width: 1920, height: 1080, fps: 30, durationInFrames: 120, kind: "edit", outputKind: "video", ...extra,
+  key, id, width: 1920, height: 1080, fps: 30, durationInFrames: 120, definitionVersion: 1, type: "html", kind: "edit", outputKind: "video", ...extra,
 });
 
 const nested = (compId: string): TimelineItemSnapshot => ({
@@ -50,11 +50,11 @@ async function railWithSession() {
 describe("CompositionRailViewModel", () => {
   it("matches composition discovery by id, key, kind and source file", () => {
     const composition = comp("motion-lab", "Motion Lab");
-    composition.kind = "3d";
+    composition.type = "three";
     composition.file = "src/labs/Motion.ts";
     expect(compositionMatchesSearch(composition, "motion lab")).toBe(true);
     expect(compositionMatchesSearch(composition, "motion-lab")).toBe(true);
-    expect(compositionMatchesSearch(composition, "3D")).toBe(true);
+    expect(compositionMatchesSearch(composition, "three")).toBe(true);
     expect(compositionMatchesSearch(composition, "labs/motion")).toBe(true);
     expect(compositionMatchesSearch(composition, "editorial")).toBe(false);
   });
