@@ -147,6 +147,13 @@ const format = (value: number, digits = 2) => {
 };
 
 /** Mount Camera Lab. The runtime calls sync() as the playhead advances. */
+/** The Camera Lab is an authoring surface. It must never mount into a capture/bake DOM
+ *  instance: the exporter composites the full composition root, so a mounted HUD would be
+ *  burned into rendered artifacts and generative previz references. */
+export function cameraLabShouldMount(cameraFile: string | undefined, captureMode: boolean | undefined): boolean {
+  return !!cameraFile && captureMode !== true;
+}
+
 export function mountCameraLab(
   root: HTMLElement,
   file: { path: string; data: CameraTrackFile },

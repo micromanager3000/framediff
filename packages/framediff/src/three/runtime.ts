@@ -3,7 +3,7 @@ import type { CompositionSetup } from "../composition";
 import { registerCanvasCapture } from "../runtime";
 import { isVisualElementActive } from "../render/activeElement";
 import { cameraFrameWithinCut, evaluateCameraTrack, resolveSceneCamera } from "./cameraTrack";
-import { cameraRotationFromTarget, loadCameraFile, mountCameraLab, type CameraLabPose } from "./cameraLab";
+import { cameraLabShouldMount, cameraRotationFromTarget, loadCameraFile, mountCameraLab, type CameraLabPose } from "./cameraLab";
 import { focalLengthToFov } from "./cameraTrack";
 import type { ThreeSceneDef, ThreeSceneInstance } from "./sceneDef";
 
@@ -117,8 +117,9 @@ export function createThreeSceneSetup(options: ThreeSceneSetupOptions): Composit
       lab?.sync();
     };
 
-    if (options.cameraFile) {
-      lab = mountCameraLab(root, { path: options.cameraFile, data: fileTracks }, {
+    const captureMode = (window as { __FRAMEDIFF_CAPTURE_MODE__?: boolean }).__FRAMEDIFF_CAPTURE_MODE__;
+    if (cameraLabShouldMount(options.cameraFile, captureMode)) {
+      lab = mountCameraLab(root, { path: options.cameraFile!, data: fileTracks }, {
         frame: () => lastFrame,
         durationInFrames: composition.durationInFrames,
         cameraAt: (frame) => cameraAt(frame),

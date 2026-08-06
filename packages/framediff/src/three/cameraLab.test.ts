@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   cameraKeyframeFromPose,
+  cameraLabShouldMount,
   cameraLabPoseFromVirtual,
   cameraRotationFromTarget,
   cameraTargetFromRotation,
@@ -96,5 +97,17 @@ describe("Camera Lab", () => {
     await expect(persistCameraFile("src/shot.cameras.json", { version: 1, cameras: {} }, writer))
       .rejects.toThrow("Could not save camera keys");
     expect(writer).toHaveBeenCalledOnce();
+  });
+});
+
+describe("cameraLabShouldMount", () => {
+  it("mounts only for authoring instances with a camera file", () => {
+    expect(cameraLabShouldMount("src/Comp.cameras.json", undefined)).toBe(true);
+    expect(cameraLabShouldMount("src/Comp.cameras.json", false)).toBe(true);
+    expect(cameraLabShouldMount(undefined, undefined)).toBe(false);
+  });
+
+  it("never mounts into a capture/bake instance — the HUD would be burned into exports", () => {
+    expect(cameraLabShouldMount("src/Comp.cameras.json", true)).toBe(false);
   });
 });
