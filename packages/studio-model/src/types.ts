@@ -3,7 +3,7 @@ import type { VisualAdaptation, VisualGeometryClassification } from "./generativ
 import type { CubicMotionSegment, GestureSample } from "./motionPath";
 import type { ProcessingRecipe, ProcessingWorkspacePort } from "./processing";
 
-export type CompositionKind = "edit" | "custom" | "audio" | "doc" | "plan" | "scene" | "board" | "script" | "locations" | "cast";
+export type CompositionKind = "edit" | "audio" | "doc" | "plan" | "scene" | "board" | "script" | "locations" | "cast";
 export type CompositionType = "html" | "three" | "generative" | "processing" | "moodboard";
 export type CompositionOutputKind = "video" | "image" | "audio";
 export type CompositionTimelineMode = "auto" | "always" | "hidden";
@@ -752,18 +752,24 @@ export interface CompositionBakeInputsSnapshot {
   missing: string[];
 }
 
-export type NewCompositionTemplate =
-  | "edit" | "custom" | "scene" | "three" | "generate" | "processing" | "audio"
-  | "plan" | "doc" | "script" | "board" | "moodboard" | "locations" | "cast";
-export interface NewCompositionRequest {
+/** A project scaffold compatible with one or more semantic composition kinds. */
+export type NewCompositionStarter = "blank" | "code" | "three" | "generative" | "processing" | "moodboard";
+interface NewCompositionRequestBase {
   name: string;
-  template: NewCompositionTemplate;
   durationInFrames: number;
-  /** Required by the runtime when template is generate. It becomes the composition's locked contract. */
-  outputKind?: CompositionOutputKind;
-  /** Optional for processing. When omitted, the runtime derives a pinned RVM recipe from the selected composition. */
-  processingRecipe?: ProcessingRecipe;
 }
+
+/**
+ * A composition creation request encodes only valid kind/starter pairs. The runtime repeats these
+ * checks because JavaScript callers and remote adapters still cross an untyped boundary.
+ */
+export type NewCompositionRequest =
+  | NewCompositionRequestBase & { kind: CompositionKind; starter: "blank"; outputKind?: undefined; processingRecipe?: undefined }
+  | NewCompositionRequestBase & { kind: "scene"; starter: "code" | "three"; outputKind?: undefined; processingRecipe?: undefined }
+  | NewCompositionRequestBase & { kind: "scene"; starter: "generative"; outputKind: "image" | "video"; processingRecipe?: undefined }
+  | NewCompositionRequestBase & { kind: "audio"; starter: "generative"; outputKind: "audio"; processingRecipe?: undefined }
+  | NewCompositionRequestBase & { kind: "scene"; starter: "processing"; outputKind?: undefined; processingRecipe?: ProcessingRecipe }
+  | NewCompositionRequestBase & { kind: "board"; starter: "moodboard"; outputKind?: undefined; processingRecipe?: undefined };
 
 export interface ProjectOperationResult {
   ok: boolean;

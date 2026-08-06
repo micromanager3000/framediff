@@ -75,22 +75,24 @@ Preview and export mount the same document and call the same frame listeners. Th
 `--fd-frame`, `--fd-time`, `data-fd-frame`, and `data-fd-time` on the root. Every timed element gets
 `--fd-local-frame`, `--fd-local-time`, and `data-fd-local-frame`.
 
-### Custom compositions
+### Source-owned code scenes
 
-Use `data-fd-kind="custom"` for a source-owned HTML/CSS/JavaScript render surface that should not
-have a timeline of its own. Custom comps keep preview transport, receive the full `onFrame` state,
-and may reference any registered composition with `data-fd-type="nested"` plus `data-fd-comp`.
-When an edit places a custom comp on its timeline, the callback receives the placement-local render
+Use `data-fd-kind="scene"` with `data-fd-timeline="hidden"` for a source-owned
+HTML/CSS/JavaScript render surface that should not have a timeline of its own. Code scenes keep
+preview transport, receive the full `onFrame` state, and may reference any registered composition
+with `data-fd-type="nested"` plus `data-fd-comp`. When an edit places a code scene on its timeline,
+the callback receives the placement-local render
 frame after edit start, trim, playback-rate, and fps mapping. Preview and export use that same
 mapping.
 
-The Studio's new-composition sheet scaffolds a custom comp as an `.html` document and a tiny `.ts`
-registration module. It does not create `.comp.json`, schema, or timeline files. The containing edit
-owns timing, rectangle, fit, radius, opacity, and layer order in its timeline JSON; the custom source
+The Studio's add-composition sheet offers this as the **Code scene** starter for the **Scene** kind.
+It scaffolds an `.html` document and a tiny `.ts` registration module without creating `.comp.json`,
+schema, or timeline files. The containing edit owns timing, rectangle, fit, radius, opacity, and
+layer order in its timeline JSON; the code scene source
 owns everything inside that rectangle.
 
 Timeline nodes remain mounted while inactive so setup state survives scrubbing. Built-in media,
-grade, video-plane, and three.js adapters skip hidden branches automatically. A custom expensive
+grade, video-plane, and three.js adapters skip hidden branches automatically. An expensive code-scene
 effect can do the same with `isVisualElementActive(canvas, root)`; capture and export also exclude
 inactive visual and audio branches.
 

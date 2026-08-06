@@ -29,7 +29,7 @@ describe("example composition authoring contracts", () => {
       htmlFiles.map((file) => attribute(rootTag(readFileSync(file, "utf8")), "data-fd-kind")).filter(Boolean),
     );
     expect([...kinds].sort()).toEqual([
-      "audio", "board", "cast", "custom", "doc", "edit", "locations", "plan", "scene", "script",
+      "audio", "board", "cast", "doc", "edit", "locations", "plan", "scene", "script",
     ]);
   });
 
@@ -115,12 +115,18 @@ describe("example composition authoring contracts", () => {
     }
   });
 
-  it("keeps CUSTOM comps source-owned and timeline-less", () => {
-    const customFiles = htmlFiles.filter((file) =>
-      attribute(rootTag(readFileSync(file, "utf8")), "data-fd-kind") === "custom");
-    expect(customFiles.length).toBeGreaterThan(0);
+  it("keeps code scenes source-owned and timeline-less without inventing another kind", () => {
+    const codeSceneFiles = htmlFiles.filter((file) => {
+      const source = readFileSync(file, "utf8");
+      const root = rootTag(source);
+      return attribute(root, "data-fd-kind") === "scene"
+        && attribute(root, "data-fd-timeline") === "hidden"
+        && !attribute(root, "data-fd-document")
+        && source.includes("onFrame(");
+    });
+    expect(codeSceneFiles.length).toBeGreaterThan(0);
 
-    for (const file of customFiles) {
+    for (const file of codeSceneFiles) {
       const root = rootTag(readFileSync(file, "utf8"));
       expect(attribute(root, "data-fd-timeline"), relative(repositoryRoot, file)).toBe("hidden");
       expect(attribute(root, "data-fd-transport"), relative(repositoryRoot, file)).toBe("always");

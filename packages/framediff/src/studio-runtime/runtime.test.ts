@@ -3,7 +3,7 @@ import type { CompRegistry, StudioComposition } from "../studio/types";
 import { generative, recipeHashOf } from "../generative";
 import { genModelOf } from "../genModels";
 import { processing } from "../processingComposition";
-import { fingerprintProcessingRecipe, type ProcessingRecipe } from "@framediff/studio-model";
+import { fingerprintProcessingRecipe, type NewCompositionRequest, type ProcessingRecipe } from "@framediff/studio-model";
 import {
   compositionAssetIds,
   compositionRenderKeys,
@@ -1417,7 +1417,8 @@ describe("HtmlStudioRuntime composition creation", () => {
 
     const result = await runtime.createComposition({
       name: "New Shot",
-      template: "generate",
+      kind: "scene",
+      starter: "generative",
       durationInFrames: 120,
       outputKind: "video",
     }, "main");
@@ -1443,7 +1444,8 @@ describe("HtmlStudioRuntime composition creation", () => {
 
     await expect(runtime.createComposition({
       name: "Poster Frame",
-      template: "generate",
+      kind: "scene",
+      starter: "generative",
       durationInFrames: 1,
       outputKind: "image",
     }, "main")).resolves.toMatchObject({ ok: true, compositionKey: "poster-frame" });
@@ -1455,7 +1457,8 @@ describe("HtmlStudioRuntime composition creation", () => {
 
     await expect(runtime.createComposition({
       name: "Dialogue Track",
-      template: "generate",
+      kind: "audio",
+      starter: "generative",
       durationInFrames: 120,
       outputKind: "audio",
     }, "main")).resolves.toMatchObject({ ok: true, compositionKey: "dialogue-track" });
@@ -1465,6 +1468,26 @@ describe("HtmlStudioRuntime composition creation", () => {
       duration: 5,
       take: 0,
     });
+
+    await expect(runtime.createComposition({
+      name: "Wrong Media",
+      kind: "scene",
+      starter: "generative",
+      durationInFrames: 120,
+      outputKind: "audio",
+    } as unknown as NewCompositionRequest, "main")).resolves.toMatchObject({ ok: false, message: expect.stringContaining("choose the Audio kind") });
+    await expect(runtime.createComposition({
+      name: "Wrong Starter",
+      kind: "audio",
+      starter: "three",
+      durationInFrames: 120,
+    } as unknown as NewCompositionRequest, "main")).resolves.toMatchObject({ ok: false, message: expect.stringContaining("not compatible") });
+    await expect(runtime.createComposition({
+      name: "Old Template",
+      kind: "scene",
+      starter: "generate",
+      durationInFrames: 120,
+    } as unknown as NewCompositionRequest, "main")).resolves.toMatchObject({ ok: false, message: "Unsupported composition starter: generate" });
   });
 
   it("creates a top-level RVM processing composition from the selected composition fingerprint", async () => {
@@ -1487,7 +1510,7 @@ describe("HtmlStudioRuntime composition creation", () => {
     }));
     const runtime = createStudioRuntime({ main: parent } as CompRegistry);
 
-    const result = await runtime.createComposition({ name: "Background Removal", template: "processing", durationInFrames: 240 }, "main");
+    const result = await runtime.createComposition({ name: "Background Removal", kind: "scene", starter: "processing", durationInFrames: 240 }, "main");
 
     expect(result).toMatchObject({ ok: true, compositionKey: "background-removal" });
     expect(result.message).toContain("top level");
@@ -1529,7 +1552,7 @@ describe("HtmlStudioRuntime composition creation", () => {
     }));
     const runtime = createStudioRuntime({ main: composition } as CompRegistry);
 
-    const result = await runtime.createComposition({ name: "Top Level", template: "edit", durationInFrames: 48 }, "");
+    const result = await runtime.createComposition({ name: "Top Level", kind: "edit", starter: "blank", durationInFrames: 48 }, "");
 
     expect(result).toMatchObject({ ok: true, compositionKey: "top-level" });
     expect(result.message).toContain("at the top level");
@@ -1541,14 +1564,15 @@ describe("HtmlStudioRuntime composition creation", () => {
     expect(sources["src/TopLevel.ts"]).toContain('import document from "./TopLevel.comp.json";');
     expect(sources["src/TopLevel.ts"]).toContain("defineTimelineDocument(timeline)");
 
-    const custom = await runtime.createComposition({
+    const codeScene = await runtime.createComposition({
       name: "Frame Logic",
-      template: "custom",
+      kind: "scene",
+      starter: "code",
       durationInFrames: 72,
     }, "");
 
-    expect(custom).toMatchObject({ ok: true, compositionKey: "frame-logic" });
-    expect(sources["src/FrameLogic.html"]).toContain('data-fd-kind="custom"');
+    expect(codeScene).toMatchObject({ ok: true, compositionKey: "frame-logic" });
+    expect(sources["src/FrameLogic.html"]).toContain('data-fd-kind="scene"');
     expect(sources["src/FrameLogic.html"]).toContain('data-fd-timeline="hidden" data-fd-transport="always"');
     expect(sources["src/FrameLogic.html"]).toContain("onFrame(({ frame, time, playing, fps, durationInFrames }) =>");
     expect(sources["src/FrameLogic.html"]).toContain('data-fd-comp="its-registry-key"');
@@ -1557,6 +1581,21 @@ describe("HtmlStudioRuntime composition creation", () => {
     expect(sources["src/FrameLogic.comp.json"]).toBeUndefined();
     expect(sources["src/FrameLogic.schema.json"]).toBeUndefined();
     expect(sources["src/FrameLogic.timeline.json"]).toBeUndefined();
+
+    const threeScene = await runtime.createComposition({
+      name: "Spatial Stage",
+      kind: "scene",
+      starter: "three",
+      durationInFrames: 72,
+    }, "");
+
+    expect(threeScene).toMatchObject({ ok: true, compositionKey: "spatial-stage" });
+    expect(sources["src/SpatialStage.html"]).toContain("data-fd-webgpu");
+    expect(JSON.parse(sources["src/SpatialStage.comp.json"])).toEqual({
+      scene: { background: "#111827", opacity: 1, intensity: 1 },
+    });
+    expect(sources["src/SpatialStage.ts"]).toContain('type: "three"');
+    expect(sources["src/SpatialStage.ts"]).toContain('bindings: {"scene":"/scene"}');
   });
 
   it("does not inject timeline clips into scene and document compositions", async () => {
@@ -1588,7 +1627,7 @@ describe("HtmlStudioRuntime composition creation", () => {
     }));
     const runtime = createStudioRuntime({ scene } as CompRegistry);
 
-    const result = await runtime.createComposition({ name: "Notes", template: "doc", durationInFrames: 48 }, "scene");
+    const result = await runtime.createComposition({ name: "Notes", kind: "doc", starter: "blank", durationInFrames: 48 }, "scene");
 
     expect(result).toMatchObject({ ok: true, compositionKey: "notes" });
     expect(result.message).toContain("at the top level");

@@ -130,8 +130,10 @@ defineComposition(editHtml, {
 The matching HTML elements still carry stable `data-fd-id` and their source/effect content, but
 `from`, duration, layer, trim, and playback rate are materialized from the timeline document for both
 preview and render. Timeline gestures rewrite JSON atomically. `timeline: "auto"` (the default)
-applies the kind matrix above: edits/audio/plans retain their primary timeline, scenes and 3D comps
-only show meaningful temporal projections, and document/board/generate kinds remain timeline-free.
+applies the kind matrix above: edits/audio/plans retain their primary timeline, scenes only show
+meaningful temporal projections, and document/board kinds remain timeline-free. Runtime adapters
+such as Three.js, generative, processing, and moodboard can further refine those surfaces without
+becoming semantic kinds.
 `hidden` and `always` are explicit overrides. `transport` is independent: procedural code can remain
 scrubbable without inventing a timeline row, while a static scene can declare `transport: "hidden"`.
 Whenever transport is present without the full timeline, Studio renders a compact frame scrubber

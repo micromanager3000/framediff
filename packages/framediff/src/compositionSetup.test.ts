@@ -25,6 +25,9 @@ describe("composition definitions", () => {
     expect(() => defineComposition(htmlComposition("OldGenerator", "generate"))).toThrow(
       'Runtime adapters belong in definition.type',
     );
+    expect(() => defineComposition(htmlComposition("OldCustom", "custom"))).toThrow(
+      'unsupported kind "custom"',
+    );
   });
 
   it("validates the latest-only project registry boundary", () => {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { CompositionDescriptor, CompositionKind, CompositionType } from "@framediff/studio-model";
+  import { compositionTypeContract, type CompositionDescriptor, type CompositionKind, type CompositionType } from "@framediff/studio-model";
   import { compositionMatchesSearch, type CompositionRailViewModel } from "../viewmodels/CompositionRail.ViewModel";
 
   export let viewModel: CompositionRailViewModel;
@@ -13,7 +13,6 @@
 
   const glyph: Record<CompositionKind, string> = {
     edit: "⌗",
-    custom: "⌘",
     audio: "♒",
     doc: "¶",
     plan: "▤",
@@ -30,7 +29,9 @@
     moodboard: "▦",
   };
   const compositionGlyph = (composition: CompositionDescriptor): string => typeGlyph[composition.type] ?? glyph[composition.kind];
-  const compositionLabel = (composition: CompositionDescriptor): string => composition.type === "html" ? composition.kind : `${composition.kind} · ${composition.type}`;
+  const compositionLabel = (composition: CompositionDescriptor): string => composition.type === "html"
+    ? composition.kind
+    : `${composition.kind} · ${compositionTypeContract(composition.type).label}`;
   const COMP_DRAG_MIME = "application/x-framediff-comp";
   // dataTransfer payloads are sealed until drop — the key rides here for dragover feedback
   let draggedKey: string | null = null;

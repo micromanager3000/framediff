@@ -1,7 +1,7 @@
 import type { AssetResolver } from "./assets/resolver";
 
 /** Creative intent. Studio derives its normal authoring surfaces from this axis. */
-export type CompositionKind = "edit" | "custom" | "audio" | "doc" | "plan" | "scene" | "board" | "script" | "locations" | "cast";
+export type CompositionKind = "edit" | "audio" | "doc" | "plan" | "scene" | "board" | "script" | "locations" | "cast";
 /** Package-owned runtime adapter. This is deliberately separate from creative intent. */
 export type CompositionType = "html" | "three" | "generative" | "processing" | "moodboard";
 export const COMPOSITION_DEFINITION_VERSION = 1 as const;
@@ -353,7 +353,7 @@ export function defineComposition(source: string, options: DefineCompositionOpti
     throw new Error(`Composition "${id}" needs positive data-fd-width, data-fd-height, data-fd-fps, and data-fd-duration values.`);
   }
   const kind = options.kind ?? attr(tag, "data-fd-kind");
-  const kinds: readonly CompositionKind[] = ["edit", "custom", "audio", "doc", "plan", "scene", "board", "script", "locations", "cast"];
+  const kinds: readonly CompositionKind[] = ["edit", "audio", "doc", "plan", "scene", "board", "script", "locations", "cast"];
   if (!kind) throw new Error(`Composition "${id}" needs a semantic data-fd-kind.`);
   if (!kinds.includes(kind as CompositionKind)) {
     throw new Error(`Composition "${id}" has unsupported kind "${kind}". Runtime adapters belong in definition.type, not data-fd-kind.`);

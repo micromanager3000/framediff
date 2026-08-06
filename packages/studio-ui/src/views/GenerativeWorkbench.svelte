@@ -323,7 +323,7 @@
 
 <section class="gen-workbench">
   {#if $store.loading && !$store.workspace}<div class="panel-empty">Loading generative recipe…</div>
-  {:else if !$store.workspace}<div class="panel-empty">This composition declares kind "generate" but has no generative() recipe — rebuild it with generative() from framediff, or create a fresh one (＋ in the comp panel, kind GENERATE).</div>
+  {:else if !$store.workspace}<div class="panel-empty">This composition uses the generative runtime but has no generative() recipe — rebuild it with generative() from framediff, or add a fresh Scene or Audio composition with the Generated starter.</div>
   {:else}
     {@const workspace = $store.workspace}
     <header class="gen-header">

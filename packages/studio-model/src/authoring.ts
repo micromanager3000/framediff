@@ -3,7 +3,7 @@ import type {
   CompositionDescriptor,
   CompositionKind,
   CompositionType,
-  NewCompositionTemplate,
+  NewCompositionStarter,
   TimelineItemSnapshot,
   UnrollGroupSnapshot,
 } from "./types";
@@ -31,12 +31,12 @@ export interface CompositionTypeContract {
   authoring?: Partial<CompositionKindAuthoringDefaults>;
 }
 
-export interface CompositionTemplateContract {
-  template: NewCompositionTemplate;
+export interface CompositionStarterContract {
+  starter: NewCompositionStarter;
   label: string;
   help: string;
-  kind: CompositionKind;
   type: CompositionType;
+  kinds: readonly CompositionKind[];
 }
 
 export interface ResolvedCompositionAuthoring {
@@ -53,7 +53,6 @@ export interface ResolvedCompositionAuthoring {
  */
 export const COMPOSITION_KIND_CONTRACTS: readonly CompositionKindContract[] = [
   { kind: "edit", label: "Edit", help: "Timed layers and nested compositions", owns: "assembly", timeline: "always", transport: "always", directManipulation: true, acceptsCompositionDrop: true },
-  { kind: "custom", label: "Custom", help: "Frame-aware HTML, CSS, and JavaScript with no authored timeline", owns: "render", timeline: "hidden", transport: "always", directManipulation: true, acceptsCompositionDrop: false },
   { kind: "scene", label: "Scene", help: "Reusable visual or procedural shot; timeline appears only for authored motion", owns: "render", timeline: "temporal", transport: "always", directManipulation: true, acceptsCompositionDrop: false },
   { kind: "audio", label: "Audio", help: "Sound arrangement with timeline and transport", owns: "sound", timeline: "always", transport: "always", directManipulation: false, acceptsCompositionDrop: false },
   { kind: "plan", label: "Plan", help: "Timed beats or shots that can become an edit skeleton", owns: "timed-document", timeline: "always", transport: "always", directManipulation: true, acceptsCompositionDrop: false },
@@ -73,22 +72,14 @@ export const COMPOSITION_TYPE_CONTRACTS: readonly CompositionTypeContract[] = [
   { type: "moodboard", label: "Moodboard", help: "Package-owned pan, zoom, cards, and media tools", authoring: { timeline: "hidden", transport: "hidden", directManipulation: true, acceptsCompositionDrop: false } },
 ] as const;
 
-/** Creation choices are recipes, not new kinds. Each resolves to the two contract axes. */
-export const COMPOSITION_TEMPLATE_CONTRACTS: readonly CompositionTemplateContract[] = [
-  { template: "edit", label: "Edit", help: "Timed layers and nested compositions", kind: "edit", type: "html" },
-  { template: "scene", label: "Scene", help: "Reusable visual shot with shared scene UX", kind: "scene", type: "html" },
-  { template: "custom", label: "Custom", help: "Source-owned HTML, CSS, and JavaScript", kind: "custom", type: "html" },
-  { template: "three", label: "3D canvas", help: "Scene scaffold for module-owned 3D rendering", kind: "scene", type: "three" },
-  { template: "generate", label: "Generate", help: "Generative recipe with pinned takes", kind: "scene", type: "generative" },
-  { template: "processing", label: "Process", help: "Pinned media processing recipe", kind: "scene", type: "processing" },
-  { template: "audio", label: "Audio", help: "Sound arrangement with timeline and transport", kind: "audio", type: "html" },
-  { template: "plan", label: "Plan", help: "Timed beats or shots", kind: "plan", type: "html" },
-  { template: "script", label: "Script", help: "Narrative document with optional timing", kind: "script", type: "html" },
-  { template: "doc", label: "Document", help: "Untimed structured reference", kind: "doc", type: "html" },
-  { template: "board", label: "Board", help: "Freeform planning canvas", kind: "board", type: "html" },
-  { template: "moodboard", label: "Moodboard", help: "Reference canvas with package-owned tools", kind: "board", type: "moodboard" },
-  { template: "locations", label: "Locations", help: "Location and set reference catalog", kind: "locations", type: "html" },
-  { template: "cast", label: "Cast", help: "Cast and continuity catalog", kind: "cast", type: "html" },
+/** Starters describe implementation, not creative intent. Compatibility is explicit and validated. */
+export const COMPOSITION_STARTER_CONTRACTS: readonly CompositionStarterContract[] = [
+  { starter: "blank", label: "Blank", help: "Editable FrameDiff document and standard Studio tools", type: "html", kinds: ["edit", "scene", "audio", "plan", "doc", "script", "board", "locations", "cast"] },
+  { starter: "code", label: "Code scene", help: "Source-owned HTML, CSS, and frame-aware JavaScript", type: "html", kinds: ["scene"] },
+  { starter: "three", label: "3D scene", help: "Three.js canvas with spatial and camera tools", type: "three", kinds: ["scene"] },
+  { starter: "generative", label: "Generated", help: "Generative recipe with inputs, parameters, and pinned takes", type: "generative", kinds: ["scene", "audio"] },
+  { starter: "processing", label: "Processed media", help: "Pinned media-processing recipe and output channels", type: "processing", kinds: ["scene"] },
+  { starter: "moodboard", label: "Moodboard", help: "Reference canvas with package-owned pan, zoom, and cards", type: "moodboard", kinds: ["board"] },
 ] as const;
 
 const KIND_DEFAULTS = Object.fromEntries(
@@ -110,8 +101,14 @@ export function compositionTypeContract(type: CompositionType): CompositionTypeC
   return COMPOSITION_TYPE_CONTRACTS.find((contract) => contract.type === type)!;
 }
 
-export function compositionTemplateContract(template: NewCompositionTemplate): CompositionTemplateContract {
-  return COMPOSITION_TEMPLATE_CONTRACTS.find((contract) => contract.template === template)!;
+export function compositionStarterContract(starter: NewCompositionStarter): CompositionStarterContract {
+  const contract = COMPOSITION_STARTER_CONTRACTS.find((candidate) => candidate.starter === starter);
+  if (!contract) throw new Error(`Unsupported composition starter: ${String(starter)}`);
+  return contract;
+}
+
+export function compositionStartersForKind(kind: CompositionKind): readonly CompositionStarterContract[] {
+  return COMPOSITION_STARTER_CONTRACTS.filter((contract) => contract.kinds.includes(kind));
 }
 
 function hasTemporalProjection(

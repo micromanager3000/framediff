@@ -168,13 +168,27 @@ test("mobile uses a canvas-first shell with reachable drawers and project action
   expect(layout.workspaceWidth).toBeLessThanOrEqual(390);
 });
 
-test("the new-composition dialog is keyboard-dismissable and restores focus", async ({ page }) => {
+test("the add-composition flow separates creative kind from compatible starters and restores focus", async ({ page }) => {
   await openProductionLab(page);
   const trigger = page.getByRole("button", { name: "Create a new composition" });
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "New composition" });
   await expect(dialog).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Name" })).toBeFocused();
+  await expect(dialog.getByRole("button", { name: /Edit Timed layers/ })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: /Scene Reusable visual/ })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: /Audio Sound arrangement/ })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: /Custom/ })).toHaveCount(0);
+
+  await dialog.getByRole("button", { name: /Scene Reusable visual/ }).click();
+  await expect(dialog.getByRole("button", { name: /Code scene Source-owned/ })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: /3D scene Three\.js/ })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: /Processed media Pinned/ })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: /Moodboard/ })).toHaveCount(0);
+
+  await dialog.getByRole("button", { name: /Audio Sound arrangement/ }).click();
+  await expect(dialog.getByRole("button", { name: /Generated Generative recipe/ })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: /3D scene/ })).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();

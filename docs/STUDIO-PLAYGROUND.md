@@ -37,7 +37,7 @@ timeline meaningful nesting at three levels without hiding each system inside on
 
 | Area | Runnable acceptance surface | What it exercises |
 | --- | --- | --- |
-| Composition kinds | CoverageMap, AudioLab, generation recipes, edit and 3D labs | `doc`, `audio`, `generate`, `edit`, `3d` |
+| Composition contract | CoverageMap, AudioLab, generation recipes, edit and 3D labs | semantic `doc`, `audio`, `edit`, and `scene` kinds across HTML, generative, and Three.js adapters |
 | Canvas authoring | DirectManipulationLab, RichPropertiesLab | immediate JSON-backed move/resize/text, fills, flex and typed Inspector fields |
 | Motion | GsapMotionLab, PackageEffectsLab, LowerThird | GSAP registration, keys, paths, trace unroll, `onFrame`, clip motion, wipe, character rise, `spring()` and `interpolate()` |
 | Editorial | EditorialLab, HeroWithLowerThird | real media, trims, playback rate, explicit layers, badges and nested alpha overlays |
@@ -72,7 +72,7 @@ new problems in the reusable strategy at
 
 ## Adding coverage
 
-When a package gains a new composition kind or public effect family:
+When a package gains a new semantic composition kind, runtime adapter, starter, or public effect family:
 
 1. Add or extend a focused leaf composition with stable `data-fd-id` values.
 2. Nest it into the chapter that matches the user's workflow rather than appending it to the root.

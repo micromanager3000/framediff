@@ -1,9 +1,13 @@
 <script lang="ts">
   import {
-    COMPOSITION_TEMPLATE_CONTRACTS,
+    COMPOSITION_KIND_CONTRACTS,
+    compositionStarterContract,
+    compositionStartersForKind,
     type CompositionDescriptor,
+    type CompositionKind,
     type CompositionOutputKind,
-    type NewCompositionTemplate,
+    type NewCompositionRequest,
+    type NewCompositionStarter,
   } from "@framediff/studio-model";
   import { onMount } from "svelte";
   import type { OperationsViewModel } from "../viewmodels/Operations.ViewModel";
@@ -14,35 +18,67 @@
   export let oncreated: (compositionKey: string) => void = () => {};
   const operationsStore = viewModel.store;
   let name = "";
-  let template: NewCompositionTemplate = "edit";
+  let kind: CompositionKind = "edit";
+  let starter: NewCompositionStarter = "blank";
   let outputKind: CompositionOutputKind | "" = "";
   let seconds = 5;
   let nameInput: HTMLInputElement;
-  const templates = COMPOSITION_TEMPLATE_CONTRACTS.map((contract) => ({
-    value: contract.template,
-    label: contract.label,
-    help: contract.help,
-  }));
+
+  const kindGlyph: Record<CompositionKind, string> = {
+    edit: "⌗",
+    scene: "▣",
+    audio: "♒",
+    plan: "▤",
+    doc: "¶",
+    script: "☰",
+    board: "▢",
+    locations: "⌖",
+    cast: "♟",
+  };
+
   onMount(() => {
     const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     nameInput.focus();
     return () => returnFocus?.focus();
   });
-  $: generate = template === "generate";
+
+  $: starters = compositionStartersForKind(kind);
+  $: starterContract = compositionStarterContract(starter);
+  $: generated = starter === "generative";
   $: nestsUnderCurrent = current.kind === "edit" && current.file?.endsWith(".html") === true;
-  $: templateHelp = templates.find((option) => option.value === template)?.help ?? "";
-  $: if (generate) seconds = Math.max(1, Math.round(seconds));
-  $: frames = generate && outputKind === "image" ? 1 : Math.max(1, Math.round(seconds * current.fps));
-  $: canCreate = !!name.trim() && (!generate || !!outputKind) && !$operationsStore.busy;
+  $: if (generated) seconds = Math.max(1, Math.round(seconds));
+  $: frames = generated && outputKind === "image" ? 1 : Math.max(1, Math.round(seconds * current.fps));
+  $: canCreate = !!name.trim() && (!generated || !!outputKind) && !$operationsStore.busy;
+
+  function chooseKind(nextKind: CompositionKind): void {
+    kind = nextKind;
+    starter = "blank";
+    outputKind = "";
+  }
+
+  function chooseStarter(nextStarter: NewCompositionStarter): void {
+    starter = nextStarter;
+    outputKind = nextStarter === "generative" ? (kind === "audio" ? "audio" : "video") : "";
+  }
 
   async function create(): Promise<void> {
     if (!name.trim()) return;
-    const compositionKey = await viewModel.create({
-      name,
-      template,
-      durationInFrames: frames,
-      ...(generate ? { outputKind: outputKind as CompositionOutputKind } : {}),
-    });
+    const base = { name, durationInFrames: frames };
+    let request: NewCompositionRequest;
+    if (starter === "generative") {
+      request = kind === "audio"
+        ? { ...base, kind: "audio", starter, outputKind: "audio" }
+        : { ...base, kind: "scene", starter, outputKind: outputKind as "image" | "video" };
+    } else if (starter === "processing") {
+      request = { ...base, kind: "scene", starter };
+    } else if (starter === "moodboard") {
+      request = { ...base, kind: "board", starter };
+    } else if (starter === "code" || starter === "three") {
+      request = { ...base, kind: "scene", starter };
+    } else {
+      request = { ...base, kind, starter: "blank" };
+    }
+    const compositionKey = await viewModel.create(request);
     if (compositionKey) {
       oncreated(compositionKey);
       onclose();
@@ -63,17 +99,46 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <div class="sheet-shade" role="presentation" onpointerdown={(event) => event.target === event.currentTarget && onclose()}>
-  <div class="sheet" role="dialog" aria-modal="true" aria-label="New composition">
-    <header><strong>NEW COMPOSITION</strong><button onclick={onclose} aria-label="Close new composition">×</button></header>
+  <div class="sheet composition-sheet" role="dialog" aria-modal="true" aria-label="New composition">
+    <header><strong>ADD COMPOSITION</strong><button onclick={onclose} aria-label="Close new composition">×</button></header>
     <label><span>Name</span><input bind:this={nameInput} bind:value={name} placeholder="TitleCard" /></label>
-    <label><span>Template</span><select bind:value={template}>{#each templates as option}<option value={option.value}>{option.label}</option>{/each}</select><small>{templateHelp}</small></label>
-    {#if generate}
-      <fieldset class="output-kind-picker">
-        <legend>OUTPUT TYPE <small>locked after creation</small></legend>
+
+    <fieldset class="composition-choice-grid kind-choice-grid">
+      <legend>KIND <small>what are you making?</small></legend>
+      {#each COMPOSITION_KIND_CONTRACTS as option}
+        <button
+          type="button"
+          class:selected={kind === option.kind}
+          aria-pressed={kind === option.kind}
+          onclick={() => chooseKind(option.kind)}
+        >
+          <i>{kindGlyph[option.kind]}</i><strong>{option.label}</strong><small>{option.help}</small>
+        </button>
+      {/each}
+    </fieldset>
+
+    {#if starters.length > 1}
+      <fieldset class="composition-choice-grid starter-choice-grid">
+        <legend>START WITH <small>only compatible options are shown</small></legend>
+        {#each starters as option}
+          <button
+            type="button"
+            class:selected={starter === option.starter}
+            aria-pressed={starter === option.starter}
+            onclick={() => chooseStarter(option.starter)}
+          >
+            <strong>{option.label}</strong><small>{option.help}</small>
+          </button>
+        {/each}
+      </fieldset>
+    {/if}
+
+    {#if generated && kind === "scene"}
+      <fieldset class="composition-choice-grid output-kind-picker">
+        <legend>MEDIA <small>locked after creation</small></legend>
         {#each [
-          { value: "image", label: "Image", help: "A single still frame", glyph: "▧" },
           { value: "video", label: "Video", help: "Moving picture, optional sound", glyph: "▷" },
-          { value: "audio", label: "Audio", help: "Sound without a visual shape", glyph: "◒" },
+          { value: "image", label: "Image", help: "A single still frame", glyph: "▧" },
         ] as option}
           <button
             type="button"
@@ -86,21 +151,16 @@
         {/each}
       </fieldset>
     {/if}
-    {#if !generate || outputKind !== "image"}
-      <label><span>Duration</span><input type="number" min={generate ? 1 : 0.5} step={generate ? 1 : 0.5} bind:value={seconds} /><small>{generate ? `${Math.max(1, Math.round(seconds))}s of ${outputKind || "generated media"}` : `${frames} frames`}</small></label>
+
+    {#if !generated || outputKind !== "image"}
+      <label><span>Duration</span><input type="number" min={generated ? 1 : 0.5} step={generated ? 1 : 0.5} bind:value={seconds} /><small>{generated ? `${Math.max(1, Math.round(seconds))}s of ${outputKind}` : `${frames} frames`}</small></label>
     {/if}
-    {#if generate}
-      <div class="computed">
-        {#if outputKind}
-          {outputKind} contract · model choices stay within this type · output shape is optional in the workbench
-        {:else}
-          choose the media contract before creating this composition
-        {/if}
-      </div>
-    {:else}
-      <div class="computed">{current.width}×{current.height} · {current.fps.toFixed(3)}fps · inherited from {current.id}</div>
-    {/if}
-    <div class="computed">{nestsUnderCurrent ? `placed under ${current.id} at frame 0` : "placed at the top level"}</div>
+
+    <div class="creation-summary">
+      <strong>{COMPOSITION_KIND_CONTRACTS.find((option) => option.kind === kind)?.label} · {starterContract.label}</strong>
+      <small>{generated ? `${outputKind} media contract · model and take choices remain editable` : `${current.width}×${current.height} · ${current.fps.toFixed(3)}fps · inherited from ${current.id}`}</small>
+      <small>{nestsUnderCurrent ? `Placed under ${current.id} at frame 0` : "Placed at the top level"}</small>
+    </div>
     {#if $operationsStore.error}<div class="sheet-error">{$operationsStore.error}</div>{/if}
     <footer><button onclick={onclose}>Cancel</button><button class="primary" disabled={!canCreate} onclick={() => void create()}>Create</button></footer>
   </div>

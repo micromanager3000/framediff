@@ -51,7 +51,7 @@ import {
   classifyVisualGeometry,
   cropRegionMatchesTargetAspect,
   normalizeCropRegion,
-  compositionTemplateContract,
+  compositionStarterContract,
   fingerprintProcessingRecipe,
   RVM_PROCESSOR,
   validateProcessingArtifactManifest,
@@ -382,7 +382,7 @@ type HtmlCompositionScaffoldOptions = {
   schemaFile: string;
   timelineFile?: string;
   kind: CompositionKind;
-  template: NewCompositionRequest["template"];
+  starter: NewCompositionRequest["starter"];
   width: number;
   height: number;
   fps: number;
@@ -408,6 +408,23 @@ const textObjectSchema = (title: string, extra: Record<string, unknown> = {}) =>
 function compositionScaffoldData(options: HtmlCompositionScaffoldOptions): CompositionScaffoldData {
   const title = { text: options.id, color: "#f7f3e8" };
   const titleSchema = textObjectSchema("Title", { color: { type: "string", title: "Color", format: "color" } });
+  if (options.starter === "three") {
+    return {
+      document: { scene: { background: "#111827", opacity: 1, intensity: 1 } },
+      schema: {
+        type: "object", properties: {
+          scene: {
+            type: "object", title: "Scene", properties: {
+              background: { type: "string", title: "Background", format: "color" },
+              opacity: { type: "number", title: "Opacity", minimum: 0, maximum: 1, step: 0.01, "x-ui": "slider" },
+              intensity: { type: "number", title: "Intensity", minimum: 0, maximum: 4, step: 0.05, "x-ui": "slider" },
+            },
+          },
+        },
+      },
+      bindings: { scene: "/scene" },
+    };
+  }
   if (options.kind === "edit" || options.kind === "scene") {
     return {
       document: {
@@ -457,23 +474,6 @@ function compositionScaffoldData(options: HtmlCompositionScaffoldOptions): Compo
       },
       bindings: { audio: "/audio" },
       timeline: { version: 1, items: [{ id: "audio", from: 0, durationInFrames: options.duration, layer: 0 }] },
-    };
-  }
-  if (options.template === "three") {
-    return {
-      document: { scene: { background: "#111827", opacity: 1, intensity: 1 } },
-      schema: {
-        type: "object", properties: {
-          scene: {
-            type: "object", title: "Scene", properties: {
-              background: { type: "string", title: "Background", format: "color" },
-              opacity: { type: "number", title: "Opacity", minimum: 0, maximum: 1, step: 0.01, "x-ui": "slider" },
-              intensity: { type: "number", title: "Intensity", minimum: 0, maximum: 4, step: 0.05, "x-ui": "slider" },
-            },
-          },
-        },
-      },
-      bindings: { scene: "/scene" },
     };
   }
   if (options.kind === "plan") {
@@ -533,7 +533,7 @@ function compositionScaffoldData(options: HtmlCompositionScaffoldOptions): Compo
 
 function htmlCompositionScaffold(options: HtmlCompositionScaffoldOptions): string {
   if (options.kind === "plan") return planCompositionScaffold(options);
-  const webGpu = options.template === "three" ? `
+  const webGpu = options.starter === "three" ? `
     <canvas data-fd-id="scene" data-fd-name="Scene" data-fd-type="layers" data-fd-webgpu></canvas>` : "";
   const board = options.kind === "board"
     ? `\n    <h1 class="board-title" data-fd-id="board-title"></h1>
@@ -588,10 +588,10 @@ function htmlCompositionScaffold(options: HtmlCompositionScaffoldOptions): strin
 }
 
 /**
- * Custom comps deliberately own only source. They have a render clock and can nest anything in
+ * Code scenes deliberately own only source. They have a render clock and can nest anything in
  * the registry, but they do not get an implicit JSON document or a private timeline.
  */
-function customCompositionScaffold(options: HtmlCompositionScaffoldOptions): string {
+function codeSceneScaffold(options: HtmlCompositionScaffoldOptions): string {
   return `<!doctype html>
 <html>
 <head>
@@ -608,14 +608,14 @@ function customCompositionScaffold(options: HtmlCompositionScaffoldOptions): str
       color: #f8fafc;
       font-family: ui-sans-serif, system-ui, sans-serif;
     }
-    .custom-card {
+    .code-scene-card {
       width: min(72%, 860px);
       padding: 52px;
       border: 1px solid rgba(255,255,255,.14);
       border-radius: 28px;
       background: rgba(15,23,42,.72);
       box-shadow: 0 28px 90px rgba(0,0,0,.36);
-      transform: translateY(calc(sin(var(--custom-time, 0)) * 8px));
+      transform: translateY(calc(sin(var(--scene-time, 0)) * 8px));
     }
     .eyebrow { margin: 0 0 14px; color: #67e8f9; font: 750 13px/1 ui-monospace, monospace; letter-spacing: .16em; }
     h1 { margin: 0; font-size: clamp(52px, 7vw, 104px); line-height: .95; letter-spacing: -.055em; }
@@ -623,18 +623,18 @@ function customCompositionScaffold(options: HtmlCompositionScaffoldOptions): str
     .frame-readout { margin-top: 34px; color: #7d8ba3; font: 650 14px/1 ui-monospace, monospace; letter-spacing: .08em; }
     .frame-readout b { color: #f8fafc; font-size: 24px; }
     .progress { height: 3px; margin-top: 16px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.09); }
-    .progress::after { content: ""; display: block; width: calc(var(--custom-progress, 0) * 100%); height: 100%; background: #67e8f9; }
+    .progress::after { content: ""; display: block; width: calc(var(--scene-progress, 0) * 100%); height: 100%; background: #67e8f9; }
   </style>
 </head>
 <body>
   <main data-fd-composition data-fd-id="${options.id}"
     data-fd-width="${options.width}" data-fd-height="${options.height}"
     data-fd-fps="${options.fps}" data-fd-duration="${options.duration}"
-    data-fd-kind="custom" data-fd-timeline="hidden" data-fd-transport="always"
+    data-fd-kind="scene" data-fd-timeline="hidden" data-fd-transport="always"
     data-fd-source="${options.file}" data-fd-module="${options.module}" data-fd-export="${options.exportName}">
-    <section class="custom-card" data-fd-id="custom-card" data-fd-name="Custom content">
-      <p class="eyebrow">CUSTOM · SOURCE OWNED</p>
-      <h1 data-fd-id="custom-title">${options.id}</h1>
+    <section class="code-scene-card" data-fd-id="code-scene-card" data-fd-name="Code scene">
+      <p class="eyebrow">CODE SCENE · SOURCE OWNED</p>
+      <h1 data-fd-id="scene-title">${options.id}</h1>
       <p class="description">Author any HTML, CSS, and JavaScript here. When this comp is placed in an edit, its render-local frame is supplied to the same callback in preview and export.</p>
       <div class="frame-readout">FRAME <b>0000</b></div>
       <div class="progress"></div>
@@ -646,9 +646,9 @@ function customCompositionScaffold(options: HtmlCompositionScaffoldOptions): str
       onFrame(({ frame, time, playing, fps, durationInFrames }) => {
         frameReadout.textContent = String(Math.floor(frame)).padStart(4, "0");
         root.dataset.playing = String(playing);
-        root.style.setProperty("--custom-time", String(time));
-        root.style.setProperty("--custom-progress", String(frame / Math.max(1, durationInFrames - 1)));
-        root.style.setProperty("--custom-fps", String(fps));
+        root.style.setProperty("--scene-time", String(time));
+        root.style.setProperty("--scene-progress", String(frame / Math.max(1, durationInFrames - 1)));
+        root.style.setProperty("--scene-fps", String(fps));
       });
     </script>
   </main>
@@ -3156,13 +3156,27 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
     const registryFile = await this.findRegistryFile();
     if (!registryFile) return { ok: false, message: "No COMPOSITIONS registry source file was found." };
     if (!sources[registryFile]) sources[registryFile] = (await this.project.readSource(registryFile)) ?? "";
-    const template = compositionTemplateContract(request.template);
-    const kind: CompositionKind = request.template === "generate" && request.outputKind === "audio" ? "audio" : template.kind;
-    const isGenerative = request.template === "generate";
-    if (isGenerative && !request.outputKind) {
-      return { ok: false, message: "Choose whether this generative composition outputs image, video, or audio." };
+    let starter;
+    try {
+      starter = compositionStarterContract(request.starter);
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : "Unsupported composition starter." };
     }
-    const isProcessing = request.template === "processing";
+    const kind: CompositionKind = request.kind;
+    if (!starter.kinds.includes(kind)) {
+      return { ok: false, message: `${starter.label} is not compatible with the ${kind} composition kind.` };
+    }
+    const isGenerative = request.starter === "generative";
+    if (isGenerative && !request.outputKind) {
+      return { ok: false, message: "Choose the media output for this generated composition." };
+    }
+    if (isGenerative && kind === "audio" && request.outputKind !== "audio") {
+      return { ok: false, message: "Generated audio compositions must use the audio output contract." };
+    }
+    if (isGenerative && kind === "scene" && request.outputKind === "audio") {
+      return { ok: false, message: "Generated scenes output image or video; choose the Audio kind for generated sound." };
+    }
+    const isProcessing = request.starter === "processing";
     let processingRecipe = request.processingRecipe;
     if (isProcessing) {
       if (!processingRecipe) {
@@ -3189,7 +3203,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       const errors = validateProcessingRecipe(processingRecipe);
       if (errors.length) return { ok: false, message: `Invalid processing recipe: ${errors.join("; ")}` };
     }
-    const isMoodboard = request.template === "moodboard";
+    const isMoodboard = request.starter === "moodboard";
     const file = isGenerative ? `src/${pascal}.gen.ts` : isProcessing ? `src/${pascal}.process.ts` : isMoodboard ? `src/${pascal}.ts` : `src/${pascal}.html`;
     const module = isGenerative || isProcessing || isMoodboard ? file : `src/${pascal}.ts`;
     const generativeDataFile = `src/${pascal}.gen.json`;
@@ -3360,8 +3374,8 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       }
       return finishCreation();
     }
-    if (request.template === "custom") {
-      if (!(await this.project.writeSource(file, customCompositionScaffold({
+    if (request.starter === "code") {
+      if (!(await this.project.writeSource(file, codeSceneScaffold({
         id: pascal,
         exportName: varName,
         file,
@@ -3369,7 +3383,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
         documentFile,
         schemaFile,
         kind,
-        template: request.template,
+        starter: request.starter,
         width: relative.width,
         height: relative.height,
         fps: relative.fps,
@@ -3392,7 +3406,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       documentFile,
       schemaFile,
       kind,
-      template: request.template,
+      starter: request.starter,
       width: relative.width,
       height: relative.height,
       fps: relative.fps,
@@ -3413,7 +3427,7 @@ export class HtmlStudioRuntime implements CompositionRuntimePort {
       return { ok: false, message: `Wrote the composition files, but could not write ${timelineFile}.` };
     }
     if (!(await this.project.writeSource(module, htmlCompositionModule(file, varName, {
-      type: template.type === "html" ? undefined : template.type,
+      type: starter.type === "html" ? undefined : starter.type,
       documentFile,
       schemaFile,
       bindings: scaffoldData.bindings,

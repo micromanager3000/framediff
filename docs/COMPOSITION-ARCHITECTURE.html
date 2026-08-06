@@ -52,7 +52,7 @@
   <section class="section">
     <div class="eyebrow">Ownership</div><h2>UX updates flow from the dependency</h2>
     <div class="grid three">
-      <div class="card"><h3>FrameDiff owns</h3><p>Definition schema, constructors, registry validation, type adapters, kind defaults, Studio panels, creation templates, runtime behavior, and eventual migrations.</p></div>
+      <div class="card"><h3>FrameDiff owns</h3><p>Definition schema, constructors, registry validation, runtime adapters, kind defaults, compatible creation starters, Studio panels, runtime behavior, and eventual migrations.</p></div>
       <div class="card"><h3>The project owns</h3><p>Stable registry keys, creative HTML/TypeScript, documents, schemas, timelines, recipes, assets, project-only tools, and the pinned FrameDiff revision.</p></div>
       <div class="card"><h3>The lockfile decides</h3><p>Changing the pin is the upgrade event. No FrameDiff UI is copied into Jimmy Monster or an example, so the new package revision becomes the new UX automatically.</p></div>
     </div>
@@ -75,9 +75,24 @@ export const COMPOSITIONS = defineCompositionRegistry({
   </section>
 
   <section class="section">
+    <div class="eyebrow">Creation UX</div><h2>Intent first, implementation second</h2>
+    <p>The add flow never puts <code>Edit</code>, <code>3D</code>, <code>Generate</code>, and <code>Moodboard</code> in one overloaded menu. It asks what the creator is making, then exposes only implementations that can produce that kind.</p>
+    <table>
+      <thead><tr><th>Chosen kind</th><th>Compatible starters</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td><span class="tag">scene</span></td><td>Blank · Code scene · 3D scene · Generated · Processed media</td><td>Every result remains a scene; only its adapter changes.</td></tr>
+        <tr><td><span class="tag">audio</span></td><td>Blank · Generated</td><td>Generated audio cannot accidentally appear as a visual scene.</td></tr>
+        <tr><td><span class="tag">board</span></td><td>Blank · Moodboard</td><td>Moodboard tools refine a board rather than inventing another kind.</td></tr>
+        <tr><td>edit · plan · script · doc · locations · cast</td><td>Blank</td><td>Standard project-owned documents with the kind's normal Studio surfaces.</td></tr>
+      </tbody>
+    </table>
+    <p><code>custom</code> is removed as a semantic kind. Its useful behavior survives as the <strong>Code scene</strong> starter: source-owned HTML/CSS/JavaScript, hidden authored timeline, and frame-aware transport.</p>
+  </section>
+
+  <section class="section">
     <div class="eyebrow">Daily workflows</div><h2>Adding and updating comps</h2>
     <div class="grid">
-      <div class="card"><h3>Add a comp</h3><ol><li>Choose a creation template; the template resolves to type + kind.</li><li>Author creative source/data; use a package factory for specialized types.</li><li>Add one stable registry entry.</li><li>Let registry validation and project checks prove the current contract.</li></ol></div>
+      <div class="card"><h3>Add a comp</h3><ol><li>Choose semantic intent (<code>kind</code>).</li><li>Choose one compatible implementation (<code>starter</code>); the starter selects the runtime type.</li><li>Author the generated source/data behind one stable registry key.</li><li>Let typed compatibility plus runtime validation prove the current contract.</li></ol></div>
       <div class="card"><h3>Update comp content</h3><ol><li>Edit the project-owned source, document, timeline, recipe, or assets.</li><li>Keep stable IDs and declared dependency paths.</li><li>Run the project check/build; no type fork or copied UX is created.</li></ol></div>
       <div class="card"><h3>Update shared comp UX</h3><ol><li>Change the relevant kind/type contract or Studio component in FrameDiff.</li><li>Test it against package fixtures and consumer examples.</li><li>Projects receive it on their next dependency-pin update.</li></ol></div>
       <div class="card"><h3>Upgrade a project</h3><ol><li>Move its FrameDiff pin to a reviewed revision.</li><li>Install, then run check and production build.</li><li>Fix explicit current-contract errors; do not carry compatibility shims in the project.</li></ol></div>
@@ -88,7 +103,7 @@ export const COMPOSITIONS = defineCompositionRegistry({
     <div class="eyebrow">Rollout</div><h2>Implementation sequence and evidence</h2>
     <div class="timeline">
       <div class="phase"><i>1</i><h3>Contract</h3><p>Versioned definition, separated type/kind axes, current-only registry validator.</p></div>
-      <div class="phase"><i>2</i><h3>Studio</h3><p>Type-owned adapter UX, kind-owned defaults, template-based creation and labels.</p></div>
+      <div class="phase"><i>2</i><h3>Studio</h3><p>Kind-owned defaults, adapter-owned UX, and kind-first compatible starter selection.</p></div>
       <div class="phase"><i>3</i><h3>Fixtures</h3><p>All curated examples use the registry gate; focused and full tests exercise it.</p></div>
       <div class="phase"><i>4</i><h3>Consumer</h3><p>Jimmy Monster pins the resulting FrameDiff commit, adopts the gate, checks, and builds.</p></div>
     </div>
@@ -96,7 +111,7 @@ export const COMPOSITIONS = defineCompositionRegistry({
 
   <section class="section policy">
     <h2 class="decision">Decision summary</h2>
-    <p>Do not create new composition kinds for new engines or workbenches. Add a runtime <em>type</em> only when package machinery genuinely differs; add a semantic <em>kind</em> only when creator intent and default authoring behavior genuinely differ; add a creation <em>template</em> when users need a convenient starting recipe. Keep version migrations centralized and dormant until a real backwards-compatibility requirement justifies them.</p>
+    <p>Do not create new composition kinds for new engines, scaffolds, or workbenches. Add a runtime <em>type</em> only when package machinery genuinely differs; add a semantic <em>kind</em> only when creator intent and default authoring behavior genuinely differ; add a <em>starter</em> when an existing kind needs a convenient implementation recipe. Encode compatible kind/starter pairs in TypeScript and validate them again at the runtime boundary. Keep version migrations centralized and dormant until a real backwards-compatibility requirement justifies them.</p>
   </section>
 </main></body>
 </html>

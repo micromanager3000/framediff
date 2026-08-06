@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   COMPOSITION_KIND_CONTRACTS,
+  COMPOSITION_STARTER_CONTRACTS,
   COMPOSITION_TYPE_CONTRACTS,
+  compositionStartersForKind,
   resolveCompositionAuthoring,
   type CompositionAuthoringDescriptor,
   type CompositionDescriptor,
@@ -51,17 +53,24 @@ const item = (
 describe("composition authoring surfaces", () => {
   it("has one deliberate contract for every public composition kind", () => {
     expect(COMPOSITION_KIND_CONTRACTS.map((contract) => contract.kind)).toEqual([
-      "edit", "custom", "scene", "audio", "plan", "doc", "script", "board", "locations", "cast",
+      "edit", "scene", "audio", "plan", "doc", "script", "board", "locations", "cast",
     ]);
-    expect(new Set(COMPOSITION_KIND_CONTRACTS.map((contract) => contract.kind)).size).toBe(10);
+    expect(new Set(COMPOSITION_KIND_CONTRACTS.map((contract) => contract.kind)).size).toBe(9);
     expect(COMPOSITION_TYPE_CONTRACTS.map((contract) => contract.type)).toEqual([
       "html", "three", "generative", "processing", "moodboard",
     ]);
+    expect(COMPOSITION_STARTER_CONTRACTS.map((contract) => contract.starter)).toEqual([
+      "blank", "code", "three", "generative", "processing", "moodboard",
+    ]);
+    expect(compositionStartersForKind("scene").map((contract) => contract.starter)).toEqual([
+      "blank", "code", "three", "generative", "processing",
+    ]);
+    expect(compositionStartersForKind("audio").map((contract) => contract.starter)).toEqual(["blank", "generative"]);
+    expect(compositionStartersForKind("board").map((contract) => contract.starter)).toEqual(["blank", "moodboard"]);
   });
 
   it.each([
     ["edit", true, true, true, true],
-    ["custom", false, true, true, false],
     ["audio", true, true, false, false],
     ["doc", false, false, true, false],
     ["plan", true, true, true, false],
