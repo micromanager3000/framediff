@@ -2,7 +2,9 @@ import type * as Three from "three";
 import type { CompositionSetup } from "../composition";
 import { registerCanvasCapture } from "../runtime";
 import { isVisualElementActive } from "../render/activeElement";
-import { resolveSceneCamera } from "./cameraTrack";
+import { evaluateCameraTrack, resolveSceneCamera } from "./cameraTrack";
+import { loadCameraFile, mountCameraLab, type CameraLabPose } from "./cameraLab";
+import { focalLengthToFov } from "./cameraTrack";
 import type { ThreeSceneDef, ThreeSceneInstance } from "./sceneDef";
 
 export interface ThreeSceneSetupOptions {
@@ -11,6 +13,9 @@ export interface ThreeSceneSetupOptions {
   canvas?: string;
   /** Fallback named camera when no camera-cut element is active. */
   camera?: string;
+  /** Project-relative JSON of hand-flown camera keyframes; enables the Camera Lab HUD.
+   *  File tracks override the scene's authored camera of the same name. */
+  cameraFile?: string;
   width?: number;
   height?: number;
 }
@@ -64,11 +69,27 @@ export function createThreeSceneSetup(options: ThreeSceneSetupOptions): Composit
       .at(-1)?.name ?? options.camera;
 
     const warned = new Set<string>();
+    const fileTracks = options.cameraFile ? await loadCameraFile(options.cameraFile) : { version: 1 as const, cameras: {} };
+    let lastFrame = 0;
+    let lab: { draftPose: () => CameraLabPose | null; dispose: () => void } | undefined;
+    const poseFor = (frame: number, name: string | undefined) => {
+      const fileTrack = name ? fileTracks.cameras[name] : undefined;
+      if (fileTrack && fileTrack.keyframes.length > 0) {
+        return evaluateCameraTrack(fileTrack.keyframes, frame, fileTrack.interpolation ?? "ease");
+      }
+      const definition = name ? options.scene.cameras[name] : undefined;
+      return definition ? resolveSceneCamera(definition, frame, composition.fps) : undefined;
+    };
     const renderAt = (frame: number) => {
       instance?.update?.(frame / composition.fps, frame);
+      lastFrame = frame;
       const name = cameraAt(frame);
       const definition = name ? options.scene.cameras[name] : undefined;
-      if (!definition) {
+      const draft = lab?.draftPose();
+      const pose = draft
+        ? { eye: draft.eye, target: draft.target, fov: focalLengthToFov(draft.focalLength) }
+        : poseFor(frame, name);
+      if (!pose) {
         if (name && !warned.has(name)) {
           warned.add(name);
           console.warn(`FrameDiff scene "${options.scene.id}" has no camera "${name}".`);
@@ -76,9 +97,8 @@ export function createThreeSceneSetup(options: ThreeSceneSetupOptions): Composit
         renderer.clear(true, true, true);
         return;
       }
-      const pose = resolveSceneCamera(definition, frame, composition.fps);
-      camera.near = definition.near ?? 0.1;
-      camera.far = definition.far ?? 500;
+      camera.near = definition?.near ?? 0.1;
+      camera.far = definition?.far ?? 500;
       camera.fov = pose.fov;
       camera.aspect = width / height;
       camera.position.set(pose.eye[0], pose.eye[1], pose.eye[2]);
@@ -87,6 +107,21 @@ export function createThreeSceneSetup(options: ThreeSceneSetupOptions): Composit
       camera.updateProjectionMatrix();
       renderer.render(world, camera);
     };
+
+    if (options.cameraFile) {
+      lab = mountCameraLab(root, { path: options.cameraFile, data: fileTracks }, {
+        frame: () => lastFrame,
+        cameraAt: (frame) => cameraAt(frame),
+        trackPose: (frame) => {
+          const pose = poseFor(frame, cameraAt(frame));
+          return pose
+            ? { eye: [...pose.eye] as [number, number, number], target: [...pose.target] as [number, number, number],
+                focalLength: 24 / (2 * Math.tan((pose.fov * Math.PI) / 360)) }
+            : { eye: [0, 0, 5], target: [0, 0, 0], focalLength: 35 };
+        },
+        invalidate: () => renderAt(lastFrame),
+      });
+    }
 
     let renderRequest = 0;
     const stopFrames = onFrame(({ frame }) => {
@@ -107,6 +142,7 @@ export function createThreeSceneSetup(options: ThreeSceneSetupOptions): Composit
       return output;
     });
     onCleanup(() => {
+      lab?.dispose();
       stopFrames();
       stopCapture();
       instance?.dispose?.();
